@@ -1,0 +1,87 @@
+@use "abstracts" as *;
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: $color-ink;
+    color: $color-cream;
+    font-family: $font-sans;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+}
+
+body {
+    background:
+        radial-gradient(1100px 800px at 90% -10%, rgba(255, 122, 26, 0.18), transparent 60%),
+        radial-gradient(900px 700px at -10% 110%, rgba(255, 154, 60, 0.10), transparent 60%),
+        $color-ink;
+    background-attachment: fixed;
+}
+
+a {
+    color: $color-orange-bright;
+    text-decoration: none;
+
+    &:hover {
+        color: $color-orange;
+    }
+}
+
+button {
+    font: inherit;
+    cursor: pointer;
+}
+
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+h1, h2, h3 {
+    font-family: $font-display;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    margin: 0;
+    color: $color-cream;
+}
+
+h1 { font-size: clamp(2.4rem, 8vw, 3.4rem); }
+h2 { font-size: clamp(1.6rem, 5vw, 2.1rem); }
+h3 { font-size: 1.25rem; }
+
+p { margin: 0; }
+
+::selection {
+    background: $color-orange;
+    color: $color-ink;
+}
+
+:focus-visible {
+    @include focus-ring;
+    border-radius: $radius-sm;
+}
+
+.app-shell {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    width: 100%;
+    max-width: $container-max;
+    margin: 0 auto;
+    padding: $space-6 $space-5 calc(#{$nav-height} + #{$space-6});
+}

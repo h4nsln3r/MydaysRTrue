@@ -1,0 +1,91 @@
+@use "abstracts" as *;
+
+.btn {
+    --bg: #{$color-orange};
+    --bg-hover: #{$color-orange-bright};
+    --fg: #{$color-ink};
+    --border: transparent;
+
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: $space-2;
+    padding: 14px 20px;
+    border-radius: $radius-pill;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--fg);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    transition:
+        background 160ms $ease-out,
+        transform 160ms $ease-bounce,
+        box-shadow 200ms $ease-out;
+
+    &:hover:not(:disabled) {
+        background: var(--bg-hover);
+        transform: translateY(-1px);
+        box-shadow: $glow-orange;
+    }
+
+    &:active:not(:disabled) {
+        transform: translateY(0);
+    }
+
+    &:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+}
+
+.variant_primary {
+    --bg: #{$color-orange};
+    --bg-hover: #{$color-orange-bright};
+    --fg: #{$color-ink};
+}
+
+.variant_outline {
+    --bg: transparent;
+    --bg-hover: rgba(255, 122, 26, 0.12);
+    --fg: #{$color-cream};
+    --border: #{$color-orange};
+}
+
+.variant_ghost {
+    --bg: transparent;
+    --bg-hover: rgba(246, 239, 225, 0.08);
+    --fg: #{$color-cream};
+    --border: transparent;
+}
+
+.variant_danger {
+    --bg: #{$color-danger};
+    --bg-hover: #ff7a72;
+    --fg: #{$color-ink};
+}
+
+.size_md { padding: 12px 18px; font-size: 0.92rem; }
+.size_lg { padding: 16px 24px; font-size: 1.05rem; }
+
+.fullWidth { width: 100%; }
+
+.label {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

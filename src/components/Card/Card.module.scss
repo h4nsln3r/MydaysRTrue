@@ -1,0 +1,26 @@
+@use "abstracts" as *;
+
+.card {
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-lg;
+    padding: $space-6;
+    box-shadow: $shadow-card;
+    position: relative;
+    overflow: hidden;
+}
+
+.accent {
+    border-color: $color-orange-dark;
+    background:
+        linear-gradient(180deg, rgba(255, 122, 26, 0.10), transparent 50%),
+        $color-ink-soft;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 4px;
+        background: linear-gradient(90deg, $color-orange, $color-orange-bright, $color-orange);
+    }
+}

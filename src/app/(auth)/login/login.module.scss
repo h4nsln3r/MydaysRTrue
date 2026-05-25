@@ -1,0 +1,54 @@
+@use "abstracts" as *;
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+}
+
+.title {
+    font-family: $font-display;
+    font-size: clamp(2.4rem, 9vw, 3rem);
+    color: $color-orange;
+    letter-spacing: 0.02em;
+}
+
+.lead {
+    color: $color-cream-dim;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+    margin-top: $space-2;
+}
+
+.error {
+    color: $color-danger;
+    font-size: 0.9rem;
+    background: rgba(255, 82, 71, 0.08);
+    border: 1px solid rgba(255, 82, 71, 0.35);
+    border-radius: $radius-md;
+    padding: 10px 12px;
+}
+
+.success {
+    color: $color-success;
+    font-size: 0.9rem;
+    background: rgba(110, 231, 163, 0.08);
+    border: 1px solid rgba(110, 231, 163, 0.35);
+    border-radius: $radius-md;
+    padding: 10px 12px;
+}
+
+.alt {
+    color: $color-cream-dim;
+    text-align: center;
+    margin-top: $space-4;
+}
+
+.link {
+    color: $color-orange-bright;
+    font-weight: 700;
+}

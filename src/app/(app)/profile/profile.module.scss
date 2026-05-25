@@ -1,0 +1,134 @@
+@use "abstracts" as *;
+
+.main {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+}
+
+.eyebrow {
+    color: $color-orange;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+}
+
+.title {
+    font-family: $font-display;
+    font-size: clamp(2.2rem, 9vw, 2.8rem);
+}
+
+.email {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.88rem;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+}
+
+.goalBlock {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: $color-cream-dim;
+    font-weight: 600;
+}
+
+.goalRow {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: $space-3;
+    align-items: center;
+}
+
+.literage {
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.9rem;
+
+    strong {
+        color: $color-orange-bright;
+    }
+}
+
+.presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+}
+
+.preset {
+    padding: 8px 14px;
+    border-radius: $radius-pill;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.85rem;
+    font-weight: 700;
+
+    &[aria-pressed="true"] {
+        background: $color-orange;
+        color: $color-ink;
+        border-color: $color-orange;
+    }
+}
+
+.hint {
+    color: $color-fog;
+    font-size: 0.82rem;
+}
+
+.error {
+    color: $color-danger;
+    font-size: 0.9rem;
+    background: rgba(255, 82, 71, 0.08);
+    border: 1px solid rgba(255, 82, 71, 0.35);
+    border-radius: $radius-md;
+    padding: 10px 12px;
+}
+
+.success {
+    color: $color-success;
+    font-size: 0.9rem;
+    background: rgba(110, 231, 163, 0.08);
+    border: 1px solid rgba(110, 231, 163, 0.35);
+    border-radius: $radius-md;
+    padding: 10px 12px;
+}
+
+.signoutWrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-4;
+    flex-wrap: wrap;
+}
+
+.h3 {
+    font-size: 1rem;
+    margin-bottom: 2px;
+}
+
+.muted {
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+}

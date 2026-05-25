@@ -1,0 +1,51 @@
+@use "abstracts" as *;
+
+.shell {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: $space-7 $space-5 $space-7;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    margin-bottom: $space-7;
+    color: $color-cream;
+}
+
+.dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: $color-orange;
+    box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.25);
+}
+
+.wordmark {
+    font-family: $font-display;
+    font-size: 1.5rem;
+    letter-spacing: 0.06em;
+}
+
+.tag {
+    color: $color-fog;
+    font-size: 0.82rem;
+    font-family: $font-mono;
+}
+
+.main {
+    width: 100%;
+    max-width: 420px;
+}
+
+.footer {
+    margin-top: auto;
+    padding-top: $space-7;
+    color: $color-fog;
+    font-size: 0.78rem;
+    font-family: $font-mono;
+    text-align: center;
+}

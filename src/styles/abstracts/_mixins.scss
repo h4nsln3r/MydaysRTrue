@@ -1,0 +1,48 @@
+@use "variables" as *;
+
+@mixin focus-ring {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.55);
+}
+
+@mixin retro-grain {
+    position: relative;
+    isolation: isolate;
+
+    &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        opacity: 0.08;
+        background-image:
+            radial-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px),
+            radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+        background-size: 3px 3px, 7px 7px;
+        background-position: 0 0, 1px 1px;
+        mix-blend-mode: overlay;
+    }
+}
+
+@mixin sun-stripes($color: $color-orange) {
+    background: repeating-linear-gradient(
+        180deg,
+        $color 0 14px,
+        darken($color, 8%) 14px 28px
+    );
+}
+
+@mixin hide-scrollbar {
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+@mixin from($bp) {
+    @media (min-width: #{$bp}) {
+        @content;
+    }
+}

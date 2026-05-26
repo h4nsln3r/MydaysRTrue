@@ -18,8 +18,8 @@
     padding: $space-2;
     max-width: $container-max;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: $space-2;
+    grid-template-columns: repeat(4, 1fr);
+    gap: $space-1;
     background: $color-ink-soft;
     border: 1px solid $color-line;
     border-radius: $radius-pill;
@@ -38,13 +38,13 @@
     align-items: center;
     justify-content: center;
     gap: 2px;
-    padding: 10px 6px;
+    padding: 10px 4px;
     border-radius: $radius-pill;
     color: $color-cream-dim;
-    font-size: 0.74rem;
-    font-weight: 600;
+    font-size: 0.72rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     transition: color 160ms $ease-out, background 160ms $ease-out;
 
     svg { color: inherit; }

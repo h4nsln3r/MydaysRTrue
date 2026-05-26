@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { Card } from "@/components/Card/Card";
-import { Button } from "@/components/Button/Button";
-import { WaterBottle } from "@/components/WaterBottle/WaterBottle";
-import { WaterLogItem } from "@/components/WaterLogItem/WaterLogItem";
+import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
+import { HabitChecks } from "@/components/HabitChecks/HabitChecks";
+import { MealsCard } from "@/components/MealsCard/MealsCard";
 import { getDailySummary } from "@/lib/water.server";
-import { formatMl } from "@/lib/water";
-import { formatDateLong } from "@/lib/date";
-import { QuickAddRow } from "./QuickAddRow";
+import { getDailyHabits, getDailyMeals } from "@/lib/habits.server";
+import { formatDateLong, todayLocalISO } from "@/lib/date";
 import styles from "./dashboard.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +18,15 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const summary = await getDailySummary(user.id);
-  const remaining = Math.max(0, summary.goalMl - summary.totalMl);
+  const today = todayLocalISO();
+  const [summary, habits, meals] = await Promise.all([
+    getDailySummary(user.id, today),
+    getDailyHabits(user.id, today),
+    getDailyMeals(user.id, today),
+  ]);
+
+  // Hide the dedicated meals card if the user archived the meals habit.
+  const mealsHabitActive = habits.some((h) => h.kind === "meal");
 
   return (
     <main className={styles.main}>
@@ -32,61 +37,45 @@ export default async function DashboardPage() {
             Stay <span className={styles.accent}>hydrated</span>
           </h1>
         </div>
-        <span className={styles.badge}>Day 1 · Water</span>
+        <Link
+          href="/add-water"
+          className={styles.iconBadge}
+          aria-label="Manual water entry"
+          title="Manual log"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M4 20h4l10-10-4-4L4 16v4Z"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            />
+            <path
+              d="m13.5 6.5 4 4"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        </Link>
       </header>
 
-      <Card accent className={styles.heroCard}>
-        <WaterBottle
-          progress={summary.progress}
-          totalMl={summary.totalMl}
-          goalMl={summary.goalMl}
-        />
+      <WaterHeroCard
+        summary={summary}
+        plusHref="/water"
+        plusLabel="Open water page"
+      />
 
-        <p className={styles.statusLine}>
-          {summary.goalMet ? (
-            <>
-              <span className={styles.statusDotOk} aria-hidden /> Day goal smashed — keep sipping.
-            </>
-          ) : (
-            <>
-              <span className={styles.statusDot} aria-hidden /> {formatMl(remaining)} left to hit
-              your goal.
-            </>
-          )}
-        </p>
-      </Card>
+      {mealsHabitActive ? <MealsCard date={today} meals={meals} /> : null}
 
       <section className={styles.section}>
         <header className={styles.sectionHeader}>
-          <h2 className={styles.h2}>Quick add</h2>
-          <Link href="/add-water" className={styles.link}>
-            More options →
+          <h2 className={styles.h2}>Daily habits</h2>
+          <Link href="/profile" className={styles.muted}>
+            Edit
           </Link>
         </header>
-        <QuickAddRow />
-      </section>
-
-      <section className={styles.section}>
-        <header className={styles.sectionHeader}>
-          <h2 className={styles.h2}>Today&apos;s log</h2>
-          <span className={styles.muted}>{summary.logs.length} entries</span>
-        </header>
-        {summary.logs.length === 0 ? (
-          <Card className={styles.empty}>
-            <p>Nothing logged yet today.</p>
-            <Link href="/add-water">
-              <Button size="md" variant="outline">
-                Log your first sip
-              </Button>
-            </Link>
-          </Card>
-        ) : (
-          <ul className={styles.logList}>
-            {summary.logs.map((log) => (
-              <WaterLogItem key={log.id} log={log} />
-            ))}
-          </ul>
-        )}
+        <HabitChecks date={today} habits={habits} />
       </section>
     </main>
   );

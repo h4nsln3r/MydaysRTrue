@@ -1,0 +1,420 @@
+@use "abstracts" as *;
+
+.main {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.kicker {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+}
+
+.monthNav {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-3;
+}
+
+.h1 {
+    font-family: $font-display;
+    font-size: clamp(1.4rem, 6vw, 1.8rem);
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: $color-cream;
+}
+
+.navBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    color: $color-cream;
+    font-size: 1.4rem;
+    line-height: 1;
+    user-select: none;
+    transition:
+        border-color 160ms $ease-out,
+        color 160ms $ease-out,
+        background 160ms $ease-out,
+        transform 160ms $ease-bounce;
+
+    &:hover {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+        transform: translateY(-1px);
+    }
+}
+
+.navBtnDisabled {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+// --- Summary stats -----------------------------------------------------------
+
+.summary {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.summaryStats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: $space-3;
+
+    @media (min-width: $bp-sm) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.statBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.statLabel {
+    color: $color-fog;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-family: $font-mono;
+}
+
+.statValue {
+    color: $color-cream;
+    font-weight: 800;
+    font-family: $font-display;
+    font-size: 1.15rem;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.statIcon {
+    margin-right: 4px;
+    font-size: 0.95rem;
+}
+
+.statBig {
+    color: $color-orange-bright;
+}
+
+.statSlash {
+    color: $color-fog;
+    font-size: 0.85rem;
+    font-family: $font-mono;
+}
+
+// --- Legend ------------------------------------------------------------------
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-3 $space-4;
+    align-items: center;
+}
+
+.legendItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: $color-cream-dim;
+    font-size: 0.78rem;
+    font-family: $font-mono;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.legendDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: $color-line;
+}
+
+.legendDotYes {
+    background: $color-success;
+}
+
+.legendDotHalf {
+    background: $color-warning;
+}
+
+.legendDotNo {
+    background: $color-danger;
+}
+
+.legendDotEmpty {
+    background: transparent;
+    border: 1px dashed $color-fog;
+}
+
+// --- Section / habit chips ---------------------------------------------------
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.h2 {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-cream;
+}
+
+.muted {
+    color: $color-fog;
+    font-size: 0.72rem;
+    font-family: $font-mono;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.habitChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+}
+
+.habitChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-pill;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.chipIcon {
+    font-size: 0.92rem;
+    line-height: 1;
+}
+
+// =============================================================================
+// MOBILE: week strips
+// =============================================================================
+
+.mobileWeeks {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.weekStripWrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.weekStripLabel {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    display: flex;
+    justify-content: space-between;
+}
+
+.weekStrip {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    padding: $space-3 $space-2;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.dayCell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 0 4px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: $radius-sm;
+    color: $color-cream;
+    text-decoration: none;
+    transition:
+        background 160ms $ease-out,
+        border-color 160ms $ease-out,
+        transform 120ms $ease-bounce;
+
+    &:hover:not([aria-disabled="true"]) {
+        background: rgba(255, 122, 26, 0.08);
+        border-color: $color-orange;
+        transform: translateY(-1px);
+    }
+}
+
+.dayCellEmpty {
+    background: transparent;
+    pointer-events: none;
+}
+
+.dayCellFuture {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.dayCellToday {
+    background: rgba(255, 122, 26, 0.12);
+    border-color: $color-orange;
+}
+
+.dayNum {
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: $color-cream-dim;
+    line-height: 1;
+}
+
+.dayNumToday {
+    color: $color-orange-bright;
+}
+
+.dots {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    justify-content: center;
+    min-height: 8px;
+}
+
+.dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: $color-line;
+}
+
+.dot_yes {
+    background: $color-success;
+}
+
+.dot_half {
+    background: $color-warning;
+}
+
+.dot_no {
+    background: $color-danger;
+}
+
+.dot_empty {
+    background: transparent;
+    border: 1px dashed rgba(138, 133, 118, 0.6);
+}
+
+// =============================================================================
+// DESKTOP: full calendar grid
+// =============================================================================
+
+.desktopCalendar {
+    display: none;
+}
+
+@media (min-width: $bp-md) {
+    .mobileWeeks {
+        display: none;
+    }
+
+    .desktopCalendar {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+    }
+
+    .calendarHead {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+    }
+
+    .calendarHeadCell {
+        text-align: center;
+        color: $color-fog;
+        font-family: $font-mono;
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 4px 0;
+    }
+
+    .calendarGrid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+    }
+
+    .dayCell {
+        flex-direction: column;
+        align-items: stretch;
+        padding: $space-2;
+        min-height: 76px;
+        background: $color-ink-soft;
+        border: 1px solid $color-line;
+        gap: 6px;
+    }
+
+    .dayCellEmpty {
+        background: transparent;
+        border-color: transparent;
+    }
+
+    .dayNum {
+        font-size: 0.85rem;
+        text-align: right;
+        align-self: flex-end;
+    }
+
+    .dots {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 4px;
+    }
+
+    .dot {
+        width: 8px;
+        height: 8px;
+    }
+}

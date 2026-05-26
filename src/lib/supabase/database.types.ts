@@ -61,6 +61,114 @@ export interface Database {
         };
         Relationships: [];
       };
+      habits: {
+        Row: {
+          id: string;
+          user_id: string;
+          key: string;
+          label: string;
+          kind: "tri_state" | "water" | "meal";
+          icon: string;
+          accent: string;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          key: string;
+          label: string;
+          kind?: "tri_state" | "water" | "meal";
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          key?: string;
+          label?: string;
+          kind?: "tri_state" | "water" | "meal";
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      meal_entries: {
+        Row: {
+          id: string;
+          user_id: string;
+          local_date: string;
+          meal: "breakfast" | "lunch" | "dinner";
+          description: string;
+          water_log_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          local_date: string;
+          meal: "breakfast" | "lunch" | "dinner";
+          description: string;
+          water_log_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          local_date?: string;
+          meal?: "breakfast" | "lunch" | "dinner";
+          description?: string;
+          water_log_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      habit_checks: {
+        Row: {
+          id: string;
+          user_id: string;
+          habit_id: string;
+          local_date: string;
+          status: "yes" | "half" | "no";
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          habit_id: string;
+          local_date: string;
+          status: "yes" | "half" | "no";
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          habit_id?: string;
+          local_date?: string;
+          status?: "yes" | "half" | "no";
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

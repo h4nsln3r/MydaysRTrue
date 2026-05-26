@@ -1,0 +1,153 @@
+@use "abstracts" as *;
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+    // overflow: visible is also set via inline style on the host so it wins
+    // over Card.module.scss's `overflow: hidden`.
+    overflow: visible;
+}
+
+// ------------------------------------------------------------------
+// + button — top-right corner, pulsing ring + spin-on-hover animation
+// ------------------------------------------------------------------
+
+.plusBtn {
+    position: absolute;
+    top: $space-3;
+    right: $space-3;
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(10, 10, 10, 0.55);
+    border: 1.5px solid $color-orange;
+    color: $color-orange-bright;
+    z-index: 4;
+    text-decoration: none;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition:
+        transform 260ms $ease-bounce,
+        background 220ms $ease-out,
+        color 220ms $ease-out,
+        border-color 220ms $ease-out,
+        box-shadow 220ms $ease-out;
+
+    &:focus-visible {
+        outline: none;
+        box-shadow:
+            0 0 0 3px rgba(255, 154, 60, 0.55),
+            0 0 0 1.5px $color-orange-bright;
+    }
+
+    &:hover {
+        background: $color-orange;
+        color: $color-ink;
+        border-color: $color-orange-bright;
+        transform: translateY(-2px) scale(1.08);
+        box-shadow:
+            0 0 0 4px rgba(255, 122, 26, 0.22),
+            0 6px 18px rgba(255, 122, 26, 0.45);
+
+        .plusIcon {
+            transform: rotate(180deg) scale(1.1);
+        }
+
+        .plusPulse,
+        .plusPulse2 {
+            animation-duration: 1.4s;
+            border-color: rgba(255, 207, 100, 0.7);
+        }
+    }
+
+    &:active {
+        transform: translateY(0) scale(0.94);
+        transition-duration: 80ms;
+
+        .plusIcon {
+            transform: rotate(180deg) scale(0.9);
+            transition-duration: 80ms;
+        }
+    }
+}
+
+.plusIcon {
+    position: relative;
+    z-index: 2;
+    transition: transform 460ms $ease-bounce;
+}
+
+// Two pulsing rings out of phase for a slow, retro radar feel.
+.plusPulse,
+.plusPulse2 {
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 122, 26, 0.5);
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(1);
+    animation: plusPulse 2.8s $ease-out infinite;
+}
+
+.plusPulse2 {
+    animation-delay: 1.4s;
+}
+
+@keyframes plusPulse {
+    0% {
+        transform: scale(0.85);
+        opacity: 0;
+    }
+    25% {
+        opacity: 0.55;
+    }
+    100% {
+        transform: scale(1.55);
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .plusPulse,
+    .plusPulse2 {
+        animation: none;
+        opacity: 0;
+    }
+
+    .plusIcon,
+    .plusBtn {
+        transition-duration: 120ms;
+    }
+}
+
+// ------------------------------------------------------------------
+// Status line (extracted so DAY + WATER + /day/[date] share visuals)
+// ------------------------------------------------------------------
+
+.statusLine {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    color: $color-cream-dim;
+    font-size: 0.95rem;
+}
+
+.statusDot,
+.statusDotOk {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: $color-orange;
+    box-shadow: 0 0 0 4px rgba(255, 122, 26, 0.2);
+}
+
+.statusDotOk {
+    background: $color-success;
+    box-shadow: 0 0 0 4px rgba(110, 231, 163, 0.2);
+}

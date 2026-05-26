@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
+import { getHabits } from "@/lib/habits.server";
 import { ProfileForm } from "./ProfileForm";
 import { SignOutButton } from "./SignOutButton";
+import { HabitsManager } from "./HabitsManager";
 import styles from "./profile.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +16,14 @@ export default async function ProfilePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, daily_water_goal_ml")
-    .eq("id", user.id)
-    .maybeSingle();
+  const [{ data: profile }, habits] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("display_name, daily_water_goal_ml")
+      .eq("id", user.id)
+      .maybeSingle(),
+    getHabits(user.id),
+  ]);
 
   return (
     <main className={styles.main}>
@@ -35,6 +40,16 @@ export default async function ProfilePage() {
           initialDisplayName={profile?.display_name ?? ""}
           initialDailyGoalMl={profile?.daily_water_goal_ml ?? 2500}
         />
+      </Card>
+
+      <Card>
+        <header className={styles.signoutWrap} style={{ marginBottom: 16 }}>
+          <div>
+            <h3 className={styles.h3}>Daily habits</h3>
+            <p className={styles.muted}>What you check off each day.</p>
+          </div>
+        </header>
+        <HabitsManager habits={habits} />
       </Card>
 
       <Card>

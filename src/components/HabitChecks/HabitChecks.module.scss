@@ -1,0 +1,165 @@
+@use "abstracts" as *;
+
+.wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-3 $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-left: 3px solid $color-line;
+    border-radius: $radius-md;
+    transition:
+        border-color 160ms $ease-out,
+        background 160ms $ease-out;
+}
+
+.row_yes {
+    border-left-color: $color-success;
+    background:
+        linear-gradient(90deg, rgba(110, 231, 163, 0.08), transparent 60%),
+        $color-ink-soft;
+}
+
+.row_half {
+    border-left-color: $color-warning;
+    background:
+        linear-gradient(90deg, rgba(255, 207, 58, 0.08), transparent 60%),
+        $color-ink-soft;
+}
+
+.row_no {
+    border-left-color: $color-danger;
+    background:
+        linear-gradient(90deg, rgba(255, 82, 71, 0.08), transparent 60%),
+        $color-ink-soft;
+}
+
+.busy {
+    opacity: 0.7;
+}
+
+.identity {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-3;
+    min-width: 0;
+}
+
+.icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: $color-ink-elevated;
+    border: 1px solid currentColor;
+    font-size: 1.05rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.label {
+    font-family: $font-display;
+    font-size: 1rem;
+    color: $color-cream;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.choices {
+    display: inline-flex;
+    gap: 4px;
+    padding: 3px;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-pill;
+}
+
+.choice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: $radius-pill;
+    background: transparent;
+    border: none;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    user-select: none;
+    transition:
+        background 160ms $ease-out,
+        color 160ms $ease-out,
+        transform 120ms $ease-bounce;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+}
+
+.choiceActive {
+    transform: scale(1.02);
+}
+
+.choice_yes.choiceActive {
+    background: $color-success;
+    color: $color-ink;
+}
+
+.choice_half.choiceActive {
+    background: $color-warning;
+    color: $color-ink;
+}
+
+.choice_no.choiceActive {
+    background: $color-danger;
+    color: $color-cream;
+}
+
+.empty {
+    color: $color-fog;
+    font-size: 0.88rem;
+    font-family: $font-mono;
+    text-align: center;
+    padding: $space-4;
+    background: $color-ink-soft;
+    border: 1px dashed $color-line;
+    border-radius: $radius-md;
+}
+
+.error {
+    color: $color-danger;
+    font-size: 0.85rem;
+    margin: 0;
+}

@@ -15,7 +15,7 @@ interface HabitRow {
   id: string;
   key: string;
   label: string;
-  kind: "tri_state" | "water";
+  kind: "tri_state" | "water" | "meal";
   icon: string;
   accent: string;
   sort_order: number;

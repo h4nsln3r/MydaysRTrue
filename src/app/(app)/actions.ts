@@ -202,6 +202,7 @@ export async function createHabitAction(input: {
   label: string;
   icon?: string;
   accent?: string;
+  categoryId?: string | null;
 }): Promise<ActionResult> {
   const label = input.label.trim();
   if (!label) return { ok: false, error: "Give your habit a name." };
@@ -246,6 +247,17 @@ export async function createHabitAction(input: {
 
   const nextOrder = (maxRow?.sort_order ?? -1) + 1;
 
+  if (input.categoryId) {
+    const { data: cat } = await supabase
+      .from("task_categories")
+      .select("scope, user_id")
+      .eq("id", input.categoryId)
+      .maybeSingle();
+    if (!cat || cat.user_id !== user.id || cat.scope !== "daily") {
+      return { ok: false, error: "Invalid category." };
+    }
+  }
+
   const { error } = await supabase.from("habits").insert({
     user_id: user.id,
     key,
@@ -254,6 +266,7 @@ export async function createHabitAction(input: {
     icon,
     accent,
     sort_order: nextOrder,
+    category_id: input.categoryId ?? null,
   });
   if (error) return { ok: false, error: error.message };
 

@@ -85,63 +85,61 @@ export function MealsCard({ date, meals }: Props) {
                   onSaved={onSaved}
                 />
               ) : entry ? (
-                <button
-                  type="button"
+                <div
                   className={[styles.row, styles.rowDone].join(" ")}
-                  onClick={() => setEditing(meal)}
-                  aria-label={`Edit ${MEAL_LABEL[meal]}`}
-                  disabled={pending}
                 >
-                  <span
-                    className={styles.iconBox}
-                    aria-hidden
-                    data-state="done"
+                  <button
+                    type="button"
+                    className={styles.rowMain}
+                    onClick={() => setEditing(meal)}
+                    aria-label={`Edit ${MEAL_LABEL[meal]}`}
+                    disabled={pending}
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
+                    <span
+                      className={styles.iconBox}
                       aria-hidden
+                      data-state="done"
                     >
-                      <path
-                        d="M5 12.5 10 17.5 19 7.5"
-                        stroke="currentColor"
-                        strokeWidth="2.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                  <span className={styles.mealText}>
-                    <span className={styles.mealLabel}>
-                      <span className={styles.mealIcon} aria-hidden>
-                        {MEAL_ICON[meal]}
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden
+                      >
+                        <path
+                          d="M5 12.5 10 17.5 19 7.5"
+                          stroke="currentColor"
+                          strokeWidth="2.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                    <span className={styles.mealText}>
+                      <span className={styles.mealLabel}>
+                        <span className={styles.mealIcon} aria-hidden>
+                          {MEAL_ICON[meal]}
+                        </span>
+                        {MEAL_LABEL[meal]}
                       </span>
-                      {MEAL_LABEL[meal]}
+                      <span className={styles.description}>
+                        {entry.description}
+                      </span>
                     </span>
-                    <span className={styles.description}>{entry.description}</span>
-                  </span>
-                  {entry.waterMl > 0 ? (
-                    <span className={styles.waterBadge} aria-label="With water">
-                      💧 {formatMl(entry.waterMl)}
-                    </span>
-                  ) : null}
-                  <span
-                    className={styles.clearWrap}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
+                    {entry.waterMl > 0 ? (
+                      <span className={styles.waterBadge} aria-label="With water">
+                        💧 {formatMl(entry.waterMl)}
+                      </span>
+                    ) : null}
+                  </button>
+                  <span className={styles.clearWrap}>
                     {isConfirming ? (
                       <span className={styles.confirmRow}>
                         <button
                           type="button"
                           className={styles.confirmYes}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            clear(meal);
-                          }}
+                          onClick={() => clear(meal)}
                           disabled={pending}
                           aria-label="Confirm clear"
                         >
@@ -150,10 +148,7 @@ export function MealsCard({ date, meals }: Props) {
                         <button
                           type="button"
                           className={styles.confirmNo}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmingClear(null);
-                          }}
+                          onClick={() => setConfirmingClear(null)}
                           disabled={pending}
                           aria-label="Cancel"
                         >
@@ -164,10 +159,7 @@ export function MealsCard({ date, meals }: Props) {
                       <button
                         type="button"
                         className={styles.clearBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmingClear(meal);
-                        }}
+                        onClick={() => setConfirmingClear(meal)}
                         aria-label={`Remove ${MEAL_LABEL[meal]}`}
                         disabled={pending}
                       >
@@ -175,7 +167,7 @@ export function MealsCard({ date, meals }: Props) {
                       </button>
                     )}
                   </span>
-                </button>
+                </div>
               ) : (
                 <button
                   type="button"

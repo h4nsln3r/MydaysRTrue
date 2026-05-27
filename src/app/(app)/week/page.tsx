@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { createClient } from "@/lib/supabase/server";
 import { getWeeklySummary } from "@/lib/water.server";
+import { getWeekSummary } from "@/lib/tasks.server";
 import { formatMl } from "@/lib/water";
 import {
   addDaysISO,
@@ -13,6 +14,7 @@ import {
   todayLocalISO,
   weekStartISO,
 } from "@/lib/date";
+import { WeeklyTasksBoard } from "./WeeklyTasksBoard";
 import styles from "./week.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +44,10 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
   // Don't allow viewing weeks entirely in the future.
   const start = requested > currentWeekStart ? currentWeekStart : requested;
 
-  const week = await getWeeklySummary(user.id, start);
+  const [week, weeklyTasks] = await Promise.all([
+    getWeeklySummary(user.id, start),
+    getWeekSummary(user.id, start),
+  ]);
   const prevStart = addDaysISO(start, -7);
   const nextStart = addDaysISO(start, 7);
   const canGoForward = start < currentWeekStart;
@@ -232,6 +237,20 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
             );
           })}
         </ul>
+      </section>
+
+      <section className={styles.section}>
+        <header className={styles.sectionHeader}>
+          <h2 className={styles.h2}>Weekly tasks</h2>
+          <Link href="/profile" className={styles.muted}>
+            Edit
+          </Link>
+        </header>
+        <WeeklyTasksBoard
+          weekStart={start}
+          tasks={weeklyTasks.tasks}
+          categories={weeklyTasks.categories}
+        />
       </section>
     </main>
   );

@@ -19,6 +19,7 @@ interface HabitRow {
   icon: string;
   accent: string;
   sort_order: number;
+  category_id: string | null;
 }
 
 function rowToHabit(r: HabitRow): Habit {
@@ -30,6 +31,7 @@ function rowToHabit(r: HabitRow): Habit {
     icon: r.icon,
     accent: r.accent,
     sortOrder: r.sort_order,
+    categoryId: r.category_id,
   };
 }
 
@@ -38,7 +40,7 @@ export async function getHabits(userId: string): Promise<Habit[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("habits")
-    .select("id, key, label, kind, icon, accent, sort_order")
+    .select("id, key, label, kind, icon, accent, sort_order, category_id")
     .eq("user_id", userId)
     .is("archived_at", null)
     .order("sort_order", { ascending: true });
@@ -63,7 +65,7 @@ export async function getDailyHabits(
   const [habitsRes, checksRes, waterRes, profileRes, mealsRes] = await Promise.all([
     supabase
       .from("habits")
-      .select("id, key, label, kind, icon, accent, sort_order")
+      .select("id, key, label, kind, icon, accent, sort_order, category_id")
       .eq("user_id", userId)
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
@@ -230,7 +232,7 @@ export async function getMonthSummary(
   const [habitsRes, checksRes, waterRes, profileRes, mealsRes] = await Promise.all([
     supabase
       .from("habits")
-      .select("id, key, label, kind, icon, accent, sort_order")
+      .select("id, key, label, kind, icon, accent, sort_order, category_id")
       .eq("user_id", userId)
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),

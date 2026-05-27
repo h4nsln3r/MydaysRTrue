@@ -2,9 +2,17 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { getHabits } from "@/lib/habits.server";
+import {
+  getCategories,
+  getMonthlyTasks,
+  getWeeklyTasks,
+} from "@/lib/tasks.server";
 import { ProfileForm } from "./ProfileForm";
 import { SignOutButton } from "./SignOutButton";
 import { HabitsManager } from "./HabitsManager";
+import { CategoryEditor } from "./CategoryEditor";
+import { WeeklyTasksEditor } from "./WeeklyTasksEditor";
+import { MonthlyTasksEditor } from "./MonthlyTasksEditor";
 import styles from "./profile.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -16,13 +24,26 @@ export default async function ProfilePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: profile }, habits] = await Promise.all([
+  const [
+    { data: profile },
+    habits,
+    dailyCategories,
+    weeklyCategories,
+    monthlyCategories,
+    weeklyTasks,
+    monthlyTasks,
+  ] = await Promise.all([
     supabase
       .from("profiles")
       .select("display_name, daily_water_goal_ml")
       .eq("id", user.id)
       .maybeSingle(),
     getHabits(user.id),
+    getCategories(user.id, "daily"),
+    getCategories(user.id, "weekly"),
+    getCategories(user.id, "monthly"),
+    getWeeklyTasks(user.id),
+    getMonthlyTasks(user.id),
   ]);
 
   return (
@@ -43,13 +64,54 @@ export default async function ProfilePage() {
       </Card>
 
       <Card>
-        <header className={styles.signoutWrap} style={{ marginBottom: 16 }}>
+        <header className={styles.cardHeader}>
           <div>
-            <h3 className={styles.h3}>Daily habits</h3>
-            <p className={styles.muted}>What you check off each day.</p>
+            <p className={styles.cardEyebrow}>Daily</p>
+            <h3 className={styles.h3}>Habits & categories</h3>
+            <p className={styles.muted}>
+              Things you check off each day, optionally grouped.
+            </p>
           </div>
         </header>
-        <HabitsManager habits={habits} />
+        <div className={styles.stack}>
+          <HabitsManager habits={habits} categories={dailyCategories} />
+          <CategoryEditor scope="daily" categories={dailyCategories} />
+        </div>
+      </Card>
+
+      <Card>
+        <header className={styles.cardHeader}>
+          <div>
+            <p className={styles.cardEyebrow}>Weekly</p>
+            <h3 className={styles.h3}>Tasks & categories</h3>
+            <p className={styles.muted}>
+              Templates you place out on a day each week from the Week view.
+            </p>
+          </div>
+        </header>
+        <div className={styles.stack}>
+          <WeeklyTasksEditor tasks={weeklyTasks} categories={weeklyCategories} />
+          <CategoryEditor scope="weekly" categories={weeklyCategories} />
+        </div>
+      </Card>
+
+      <Card>
+        <header className={styles.cardHeader}>
+          <div>
+            <p className={styles.cardEyebrow}>Monthly</p>
+            <h3 className={styles.h3}>Tasks & categories</h3>
+            <p className={styles.muted}>
+              Things you do once a month, with an optional reminder day.
+            </p>
+          </div>
+        </header>
+        <div className={styles.stack}>
+          <MonthlyTasksEditor
+            tasks={monthlyTasks}
+            categories={monthlyCategories}
+          />
+          <CategoryEditor scope="monthly" categories={monthlyCategories} />
+        </div>
       </Card>
 
       <Card>

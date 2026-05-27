@@ -26,6 +26,8 @@ export interface Habit {
   icon: string;
   accent: string;
   sortOrder: number;
+  /** Optional daily-scope category id. */
+  categoryId: string | null;
 }
 
 export interface DailyHabit extends Habit {

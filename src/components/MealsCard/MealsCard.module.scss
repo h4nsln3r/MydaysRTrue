@@ -100,21 +100,50 @@
 .row {
     width: 100%;
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: $space-3;
+    gap: $space-2;
     padding: $space-3 $space-4;
     background: $color-ink-soft;
     border: 1px solid $color-line;
     border-left: 3px solid $color-line;
     border-radius: $radius-md;
     color: $color-cream;
-    text-align: left;
-    cursor: pointer;
     transition:
         border-color 160ms $ease-out,
         background 160ms $ease-out,
         transform 160ms $ease-bounce;
+
+    &:has(.rowMain:hover:not(:disabled)) {
+        transform: translateY(-1px);
+        border-color: $color-orange;
+        background: rgba(255, 122, 26, 0.04);
+    }
+}
+
+.rowMain {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-3;
+    min-width: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.7;
+    }
+}
+
+button.row {
+    grid-template-columns: auto 1fr auto;
+    cursor: pointer;
+    text-align: left;
 
     &:hover:not(:disabled) {
         transform: translateY(-1px);
@@ -240,7 +269,8 @@
     transition: transform 200ms $ease-bounce;
 }
 
-.row:hover:not(:disabled) .plus {
+.row:has(.rowMain:hover:not(:disabled)) .plus,
+button.row:hover:not(:disabled) .plus {
     transform: rotate(90deg) scale(1.05);
 }
 

@@ -71,6 +71,7 @@ export interface Database {
           icon: string;
           accent: string;
           sort_order: number;
+          category_id: string | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -84,6 +85,7 @@ export interface Database {
           icon?: string;
           accent?: string;
           sort_order?: number;
+          category_id?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -97,7 +99,203 @@ export interface Database {
           icon?: string;
           accent?: string;
           sort_order?: number;
+          category_id?: string | null;
           archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      task_categories: {
+        Row: {
+          id: string;
+          user_id: string;
+          scope: "daily" | "weekly" | "monthly";
+          name: string;
+          icon: string;
+          accent: string;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          scope: "daily" | "weekly" | "monthly";
+          name: string;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          scope?: "daily" | "weekly" | "monthly";
+          name?: string;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      weekly_tasks: {
+        Row: {
+          id: string;
+          user_id: string;
+          category_id: string | null;
+          title: string;
+          notes: string | null;
+          icon: string;
+          accent: string;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          category_id?: string | null;
+          title: string;
+          notes?: string | null;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          category_id?: string | null;
+          title?: string;
+          notes?: string | null;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      weekly_task_placements: {
+        Row: {
+          id: string;
+          user_id: string;
+          task_id: string;
+          week_start: string;
+          weekday: number;
+          done_at: string | null;
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          task_id: string;
+          week_start: string;
+          weekday: number;
+          done_at?: string | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          task_id?: string;
+          week_start?: string;
+          weekday?: number;
+          done_at?: string | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      monthly_tasks: {
+        Row: {
+          id: string;
+          user_id: string;
+          category_id: string | null;
+          title: string;
+          notes: string | null;
+          day_of_month: number | null;
+          icon: string;
+          accent: string;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          category_id?: string | null;
+          title: string;
+          notes?: string | null;
+          day_of_month?: number | null;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          category_id?: string | null;
+          title?: string;
+          notes?: string | null;
+          day_of_month?: number | null;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      monthly_task_completions: {
+        Row: {
+          id: string;
+          user_id: string;
+          task_id: string;
+          month_start: string;
+          done_at: string | null;
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          task_id: string;
+          month_start: string;
+          done_at?: string | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          task_id?: string;
+          month_start?: string;
+          done_at?: string | null;
+          note?: string | null;
           created_at?: string;
           updated_at?: string;
         };

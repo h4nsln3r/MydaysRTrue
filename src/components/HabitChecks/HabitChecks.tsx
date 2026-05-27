@@ -4,6 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setHabitStatusAction } from "@/app/(app)/actions";
 import {
+  groupByCategory,
+  type TaskCategory,
+} from "@/lib/tasks";
+import {
   type DailyHabit,
   type HabitStatus,
   nextHabitStatus,
@@ -14,6 +18,7 @@ interface Props {
   date: string;
   /** Pre-fetched habits for the date. Water-kind habits are auto-filtered out. */
   habits: DailyHabit[];
+  categories?: TaskCategory[];
 }
 
 const CHOICES: { value: HabitStatus; label: string; sr: string }[] = [
@@ -22,7 +27,7 @@ const CHOICES: { value: HabitStatus; label: string; sr: string }[] = [
   { value: "no", label: "No", sr: "No" },
 ];
 
-export function HabitChecks({ date, habits }: Props) {
+export function HabitChecks({ date, habits, categories = [] }: Props) {
   const router = useRouter();
   const triState = habits.filter((h) => h.kind === "tri_state");
 
@@ -62,66 +67,88 @@ export function HabitChecks({ date, habits }: Props) {
     });
   };
 
+  const grouped = groupByCategory(triState, categories);
+
   return (
     <div className={styles.wrap}>
-      <ul className={styles.list}>
-        {triState.map((h) => {
-          const status = statuses[h.id] ?? null;
-          const busy = pendingId === h.id;
-          return (
-            <li
-              key={h.id}
-              className={[
-                styles.row,
-                status ? styles[`row_${status}`] : "",
-                busy ? styles.busy : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <div className={styles.identity}>
-                <span
-                  className={styles.icon}
-                  aria-hidden
-                  style={{ borderColor: h.accent }}
-                >
-                  {h.icon}
-                </span>
-                <span className={styles.label}>{h.label}</span>
-              </div>
-              <div
-                className={styles.choices}
-                role="radiogroup"
-                aria-label={h.label}
+      {grouped.map(({ category, items }) => (
+        <section
+          key={category?.id ?? "uncategorized"}
+          className={styles.group}
+        >
+          {category ? (
+            <header className={styles.groupHeader}>
+              <span
+                className={styles.groupChip}
+                style={{ borderColor: category.accent, color: category.accent }}
               >
-                {CHOICES.map((c) => {
-                  const active = status === c.value;
-                  return (
-                    <button
-                      key={c.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      aria-label={c.sr}
-                      onClick={() => toggle(h.id, c.value)}
-                      disabled={busy}
-                      className={[
-                        styles.choice,
-                        styles[`choice_${c.value}`],
-                        active ? styles.choiceActive : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
+                <span className={styles.groupIcon} aria-hidden>
+                  {category.icon}
+                </span>
+                {category.name}
+              </span>
+            </header>
+          ) : null}
+          <ul className={styles.list}>
+            {items.map((h) => {
+              const status = statuses[h.id] ?? null;
+              const busy = pendingId === h.id;
+              return (
+                <li
+                  key={h.id}
+                  className={[
+                    styles.row,
+                    status ? styles[`row_${status}`] : "",
+                    busy ? styles.busy : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  <div className={styles.identity}>
+                    <span
+                      className={styles.icon}
+                      aria-hidden
+                      style={{ borderColor: h.accent }}
                     >
-                      <span aria-hidden>{c.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                      {h.icon}
+                    </span>
+                    <span className={styles.label}>{h.label}</span>
+                  </div>
+                  <div
+                    className={styles.choices}
+                    role="radiogroup"
+                    aria-label={h.label}
+                  >
+                    {CHOICES.map((c) => {
+                      const active = status === c.value;
+                      return (
+                        <button
+                          key={c.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          aria-label={c.sr}
+                          onClick={() => toggle(h.id, c.value)}
+                          disabled={busy}
+                          className={[
+                            styles.choice,
+                            styles[`choice_${c.value}`],
+                            active ? styles.choiceActive : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                        >
+                          <span aria-hidden>{c.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
       {error ? <p className={styles.error}>{error}</p> : null}
     </div>
   );

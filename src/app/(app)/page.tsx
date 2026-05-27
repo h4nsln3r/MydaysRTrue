@@ -6,6 +6,7 @@ import { HabitChecks } from "@/components/HabitChecks/HabitChecks";
 import { MealsCard } from "@/components/MealsCard/MealsCard";
 import { getDailySummary } from "@/lib/water.server";
 import { getDailyHabits, getDailyMeals } from "@/lib/habits.server";
+import { getCategories } from "@/lib/tasks.server";
 import { formatDateLong, todayLocalISO } from "@/lib/date";
 import styles from "./dashboard.module.scss";
 
@@ -19,10 +20,11 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const today = todayLocalISO();
-  const [summary, habits, meals] = await Promise.all([
+  const [summary, habits, meals, dailyCategories] = await Promise.all([
     getDailySummary(user.id, today),
     getDailyHabits(user.id, today),
     getDailyMeals(user.id, today),
+    getCategories(user.id, "daily"),
   ]);
 
   // Hide the dedicated meals card if the user archived the meals habit.
@@ -75,7 +77,11 @@ export default async function DashboardPage() {
             Edit
           </Link>
         </header>
-        <HabitChecks date={today} habits={habits} />
+        <HabitChecks
+          date={today}
+          habits={habits}
+          categories={dailyCategories}
+        />
       </section>
     </main>
   );

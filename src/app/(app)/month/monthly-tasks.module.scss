@@ -1,0 +1,243 @@
+@use "abstracts" as *;
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.empty {
+    color: $color-cream-dim;
+    font-size: 0.9rem;
+    padding: $space-4;
+    background: $color-ink-soft;
+    border: 1px dashed $color-line;
+    border-radius: $radius-md;
+    text-align: center;
+}
+
+.link {
+    color: $color-orange-bright;
+    font-weight: 700;
+}
+
+.error {
+    color: $color-danger;
+    background: rgba(255, 82, 71, 0.08);
+    border: 1px solid rgba(255, 82, 71, 0.35);
+    border-radius: $radius-md;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+}
+
+// --- Progress line ----------------------------------------------------------
+
+.progressLine {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-3 $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.progressText {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    color: $color-cream;
+    font-family: $font-display;
+    font-size: 1.05rem;
+
+    strong {
+        color: $color-orange-bright;
+        font-weight: 800;
+        font-size: 1.4rem;
+    }
+}
+
+.progressSlash {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.95rem;
+}
+
+.progressLabel {
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-left: $space-2;
+}
+
+.progressBar {
+    height: 6px;
+    background: $color-line;
+    border-radius: $radius-pill;
+    overflow: hidden;
+}
+
+.progressFill {
+    height: 100%;
+    background: linear-gradient(90deg, $color-orange, $color-orange-bright);
+    border-radius: $radius-pill;
+    transition: width 320ms $ease-out;
+}
+
+// --- Group sections ---------------------------------------------------------
+
+.group {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.groupHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+    padding: 0 $space-1;
+}
+
+.groupChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: $radius-pill;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+}
+
+.groupIcon {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.groupName {
+    color: inherit;
+}
+
+.groupCount {
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    padding: 3px 8px;
+    border-radius: $radius-pill;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+}
+
+// --- Tasks ------------------------------------------------------------------
+
+.taskList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.task {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-3;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    transition:
+        border-color 160ms $ease-out,
+        opacity 160ms $ease-out;
+}
+
+.taskDone {
+    opacity: 0.72;
+    border-color: rgba(110, 231, 163, 0.35);
+    background:
+        linear-gradient(180deg, rgba(110, 231, 163, 0.05), transparent 60%),
+        $color-ink-soft;
+}
+
+.taskBusy {
+    opacity: 0.55;
+}
+
+.checkBtn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid $color-line;
+    background: $color-ink-elevated;
+    color: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition:
+        border-color 160ms $ease-out,
+        background 160ms $ease-out,
+        color 160ms $ease-out;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+    }
+}
+
+.checkBtnDone {
+    background: $color-success;
+    border-color: $color-success;
+    color: $color-ink;
+}
+
+.taskIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.taskMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.taskTitle {
+    font-family: $font-sans;
+    font-weight: 700;
+    font-size: 0.98rem;
+    color: $color-cream;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    .taskDone & {
+        text-decoration: line-through;
+        text-decoration-thickness: 1.5px;
+    }
+}
+
+.taskDay {
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: $color-fog;
+}

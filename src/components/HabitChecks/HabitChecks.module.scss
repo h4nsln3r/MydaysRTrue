@@ -3,7 +3,35 @@
 .wrap {
     display: flex;
     flex-direction: column;
+    gap: $space-4;
+}
+
+.group {
+    display: flex;
+    flex-direction: column;
     gap: $space-2;
+}
+
+.groupHeader {
+    margin: 0;
+}
+
+.groupChip {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-1 $space-3;
+    border: 1px solid $color-line;
+    border-radius: $radius-pill;
+    font-size: 0.78rem;
+    font-family: $font-mono;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.groupIcon {
+    font-size: 0.95rem;
+    line-height: 1;
 }
 
 .list {

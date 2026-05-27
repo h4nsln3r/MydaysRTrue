@@ -152,13 +152,24 @@
 
 .habitItem {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr auto auto;
     align-items: center;
     gap: $space-3;
     padding: $space-3;
     background: $color-ink-soft;
     border: 1px solid $color-line;
     border-radius: $radius-md;
+}
+
+.habitCategorySelect {
+    max-width: 8.5rem;
+    padding: $space-1 $space-2;
+    font-size: 0.75rem;
+    font-family: $font-mono;
+    color: $color-cream;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
 }
 
 .habitIcon {
@@ -340,4 +351,135 @@
     display: flex;
     justify-content: flex-end;
     gap: $space-3;
+}
+
+// --- Card / section structure -----------------------------------------------
+
+.cardHeader {
+    margin-bottom: $space-4;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.cardEyebrow {
+    color: $color-orange;
+    font-family: $font-mono;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+}
+
+.subBlock {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding-top: $space-4;
+    border-top: 1px dashed $color-line;
+
+    &:first-child {
+        padding-top: 0;
+        border-top: none;
+    }
+}
+
+.subHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.h4 {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-cream;
+}
+
+.emptyNote {
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+    padding: $space-3;
+    background: $color-ink-soft;
+    border: 1px dashed $color-line;
+    border-radius: $radius-md;
+}
+
+// --- Category chips ---------------------------------------------------------
+
+.categoryList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+}
+
+.categoryItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.categoryChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: $radius-pill;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    color: $color-cream;
+}
+
+.categoryIcon {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.categoryName {
+    letter-spacing: 0.04em;
+}
+
+// --- Select input -----------------------------------------------------------
+
+.select {
+    appearance: none;
+    width: 100%;
+    padding: 10px 12px;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    color: $color-cream;
+    font-family: $font-sans;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'><path d='M1 1.5L6 6.5L11 1.5' stroke='%23d8cdb7' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    transition:
+        border-color 160ms $ease-out,
+        background-color 160ms $ease-out;
+
+    &:focus {
+        outline: none;
+        border-color: $color-orange;
+        background-color: $color-ink-elevated;
+    }
 }

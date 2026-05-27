@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { createClient } from "@/lib/supabase/server";
 import { getMonthSummary, shiftMonth } from "@/lib/habits.server";
+import { getMonthTaskSummary } from "@/lib/tasks.server";
 import { todayLocalISO } from "@/lib/date";
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { MonthDay } from "@/lib/habits.server";
+import { MonthlyTasksBoard } from "./MonthlyTasksBoard";
 import styles from "./month.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +56,11 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     month = todayYM.month;
   }
 
-  const summary = await getMonthSummary(user.id, year, month);
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const [summary, monthlyTasks] = await Promise.all([
+    getMonthSummary(user.id, year, month),
+    getMonthTaskSummary(user.id, monthStart),
+  ]);
   const today = todayLocalISO();
 
   const prev = shiftMonth(year, month, -1);
@@ -205,6 +211,20 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             ),
           )}
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <header className={styles.sectionHeader}>
+          <h2 className={styles.h2}>Monthly tasks</h2>
+          <Link href="/profile" className={styles.muted}>
+            Edit
+          </Link>
+        </header>
+        <MonthlyTasksBoard
+          monthStart={monthStart}
+          tasks={monthlyTasks.tasks}
+          categories={monthlyTasks.categories}
+        />
       </section>
     </main>
   );

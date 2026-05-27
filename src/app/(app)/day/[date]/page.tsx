@@ -9,6 +9,7 @@ import { MealsCard } from "@/components/MealsCard/MealsCard";
 import { createClient } from "@/lib/supabase/server";
 import { getDailySummary } from "@/lib/water.server";
 import { getDailyHabits, getDailyMeals } from "@/lib/habits.server";
+import { getCategories } from "@/lib/tasks.server";
 import {
   addDaysISO,
   formatDayLong,
@@ -39,10 +40,11 @@ export default async function DayPage({ params }: DayPageProps) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [summary, habits, meals] = await Promise.all([
+  const [summary, habits, meals, dailyCategories] = await Promise.all([
     getDailySummary(user.id, date),
     getDailyHabits(user.id, date),
     getDailyMeals(user.id, date),
+    getCategories(user.id, "daily"),
   ]);
   const mealsHabitActive = habits.some((h) => h.kind === "meal");
   const longLabel = formatDayLong(date);
@@ -75,7 +77,7 @@ export default async function DayPage({ params }: DayPageProps) {
           <h2 className={styles.h2}>Daily habits</h2>
           <span className={styles.muted}>tap to backfill</span>
         </header>
-        <HabitChecks date={date} habits={habits} />
+        <HabitChecks date={date} habits={habits} categories={dailyCategories} />
       </section>
 
       <section className={styles.section}>

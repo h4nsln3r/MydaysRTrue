@@ -367,6 +367,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      intake_entries: {
+        Row: {
+          id: string;
+          user_id: string;
+          local_date: string;
+          kind: "fruit" | "creatine" | "vitamin" | "shake";
+          description: string;
+          water_log_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          local_date: string;
+          kind: "fruit" | "creatine" | "vitamin" | "shake";
+          description?: string;
+          water_log_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          local_date?: string;
+          kind?: "fruit" | "creatine" | "vitamin" | "shake";
+          description?: string;
+          water_log_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

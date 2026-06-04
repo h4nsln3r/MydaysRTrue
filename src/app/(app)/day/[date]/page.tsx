@@ -6,9 +6,11 @@ import { WaterLogItem } from "@/components/WaterLogItem/WaterLogItem";
 import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import { HabitChecks } from "@/components/HabitChecks/HabitChecks";
 import { MealsCard } from "@/components/MealsCard/MealsCard";
+import { IntakeCard } from "@/components/IntakeCard/IntakeCard";
 import { createClient } from "@/lib/supabase/server";
 import { getDailySummary } from "@/lib/water.server";
 import { getDailyHabits, getDailyMeals } from "@/lib/habits.server";
+import { getDailyIntake } from "@/lib/intake.server";
 import { getCategories } from "@/lib/tasks.server";
 import {
   addDaysISO,
@@ -40,10 +42,11 @@ export default async function DayPage({ params }: DayPageProps) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [summary, habits, meals, dailyCategories] = await Promise.all([
+  const [summary, habits, meals, intake, dailyCategories] = await Promise.all([
     getDailySummary(user.id, date),
     getDailyHabits(user.id, date),
     getDailyMeals(user.id, date),
+    getDailyIntake(user.id, date),
     getCategories(user.id, "daily"),
   ]);
   const mealsHabitActive = habits.some((h) => h.kind === "meal");
@@ -68,9 +71,19 @@ export default async function DayPage({ params }: DayPageProps) {
         </Link>
       </header>
 
-      <WaterHeroCard summary={summary} />
-
-      {mealsHabitActive ? <MealsCard date={date} meals={meals} /> : null}
+      <section className={styles.section} aria-labelledby="intake-heading">
+        <header className={styles.sectionHeader}>
+          <h2 id="intake-heading" className={styles.h2}>
+            Intake
+          </h2>
+          <span className={styles.muted}>food & water</span>
+        </header>
+        <div className={styles.stack}>
+          <WaterHeroCard summary={summary} />
+          {mealsHabitActive ? <MealsCard date={date} meals={meals} /> : null}
+          <IntakeCard date={date} intake={intake} />
+        </div>
+      </section>
 
       <section className={styles.section}>
         <header className={styles.sectionHeader}>

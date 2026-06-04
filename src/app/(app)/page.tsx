@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import { HabitChecks } from "@/components/HabitChecks/HabitChecks";
 import { MealsCard } from "@/components/MealsCard/MealsCard";
+import { IntakeCard } from "@/components/IntakeCard/IntakeCard";
 import { getDailySummary } from "@/lib/water.server";
 import { getDailyHabits, getDailyMeals } from "@/lib/habits.server";
+import { getDailyIntake } from "@/lib/intake.server";
 import { getCategories } from "@/lib/tasks.server";
 import { formatDateLong, todayLocalISO } from "@/lib/date";
 import styles from "./dashboard.module.scss";
@@ -20,10 +22,11 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const today = todayLocalISO();
-  const [summary, habits, meals, dailyCategories] = await Promise.all([
+  const [summary, habits, meals, intake, dailyCategories] = await Promise.all([
     getDailySummary(user.id, today),
     getDailyHabits(user.id, today),
     getDailyMeals(user.id, today),
+    getDailyIntake(user.id, today),
     getCategories(user.id, "daily"),
   ]);
 
@@ -62,13 +65,23 @@ export default async function DashboardPage() {
         </Link>
       </header>
 
-      <WaterHeroCard
-        summary={summary}
-        plusHref="/water"
-        plusLabel="Open water page"
-      />
-
-      {mealsHabitActive ? <MealsCard date={today} meals={meals} /> : null}
+      <section className={styles.section} aria-labelledby="intake-heading">
+        <header className={styles.sectionHeader}>
+          <h2 id="intake-heading" className={styles.h2}>
+            Intake
+          </h2>
+          <span className={styles.muted}>food & water</span>
+        </header>
+        <div className={styles.stack}>
+          <WaterHeroCard
+            summary={summary}
+            plusHref="/water"
+            plusLabel="Open water page"
+          />
+          {mealsHabitActive ? <MealsCard date={today} meals={meals} /> : null}
+          <IntakeCard date={today} intake={intake} />
+        </div>
+      </section>
 
       <section className={styles.section}>
         <header className={styles.sectionHeader}>

@@ -106,6 +106,14 @@
     gap: $space-3;
 }
 
+// Vertical stack used inside a section to space child cards. Keeps the
+// "Intake" section (water + meals + intake) reading as one block.
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
 .sectionHeader {
     display: flex;
     justify-content: space-between;

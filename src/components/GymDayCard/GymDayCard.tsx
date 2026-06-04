@@ -1,0 +1,334 @@
+"use client";
+
+import Link from "next/link";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Card } from "@/components/Card/Card";
+import { Button } from "@/components/Button/Button";
+import {
+  completeGymSessionAction,
+  moveGymSessionAction,
+  uncompleteGymSessionAction,
+} from "@/app/(app)/gym-actions";
+import {
+  GYM_WARMUP_ICON,
+  GYM_WARMUP_LABEL,
+  GYM_WARMUPS,
+  type GymSessionForWeek,
+  type GymWarmup,
+} from "@/lib/gym";
+import {
+  WEEKDAY_SHORT,
+  WEEKDAYS,
+  type Weekday,
+} from "@/lib/tasks";
+import styles from "./GymDayCard.module.scss";
+
+interface Props {
+  weekStart: string;
+  sessions: GymSessionForWeek[];
+  /** Card title — e.g. "Gym idag" vs "Gym". */
+  title?: string;
+}
+
+export function GymDayCard({
+  weekStart,
+  sessions,
+  title = "Gym",
+}: Props) {
+  const router = useRouter();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const doneCount = sessions.filter((s) => s.placement.doneAt).length;
+
+  if (sessions.length === 0) {
+    return (
+      <Card className={styles.card}>
+        <p className={styles.empty}>Inget gympass planerat den här dagen.</p>
+        <Link href={`/week?start=${weekStart}`} className={styles.weekLink}>
+          Se veckoplan →
+        </Link>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className={styles.card}>
+      <header className={styles.header}>
+        <div className={styles.titleRow}>
+          <h2 className={styles.title}>{title}</h2>
+          <span
+            className={[
+              styles.counter,
+              doneCount === sessions.length ? styles.counterDone : "",
+              doneCount > 0 && doneCount < sessions.length
+                ? styles.counterPartial
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <span className={styles.counterBig}>{doneCount}</span>
+            <span className={styles.counterSlash}>/ {sessions.length}</span>
+          </span>
+        </div>
+        <Link href={`/week?start=${weekStart}`} className={styles.weekLink}>
+          Veckoplan →
+        </Link>
+      </header>
+
+      {error ? <p className={styles.error}>{error}</p> : null}
+
+      <ul className={styles.list}>
+        {sessions.map((s) => (
+          <SessionRow
+            key={s.id}
+            session={s}
+            weekStart={weekStart}
+            expanded={expandedId === s.id}
+            busy={pendingId === s.id}
+            pending={pending}
+            onToggleExpand={() =>
+              setExpandedId(expandedId === s.id ? null : s.id)
+            }
+            onError={setError}
+            onPendingId={setPendingId}
+            onDone={() => {
+              setExpandedId(null);
+              router.refresh();
+            }}
+          />
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+interface SessionRowProps {
+  session: GymSessionForWeek;
+  weekStart: string;
+  expanded: boolean;
+  busy: boolean;
+  pending: boolean;
+  onToggleExpand: () => void;
+  onError: (msg: string | null) => void;
+  onPendingId: (id: string | null) => void;
+  onDone: () => void;
+}
+
+function SessionRow({
+  session,
+  weekStart,
+  expanded,
+  busy,
+  pending,
+  onToggleExpand,
+  onError,
+  onPendingId,
+  onDone,
+}: SessionRowProps) {
+  const done = Boolean(session.placement.doneAt);
+  const [warmup, setWarmup] = useState<GymWarmup | null>(
+    session.placement.warmup,
+  );
+  const [, startTransition] = useTransition();
+
+  const move = (weekday: Weekday) => {
+    onError(null);
+    onPendingId(session.id);
+    startTransition(async () => {
+      const res = await moveGymSessionAction({
+        templateId: session.id,
+        weekStart,
+        weekday,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte flytta passet.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const complete = () => {
+    if (!warmup) {
+      onError("Välj uppvärmning innan du markerar klart.");
+      return;
+    }
+    onError(null);
+    onPendingId(session.id);
+    startTransition(async () => {
+      const res = await completeGymSessionAction({
+        templateId: session.id,
+        weekStart,
+        warmup,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const uncomplete = () => {
+    onError(null);
+    onPendingId(session.id);
+    startTransition(async () => {
+      const res = await uncompleteGymSessionAction({
+        templateId: session.id,
+        weekStart,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
+      setWarmup(null);
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  return (
+    <li
+      className={[
+        styles.session,
+        done ? styles.sessionDone : "",
+        busy ? styles.sessionBusy : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <button
+        type="button"
+        className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
+          .filter(Boolean)
+          .join(" ")}
+        aria-label={done ? "Pass klart" : "Logga pass"}
+        onClick={onToggleExpand}
+        disabled={pending}
+      >
+        {done ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M5 12.5 10 17.5 19 7.5"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : (
+          <span aria-hidden />
+        )}
+      </button>
+
+      <button
+        type="button"
+        className={styles.sessionBody}
+        onClick={onToggleExpand}
+        aria-expanded={expanded}
+        disabled={pending}
+      >
+        <span
+          className={styles.sessionIcon}
+          aria-hidden
+          style={{ borderColor: session.accent }}
+        >
+          {session.icon}
+        </span>
+        <span className={styles.sessionMeta}>
+          <span className={styles.sessionTitle}>{session.label}</span>
+          {session.description ? (
+            <span className={styles.sessionDesc}>{session.description}</span>
+          ) : null}
+          {done && session.placement.warmup ? (
+            <span className={styles.warmupBadge}>
+              {GYM_WARMUP_ICON[session.placement.warmup]}{" "}
+              {GYM_WARMUP_LABEL[session.placement.warmup]}
+            </span>
+          ) : null}
+        </span>
+        <span
+          className={[styles.chevron, expanded ? styles.chevronUp : ""]
+            .filter(Boolean)
+            .join(" ")}
+          aria-hidden
+        >
+          ▾
+        </span>
+      </button>
+
+      {expanded ? (
+        <div className={styles.sessionActions}>
+          <p className={styles.actionsLabel}>Flytta till annan dag</p>
+          <div className={styles.weekdayRow} role="radiogroup">
+            {WEEKDAYS.map((d) => {
+              const active = session.placement.weekday === d;
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={[
+                    styles.weekdayBtn,
+                    active ? styles.weekdayBtnActive : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={() => move(d)}
+                  disabled={pending}
+                >
+                  {WEEKDAY_SHORT[d]}
+                </button>
+              );
+            })}
+          </div>
+
+          {!done ? (
+            <>
+              <p className={styles.actionsLabel}>Uppvärmning</p>
+              <div className={styles.warmupRow}>
+                {GYM_WARMUPS.map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    className={[
+                      styles.warmupBtn,
+                      warmup === w ? styles.warmupBtnActive : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    aria-pressed={warmup === w}
+                    onClick={() => setWarmup(w)}
+                    disabled={pending}
+                  >
+                    <span aria-hidden>{GYM_WARMUP_ICON[w]}</span>
+                    {GYM_WARMUP_LABEL[w]}
+                  </button>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={complete}
+              >
+                Markera klart
+              </Button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className={styles.undoBtn}
+              onClick={uncomplete}
+              disabled={pending}
+            >
+              Ångra klarmarkering
+            </button>
+          )}
+        </div>
+      ) : null}
+    </li>
+  );
+}

@@ -400,6 +400,90 @@ export interface Database {
         };
         Relationships: [];
       };
+      gym_session_templates: {
+        Row: {
+          id: string;
+          user_id: string;
+          key: string;
+          label: string;
+          description: string | null;
+          icon: string;
+          accent: string;
+          sort_order: number;
+          default_weekday: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          key: string;
+          label: string;
+          description?: string | null;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          default_weekday: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          key?: string;
+          label?: string;
+          description?: string | null;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          default_weekday?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      gym_week_placements: {
+        Row: {
+          id: string;
+          user_id: string;
+          template_id: string;
+          week_start: string;
+          weekday: number;
+          warmup: "skidor" | "rodd" | "cykel" | "crosstrainer" | "magmaskin" | null;
+          done_at: string | null;
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          template_id: string;
+          week_start: string;
+          weekday: number;
+          warmup?: "skidor" | "rodd" | "cykel" | "crosstrainer" | "magmaskin" | null;
+          done_at?: string | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          template_id?: string;
+          week_start?: string;
+          weekday?: number;
+          warmup?: "skidor" | "rodd" | "cykel" | "crosstrainer" | "magmaskin" | null;
+          done_at?: string | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

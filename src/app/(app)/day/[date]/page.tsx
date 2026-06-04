@@ -7,10 +7,12 @@ import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import { HabitChecks } from "@/components/HabitChecks/HabitChecks";
 import { MealsCard } from "@/components/MealsCard/MealsCard";
 import { IntakeCard } from "@/components/IntakeCard/IntakeCard";
+import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
 import { createClient } from "@/lib/supabase/server";
 import { getDailySummary } from "@/lib/water.server";
 import { getDailyHabits, getDailyMeals } from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
+import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getCategories } from "@/lib/tasks.server";
 import {
   addDaysISO,
@@ -42,13 +44,15 @@ export default async function DayPage({ params }: DayPageProps) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [summary, habits, meals, intake, dailyCategories] = await Promise.all([
-    getDailySummary(user.id, date),
-    getDailyHabits(user.id, date),
-    getDailyMeals(user.id, date),
-    getDailyIntake(user.id, date),
-    getCategories(user.id, "daily"),
-  ]);
+  const [summary, habits, meals, intake, gymDay, dailyCategories] =
+    await Promise.all([
+      getDailySummary(user.id, date),
+      getDailyHabits(user.id, date),
+      getDailyMeals(user.id, date),
+      getDailyIntake(user.id, date),
+      getGymSessionsForDate(user.id, date),
+      getCategories(user.id, "daily"),
+    ]);
   const mealsHabitActive = habits.some((h) => h.kind === "meal");
   const longLabel = formatDayLong(date);
 
@@ -83,6 +87,13 @@ export default async function DayPage({ params }: DayPageProps) {
           {mealsHabitActive ? <MealsCard date={date} meals={meals} /> : null}
           <IntakeCard date={date} intake={intake} />
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <GymDayCard
+          weekStart={gymDay.weekStart}
+          sessions={gymDay.sessions}
+        />
       </section>
 
       <section className={styles.section}>

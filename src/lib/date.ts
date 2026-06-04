@@ -25,6 +25,13 @@ export function parseLocalISO(localDate: string): Date {
   return new Date(y, m - 1, d);
 }
 
+/** ISO weekday from YYYY-MM-DD: 1 = Mon … 7 = Sun. */
+export function isoWeekdayFromLocalISO(localDate: string): number {
+  const dt = parseLocalISO(localDate);
+  const jsDow = dt.getDay(); // 0 = Sun
+  return ((jsDow + 6) % 7) + 1;
+}
+
 /** Returns the YYYY-MM-DD for the Monday of the ISO week containing `date`. */
 export function weekStartISO(date: Date = new Date()): string {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());

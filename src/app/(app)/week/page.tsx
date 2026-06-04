@@ -4,6 +4,8 @@ import { Card } from "@/components/Card/Card";
 import { createClient } from "@/lib/supabase/server";
 import { getWeeklySummary } from "@/lib/water.server";
 import { getWeekSummary } from "@/lib/tasks.server";
+import { getGymWeekSummary } from "@/lib/gym.server";
+import { GymWeekBoard } from "./GymWeekBoard";
 import { formatMl } from "@/lib/water";
 import {
   addDaysISO,
@@ -44,9 +46,10 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
   // Don't allow viewing weeks entirely in the future.
   const start = requested > currentWeekStart ? currentWeekStart : requested;
 
-  const [week, weeklyTasks] = await Promise.all([
+  const [week, weeklyTasks, gymWeek] = await Promise.all([
     getWeeklySummary(user.id, start),
     getWeekSummary(user.id, start),
+    getGymWeekSummary(user.id, start),
   ]);
   const prevStart = addDaysISO(start, -7);
   const nextStart = addDaysISO(start, 7);
@@ -237,6 +240,14 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
             );
           })}
         </ul>
+      </section>
+
+      <section className={styles.section}>
+        <header className={styles.sectionHeader}>
+          <h2 className={styles.h2}>Gym</h2>
+          <span className={styles.muted}>5 pass · mån–fre som standard</span>
+        </header>
+        <GymWeekBoard weekStart={start} sessions={gymWeek.sessions} />
       </section>
 
       <section className={styles.section}>

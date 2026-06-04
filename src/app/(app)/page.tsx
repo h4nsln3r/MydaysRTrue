@@ -5,9 +5,11 @@ import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import { HabitChecks } from "@/components/HabitChecks/HabitChecks";
 import { MealsCard } from "@/components/MealsCard/MealsCard";
 import { IntakeCard } from "@/components/IntakeCard/IntakeCard";
+import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
 import { getDailySummary } from "@/lib/water.server";
 import { getDailyHabits, getDailyMeals } from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
+import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getCategories } from "@/lib/tasks.server";
 import { formatDateLong, todayLocalISO } from "@/lib/date";
 import styles from "./dashboard.module.scss";
@@ -22,13 +24,15 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const today = todayLocalISO();
-  const [summary, habits, meals, intake, dailyCategories] = await Promise.all([
-    getDailySummary(user.id, today),
-    getDailyHabits(user.id, today),
-    getDailyMeals(user.id, today),
-    getDailyIntake(user.id, today),
-    getCategories(user.id, "daily"),
-  ]);
+  const [summary, habits, meals, intake, gymDay, dailyCategories] =
+    await Promise.all([
+      getDailySummary(user.id, today),
+      getDailyHabits(user.id, today),
+      getDailyMeals(user.id, today),
+      getDailyIntake(user.id, today),
+      getGymSessionsForDate(user.id, today),
+      getCategories(user.id, "daily"),
+    ]);
 
   // Hide the dedicated meals card if the user archived the meals habit.
   const mealsHabitActive = habits.some((h) => h.kind === "meal");
@@ -81,6 +85,14 @@ export default async function DashboardPage() {
           {mealsHabitActive ? <MealsCard date={today} meals={meals} /> : null}
           <IntakeCard date={today} intake={intake} />
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <GymDayCard
+          weekStart={gymDay.weekStart}
+          sessions={gymDay.sessions}
+          title="Gym idag"
+        />
       </section>
 
       <section className={styles.section}>

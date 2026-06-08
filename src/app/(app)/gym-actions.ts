@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { GYM_WARMUPS, isGymWarmup, type GymWarmup } from "@/lib/gym";
+import { isGymWarmup, type GymWarmup } from "@/lib/gym";
 import type { Weekday } from "@/lib/tasks";
 
 export interface ActionResult {
@@ -211,6 +211,3 @@ export async function resetGymWeekToDefaultsAction(
   revalidatePath("/", "layout");
   return { ok: true };
 }
-
-// Re-export for type narrowing in forms
-export const VALID_GYM_WARMUPS = GYM_WARMUPS;

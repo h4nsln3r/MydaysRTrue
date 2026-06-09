@@ -48,7 +48,10 @@ export function GymDayCard({
     return (
       <Card className={styles.card}>
         <p className={styles.empty}>Inget gympass planerat den här dagen.</p>
-        <Link href={`/week?start=${weekStart}`} className={styles.weekLink}>
+        <Link
+          href={`/week?start=${weekStart}&view=plan`}
+          className={styles.weekLink}
+        >
           Se veckoplan →
         </Link>
       </Card>
@@ -75,7 +78,10 @@ export function GymDayCard({
             <span className={styles.counterSlash}>/ {sessions.length}</span>
           </span>
         </div>
-        <Link href={`/week?start=${weekStart}`} className={styles.weekLink}>
+        <Link
+          href={`/week?start=${weekStart}&view=plan`}
+          className={styles.weekLink}
+        >
           Veckoplan →
         </Link>
       </header>

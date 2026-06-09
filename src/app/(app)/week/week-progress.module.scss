@@ -1,0 +1,299 @@
+@use "abstracts" as *;
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+}
+
+.summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: $space-3;
+}
+
+.summaryCard {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-4;
+}
+
+.summaryLabel {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+}
+
+.summaryValue {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-family: $font-display;
+    font-weight: 800;
+    color: $color-cream;
+}
+
+.summaryBig {
+    font-size: 1.5rem;
+    color: $color-orange-bright;
+}
+
+.summarySlash {
+    font-size: 0.85rem;
+    color: $color-fog;
+    font-family: $font-mono;
+}
+
+.summaryBar {
+    height: 5px;
+    background: $color-line;
+    border-radius: $radius-pill;
+    overflow: hidden;
+}
+
+.summaryFill {
+    height: 100%;
+    background: linear-gradient(90deg, $color-orange, $color-orange-bright);
+    border-radius: $radius-pill;
+    transition: width 320ms $ease-out;
+}
+
+.summaryFillTasks {
+    background: linear-gradient(90deg, #5fb6ff, #9cd0ff);
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: $space-3;
+}
+
+.h2 {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-cream;
+}
+
+.legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dayList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.dayRow {
+    position: relative;
+    display: grid;
+    grid-template-columns: 72px 28px 1fr auto;
+    gap: $space-3;
+    align-items: center;
+    padding: $space-3 $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    color: $color-cream;
+    text-decoration: none;
+    transition:
+        transform 160ms $ease-bounce,
+        border-color 160ms $ease-out,
+        background 160ms $ease-out;
+
+    &:hover {
+        transform: translateY(-2px);
+        border-color: $color-orange;
+        background: rgba(255, 122, 26, 0.05);
+    }
+}
+
+.dayRowToday {
+    border-color: $color-orange;
+    background:
+        linear-gradient(180deg, rgba(255, 122, 26, 0.12), transparent 60%),
+        $color-ink-soft;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 3px;
+        border-radius: $radius-md 0 0 $radius-md;
+        background: linear-gradient(180deg, $color-orange, $color-orange-bright);
+    }
+}
+
+.dayRowFuture {
+    opacity: 0.42;
+    pointer-events: none;
+    border-style: dashed;
+    background: transparent;
+}
+
+.dayInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.dayName {
+    font-family: $font-display;
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-cream;
+}
+
+.dayNameToday {
+    color: $color-orange-bright;
+}
+
+.dayDate {
+    color: $color-fog;
+    font-size: 0.68rem;
+    font-family: $font-mono;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.waterIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.waterIconCompact {
+    width: 20px;
+    height: 20px;
+
+    svg {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+.waterIcon_good {
+    color: $color-success;
+    background: rgba(110, 231, 163, 0.15);
+    border: 1px solid rgba(110, 231, 163, 0.45);
+}
+
+.waterIcon_almost {
+    color: $color-orange-bright;
+    background: rgba(255, 122, 26, 0.15);
+    border: 1px solid rgba(255, 122, 26, 0.45);
+}
+
+.waterIcon_low {
+    color: $color-danger;
+    background: rgba(255, 82, 71, 0.12);
+    border: 1px solid rgba(255, 82, 71, 0.4);
+}
+
+.waterIcon_future {
+    color: $color-fog;
+    background: transparent;
+    border: 1px dashed $color-line;
+}
+
+.dayGym {
+    min-width: 0;
+}
+
+.gymList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.gymChip {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    opacity: 0.75;
+}
+
+.gymChipDone {
+    opacity: 1;
+    border-color: rgba(110, 231, 163, 0.5);
+    background: rgba(110, 231, 163, 0.12);
+}
+
+.gymCheck {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: $color-success;
+    color: $color-ink;
+    font-size: 0.55rem;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid $color-ink;
+}
+
+.dayTasks {
+    min-width: 40px;
+    text-align: right;
+}
+
+.taskCount {
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: $color-cream-dim;
+    padding: 4px 8px;
+    border-radius: $radius-pill;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+}
+
+.taskCountDone {
+    color: $color-success;
+    border-color: rgba(110, 231, 163, 0.4);
+    background: rgba(110, 231, 163, 0.1);
+}
+
+.dayMuted {
+    color: $color-fog;
+    font-size: 0.85rem;
+}

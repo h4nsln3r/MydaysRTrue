@@ -83,6 +83,14 @@
 
 // --- Day section (shared rhythm with weekly tasks) --------------------------
 
+.dragHint {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.78rem;
+    font-style: italic;
+    text-align: center;
+}
+
 .daySection {
     display: flex;
     flex-direction: column;
@@ -91,6 +99,16 @@
     background: $color-ink-soft;
     border: 1px solid $color-line;
     border-radius: $radius-md;
+    transition:
+        border-color 160ms $ease-out,
+        background 160ms $ease-out;
+}
+
+.daySectionOver {
+    border-color: $color-orange;
+    background:
+        linear-gradient(180deg, rgba(255, 122, 26, 0.08), transparent 70%),
+        $color-ink-soft;
 }
 
 .dayHeader {
@@ -148,12 +166,12 @@
 
 .session {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto auto 1fr;
     grid-template-rows: auto auto;
     grid-template-areas:
-        "check body"
-        "actions actions";
-    gap: 0 $space-3;
+        "check drag body"
+        "actions actions actions";
+    gap: 0 $space-2;
     align-items: center;
     padding: $space-2 $space-3;
     background: $color-ink-elevated;
@@ -162,7 +180,18 @@
     border-radius: $radius-md;
     transition:
         border-color 160ms $ease-out,
-        opacity 160ms $ease-out;
+        opacity 160ms $ease-out,
+        box-shadow 160ms $ease-out;
+}
+
+.sessionPreview {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    border-color: $color-orange;
+    cursor: grabbing;
+}
+
+.sessionDragging {
+    opacity: 0.35;
 }
 
 .sessionDone {
@@ -176,6 +205,39 @@
 
 .sessionBusy {
     opacity: 0.6;
+}
+
+.checkBtnPlaceholder {
+    grid-area: check;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.dragHandle {
+    grid-area: drag;
+    width: 28px;
+    height: 36px;
+    border-radius: $radius-sm;
+    border: 1px solid transparent;
+    background: transparent;
+    color: $color-fog;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: grab;
+    touch-action: none;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-line;
+        background: $color-ink-soft;
+    }
+
+    &:active:not(:disabled) {
+        cursor: grabbing;
+    }
 }
 
 .checkBtn {

@@ -29,3 +29,17 @@ export function formatMl(ml: number): string {
   if (ml >= 1000) return `${(ml / 1000).toFixed(ml % 1000 === 0 ? 0 : 2)} L`;
   return `${ml} ml`;
 }
+
+/** Compact water status for week progress icons. */
+export type WaterDayStatus = "future" | "good" | "almost" | "low";
+
+export function waterDayStatus(day: {
+  isFuture: boolean;
+  goalMet: boolean;
+  progress: number;
+}): WaterDayStatus {
+  if (day.isFuture) return "future";
+  if (day.goalMet) return "good";
+  if (day.progress >= 0.6) return "almost";
+  return "low";
+}

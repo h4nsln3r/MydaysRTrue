@@ -12,6 +12,8 @@ export interface Database {
           id: string;
           display_name: string | null;
           daily_water_goal_ml: number;
+          daily_steps_goal: number;
+          daily_activity_hours_goal: number;
           created_at: string;
           updated_at: string;
         };
@@ -19,6 +21,8 @@ export interface Database {
           id: string;
           display_name?: string | null;
           daily_water_goal_ml?: number;
+          daily_steps_goal?: number;
+          daily_activity_hours_goal?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -26,6 +30,59 @@ export interface Database {
           id?: string;
           display_name?: string | null;
           daily_water_goal_ml?: number;
+          daily_steps_goal?: number;
+          daily_activity_hours_goal?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      snack_checks: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          slot: number;
+          done_at: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          slot: number;
+          done_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          slot?: number;
+          done_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      daily_activity_logs: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          steps: number | null;
+          activity_hours: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          steps?: number | null;
+          activity_hours?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          steps?: number | null;
+          activity_hours?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -67,11 +124,18 @@ export interface Database {
           user_id: string;
           key: string;
           label: string;
-          kind: "tri_state" | "water" | "meal";
+          kind:
+            | "tri_state"
+            | "water"
+            | "meal"
+            | "snack"
+            | "steps"
+            | "activity_hours";
           icon: string;
           accent: string;
           sort_order: number;
           category_id: string | null;
+          enabled: boolean;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -81,11 +145,18 @@ export interface Database {
           user_id: string;
           key: string;
           label: string;
-          kind?: "tri_state" | "water" | "meal";
+          kind?:
+            | "tri_state"
+            | "water"
+            | "meal"
+            | "snack"
+            | "steps"
+            | "activity_hours";
           icon?: string;
           accent?: string;
           sort_order?: number;
           category_id?: string | null;
+          enabled?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -95,11 +166,18 @@ export interface Database {
           user_id?: string;
           key?: string;
           label?: string;
-          kind?: "tri_state" | "water" | "meal";
+          kind?:
+            | "tri_state"
+            | "water"
+            | "meal"
+            | "snack"
+            | "steps"
+            | "activity_hours";
           icon?: string;
           accent?: string;
           sort_order?: number;
           category_id?: string | null;
+          enabled?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;

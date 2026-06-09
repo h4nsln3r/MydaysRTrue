@@ -1,113 +1,152 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
-import { HabitChecks } from "@/components/HabitChecks/HabitChecks";
-import { MealsCard } from "@/components/MealsCard/MealsCard";
+import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
+import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
+import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { IntakeCard } from "@/components/IntakeCard/IntakeCard";
 import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
 import { getDailySummary } from "@/lib/water.server";
-import { getDailyHabits, getDailyMeals } from "@/lib/habits.server";
+import {
+  getDailyActivityLog,
+  getDayPlanSettings,
+  getDailyHabits,
+  getDailyMeals,
+  getDailySnacks,
+} from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getCategories } from "@/lib/tasks.server";
-import { formatDateLong, todayLocalISO } from "@/lib/date";
+import { todayLocalISO } from "@/lib/date";
+import { parsePeriodView } from "@/lib/period-view";
+import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
 import styles from "./dashboard.module.scss";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+interface HomePageProps {
+  searchParams: Promise<{ view?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: HomePageProps) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const view = parsePeriodView((await searchParams).view);
   const today = todayLocalISO();
-  const [summary, habits, meals, intake, gymDay, dailyCategories] =
-    await Promise.all([
-      getDailySummary(user.id, today),
-      getDailyHabits(user.id, today),
-      getDailyMeals(user.id, today),
-      getDailyIntake(user.id, today),
-      getGymSessionsForDate(user.id, today),
-      getCategories(user.id, "daily"),
-    ]);
 
-  // Hide the dedicated meals card if the user archived the meals habit.
-  const mealsHabitActive = habits.some((h) => h.kind === "meal");
+  const [
+    summary,
+    habits,
+    meals,
+    snacks,
+    intake,
+    gymDay,
+    allCategories,
+    dayPlan,
+    activityLog,
+  ] = await Promise.all([
+    getDailySummary(user.id, today),
+    getDailyHabits(user.id, today),
+    getDailyMeals(user.id, today),
+    getDailySnacks(user.id, today),
+    getDailyIntake(user.id, today),
+    getGymSessionsForDate(user.id, today),
+    getCategories(user.id),
+    getDayPlanSettings(user.id),
+    getDailyActivityLog(user.id, today),
+  ]);
 
   return (
     <main className={styles.main}>
       <header className={styles.header}>
-        <div>
-          <p className={styles.date}>{formatDateLong()}</p>
+        <div className={styles.headerMain}>
+          <DayNav date={today} today={today} view={view} />
           <h1 className={styles.h1}>
             Stay <span className={styles.accent}>hydrated</span>
           </h1>
         </div>
-        <Link
-          href="/add-water"
-          className={styles.iconBadge}
-          aria-label="Manual water entry"
-          title="Manual log"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path
-              d="M4 20h4l10-10-4-4L4 16v4Z"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinejoin="round"
-            />
-            <path
-              d="m13.5 6.5 4 4"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </Link>
+        {view === "progress" ? (
+          <Link
+            href="/add-water"
+            className={styles.iconBadge}
+            aria-label="Manual water entry"
+            title="Manual log"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M4 20h4l10-10-4-4L4 16v4Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+              <path
+                d="m13.5 6.5 4 4"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </Link>
+        ) : null}
       </header>
 
-      <section className={styles.section} aria-labelledby="intake-heading">
-        <header className={styles.sectionHeader}>
-          <h2 id="intake-heading" className={styles.h2}>
-            Intake
-          </h2>
-          <span className={styles.muted}>food & water</span>
-        </header>
-        <div className={styles.stack}>
-          <WaterHeroCard
-            summary={summary}
-            plusHref="/water"
-            plusLabel="Open water page"
-          />
-          {mealsHabitActive ? <MealsCard date={today} meals={meals} /> : null}
-          <IntakeCard date={today} intake={intake} />
-        </div>
-      </section>
+      <ProgressPlanTabs
+        view={view}
+        progressHref={dayPageHref(today, today, "progress")}
+        planHref={dayPageHref(today, today, "plan")}
+      />
 
-      <section className={styles.section}>
-        <GymDayCard
-          weekStart={gymDay.weekStart}
-          sessions={gymDay.sessions}
-          title="Gym idag"
-        />
-      </section>
+      {view === "progress" ? (
+        <>
+          <section className={styles.section}>
+            <header className={styles.sectionHeader}>
+              <h2 className={styles.h2}>Dagen</h2>
+              <Link href="/?view=plan" className={styles.muted}>
+                Planera
+              </Link>
+            </header>
+            <DailyTrackersBoard
+              date={today}
+              habits={habits}
+              summary={summary}
+              meals={meals}
+              snacks={snacks}
+              activityLog={activityLog}
+              goals={dayPlan.goals}
+              waterPlusHref="/water"
+              waterPlusLabel="Open water page"
+            />
+          </section>
 
-      <section className={styles.section}>
-        <header className={styles.sectionHeader}>
-          <h2 className={styles.h2}>Daily habits</h2>
-          <Link href="/profile" className={styles.muted}>
-            Edit
-          </Link>
-        </header>
-        <HabitChecks
-          date={today}
-          habits={habits}
-          categories={dailyCategories}
+          <section className={styles.section}>
+            <GymDayCard
+              weekStart={gymDay.weekStart}
+              sessions={gymDay.sessions}
+              title="Gym idag"
+            />
+          </section>
+
+          <section className={styles.section} aria-labelledby="intake-heading">
+            <header className={styles.sectionHeader}>
+              <h2 id="intake-heading" className={styles.h2}>
+                Intake
+              </h2>
+              <span className={styles.muted}>näring</span>
+            </header>
+            <IntakeCard date={today} intake={intake} />
+          </section>
+        </>
+      ) : (
+        <DayPlanPanel
+          habits={dayPlan.habits}
+          goals={dayPlan.goals}
+          categories={allCategories}
         />
-      </section>
+      )}
     </main>
   );
 }

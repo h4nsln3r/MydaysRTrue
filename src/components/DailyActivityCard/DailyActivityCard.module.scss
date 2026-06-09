@@ -1,0 +1,87 @@
+@use "abstracts" as *;
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+    padding: $space-4;
+}
+
+.header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.title {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-cream;
+    margin: 0;
+}
+
+.metric {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: $space-3;
+}
+
+.metricTitle {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-cream;
+    margin: 0;
+}
+
+.metricLabel {
+    font-weight: 700;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+}
+
+.metricValue {
+    font-family: $font-mono;
+    font-size: 0.9rem;
+    color: $color-orange-bright;
+    font-weight: 700;
+}
+
+.metricHint {
+    font-size: 0.85rem;
+    color: $color-cream-dim;
+}
+
+.bar {
+    height: 6px;
+    background: $color-line;
+    border-radius: $radius-pill;
+    overflow: hidden;
+}
+
+.barFill {
+    height: 100%;
+    background: linear-gradient(90deg, $color-orange, $color-orange-bright);
+    border-radius: $radius-pill;
+    transition: width 320ms $ease-out;
+}
+
+.barFillSteps {
+    background: linear-gradient(90deg, #5fb6ff, #9cd0ff);
+}
+
+.barFillActivity {
+    background: linear-gradient(90deg, #c084fc, #e9b4ff);
+}
+
+.error {
+    color: $color-danger;
+    font-size: 0.88rem;
+    margin: 0;
+}

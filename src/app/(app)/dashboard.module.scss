@@ -13,6 +13,14 @@
     gap: $space-4;
 }
 
+.headerMain {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    min-width: 0;
+    flex: 1;
+}
+
 .date {
     color: $color-fog;
     font-family: $font-mono;

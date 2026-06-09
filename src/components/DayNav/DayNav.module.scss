@@ -1,0 +1,68 @@
+@use "abstracts" as *;
+
+.wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    min-width: 0;
+}
+
+.kicker {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    margin: 0;
+}
+
+.nav {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-3;
+}
+
+.title {
+    font-family: $font-display;
+    font-size: clamp(1.1rem, 4.5vw, 1.35rem);
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: $color-cream;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.navBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    color: $color-cream;
+    font-size: 1.4rem;
+    line-height: 1;
+    user-select: none;
+    text-decoration: none;
+    flex-shrink: 0;
+    transition:
+        border-color 160ms $ease-out,
+        color 160ms $ease-out,
+        background 160ms $ease-out,
+        transform 160ms $ease-bounce;
+
+    &:hover {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+        transform: translateY(-1px);
+    }
+}
+
+.navBtnDisabled {
+    opacity: 0.3;
+    pointer-events: none;
+}

@@ -3,11 +3,15 @@ import { createClient } from "@/lib/supabase/server";
 import { todayLocalISO } from "@/lib/date";
 import {
   type DailyHabit,
+  type DailySnacks,
   type Habit,
+  type HabitKind,
   type HabitStatus,
   type MealEntry,
   type MealKey,
   mealStatusFor,
+  numericGoalStatus,
+  snackStatusFor,
   waterStatusFor,
 } from "@/lib/habits";
 
@@ -15,11 +19,12 @@ interface HabitRow {
   id: string;
   key: string;
   label: string;
-  kind: "tri_state" | "water" | "meal";
+  kind: HabitKind;
   icon: string;
   accent: string;
   sort_order: number;
   category_id: string | null;
+  enabled: boolean;
 }
 
 function rowToHabit(r: HabitRow): Habit {
@@ -32,6 +37,95 @@ function rowToHabit(r: HabitRow): Habit {
     accent: r.accent,
     sortOrder: r.sort_order,
     categoryId: r.category_id,
+    enabled: r.enabled ?? true,
+  };
+}
+
+export interface DailyTrackerGoals {
+  waterGoalMl: number;
+  stepsGoal: number;
+  activityHoursGoal: number;
+}
+
+export interface DayPlanSettings {
+  habits: Habit[];
+  goals: DailyTrackerGoals;
+}
+
+export interface DailyActivityLog {
+  localDate: string;
+  steps: number | null;
+  activityHours: number | null;
+}
+
+/** All non-archived habits + profile goals for the day plan screen. */
+export async function getDayPlanSettings(userId: string): Promise<DayPlanSettings> {
+  const supabase = await createClient();
+  const [habitsRes, profileRes] = await Promise.all([
+    supabase
+      .from("habits")
+      .select(
+        "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
+      )
+      .eq("user_id", userId)
+      .is("archived_at", null)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("profiles")
+      .select(
+        "daily_water_goal_ml, daily_steps_goal, daily_activity_hours_goal",
+      )
+      .eq("id", userId)
+      .maybeSingle(),
+  ]);
+
+  return {
+    habits: (habitsRes.data ?? []).map(rowToHabit),
+    goals: {
+      waterGoalMl: profileRes.data?.daily_water_goal_ml ?? 2500,
+      stepsGoal: profileRes.data?.daily_steps_goal ?? 8000,
+      activityHoursGoal: Number(
+        profileRes.data?.daily_activity_hours_goal ?? 12,
+      ),
+    },
+  };
+}
+
+export async function getDailySnacks(
+  userId: string,
+  localDate: string,
+): Promise<DailySnacks> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("snack_checks")
+    .select("slot")
+    .eq("user_id", userId)
+    .eq("local_date", localDate);
+
+  const slots = new Set((data ?? []).map((r) => r.slot));
+  return {
+    slot1: slots.has(1),
+    slot2: slots.has(2),
+  };
+}
+
+export async function getDailyActivityLog(
+  userId: string,
+  localDate: string,
+): Promise<DailyActivityLog> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("daily_activity_logs")
+    .select("steps, activity_hours")
+    .eq("user_id", userId)
+    .eq("local_date", localDate)
+    .maybeSingle();
+
+  return {
+    localDate,
+    steps: data?.steps ?? null,
+    activityHours:
+      data?.activity_hours != null ? Number(data.activity_hours) : null,
   };
 }
 
@@ -40,7 +134,9 @@ export async function getHabits(userId: string): Promise<Habit[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("habits")
-    .select("id, key, label, kind, icon, accent, sort_order, category_id")
+    .select(
+      "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
+    )
     .eq("user_id", userId)
     .is("archived_at", null)
     .order("sort_order", { ascending: true });
@@ -62,12 +158,16 @@ export async function getDailyHabits(
   const today = todayLocalISO();
   const isFuture = localDate > today;
 
-  const [habitsRes, checksRes, waterRes, profileRes, mealsRes] = await Promise.all([
+  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes] =
+    await Promise.all([
     supabase
       .from("habits")
-      .select("id, key, label, kind, icon, accent, sort_order, category_id")
+      .select(
+        "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
+      )
       .eq("user_id", userId)
       .is("archived_at", null)
+      .eq("enabled", true)
       .order("sort_order", { ascending: true }),
     supabase
       .from("habit_checks")
@@ -81,7 +181,9 @@ export async function getDailyHabits(
       .eq("local_date", localDate),
     supabase
       .from("profiles")
-      .select("daily_water_goal_ml")
+      .select(
+        "daily_water_goal_ml, daily_steps_goal, daily_activity_hours_goal",
+      )
       .eq("id", userId)
       .maybeSingle(),
     supabase
@@ -89,13 +191,34 @@ export async function getDailyHabits(
       .select("meal")
       .eq("user_id", userId)
       .eq("local_date", localDate),
+    supabase
+      .from("daily_activity_logs")
+      .select("steps, activity_hours")
+      .eq("user_id", userId)
+      .eq("local_date", localDate)
+      .maybeSingle(),
+    supabase
+      .from("snack_checks")
+      .select("slot")
+      .eq("user_id", userId)
+      .eq("local_date", localDate),
   ]);
 
   const habits = habitsRes.data ?? [];
   const checks = checksRes.data ?? [];
   const goalMl = profileRes.data?.daily_water_goal_ml ?? 2500;
+  const stepsGoal = profileRes.data?.daily_steps_goal ?? 8000;
+  const activityHoursGoal = Number(
+    profileRes.data?.daily_activity_hours_goal ?? 12,
+  );
   const waterMl = (waterRes.data ?? []).reduce((acc, l) => acc + l.amount_ml, 0);
   const mealsLogged = (mealsRes.data ?? []).length;
+  const snacksDone = (snacksRes.data ?? []).length;
+  const steps = activityRes.data?.steps ?? 0;
+  const activityHours =
+    activityRes.data?.activity_hours != null
+      ? Number(activityRes.data.activity_hours)
+      : 0;
 
   const checkByHabit = new Map<string, { status: HabitStatus; note: string | null }>();
   for (const c of checks) {
@@ -121,6 +244,39 @@ export async function getDailyHabits(
         status: isFuture ? null : mealStatusFor(mealsLogged),
         note: null,
         mealsLogged,
+      };
+    }
+    if (habit.kind === "snack") {
+      return {
+        ...habit,
+        status: isFuture ? null : snackStatusFor(snacksDone),
+        note: null,
+        snacksDone,
+      };
+    }
+    if (habit.kind === "steps") {
+      const progress = stepsGoal > 0 ? steps / stepsGoal : 0;
+      return {
+        ...habit,
+        status: isFuture ? null : numericGoalStatus(steps, stepsGoal),
+        note: null,
+        metricValue: steps,
+        metricGoal: stepsGoal,
+        progress,
+      };
+    }
+    if (habit.kind === "activity_hours") {
+      const progress =
+        activityHoursGoal > 0 ? activityHours / activityHoursGoal : 0;
+      return {
+        ...habit,
+        status: isFuture
+          ? null
+          : numericGoalStatus(activityHours, activityHoursGoal),
+        note: null,
+        metricValue: activityHours,
+        metricGoal: activityHoursGoal,
+        progress,
       };
     }
     const c = checkByHabit.get(habit.id);
@@ -229,12 +385,16 @@ export async function getMonthSummary(
   const supabase = await createClient();
   const { startISO, endISO, daysInMonth } = monthBounds(year, month);
 
-  const [habitsRes, checksRes, waterRes, profileRes, mealsRes] = await Promise.all([
+  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes] =
+    await Promise.all([
     supabase
       .from("habits")
-      .select("id, key, label, kind, icon, accent, sort_order, category_id")
+      .select(
+        "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
+      )
       .eq("user_id", userId)
       .is("archived_at", null)
+      .eq("enabled", true)
       .order("sort_order", { ascending: true }),
     supabase
       .from("habit_checks")
@@ -250,7 +410,9 @@ export async function getMonthSummary(
       .lte("local_date", endISO),
     supabase
       .from("profiles")
-      .select("daily_water_goal_ml")
+      .select(
+        "daily_water_goal_ml, daily_steps_goal, daily_activity_hours_goal",
+      )
       .eq("id", userId)
       .maybeSingle(),
     supabase
@@ -259,10 +421,26 @@ export async function getMonthSummary(
       .eq("user_id", userId)
       .gte("local_date", startISO)
       .lte("local_date", endISO),
+    supabase
+      .from("daily_activity_logs")
+      .select("local_date, steps, activity_hours")
+      .eq("user_id", userId)
+      .gte("local_date", startISO)
+      .lte("local_date", endISO),
+    supabase
+      .from("snack_checks")
+      .select("local_date, slot")
+      .eq("user_id", userId)
+      .gte("local_date", startISO)
+      .lte("local_date", endISO),
   ]);
 
   const habits = (habitsRes.data ?? []).map(rowToHabit);
   const goalMl = profileRes.data?.daily_water_goal_ml ?? 2500;
+  const stepsGoal = profileRes.data?.daily_steps_goal ?? 8000;
+  const activityHoursGoal = Number(
+    profileRes.data?.daily_activity_hours_goal ?? 12,
+  );
 
   // (habit_id, date) -> status
   const checkMap = new Map<string, HabitStatus>();
@@ -280,6 +458,20 @@ export async function getMonthSummary(
   const mealsByDate = new Map<string, number>();
   for (const m of mealsRes.data ?? []) {
     mealsByDate.set(m.local_date, (mealsByDate.get(m.local_date) ?? 0) + 1);
+  }
+
+  const stepsByDate = new Map<string, number>();
+  const activityHoursByDate = new Map<string, number>();
+  for (const a of activityRes.data ?? []) {
+    if (a.steps != null) stepsByDate.set(a.local_date, a.steps);
+    if (a.activity_hours != null) {
+      activityHoursByDate.set(a.local_date, Number(a.activity_hours));
+    }
+  }
+
+  const snacksByDate = new Map<string, number>();
+  for (const s of snacksRes.data ?? []) {
+    snacksByDate.set(s.local_date, (snacksByDate.get(s.local_date) ?? 0) + 1);
   }
 
   const today = todayLocalISO();
@@ -304,6 +496,15 @@ export async function getMonthSummary(
           status = waterStatusFor(waterByDate.get(date) ?? 0, goalMl);
         } else if (h.kind === "meal") {
           status = mealStatusFor(mealsByDate.get(date) ?? 0);
+        } else if (h.kind === "snack") {
+          status = snackStatusFor(snacksByDate.get(date) ?? 0);
+        } else if (h.kind === "steps") {
+          status = numericGoalStatus(stepsByDate.get(date) ?? 0, stepsGoal);
+        } else if (h.kind === "activity_hours") {
+          status = numericGoalStatus(
+            activityHoursByDate.get(date) ?? 0,
+            activityHoursGoal,
+          );
         } else {
           status = checkMap.get(`${h.id}|${date}`) ?? null;
         }

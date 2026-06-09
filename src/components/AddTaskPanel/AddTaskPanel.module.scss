@@ -1,0 +1,142 @@
+@use "abstracts" as *;
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.title {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-cream;
+}
+
+.sub {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.82rem;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.scopeRow {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.scopeBtn {
+    padding: 8px 6px;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-cream;
+    }
+}
+
+.scopeBtnActive {
+    background: rgba(255, 122, 26, 0.15);
+    border-color: $color-orange;
+    color: $color-orange-bright;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: $color-cream-dim;
+    font-weight: 600;
+}
+
+.select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    color: $color-cream;
+    font-family: $font-sans;
+    font-size: 0.9rem;
+}
+
+.iconRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.iconBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    font-size: 1rem;
+
+    &[aria-pressed="true"] {
+        border-color: $color-orange;
+        background: rgba(255, 122, 26, 0.15);
+    }
+}
+
+.accentRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.accentBtn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+}
+
+.error {
+    color: $color-danger;
+    font-size: 0.88rem;
+    background: rgba(255, 82, 71, 0.08);
+    border: 1px solid rgba(255, 82, 71, 0.35);
+    border-radius: $radius-md;
+    padding: 8px 12px;
+    margin: 0;
+}
+
+.actions {
+    display: flex;
+    gap: $space-3;
+    justify-content: flex-end;
+}

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getWeeklySummary } from "@/lib/water.server";
-import { getWeekSummary } from "@/lib/tasks.server";
+import { getCategories, getWeekSummary } from "@/lib/tasks.server";
+import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { getGymWeekSummary } from "@/lib/gym.server";
 import { GymWeekBoard } from "./GymWeekBoard";
 import {
@@ -50,10 +51,11 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
   const start = requested > currentWeekStart ? currentWeekStart : requested;
 
-  const [week, weeklyTasks, gymWeek] = await Promise.all([
+  const [week, weeklyTasks, gymWeek, allCategories] = await Promise.all([
     getWeeklySummary(user.id, start),
     getWeekSummary(user.id, start),
     getGymWeekSummary(user.id, start),
+    getCategories(user.id),
   ]);
   const prevStart = addDaysISO(start, -7);
   const nextStart = addDaysISO(start, 7);
@@ -103,6 +105,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
         />
       ) : (
         <>
+          <AddTaskPanel categories={allCategories} defaultScope="weekly" />
+
           <section className={styles.section}>
             <header className={styles.sectionHeader}>
               <h2 className={styles.h2}>Gym</h2>
@@ -113,10 +117,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>
-              <h2 className={styles.h2}>Weekly tasks</h2>
-              <Link href="/profile" className={styles.muted}>
-                Edit
-              </Link>
+              <h2 className={styles.h2}>Veckouppgifter</h2>
+              <span className={styles.muted}>placera på dagar</span>
             </header>
             <WeeklyTasksBoard
               weekStart={start}

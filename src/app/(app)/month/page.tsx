@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
+import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
+import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { createClient } from "@/lib/supabase/server";
 import { getMonthSummary, shiftMonth } from "@/lib/habits.server";
-import { getMonthTaskSummary } from "@/lib/tasks.server";
+import { getCategories, getMonthTaskSummary } from "@/lib/tasks.server";
 import { todayLocalISO } from "@/lib/date";
+import { parsePeriodView, type PeriodView } from "@/lib/period-view";
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { MonthDay } from "@/lib/habits.server";
 import { MonthlyTasksBoard } from "./MonthlyTasksBoard";
@@ -13,7 +16,12 @@ import styles from "./month.module.scss";
 export const dynamic = "force-dynamic";
 
 interface MonthPageProps {
-  searchParams: Promise<{ m?: string }>;
+  searchParams: Promise<{ m?: string; view?: string }>;
+}
+
+function monthNavHref(year: number, month: number, view: PeriodView): string {
+  const m = `${year}-${String(month).padStart(2, "0")}`;
+  return `/month?m=${m}&view=${view}`;
 }
 
 const MONTH_QS_RE = /^(\d{4})-(\d{2})$/;
@@ -38,6 +46,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
   if (!user) redirect("/login");
 
   const params = await searchParams;
+  const view = parsePeriodView(params.view);
   const todayYM = todayYearMonth();
 
   let year = todayYM.year;
@@ -57,10 +66,14 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
   }
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-  const [summary, monthlyTasks] = await Promise.all([
+  const [summary, monthlyTasks, allCategories] = await Promise.all([
     getMonthSummary(user.id, year, month),
     getMonthTaskSummary(user.id, monthStart),
+    getCategories(user.id),
   ]);
+  const monthlyDone = monthlyTasks.tasks.filter(
+    (t) => t.completion?.doneAt,
+  ).length;
   const today = todayLocalISO();
 
   const prev = shiftMonth(year, month, -1);
@@ -81,7 +94,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
         </p>
         <div className={styles.monthNav}>
           <Link
-            href={`/month?m=${prev.year}-${String(prev.month).padStart(2, "0")}`}
+            href={monthNavHref(prev.year, prev.month, view)}
             className={styles.navBtn}
             aria-label="Previous month"
           >
@@ -90,7 +103,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
           <h1 className={styles.h1}>{formatMonthLabel(year, month)}</h1>
           {canGoForward ? (
             <Link
-              href={`/month?m=${next.year}-${String(next.month).padStart(2, "0")}`}
+              href={monthNavHref(next.year, next.month, view)}
               className={styles.navBtn}
               aria-label="Next month"
             >
@@ -107,6 +120,57 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
         </div>
       </header>
 
+      <ProgressPlanTabs
+        view={view}
+        progressHref={monthNavHref(year, month, "progress")}
+        planHref={monthNavHref(year, month, "plan")}
+      />
+
+      {view === "progress" ? (
+        <MonthProgressView
+          summary={summary}
+          monthlyDone={monthlyDone}
+          monthlyTotal={monthlyTasks.tasks.length}
+          today={today}
+        />
+      ) : (
+        <>
+          <AddTaskPanel categories={allCategories} defaultScope="monthly" />
+
+          <section className={styles.section}>
+            <header className={styles.sectionHeader}>
+              <h2 className={styles.h2}>Månadsuppgifter</h2>
+              <span className={styles.muted}>placera & klarmarkera</span>
+            </header>
+            <MonthlyTasksBoard
+              monthStart={monthStart}
+              tasks={monthlyTasks.tasks}
+              categories={monthlyTasks.categories}
+            />
+          </section>
+        </>
+      )}
+    </main>
+  );
+}
+
+interface MonthProgressViewProps {
+  summary: Awaited<ReturnType<typeof getMonthSummary>>;
+  monthlyDone: number;
+  monthlyTotal: number;
+  today: string;
+}
+
+function MonthProgressView({
+  summary,
+  monthlyDone,
+  monthlyTotal,
+  today,
+}: MonthProgressViewProps) {
+  const weeks = groupIntoWeeks(summary.days);
+
+  return (
+    <>
       <Card accent className={styles.summary}>
         <div className={styles.summaryStats}>
           {summary.habits.map((h) => (
@@ -127,6 +191,20 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
               </span>
             </div>
           ))}
+          {monthlyTotal > 0 ? (
+            <div className={styles.statBlock}>
+              <span className={styles.statLabel}>
+                <span className={styles.statIcon} aria-hidden>
+                  📋
+                </span>
+                Uppgifter
+              </span>
+              <span className={styles.statValue}>
+                <span className={styles.statBig}>{monthlyDone}</span>
+                <span className={styles.statSlash}>/ {monthlyTotal}</span>
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <div className={styles.legend} aria-label="Legend">
@@ -212,21 +290,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
           )}
         </div>
       </section>
-
-      <section className={styles.section}>
-        <header className={styles.sectionHeader}>
-          <h2 className={styles.h2}>Monthly tasks</h2>
-          <Link href="/profile" className={styles.muted}>
-            Edit
-          </Link>
-        </header>
-        <MonthlyTasksBoard
-          monthStart={monthStart}
-          tasks={monthlyTasks.tasks}
-          categories={monthlyTasks.categories}
-        />
-      </section>
-    </main>
+    </>
   );
 }
 

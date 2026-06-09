@@ -293,6 +293,243 @@ export async function archiveHabitAction(habitId: string): Promise<ActionResult>
   return { ok: true };
 }
 
+/** Persist a new sort order for daily trackers (Planera drag-and-drop). */
+export async function reorderHabitsAction(
+  orderedIds: string[],
+): Promise<ActionResult> {
+  if (!orderedIds.length) return { ok: true };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: owned } = await supabase
+    .from("habits")
+    .select("id")
+    .eq("user_id", user.id)
+    .is("archived_at", null);
+
+  const ownedIds = new Set((owned ?? []).map((h) => h.id));
+  if (orderedIds.some((id) => !ownedIds.has(id))) {
+    return { ok: false, error: "Ogiltig spårare." };
+  }
+
+  for (let i = 0; i < orderedIds.length; i++) {
+    const { error } = await supabase
+      .from("habits")
+      .update({ sort_order: i })
+      .eq("id", orderedIds[i])
+      .eq("user_id", user.id);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Toggle a snack slot (1 or 2) for a day. */
+export async function toggleSnackAction(input: {
+  localDate: string;
+  slot: 1 | 2;
+  checked: boolean;
+}): Promise<ActionResult> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
+    return { ok: false, error: "Ogiltigt datum." };
+  }
+  if (input.slot !== 1 && input.slot !== 2) {
+    return { ok: false, error: "Ogiltigt mellanmål." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  if (input.checked) {
+    const { error } = await supabase.from("snack_checks").upsert(
+      {
+        user_id: user.id,
+        local_date: input.localDate,
+        slot: input.slot,
+        done_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,local_date,slot" },
+    );
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase
+      .from("snack_checks")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("local_date", input.localDate)
+      .eq("slot", input.slot);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Turn a daily tracker on or off without archiving it. */
+export async function setHabitEnabledAction(input: {
+  habitId: string;
+  enabled: boolean;
+}): Promise<ActionResult> {
+  if (!input.habitId) return { ok: false, error: "Missing habit id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("habits")
+    .update({ enabled: input.enabled })
+    .eq("id", input.habitId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Update daily goals for water, steps and activity hours. */
+export async function updateDailyTrackerGoalsAction(input: {
+  waterGoalMl?: number;
+  stepsGoal?: number;
+  activityHoursGoal?: number;
+}): Promise<ActionResult> {
+  const patch: {
+    daily_water_goal_ml?: number;
+    daily_steps_goal?: number;
+    daily_activity_hours_goal?: number;
+  } = {};
+
+  if (input.waterGoalMl !== undefined) {
+    const n = Math.round(Number(input.waterGoalMl));
+    if (!Number.isFinite(n) || n < 250 || n > 20000) {
+      return { ok: false, error: "Vattenmål måste vara 250–20000 ml." };
+    }
+    patch.daily_water_goal_ml = n;
+  }
+
+  if (input.stepsGoal !== undefined) {
+    const n = Math.round(Number(input.stepsGoal));
+    if (!Number.isFinite(n) || n < 100 || n > 100000) {
+      return { ok: false, error: "Stegmål måste vara 100–100000." };
+    }
+    patch.daily_steps_goal = n;
+  }
+
+  if (input.activityHoursGoal !== undefined) {
+    const n = Number(input.activityHoursGoal);
+    if (!Number.isFinite(n) || n < 0 || n > 24) {
+      return { ok: false, error: "Aktivitetsmål måste vara 0–24 timmar." };
+    }
+    patch.daily_activity_hours_goal = Math.round(n * 10) / 10;
+  }
+
+  if (Object.keys(patch).length === 0) return { ok: true };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update(patch)
+    .eq("id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Log steps and/or activity hours for a single day. */
+export async function saveDailyActivityAction(input: {
+  localDate: string;
+  steps?: number | null;
+  activityHours?: number | null;
+}): Promise<ActionResult> {
+  if (!ISO_DATE_RE.test(input.localDate)) {
+    return { ok: false, error: "Ogiltigt datum." };
+  }
+
+  let steps: number | null = null;
+  if (input.steps !== undefined && input.steps !== null) {
+    const n = Math.round(Number(input.steps));
+    if (!Number.isFinite(n) || n < 0 || n > 200000) {
+      return { ok: false, error: "Steg måste vara 0–200000." };
+    }
+    steps = n;
+  }
+
+  let activityHours: number | null = null;
+  if (input.activityHours !== undefined && input.activityHours !== null) {
+    const n = Number(input.activityHours);
+    if (!Number.isFinite(n) || n < 0 || n > 24) {
+      return { ok: false, error: "Aktivitetstimmar måste vara 0–24." };
+    }
+    activityHours = Math.round(n * 10) / 10;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: existing } = await supabase
+    .from("daily_activity_logs")
+    .select("steps, activity_hours")
+    .eq("user_id", user.id)
+    .eq("local_date", input.localDate)
+    .maybeSingle();
+
+  const nextSteps =
+    input.steps !== undefined ? steps : (existing?.steps ?? null);
+  const nextHours =
+    input.activityHours !== undefined
+      ? activityHours
+      : existing?.activity_hours != null
+        ? Number(existing.activity_hours)
+        : null;
+
+  if (nextSteps === null && nextHours === null) {
+    await supabase
+      .from("daily_activity_logs")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("local_date", input.localDate);
+  } else if (existing) {
+    const { error } = await supabase
+      .from("daily_activity_logs")
+      .update({ steps: nextSteps, activity_hours: nextHours })
+      .eq("user_id", user.id)
+      .eq("local_date", input.localDate);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from("daily_activity_logs").insert({
+      user_id: user.id,
+      local_date: input.localDate,
+      steps: nextSteps,
+      activity_hours: nextHours,
+    });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function restoreHabitAction(habitId: string): Promise<ActionResult> {
   if (!habitId) return { ok: false, error: "Missing habit id." };
   const supabase = await createClient();

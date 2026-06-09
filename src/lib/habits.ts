@@ -1,7 +1,21 @@
 // Client-safe habit types and helpers.
 // Server-only queries live in `./habits.server`.
 
-export type HabitKind = "tri_state" | "water" | "meal";
+export type HabitKind =
+  | "tri_state"
+  | "water"
+  | "meal"
+  | "snack"
+  | "steps"
+  | "activity_hours";
+
+export type SnackSlot = 1 | 2;
+
+export const SNACK_SLOTS: SnackSlot[] = [1, 2];
+export const SNACK_LABEL: Record<SnackSlot, string> = {
+  1: "Mellanmål 1",
+  2: "Mellanmål 2",
+};
 export type HabitStatus = "yes" | "half" | "no";
 
 export type MealKey = "breakfast" | "lunch" | "dinner";
@@ -28,6 +42,8 @@ export interface Habit {
   sortOrder: number;
   /** Optional daily-scope category id. */
   categoryId: string | null;
+  /** When false the tracker is hidden from daily progress views. */
+  enabled: boolean;
 }
 
 export interface DailyHabit extends Habit {
@@ -42,6 +58,17 @@ export interface DailyHabit extends Habit {
   progress?: number;
   /** Meals only — how many of the 3 slots have been logged. */
   mealsLogged?: number;
+  /** Steps / activity — logged value for the day. */
+  metricValue?: number;
+  /** Steps / activity — daily goal from profile. */
+  metricGoal?: number;
+  /** Snacks — how many of 2 slots are checked off. */
+  snacksDone?: number;
+}
+
+export interface DailySnacks {
+  slot1: boolean;
+  slot2: boolean;
 }
 
 export interface MealEntry {
@@ -57,9 +84,17 @@ export interface MealEntry {
  * `null` means "no entry" — we don't paint anything for those days.
  */
 export function waterStatusFor(totalMl: number, goalMl: number): HabitStatus | null {
-  if (totalMl <= 0 || goalMl <= 0) return null;
-  if (totalMl >= goalMl) return "yes";
-  if (totalMl >= goalMl * 0.5) return "half";
+  return numericGoalStatus(totalMl, goalMl);
+}
+
+/** Derive yes/half/no from a numeric value vs a daily goal. */
+export function numericGoalStatus(
+  current: number,
+  goal: number,
+): HabitStatus | null {
+  if (current <= 0 || goal <= 0) return null;
+  if (current >= goal) return "yes";
+  if (current >= goal * 0.5) return "half";
   return "no";
 }
 
@@ -71,6 +106,13 @@ export function waterStatusFor(totalMl: number, goalMl: number): HabitStatus | n
 export function mealStatusFor(count: number): HabitStatus {
   if (count >= 3) return "yes";
   if (count >= 2) return "half";
+  return "no";
+}
+
+/** Snack rollup: 2 = yes, 1 = half, 0 = no. */
+export function snackStatusFor(count: number): HabitStatus {
+  if (count >= 2) return "yes";
+  if (count >= 1) return "half";
   return "no";
 }
 

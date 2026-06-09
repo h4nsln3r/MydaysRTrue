@@ -1,0 +1,227 @@
+@use "abstracts" as *;
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.sectionHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.h2 {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-cream;
+    margin: 0;
+}
+
+.sub {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.82rem;
+}
+
+.trackerList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.trackerItem {
+    display: flex;
+    flex-direction: column;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.trackerItemDragging {
+    opacity: 0.55;
+    border-color: $color-orange;
+}
+
+.trackerRow {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    gap: $space-3;
+    align-items: center;
+    padding: $space-3 $space-4;
+}
+
+.trackerRowWithGoal {
+    border-bottom: 1px solid $color-line;
+}
+
+.dragHandle {
+    width: 28px;
+    height: 36px;
+    border-radius: $radius-sm;
+    border: 1px solid transparent;
+    background: transparent;
+    color: $color-fog;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: grab;
+    touch-action: none;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-line;
+        background: $color-ink-elevated;
+    }
+
+    &:active:not(:disabled) {
+        cursor: grabbing;
+    }
+}
+
+.trackerIcon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.trackerMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.trackerLabel {
+    font-weight: 700;
+    color: $color-cream;
+    font-size: 0.95rem;
+}
+
+.trackerHint {
+    color: $color-fog;
+    font-size: 0.72rem;
+    font-family: $font-mono;
+}
+
+.toggle {
+    width: 44px;
+    height: 26px;
+    border-radius: $radius-pill;
+    background: $color-line;
+    border: 1px solid $color-line;
+    padding: 2px;
+    flex-shrink: 0;
+    transition: background 160ms $ease-out;
+
+    &:disabled {
+        opacity: 0.5;
+    }
+}
+
+.toggleOn {
+    background: $color-orange;
+    border-color: $color-orange;
+
+    .toggleKnob {
+        transform: translateX(18px);
+    }
+}
+
+.toggleKnob {
+    display: block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: $color-cream;
+    transition: transform 160ms $ease-out;
+}
+
+.goalAccordion {
+    display: flex;
+    flex-direction: column;
+}
+
+.goalTrigger {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-3;
+    width: 100%;
+    padding: $space-2 $space-4 $space-2 calc(28px + 36px + #{$space-3 * 2});
+    background: transparent;
+    border: none;
+    color: $color-cream-dim;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+        background: $color-ink-elevated;
+        color: $color-cream;
+    }
+}
+
+.goalTriggerLabel {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-family: $font-mono;
+}
+
+.goalTriggerValue {
+    font-family: $font-mono;
+    font-size: 0.82rem;
+    color: $color-orange-bright;
+    font-weight: 700;
+    text-align: right;
+}
+
+.goalChevron {
+    color: $color-fog;
+    transition: transform 180ms $ease-out;
+}
+
+.goalChevronOpen {
+    transform: rotate(180deg);
+}
+
+.goalPanel {
+    padding: 0 $space-4 $space-4 calc(28px + 36px + #{$space-3 * 2});
+}
+
+.goalPanelOpen {
+    padding-top: $space-1;
+}
+
+.error {
+    color: $color-danger;
+    font-size: 0.88rem;
+    background: rgba(255, 82, 71, 0.08);
+    border: 1px solid rgba(255, 82, 71, 0.35);
+    border-radius: $radius-md;
+    padding: 8px 12px;
+    margin: 0;
+}

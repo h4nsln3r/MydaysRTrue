@@ -10,6 +10,10 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: $space-3;
+
+    @media (min-width: $bp-sm) {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
 .summaryCard {
@@ -63,6 +67,10 @@
 
 .summaryFillTasks {
     background: linear-gradient(90deg, #5fb6ff, #9cd0ff);
+}
+
+.summaryFillCardio {
+    background: linear-gradient(90deg, #6ee7a3, #5fb6ff);
 }
 
 .section {
@@ -227,8 +235,15 @@
     border: 1px dashed $color-line;
 }
 
-.dayGym {
+.dayTraining {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cardioChip {
+    border-color: rgba(95, 182, 255, 0.35);
 }
 
 .gymList {

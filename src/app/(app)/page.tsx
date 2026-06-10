@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
+import { CardioDayCard } from "@/components/CardioDayCard/CardioDayCard";
 import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
 import { getDailySummary } from "@/lib/water.server";
 import {
@@ -14,6 +15,7 @@ import {
   getDailySnacks,
 } from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
+import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getCategories } from "@/lib/tasks.server";
 import { todayLocalISO } from "@/lib/date";
@@ -44,6 +46,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     snacks,
     intake,
     gymDay,
+    cardioDay,
     allCategories,
     dayPlan,
     activityLog,
@@ -54,6 +57,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     getDailySnacks(user.id, today),
     getDailyIntake(user.id, today),
     getGymSessionsForDate(user.id, today),
+    getCardioSessionsForDate(user.id, today),
     getCategories(user.id),
     getDayPlanSettings(user.id),
     getDailyActivityLog(user.id, today),
@@ -106,6 +110,14 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               weekStart={gymDay.weekStart}
               sessions={gymDay.sessions}
               title="Gym idag"
+            />
+          </section>
+
+          <section className={styles.section}>
+            <CardioDayCard
+              weekStart={cardioDay.weekStart}
+              sessions={cardioDay.sessions}
+              title="Cardio idag"
             />
           </section>
 

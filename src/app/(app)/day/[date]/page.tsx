@@ -6,6 +6,7 @@ import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { WaterLogItem } from "@/components/WaterLogItem/WaterLogItem";
+import { CardioDayCard } from "@/components/CardioDayCard/CardioDayCard";
 import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
 import { createClient } from "@/lib/supabase/server";
 import { getDailySummary } from "@/lib/water.server";
@@ -17,6 +18,7 @@ import {
   getDailySnacks,
 } from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
+import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getCategories } from "@/lib/tasks.server";
 import { parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
@@ -54,6 +56,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     snacks,
     intake,
     gymDay,
+    cardioDay,
     allCategories,
     dayPlan,
     activityLog,
@@ -64,6 +67,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getDailySnacks(user.id, date),
     getDailyIntake(user.id, date),
     getGymSessionsForDate(user.id, date),
+    getCardioSessionsForDate(user.id, date),
     getCategories(user.id),
     getDayPlanSettings(user.id),
     getDailyActivityLog(user.id, date),
@@ -95,6 +99,13 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
         <>
           <section className={styles.section}>
             <GymDayCard weekStart={gymDay.weekStart} sessions={gymDay.sessions} />
+          </section>
+
+          <section className={styles.section}>
+            <CardioDayCard
+              weekStart={cardioDay.weekStart}
+              sessions={cardioDay.sessions}
+            />
           </section>
 
           <section className={styles.section}>

@@ -1,6 +1,7 @@
 import type { HTMLAttributes } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card/Card";
+import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
 import {
   formatDayShort,
@@ -18,6 +19,7 @@ interface Props {
   week: WeekSummary;
   habitWeek: WeekHabitSummary;
   gymSessions: GymSessionForWeek[];
+  cardioSessions: CardioSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
 }
 
@@ -39,9 +41,11 @@ export function WeekProgressBoard({
   week,
   habitWeek,
   gymSessions,
+  cardioSessions,
   tasks,
 }: Props) {
   const gymDone = gymSessions.filter((s) => s.placement.doneAt).length;
+  const cardioDone = cardioSessions.filter((s) => s.placement.doneAt).length;
   const placedTasks = tasks.filter((t) => t.placement);
   const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
@@ -51,6 +55,13 @@ export function WeekProgressBoard({
     const list = gymByWeekday.get(s.placement.weekday) ?? [];
     list.push(s);
     gymByWeekday.set(s.placement.weekday, list);
+  }
+
+  const cardioByWeekday = new Map<number, CardioSessionForWeek[]>();
+  for (const s of cardioSessions) {
+    const list = cardioByWeekday.get(s.placement.weekday) ?? [];
+    list.push(s);
+    cardioByWeekday.set(s.placement.weekday, list);
   }
 
   const tasksByWeekday = new Map<number, WeeklyTaskForWeek[]>();
@@ -78,6 +89,28 @@ export function WeekProgressBoard({
                 className={styles.summaryFill}
                 style={{
                   width: `${Math.round((gymDone / gymSessions.length) * 100)}%`,
+                }}
+              />
+            </div>
+          ) : null}
+        </Card>
+
+        <Card className={styles.summaryCard}>
+          <span className={styles.summaryLabel}>Cardio</span>
+          <span className={styles.summaryValue}>
+            <span className={styles.summaryBig}>{cardioDone}</span>
+            <span className={styles.summarySlash}>
+              / {cardioSessions.length}
+            </span>
+          </span>
+          {cardioSessions.length > 0 ? (
+            <div className={styles.summaryBar} aria-hidden>
+              <div
+                className={[styles.summaryFill, styles.summaryFillCardio]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={{
+                  width: `${Math.round((cardioDone / cardioSessions.length) * 100)}%`,
                 }}
               />
             </div>
@@ -155,6 +188,7 @@ export function WeekProgressBoard({
           {week.days.map((d) => {
             const weekday = isoWeekdayFromLocalISO(d.date);
             const dayGym = gymByWeekday.get(weekday) ?? [];
+            const dayCardio = cardioByWeekday.get(weekday) ?? [];
             const dayTasks = tasksByWeekday.get(weekday) ?? [];
             const dayTasksDone = dayTasks.filter((t) => t.placement?.doneAt)
               .length;
@@ -190,33 +224,65 @@ export function WeekProgressBoard({
 
                   <WaterDayIcon status={waterStatus} />
 
-                  <div className={styles.dayGym}>
-                    {dayGym.length === 0 ? (
-                      <span className={styles.dayMuted}>—</span>
-                    ) : (
-                      <ul className={styles.gymList} aria-label="Gympass">
-                        {dayGym.map((s) => (
-                          <li
-                            key={s.id}
-                            className={[
-                              styles.gymChip,
-                              s.placement.doneAt ? styles.gymChipDone : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            title={s.label}
-                          >
-                            <span aria-hidden>{s.icon}</span>
-                            {s.placement.doneAt ? (
-                              <span className={styles.gymCheck} aria-hidden>
-                                ✓
-                              </span>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                <div className={styles.dayTraining}>
+                  {dayGym.length === 0 && dayCardio.length === 0 ? (
+                    <span className={styles.dayMuted}>—</span>
+                  ) : (
+                    <>
+                      {dayGym.length > 0 ? (
+                        <ul className={styles.gymList} aria-label="Gympass">
+                          {dayGym.map((s) => (
+                            <li
+                              key={s.id}
+                              className={[
+                                styles.gymChip,
+                                s.placement.doneAt ? styles.gymChipDone : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                              title={s.label}
+                            >
+                              <span aria-hidden>{s.icon}</span>
+                              {s.placement.doneAt ? (
+                                <span className={styles.gymCheck} aria-hidden>
+                                  ✓
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {dayCardio.length > 0 ? (
+                        <ul className={styles.gymList} aria-label="Cardiopass">
+                          {dayCardio.map((s) => (
+                            <li
+                              key={s.id}
+                              className={[
+                                styles.gymChip,
+                                styles.cardioChip,
+                                s.placement.doneAt ? styles.gymChipDone : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                              title={
+                                s.placement.note
+                                  ? `${s.label}: ${s.placement.note}`
+                                  : s.label
+                              }
+                            >
+                              <span aria-hidden>{s.icon}</span>
+                              {s.placement.doneAt ? (
+                                <span className={styles.gymCheck} aria-hidden>
+                                  ✓
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </>
+                  )}
+                </div>
 
                   <div className={styles.dayTasks}>
                     {dayTasks.length === 0 ? (

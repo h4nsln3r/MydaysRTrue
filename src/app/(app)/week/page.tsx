@@ -5,7 +5,9 @@ import { getWeekHabitSummary } from "@/lib/habits.server";
 import { getWeeklySummary } from "@/lib/water.server";
 import { getCategories, getWeekSummary } from "@/lib/tasks.server";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
+import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getGymWeekSummary } from "@/lib/gym.server";
+import { CardioWeekBoard } from "./CardioWeekBoard";
 import { GymWeekBoard } from "./GymWeekBoard";
 import {
   addDaysISO,
@@ -52,12 +54,13 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
   const start = requested > currentWeekStart ? currentWeekStart : requested;
 
-  const [week, habitWeek, weeklyTasks, gymWeek, allCategories] =
+  const [week, habitWeek, weeklyTasks, gymWeek, cardioWeek, allCategories] =
     await Promise.all([
       getWeeklySummary(user.id, start),
       getWeekHabitSummary(user.id, start),
       getWeekSummary(user.id, start),
       getGymWeekSummary(user.id, start),
+      getCardioWeekSummary(user.id, start),
       getCategories(user.id),
     ]);
   const prevStart = addDaysISO(start, -7);
@@ -105,6 +108,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           week={week}
           habitWeek={habitWeek}
           gymSessions={gymWeek.sessions}
+          cardioSessions={cardioWeek.sessions}
           tasks={weeklyTasks.tasks}
         />
       ) : (
@@ -117,6 +121,14 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
               <span className={styles.muted}>dra pass mellan dagar</span>
             </header>
             <GymWeekBoard weekStart={start} sessions={gymWeek.sessions} />
+          </section>
+
+          <section className={styles.section}>
+            <header className={styles.sectionHeader}>
+              <h2 className={styles.h2}>Cardio</h2>
+              <span className={styles.muted}>löpning, cykling, simning</span>
+            </header>
+            <CardioWeekBoard weekStart={start} sessions={cardioWeek.sessions} />
           </section>
 
           <section className={styles.section}>

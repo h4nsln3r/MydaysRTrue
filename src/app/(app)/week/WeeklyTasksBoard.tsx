@@ -1,7 +1,21 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import {
   placeWeeklyTaskAction,
   toggleWeeklyTaskDoneAction,
@@ -23,45 +37,102 @@ interface Props {
   categories: TaskCategory[];
 }
 
+const BACKLOG_DROP_ID = "task-backlog";
+
+function dayDropId(weekday: Weekday): string {
+  return `task-day-${weekday}`;
+}
+
+function weekdayFromDropId(id: string): Weekday | null {
+  const m = /^task-day-(\d)$/.exec(id);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return n >= 1 && n <= 7 ? (n as Weekday) : null;
+}
+
 export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [localTasks, setLocalTasks] = useState(tasks);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocalTasks(tasks);
+  }, [tasks]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 180, tolerance: 6 },
+    }),
+  );
 
   const catById = new Map(categories.map((c) => [c.id, c]));
 
-  // Group tasks: backlog (no placement) + Mon..Sun
-  const backlog: WeeklyTaskForWeek[] = [];
+  const backlog = localTasks.filter((t) => !t.placement);
   const byDay = new Map<Weekday, WeeklyTaskForWeek[]>(
     WEEKDAYS.map((d) => [d, [] as WeeklyTaskForWeek[]]),
   );
-  for (const t of tasks) {
-    if (!t.placement) backlog.push(t);
-    else byDay.get(t.placement.weekday)?.push(t);
+  for (const t of localTasks) {
+    if (t.placement) byDay.get(t.placement.weekday)?.push(t);
   }
 
+  const draggingTask = draggingId
+    ? localTasks.find((t) => t.id === draggingId)
+    : null;
+
   const place = (taskId: string, weekday: Weekday) => {
+    const task = localTasks.find((t) => t.id === taskId);
+    if (!task || task.placement?.weekday === weekday) return;
+
     setError(null);
+    setLocalTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              placement: {
+                id: t.placement?.id ?? "optimistic",
+                taskId,
+                weekStart,
+                weekday,
+                doneAt: t.placement?.doneAt ?? null,
+                note: t.placement?.note ?? null,
+              },
+            }
+          : t,
+      ),
+    );
     setPendingId(taskId);
     startTransition(async () => {
       const res = await placeWeeklyTaskAction({ taskId, weekStart, weekday });
-      if (!res.ok) setError(res.error ?? "Could not place task.");
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte placera uppgiften.");
+        setLocalTasks(tasks);
+      }
       setPendingId(null);
-      setExpandedId(null);
       router.refresh();
     });
   };
 
   const unplace = (taskId: string) => {
+    const task = localTasks.find((t) => t.id === taskId);
+    if (!task?.placement) return;
+
     setError(null);
+    setLocalTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, placement: null } : t)),
+    );
     setPendingId(taskId);
     startTransition(async () => {
       const res = await unplaceWeeklyTaskAction({ taskId, weekStart });
-      if (!res.ok) setError(res.error ?? "Could not move task.");
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte flytta tillbaka.");
+        setLocalTasks(tasks);
+      }
       setPendingId(null);
-      setExpandedId(null);
       router.refresh();
     });
   };
@@ -77,254 +148,342 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
         weekStart,
         done: next,
       });
-      if (!res.ok) setError(res.error ?? "Could not update task.");
+      if (!res.ok) setError(res.error ?? "Kunde inte uppdatera.");
       setPendingId(null);
       router.refresh();
     });
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setDraggingId(String(event.active.id));
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setDraggingId(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const taskId = String(active.id);
+    const overId = String(over.id);
+
+    if (overId === BACKLOG_DROP_ID) {
+      unplace(taskId);
+      return;
+    }
+
+    const weekday = weekdayFromDropId(overId);
+    if (weekday) place(taskId, weekday);
+  };
+
   if (tasks.length === 0) {
     return (
       <p className={styles.empty}>
-        No weekly tasks yet. Add some from your{" "}
+        Inga veckouppgifter ännu. Lägg till under{" "}
         <a href="/profile" className={styles.link}>
-          profile
-        </a>
-        .
+          profil
+        </a>{" "}
+        eller med panelen ovan.
       </p>
     );
   }
 
   return (
-    <div className={styles.board}>
-      {error ? <p className={styles.error}>{error}</p> : null}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className={styles.layout}>
+        <aside className={styles.backlogPanel}>
+          <BacklogDropZone count={backlog.length}>
+            <p className={styles.dragHint}>
+              Dra till en dag · släpp här igen för att flytta tillbaka
+            </p>
+            {backlog.length === 0 ? (
+              <p className={styles.dayEmpty}>Alla placerade den här veckan.</p>
+            ) : (
+              <ul className={styles.taskList}>
+                {backlog.map((t) => (
+                  <DraggableTaskRow
+                    key={t.id}
+                    task={t}
+                    cat={
+                      t.categoryId ? catById.get(t.categoryId) ?? undefined : undefined
+                    }
+                    pending={pending}
+                    busy={pendingId === t.id}
+                    dragging={draggingId === t.id}
+                    onToggleDone={toggleDone}
+                    showCheck={false}
+                  />
+                ))}
+              </ul>
+            )}
+          </BacklogDropZone>
+        </aside>
 
-      <DaySection
-        label="Backlog"
-        sub="not yet placed this week"
-        tasks={backlog}
-        catById={catById}
-        expandedId={expandedId}
-        setExpandedId={setExpandedId}
-        pending={pending}
-        pendingId={pendingId}
-        currentWeekday={null}
-        onPlace={place}
-        onUnplace={unplace}
-        onToggleDone={toggleDone}
-      />
+        <div className={styles.weekPanel}>
+          {error ? <p className={styles.error}>{error}</p> : null}
 
-      {WEEKDAYS.map((d) => (
-        <DaySection
-          key={d}
-          label={WEEKDAY_LONG[d]}
-          sub={WEEKDAY_SHORT[d]}
-          tasks={byDay.get(d) ?? []}
-          catById={catById}
-          expandedId={expandedId}
-          setExpandedId={setExpandedId}
-          pending={pending}
-          pendingId={pendingId}
-          currentWeekday={d}
-          onPlace={place}
-          onUnplace={unplace}
-          onToggleDone={toggleDone}
-        />
-      ))}
-    </div>
+          {WEEKDAYS.map((d) => {
+            const dayTasks = byDay.get(d) ?? [];
+            const doneCount = dayTasks.filter((t) => t.placement?.doneAt).length;
+            return (
+              <DayDropZone key={d} weekday={d}>
+                <header className={styles.dayHeader}>
+                  <div>
+                    <h3 className={styles.dayTitle}>{WEEKDAY_LONG[d]}</h3>
+                    <p className={styles.daySub}>{WEEKDAY_SHORT[d]}</p>
+                  </div>
+                  <span className={styles.dayCount}>
+                    {dayTasks.length > 0
+                      ? `${doneCount}/${dayTasks.length}`
+                      : "—"}
+                  </span>
+                </header>
+
+                {dayTasks.length === 0 ? (
+                  <p className={styles.dayEmpty}>Släpp en uppgift här.</p>
+                ) : (
+                  <ul className={styles.taskList}>
+                    {dayTasks.map((t) => (
+                      <DraggableTaskRow
+                        key={t.id}
+                        task={t}
+                        cat={
+                      t.categoryId ? catById.get(t.categoryId) ?? undefined : undefined
+                    }
+                        pending={pending}
+                        busy={pendingId === t.id}
+                        dragging={draggingId === t.id}
+                        onToggleDone={toggleDone}
+                        showCheck
+                      />
+                    ))}
+                  </ul>
+                )}
+              </DayDropZone>
+            );
+          })}
+        </div>
+      </div>
+
+      <DragOverlay dropAnimation={null}>
+        {draggingTask ? (
+          <TaskCardPreview
+            task={draggingTask}
+            cat={
+              draggingTask.categoryId
+                ? catById.get(draggingTask.categoryId) ?? undefined
+                : undefined
+            }
+          />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
-interface DaySectionProps {
-  label: string;
-  sub: string;
-  tasks: WeeklyTaskForWeek[];
-  catById: Map<string, TaskCategory>;
-  expandedId: string | null;
-  setExpandedId: (id: string | null) => void;
-  pending: boolean;
-  pendingId: string | null;
-  /** null = backlog */
-  currentWeekday: Weekday | null;
-  onPlace: (taskId: string, weekday: Weekday) => void;
-  onUnplace: (taskId: string) => void;
-  onToggleDone: (task: WeeklyTaskForWeek) => void;
-}
-
-function DaySection({
-  label,
-  sub,
-  tasks,
-  catById,
-  expandedId,
-  setExpandedId,
-  pending,
-  pendingId,
-  currentWeekday,
-  onPlace,
-  onUnplace,
-  onToggleDone,
-}: DaySectionProps) {
-  const isBacklog = currentWeekday === null;
-  const doneCount = tasks.filter((t) => t.placement?.doneAt).length;
+function BacklogDropZone({
+  count,
+  children,
+}: {
+  count: number;
+  children: React.ReactNode;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: BACKLOG_DROP_ID });
 
   return (
     <section
+      ref={setNodeRef}
       className={[
-        styles.daySection,
-        isBacklog ? styles.daySectionBacklog : "",
+        styles.backlogSection,
+        isOver ? styles.dropZoneOver : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
       <header className={styles.dayHeader}>
         <div>
-          <h3 className={styles.dayTitle}>{label}</h3>
-          <p className={styles.daySub}>{sub}</p>
+          <h3 className={styles.dayTitle}>Att placera</h3>
+          <p className={styles.daySub}>veckouppgifter</p>
         </div>
-        <span className={styles.dayCount}>
-          {isBacklog
-            ? `${tasks.length}`
-            : `${doneCount}/${tasks.length || 0}`}
-        </span>
+        <span className={styles.dayCount}>{count}</span>
       </header>
-
-      {tasks.length === 0 ? (
-        <p className={styles.dayEmpty}>
-          {isBacklog ? "All placed — nice." : "Nothing here."}
-        </p>
-      ) : (
-        <ul className={styles.taskList}>
-          {tasks.map((t) => {
-            const cat = t.categoryId ? catById.get(t.categoryId) : null;
-            const done = Boolean(t.placement?.doneAt);
-            const expanded = expandedId === t.id;
-            const busy = pendingId === t.id;
-            return (
-              <li
-                key={t.id}
-                className={[
-                  styles.task,
-                  done ? styles.taskDone : "",
-                  busy ? styles.taskBusy : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                <button
-                  type="button"
-                  className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
-                    .filter(Boolean)
-                    .join(" ")}
-                  aria-label={done ? "Mark as not done" : "Mark as done"}
-                  aria-pressed={done}
-                  disabled={pending || isBacklog}
-                  onClick={() => onToggleDone(t)}
-                  title={
-                    isBacklog
-                      ? "Place on a day before checking off"
-                      : done
-                        ? "Mark as not done"
-                        : "Mark as done"
-                  }
-                >
-                  {done ? (
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden
-                    >
-                      <path
-                        d="M5 12.5 10 17.5 19 7.5"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  ) : (
-                    <span aria-hidden />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  className={styles.taskBody}
-                  onClick={() => setExpandedId(expanded ? null : t.id)}
-                  aria-expanded={expanded}
-                >
-                  <span
-                    className={styles.taskIcon}
-                    aria-hidden
-                    style={{ borderColor: t.accent }}
-                  >
-                    {t.icon}
-                  </span>
-                  <span className={styles.taskMeta}>
-                    <span className={styles.taskTitle}>{t.title}</span>
-                    {cat ? (
-                      <span
-                        className={styles.taskCategory}
-                        style={{ color: cat.accent }}
-                      >
-                        {cat.icon} {cat.name}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span
-                    className={[styles.chevron, expanded ? styles.chevronUp : ""]
-                      .filter(Boolean)
-                      .join(" ")}
-                    aria-hidden
-                  >
-                    ▾
-                  </span>
-                </button>
-
-                {expanded ? (
-                  <div className={styles.taskActions}>
-                    <div className={styles.weekdayRow} role="radiogroup">
-                      {WEEKDAYS.map((d) => {
-                        const active = currentWeekday === d;
-                        return (
-                          <button
-                            key={d}
-                            type="button"
-                            role="radio"
-                            aria-checked={active}
-                            className={[
-                              styles.weekdayBtn,
-                              active ? styles.weekdayBtnActive : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            onClick={() => onPlace(t.id, d)}
-                            disabled={pending}
-                          >
-                            {WEEKDAY_SHORT[d]}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {!isBacklog ? (
-                      <button
-                        type="button"
-                        className={styles.backlogBtn}
-                        onClick={() => onUnplace(t.id)}
-                        disabled={pending}
-                      >
-                        ↺ Back to backlog
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {children}
     </section>
+  );
+}
+
+function DayDropZone({
+  weekday,
+  children,
+}: {
+  weekday: Weekday;
+  children: React.ReactNode;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: dayDropId(weekday) });
+
+  return (
+    <section
+      ref={setNodeRef}
+      className={[
+        styles.daySection,
+        isOver ? styles.dropZoneOver : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {children}
+    </section>
+  );
+}
+
+function DraggableTaskRow({
+  task,
+  cat,
+  pending,
+  busy,
+  dragging,
+  onToggleDone,
+  showCheck,
+}: {
+  task: WeeklyTaskForWeek;
+  cat?: TaskCategory;
+  pending: boolean;
+  busy: boolean;
+  dragging: boolean;
+  onToggleDone: (task: WeeklyTaskForWeek) => void;
+  showCheck: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: task.id,
+    disabled: pending,
+  });
+
+  const style = transform
+    ? { transform: CSS.Translate.toString(transform) }
+    : undefined;
+
+  const done = Boolean(task.placement?.doneAt);
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={[
+        styles.task,
+        done ? styles.taskDone : "",
+        busy ? styles.taskBusy : "",
+        dragging ? styles.taskDragging : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {showCheck ? (
+        <button
+          type="button"
+          className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
+            .filter(Boolean)
+            .join(" ")}
+          aria-label={done ? "Markera ej klar" : "Markera klar"}
+          aria-pressed={done}
+          disabled={pending}
+          onClick={() => onToggleDone(task)}
+        >
+          {done ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M5 12.5 10 17.5 19 7.5"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <span aria-hidden />
+          )}
+        </button>
+      ) : (
+        <span className={styles.checkPlaceholder} aria-hidden />
+      )}
+
+      <button
+        type="button"
+        className={styles.dragHandle}
+        aria-label={`Dra ${task.title}`}
+        disabled={pending}
+        {...attributes}
+        {...listeners}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <circle cx="9" cy="7" r="1.5" fill="currentColor" />
+          <circle cx="15" cy="7" r="1.5" fill="currentColor" />
+          <circle cx="9" cy="12" r="1.5" fill="currentColor" />
+          <circle cx="15" cy="12" r="1.5" fill="currentColor" />
+          <circle cx="9" cy="17" r="1.5" fill="currentColor" />
+          <circle cx="15" cy="17" r="1.5" fill="currentColor" />
+        </svg>
+      </button>
+
+      <div className={styles.taskBody}>
+        <span
+          className={styles.taskIcon}
+          aria-hidden
+          style={{ borderColor: task.accent }}
+        >
+          {task.icon}
+        </span>
+        <span className={styles.taskMeta}>
+          <span className={styles.taskTitle}>{task.title}</span>
+          {cat ? (
+            <span className={styles.taskCategory} style={{ color: cat.accent }}>
+              {cat.icon} {cat.name}
+            </span>
+          ) : null}
+        </span>
+      </div>
+    </li>
+  );
+}
+
+function TaskCardPreview({
+  task,
+  cat,
+}: {
+  task: WeeklyTaskForWeek;
+  cat?: TaskCategory;
+}) {
+  return (
+    <div
+      className={[
+        styles.task,
+        styles.taskPreview,
+        task.placement?.doneAt ? styles.taskDone : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span className={styles.checkPlaceholder} aria-hidden />
+      <div className={styles.taskBody}>
+        <span
+          className={styles.taskIcon}
+          aria-hidden
+          style={{ borderColor: task.accent }}
+        >
+          {task.icon}
+        </span>
+        <span className={styles.taskMeta}>
+          <span className={styles.taskTitle}>{task.title}</span>
+          {cat ? (
+            <span className={styles.taskCategory} style={{ color: cat.accent }}>
+              {cat.icon} {cat.name}
+            </span>
+          ) : null}
+        </span>
+      </div>
+    </div>
   );
 }

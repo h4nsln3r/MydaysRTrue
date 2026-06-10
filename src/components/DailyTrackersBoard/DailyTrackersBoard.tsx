@@ -1,12 +1,14 @@
 import { DailyActivityCard } from "@/components/DailyActivityCard/DailyActivityCard";
-import { MealsCard } from "@/components/MealsCard/MealsCard";
-import { SnacksCard } from "@/components/SnacksCard/SnacksCard";
+import { NutritionBoard } from "@/components/NutritionBoard/NutritionBoard";
 import { TriStateHabitRow } from "@/components/TriStateHabitRow/TriStateHabitRow";
 import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
-import type { DailyHabit, DailySnacks, MealEntry, MealKey } from "@/lib/habits";
+import type { DailyHabit, DailySnacks, HabitKind, MealEntry, MealKey } from "@/lib/habits";
+import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { WaterSummary } from "@/lib/water";
 import styles from "./DailyTrackersBoard.module.scss";
+
+const NUTRITION_KINDS = new Set<HabitKind>(["meal", "snack", "intake"]);
 
 interface Props {
   date: string;
@@ -15,6 +17,7 @@ interface Props {
   summary: WaterSummary;
   meals: Record<MealKey, MealEntry | null>;
   snacks: DailySnacks;
+  intake: Record<IntakeKind, IntakeEntry | null>;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
   waterPlusHref?: string;
@@ -27,6 +30,7 @@ export function DailyTrackersBoard({
   summary,
   meals,
   snacks,
+  intake,
   activityLog,
   goals,
   waterPlusHref,
@@ -40,9 +44,31 @@ export function DailyTrackersBoard({
     );
   }
 
+  const showMeals = habits.some((h) => h.kind === "meal");
+  const showSnacks = habits.some((h) => h.kind === "snack");
+  const showIntake = habits.some((h) => h.kind === "intake");
+  let nutritionRendered = false;
+
   return (
     <div className={styles.stack}>
       {habits.map((habit) => {
+        if (NUTRITION_KINDS.has(habit.kind)) {
+          if (nutritionRendered) return null;
+          nutritionRendered = true;
+          return (
+            <NutritionBoard
+              key="nutrition"
+              date={date}
+              showMeals={showMeals}
+              showSnacks={showSnacks}
+              showIntake={showIntake}
+              meals={meals}
+              snacks={snacks}
+              intake={intake}
+            />
+          );
+        }
+
         switch (habit.kind) {
           case "water":
             return (
@@ -53,10 +79,6 @@ export function DailyTrackersBoard({
                 plusLabel={waterPlusLabel}
               />
             );
-          case "meal":
-            return <MealsCard key={habit.id} date={date} meals={meals} />;
-          case "snack":
-            return <SnacksCard key={habit.id} date={date} snacks={snacks} />;
           case "steps":
             return (
               <DailyActivityCard

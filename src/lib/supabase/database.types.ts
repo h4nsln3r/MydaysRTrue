@@ -42,6 +42,7 @@ export interface Database {
           user_id: string;
           local_date: string;
           slot: number;
+          description: string;
           done_at: string;
           created_at: string;
         };
@@ -49,6 +50,7 @@ export interface Database {
           user_id: string;
           local_date: string;
           slot: number;
+          description?: string;
           done_at?: string;
           created_at?: string;
         };
@@ -56,6 +58,7 @@ export interface Database {
           user_id?: string;
           local_date?: string;
           slot?: number;
+          description?: string;
           done_at?: string;
           created_at?: string;
         };
@@ -129,6 +132,7 @@ export interface Database {
             | "water"
             | "meal"
             | "snack"
+            | "intake"
             | "steps"
             | "activity_hours";
           icon: string;
@@ -150,6 +154,7 @@ export interface Database {
             | "water"
             | "meal"
             | "snack"
+            | "intake"
             | "steps"
             | "activity_hours";
           icon?: string;
@@ -171,6 +176,7 @@ export interface Database {
             | "water"
             | "meal"
             | "snack"
+            | "intake"
             | "steps"
             | "activity_hours";
           icon?: string;

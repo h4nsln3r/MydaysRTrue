@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getWeekHabitSummary } from "@/lib/habits.server";
 import { getWeeklySummary } from "@/lib/water.server";
 import { getCategories, getWeekSummary } from "@/lib/tasks.server";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
@@ -51,12 +52,14 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
   const start = requested > currentWeekStart ? currentWeekStart : requested;
 
-  const [week, weeklyTasks, gymWeek, allCategories] = await Promise.all([
-    getWeeklySummary(user.id, start),
-    getWeekSummary(user.id, start),
-    getGymWeekSummary(user.id, start),
-    getCategories(user.id),
-  ]);
+  const [week, habitWeek, weeklyTasks, gymWeek, allCategories] =
+    await Promise.all([
+      getWeeklySummary(user.id, start),
+      getWeekHabitSummary(user.id, start),
+      getWeekSummary(user.id, start),
+      getGymWeekSummary(user.id, start),
+      getCategories(user.id),
+    ]);
   const prevStart = addDaysISO(start, -7);
   const nextStart = addDaysISO(start, 7);
   const canGoForward = start < currentWeekStart;
@@ -100,6 +103,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
       {view === "progress" ? (
         <WeekProgressBoard
           week={week}
+          habitWeek={habitWeek}
           gymSessions={gymWeek.sessions}
           tasks={weeklyTasks.tasks}
         />

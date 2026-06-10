@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { todayLocalISO } from "@/lib/date";
+import { addDaysISO, isoWeekdayFromLocalISO, todayLocalISO } from "@/lib/date";
 import {
   type DailyHabit,
   type DailySnacks,
@@ -9,11 +9,13 @@ import {
   type HabitStatus,
   type MealEntry,
   type MealKey,
+  type SnackSlot,
   mealStatusFor,
   numericGoalStatus,
   snackStatusFor,
   waterStatusFor,
 } from "@/lib/habits";
+import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
 
 interface HabitRow {
   id: string;
@@ -98,15 +100,22 @@ export async function getDailySnacks(
   const supabase = await createClient();
   const { data } = await supabase
     .from("snack_checks")
-    .select("slot")
+    .select("slot, description")
     .eq("user_id", userId)
     .eq("local_date", localDate);
 
-  const slots = new Set((data ?? []).map((r) => r.slot));
-  return {
-    slot1: slots.has(1),
-    slot2: slots.has(2),
-  };
+  const out: DailySnacks = { 1: null, 2: null };
+  for (const r of data ?? []) {
+    const slot = r.slot as SnackSlot;
+    if (slot === 1 || slot === 2) {
+      out[slot] = {
+        id: `${localDate}-${slot}`,
+        slot,
+        description: r.description ?? "",
+      };
+    }
+  }
+  return out;
 }
 
 export async function getDailyActivityLog(
@@ -158,7 +167,7 @@ export async function getDailyHabits(
   const today = todayLocalISO();
   const isFuture = localDate > today;
 
-  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes] =
+  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes, intakeRes] =
     await Promise.all([
     supabase
       .from("habits")
@@ -202,6 +211,11 @@ export async function getDailyHabits(
       .select("slot")
       .eq("user_id", userId)
       .eq("local_date", localDate),
+    supabase
+      .from("intake_entries")
+      .select("kind")
+      .eq("user_id", userId)
+      .eq("local_date", localDate),
   ]);
 
   const habits = habitsRes.data ?? [];
@@ -214,6 +228,11 @@ export async function getDailyHabits(
   const waterMl = (waterRes.data ?? []).reduce((acc, l) => acc + l.amount_ml, 0);
   const mealsLogged = (mealsRes.data ?? []).length;
   const snacksDone = (snacksRes.data ?? []).length;
+  const intakeKinds = applicableIntakeKinds(localDate);
+  const intakeTotal = intakeKinds.length;
+  const intakeLogged = (intakeRes.data ?? []).filter((r) =>
+    intakeKinds.includes(r.kind),
+  ).length;
   const steps = activityRes.data?.steps ?? 0;
   const activityHours =
     activityRes.data?.activity_hours != null
@@ -252,6 +271,15 @@ export async function getDailyHabits(
         status: isFuture ? null : snackStatusFor(snacksDone),
         note: null,
         snacksDone,
+      };
+    }
+    if (habit.kind === "intake") {
+      return {
+        ...habit,
+        status: isFuture ? null : intakeStatusFor(intakeLogged, intakeTotal),
+        note: null,
+        intakeLogged,
+        intakeTotal,
       };
     }
     if (habit.kind === "steps") {
@@ -385,7 +413,7 @@ export async function getMonthSummary(
   const supabase = await createClient();
   const { startISO, endISO, daysInMonth } = monthBounds(year, month);
 
-  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes] =
+  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes, intakeRes] =
     await Promise.all([
     supabase
       .from("habits")
@@ -433,6 +461,12 @@ export async function getMonthSummary(
       .eq("user_id", userId)
       .gte("local_date", startISO)
       .lte("local_date", endISO),
+    supabase
+      .from("intake_entries")
+      .select("local_date, kind")
+      .eq("user_id", userId)
+      .gte("local_date", startISO)
+      .lte("local_date", endISO),
   ]);
 
   const habits = (habitsRes.data ?? []).map(rowToHabit);
@@ -474,6 +508,13 @@ export async function getMonthSummary(
     snacksByDate.set(s.local_date, (snacksByDate.get(s.local_date) ?? 0) + 1);
   }
 
+  const intakeByDate = new Map<string, Set<string>>();
+  for (const i of intakeRes.data ?? []) {
+    const set = intakeByDate.get(i.local_date) ?? new Set<string>();
+    set.add(i.kind);
+    intakeByDate.set(i.local_date, set);
+  }
+
   const today = todayLocalISO();
   const days: MonthDay[] = [];
   const yesByHabit: Record<string, number> = Object.fromEntries(
@@ -498,6 +539,12 @@ export async function getMonthSummary(
           status = mealStatusFor(mealsByDate.get(date) ?? 0);
         } else if (h.kind === "snack") {
           status = snackStatusFor(snacksByDate.get(date) ?? 0);
+        } else if (h.kind === "intake") {
+          const kinds = applicableIntakeKinds(date);
+          const applicableLogged = kinds.filter((k) =>
+            intakeByDate.get(date)?.has(k),
+          ).length;
+          status = intakeStatusFor(applicableLogged, kinds.length);
         } else if (h.kind === "steps") {
           status = numericGoalStatus(stepsByDate.get(date) ?? 0, stepsGoal);
         } else if (h.kind === "activity_hours") {
@@ -532,6 +579,202 @@ export async function getMonthSummary(
     days,
     yesByHabit,
   };
+}
+
+// ============================================================================
+// Week habit aggregation (progress view)
+// ============================================================================
+
+/** Habit keys shown in the week "Hur det går" progress board. */
+export const WEEK_PROGRESS_HABIT_KEYS = [
+  "meals",
+  "intake",
+  "steps",
+  "activity_hours",
+  "smoke_free",
+  "sugar_free",
+] as const;
+
+export interface WeekHabitDay {
+  date: string;
+  isFuture: boolean;
+  isToday: boolean;
+  weekday: number;
+  statuses: Record<string, HabitStatus | null>;
+}
+
+export interface WeekHabitSummary {
+  weekStart: string;
+  weekEnd: string;
+  habits: Habit[];
+  days: WeekHabitDay[];
+  yesByHabit: Record<string, number>;
+}
+
+function filterWeekProgressHabits(habits: Habit[]): Habit[] {
+  const keys = new Set<string>(WEEK_PROGRESS_HABIT_KEYS);
+  return habits.filter((h) => keys.has(h.key));
+}
+
+/** Per-day habit status for the week progress board (Mon–Sun). */
+export async function getWeekHabitSummary(
+  userId: string,
+  weekStart: string,
+): Promise<WeekHabitSummary> {
+  const supabase = await createClient();
+  const weekEnd = addDaysISO(weekStart, 6);
+
+  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes, intakeRes] =
+    await Promise.all([
+      supabase
+        .from("habits")
+        .select(
+          "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
+        )
+        .eq("user_id", userId)
+        .is("archived_at", null)
+        .eq("enabled", true)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("habit_checks")
+        .select("habit_id, local_date, status")
+        .eq("user_id", userId)
+        .gte("local_date", weekStart)
+        .lte("local_date", weekEnd),
+      supabase
+        .from("water_logs")
+        .select("amount_ml, local_date")
+        .eq("user_id", userId)
+        .gte("local_date", weekStart)
+        .lte("local_date", weekEnd),
+      supabase
+        .from("profiles")
+        .select(
+          "daily_water_goal_ml, daily_steps_goal, daily_activity_hours_goal",
+        )
+        .eq("id", userId)
+        .maybeSingle(),
+      supabase
+        .from("meal_entries")
+        .select("local_date")
+        .eq("user_id", userId)
+        .gte("local_date", weekStart)
+        .lte("local_date", weekEnd),
+      supabase
+        .from("daily_activity_logs")
+        .select("local_date, steps, activity_hours")
+        .eq("user_id", userId)
+        .gte("local_date", weekStart)
+        .lte("local_date", weekEnd),
+      supabase
+        .from("snack_checks")
+        .select("local_date, slot")
+        .eq("user_id", userId)
+        .gte("local_date", weekStart)
+        .lte("local_date", weekEnd),
+      supabase
+        .from("intake_entries")
+        .select("local_date, kind")
+        .eq("user_id", userId)
+        .gte("local_date", weekStart)
+        .lte("local_date", weekEnd),
+    ]);
+
+  const allHabits = (habitsRes.data ?? []).map(rowToHabit);
+  const habits = filterWeekProgressHabits(allHabits);
+  const goalMl = profileRes.data?.daily_water_goal_ml ?? 2500;
+  const stepsGoal = profileRes.data?.daily_steps_goal ?? 8000;
+  const activityHoursGoal = Number(
+    profileRes.data?.daily_activity_hours_goal ?? 12,
+  );
+
+  const checkMap = new Map<string, HabitStatus>();
+  for (const c of checksRes.data ?? []) {
+    checkMap.set(`${c.habit_id}|${c.local_date}`, c.status);
+  }
+
+  const waterByDate = new Map<string, number>();
+  for (const w of waterRes.data ?? []) {
+    waterByDate.set(w.local_date, (waterByDate.get(w.local_date) ?? 0) + w.amount_ml);
+  }
+
+  const mealsByDate = new Map<string, number>();
+  for (const m of mealsRes.data ?? []) {
+    mealsByDate.set(m.local_date, (mealsByDate.get(m.local_date) ?? 0) + 1);
+  }
+
+  const stepsByDate = new Map<string, number>();
+  const activityHoursByDate = new Map<string, number>();
+  for (const a of activityRes.data ?? []) {
+    if (a.steps != null) stepsByDate.set(a.local_date, a.steps);
+    if (a.activity_hours != null) {
+      activityHoursByDate.set(a.local_date, Number(a.activity_hours));
+    }
+  }
+
+  const snacksByDate = new Map<string, number>();
+  for (const s of snacksRes.data ?? []) {
+    snacksByDate.set(s.local_date, (snacksByDate.get(s.local_date) ?? 0) + 1);
+  }
+
+  const intakeByDate = new Map<string, Set<string>>();
+  for (const i of intakeRes.data ?? []) {
+    const set = intakeByDate.get(i.local_date) ?? new Set<string>();
+    set.add(i.kind);
+    intakeByDate.set(i.local_date, set);
+  }
+
+  const today = todayLocalISO();
+  const days: WeekHabitDay[] = [];
+  const yesByHabit: Record<string, number> = Object.fromEntries(
+    habits.map((h) => [h.id, 0]),
+  );
+
+  for (let i = 0; i < 7; i++) {
+    const date = addDaysISO(weekStart, i);
+    const isFuture = date > today;
+    const statuses: Record<string, HabitStatus | null> = {};
+
+    for (const h of habits) {
+      let status: HabitStatus | null = null;
+      if (!isFuture) {
+        if (h.kind === "water") {
+          status = waterStatusFor(waterByDate.get(date) ?? 0, goalMl);
+        } else if (h.kind === "meal") {
+          status = mealStatusFor(mealsByDate.get(date) ?? 0);
+        } else if (h.kind === "snack") {
+          status = snackStatusFor(snacksByDate.get(date) ?? 0);
+        } else if (h.kind === "intake") {
+          const kinds = applicableIntakeKinds(date);
+          const applicableLogged = kinds.filter((k) =>
+            intakeByDate.get(date)?.has(k),
+          ).length;
+          status = intakeStatusFor(applicableLogged, kinds.length);
+        } else if (h.kind === "steps") {
+          status = numericGoalStatus(stepsByDate.get(date) ?? 0, stepsGoal);
+        } else if (h.kind === "activity_hours") {
+          status = numericGoalStatus(
+            activityHoursByDate.get(date) ?? 0,
+            activityHoursGoal,
+          );
+        } else {
+          status = checkMap.get(`${h.id}|${date}`) ?? null;
+        }
+        if (status === "yes") yesByHabit[h.id] += 1;
+      }
+      statuses[h.id] = status;
+    }
+
+    days.push({
+      date,
+      isFuture,
+      isToday: date === today,
+      weekday: isoWeekdayFromLocalISO(date),
+      statuses,
+    });
+  }
+
+  return { weekStart, weekEnd, habits, days, yesByHabit };
 }
 
 /** Quick helper for navigation: the (year, month) one step earlier/later. */

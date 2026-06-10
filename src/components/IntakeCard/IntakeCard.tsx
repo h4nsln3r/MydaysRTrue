@@ -76,8 +76,8 @@ export function IntakeCard({ date, intake }: Props) {
           </span>
         </div>
         <p className={styles.subtitle}>
-          Fruit, creatine{kinds.length === 4 ? ", vitamins and shake" : ""} for
-          the day.
+          Frukt, kreatin{kinds.length === 4 ? ", vitaminer och shake" : ""} för
+          dagen.
         </p>
       </header>
 

@@ -104,10 +104,9 @@
 
 .dayRow {
     position: relative;
-    display: grid;
-    grid-template-columns: 72px 28px 1fr auto;
-    gap: $space-3;
-    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
     padding: $space-3 $space-4;
     background: $color-ink-soft;
     border: 1px solid $color-line;
@@ -124,6 +123,13 @@
         border-color: $color-orange;
         background: rgba(255, 122, 26, 0.05);
     }
+}
+
+.dayRowMain {
+    display: grid;
+    grid-template-columns: 72px 28px 1fr auto;
+    gap: $space-3;
+    align-items: center;
 }
 
 .dayRowToday {
@@ -296,4 +302,152 @@
 .dayMuted {
     color: $color-fog;
     font-size: 0.85rem;
+}
+
+.habitSummaryGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-2;
+
+    @media (min-width: $bp-sm) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.habitSummaryChip {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-3;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.habitSummaryIcon {
+    font-size: 1.1rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.habitSummaryMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.habitSummaryLabel {
+    color: $color-cream-dim;
+    font-size: 0.72rem;
+    font-family: $font-mono;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.habitSummaryCount {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 2px;
+    font-family: $font-display;
+    font-weight: 800;
+}
+
+.habitSummaryBig {
+    color: $color-orange-bright;
+    font-size: 1.1rem;
+}
+
+.habitSummarySlash {
+    color: $color-fog;
+    font-size: 0.75rem;
+    font-family: $font-mono;
+}
+
+.dayHabits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 2px;
+}
+
+.habitChip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px 4px 6px;
+    border-radius: $radius-pill;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    font-size: 0.85rem;
+}
+
+.habitChipFuture {
+    opacity: 0.45;
+    border-style: dashed;
+}
+
+.habitChip_yes {
+    border-color: rgba(110, 231, 163, 0.45);
+    background: rgba(110, 231, 163, 0.1);
+}
+
+.habitChip_half {
+    border-color: rgba(255, 207, 58, 0.45);
+    background: rgba(255, 207, 58, 0.08);
+}
+
+.habitChip_no {
+    border-color: rgba(255, 82, 71, 0.4);
+    background: rgba(255, 82, 71, 0.08);
+}
+
+.habitChip_empty {
+    opacity: 0.7;
+}
+
+.habitChipIcon {
+    line-height: 1;
+}
+
+.habitChipDot {
+    margin-left: 2px;
+}
+
+.habitDot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.habitDotCompact {
+    width: 7px;
+    height: 7px;
+}
+
+.habitDot_yes {
+    background: $color-success;
+    box-shadow: 0 0 0 2px rgba(110, 231, 163, 0.25);
+}
+
+.habitDot_half {
+    background: $color-warning;
+    box-shadow: 0 0 0 2px rgba(255, 207, 58, 0.25);
+}
+
+.habitDot_no {
+    background: $color-danger;
+    box-shadow: 0 0 0 2px rgba(255, 82, 71, 0.2);
+}
+
+.habitDot_empty {
+    background: transparent;
+    border: 1.5px dashed $color-fog;
+    box-shadow: none;
 }

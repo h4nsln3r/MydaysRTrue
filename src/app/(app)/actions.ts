@@ -329,11 +329,53 @@ export async function reorderHabitsAction(
   return { ok: true };
 }
 
-/** Toggle a snack slot (1 or 2) for a day. */
-export async function toggleSnackAction(input: {
+/** Log a snack slot (1 or 2) with a short description. */
+export async function saveSnackAction(input: {
   localDate: string;
   slot: 1 | 2;
-  checked: boolean;
+  description: string;
+}): Promise<ActionResult> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
+    return { ok: false, error: "Ogiltigt datum." };
+  }
+  if (input.slot !== 1 && input.slot !== 2) {
+    return { ok: false, error: "Ogiltigt mellanmål." };
+  }
+
+  const description = (input.description ?? "").trim();
+  if (!description) {
+    return { ok: false, error: "Skriv vad mellanmålet innehöll." };
+  }
+  if (description.length > 280) {
+    return { ok: false, error: "Håll det under 280 tecken." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase.from("snack_checks").upsert(
+    {
+      user_id: user.id,
+      local_date: input.localDate,
+      slot: input.slot,
+      description,
+      done_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,local_date,slot" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Remove a logged snack slot. */
+export async function clearSnackAction(input: {
+  localDate: string;
+  slot: 1 | 2;
 }): Promise<ActionResult> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
     return { ok: false, error: "Ogiltigt datum." };
@@ -348,26 +390,13 @@ export async function toggleSnackAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
-  if (input.checked) {
-    const { error } = await supabase.from("snack_checks").upsert(
-      {
-        user_id: user.id,
-        local_date: input.localDate,
-        slot: input.slot,
-        done_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,local_date,slot" },
-    );
-    if (error) return { ok: false, error: error.message };
-  } else {
-    const { error } = await supabase
-      .from("snack_checks")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("local_date", input.localDate)
-      .eq("slot", input.slot);
-    if (error) return { ok: false, error: error.message };
-  }
+  const { error } = await supabase
+    .from("snack_checks")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("local_date", input.localDate)
+    .eq("slot", input.slot);
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
   return { ok: true };

@@ -6,7 +6,6 @@ import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { WaterLogItem } from "@/components/WaterLogItem/WaterLogItem";
-import { IntakeCard } from "@/components/IntakeCard/IntakeCard";
 import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
 import { createClient } from "@/lib/supabase/server";
 import { getDailySummary } from "@/lib/water.server";
@@ -95,6 +94,10 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
       {view === "progress" ? (
         <>
           <section className={styles.section}>
+            <GymDayCard weekStart={gymDay.weekStart} sessions={gymDay.sessions} />
+          </section>
+
+          <section className={styles.section}>
             <header className={styles.sectionHeader}>
               <h2 className={styles.h2}>Dagen</h2>
               <Link
@@ -110,23 +113,10 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               summary={summary}
               meals={meals}
               snacks={snacks}
+              intake={intake}
               activityLog={activityLog}
               goals={dayPlan.goals}
             />
-          </section>
-
-          <section className={styles.section}>
-            <GymDayCard weekStart={gymDay.weekStart} sessions={gymDay.sessions} />
-          </section>
-
-          <section className={styles.section} aria-labelledby="intake-heading">
-            <header className={styles.sectionHeader}>
-              <h2 id="intake-heading" className={styles.h2}>
-                Intake
-              </h2>
-              <span className={styles.muted}>näring</span>
-            </header>
-            <IntakeCard date={date} intake={intake} />
           </section>
 
           <section className={styles.section}>

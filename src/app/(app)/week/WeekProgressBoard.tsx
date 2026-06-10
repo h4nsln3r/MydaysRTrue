@@ -1,3 +1,4 @@
+import type { HTMLAttributes } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card/Card";
 import type { GymSessionForWeek } from "@/lib/gym";
@@ -6,6 +7,8 @@ import {
   formatWeekdayShort,
   isoWeekdayFromLocalISO,
 } from "@/lib/date";
+import type { Habit, HabitStatus } from "@/lib/habits";
+import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekSummary } from "@/lib/water.server";
 import { waterDayStatus, type WaterDayStatus } from "@/lib/water";
 import type { WeeklyTaskForWeek } from "@/lib/tasks";
@@ -13,6 +16,7 @@ import styles from "./week-progress.module.scss";
 
 interface Props {
   week: WeekSummary;
+  habitWeek: WeekHabitSummary;
   gymSessions: GymSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
 }
@@ -24,10 +28,23 @@ const WATER_LABEL: Record<WaterDayStatus, string> = {
   low: "Långt från vattenmål",
 };
 
-export function WeekProgressBoard({ week, gymSessions, tasks }: Props) {
+const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
+  yes: "Uppnått",
+  half: "Delvis",
+  no: "Nej",
+  empty: "Ej loggat",
+};
+
+export function WeekProgressBoard({
+  week,
+  habitWeek,
+  gymSessions,
+  tasks,
+}: Props) {
   const gymDone = gymSessions.filter((s) => s.placement.doneAt).length;
   const placedTasks = tasks.filter((t) => t.placement);
   const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
+  const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
 
   const gymByWeekday = new Map<number, GymSessionForWeek[]>();
   for (const s of gymSessions) {
@@ -43,6 +60,8 @@ export function WeekProgressBoard({ week, gymSessions, tasks }: Props) {
     list.push(t);
     tasksByWeekday.set(t.placement.weekday, list);
   }
+
+  const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
 
   return (
     <div className={styles.board}>
@@ -88,6 +107,40 @@ export function WeekProgressBoard({ week, gymSessions, tasks }: Props) {
         </Card>
       </div>
 
+      {habitWeek.habits.length > 0 ? (
+        <section className={styles.section}>
+          <header className={styles.sectionHeader}>
+            <h2 className={styles.h2}>Dagliga spårare</h2>
+            <span className={styles.legend}>
+              <HabitStatusDot status="yes" compact aria-hidden />
+              <HabitStatusDot status="half" compact aria-hidden />
+              <HabitStatusDot status="no" compact aria-hidden />
+            </span>
+          </header>
+
+          <div className={styles.habitSummaryGrid}>
+            {habitWeek.habits.map((h) => (
+              <div key={h.id} className={styles.habitSummaryChip}>
+                <span className={styles.habitSummaryIcon} aria-hidden>
+                  {h.icon}
+                </span>
+                <span className={styles.habitSummaryMeta}>
+                  <span className={styles.habitSummaryLabel}>{h.label}</span>
+                  <span className={styles.habitSummaryCount}>
+                    <span className={styles.habitSummaryBig}>
+                      {habitWeek.yesByHabit[h.id] ?? 0}
+                    </span>
+                    <span className={styles.habitSummarySlash}>
+                      / {pastDays || "—"}
+                    </span>
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className={styles.section}>
         <header className={styles.sectionHeader}>
           <h2 className={styles.h2}>Dag för dag</h2>
@@ -106,6 +159,7 @@ export function WeekProgressBoard({ week, gymSessions, tasks }: Props) {
             const dayTasksDone = dayTasks.filter((t) => t.placement?.doneAt)
               .length;
             const waterStatus = waterDayStatus(d);
+            const habitDay = habitDayByDate.get(d.date);
 
             const className = [
               styles.dayRow,
@@ -117,68 +171,85 @@ export function WeekProgressBoard({ week, gymSessions, tasks }: Props) {
 
             const inner = (
               <>
-                <div className={styles.dayInfo}>
-                  <span
-                    className={[
-                      styles.dayName,
-                      d.isToday ? styles.dayNameToday : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  >
-                    {formatWeekdayShort(d.date)}
-                  </span>
-                  <span className={styles.dayDate}>{formatDayShort(d.date)}</span>
-                </div>
-
-                <WaterDayIcon status={waterStatus} />
-
-                <div className={styles.dayGym}>
-                  {dayGym.length === 0 ? (
-                    <span className={styles.dayMuted}>—</span>
-                  ) : (
-                    <ul className={styles.gymList} aria-label="Gympass">
-                      {dayGym.map((s) => (
-                        <li
-                          key={s.id}
-                          className={[
-                            styles.gymChip,
-                            s.placement.doneAt ? styles.gymChipDone : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          title={s.label}
-                        >
-                          <span aria-hidden>{s.icon}</span>
-                          {s.placement.doneAt ? (
-                            <span className={styles.gymCheck} aria-hidden>
-                              ✓
-                            </span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div className={styles.dayTasks}>
-                  {dayTasks.length === 0 ? (
-                    <span className={styles.dayMuted}>—</span>
-                  ) : (
+                <div className={styles.dayRowMain}>
+                  <div className={styles.dayInfo}>
                     <span
                       className={[
-                        styles.taskCount,
-                        dayTasksDone === dayTasks.length
-                          ? styles.taskCountDone
-                          : "",
+                        styles.dayName,
+                        d.isToday ? styles.dayNameToday : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
                     >
-                      {dayTasksDone}/{dayTasks.length}
+                      {formatWeekdayShort(d.date)}
                     </span>
-                  )}
+                    <span className={styles.dayDate}>
+                      {formatDayShort(d.date)}
+                    </span>
+                  </div>
+
+                  <WaterDayIcon status={waterStatus} />
+
+                  <div className={styles.dayGym}>
+                    {dayGym.length === 0 ? (
+                      <span className={styles.dayMuted}>—</span>
+                    ) : (
+                      <ul className={styles.gymList} aria-label="Gympass">
+                        {dayGym.map((s) => (
+                          <li
+                            key={s.id}
+                            className={[
+                              styles.gymChip,
+                              s.placement.doneAt ? styles.gymChipDone : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            title={s.label}
+                          >
+                            <span aria-hidden>{s.icon}</span>
+                            {s.placement.doneAt ? (
+                              <span className={styles.gymCheck} aria-hidden>
+                                ✓
+                              </span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className={styles.dayTasks}>
+                    {dayTasks.length === 0 ? (
+                      <span className={styles.dayMuted}>—</span>
+                    ) : (
+                      <span
+                        className={[
+                          styles.taskCount,
+                          dayTasksDone === dayTasks.length
+                            ? styles.taskCountDone
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        {dayTasksDone}/{dayTasks.length}
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {habitDay && habitWeek.habits.length > 0 ? (
+                  <div className={styles.dayHabits} aria-label="Dagliga spårare">
+                    {habitWeek.habits.map((h) => (
+                      <HabitDayChip
+                        key={h.id}
+                        habit={h}
+                        status={habitDay.statuses[h.id] ?? null}
+                        isFuture={d.isFuture}
+                      />
+                    ))}
+                  </div>
+                ) : null}
               </>
             );
 
@@ -202,6 +273,68 @@ export function WeekProgressBoard({ week, gymSessions, tasks }: Props) {
         </ul>
       </section>
     </div>
+  );
+}
+
+function HabitDayChip({
+  habit,
+  status,
+  isFuture,
+}: {
+  habit: Habit;
+  status: HabitStatus | null;
+  isFuture: boolean;
+}) {
+  const label = isFuture
+    ? "Kommande dag"
+    : HABIT_STATUS_LABEL[status ?? "empty"];
+
+  return (
+    <span
+      className={[
+        styles.habitChip,
+        isFuture ? styles.habitChipFuture : "",
+        status ? styles[`habitChip_${status}`] : styles.habitChip_empty,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      title={`${habit.label}: ${label}`}
+      aria-label={`${habit.label}: ${label}`}
+    >
+      <span className={styles.habitChipIcon} aria-hidden>
+        {habit.icon}
+      </span>
+      {!isFuture ? (
+        <HabitStatusDot status={status} compact className={styles.habitChipDot} />
+      ) : null}
+    </span>
+  );
+}
+
+function HabitStatusDot({
+  status,
+  compact = false,
+  className,
+  ...rest
+}: {
+  status: HabitStatus | null;
+  compact?: boolean;
+  className?: string;
+} & HTMLAttributes<HTMLSpanElement>) {
+  const resolved = status ?? "empty";
+  return (
+    <span
+      className={[
+        styles.habitDot,
+        styles[`habitDot_${resolved}`],
+        compact ? styles.habitDotCompact : "",
+        className ?? "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-hidden
+      {...rest}
+    />
   );
 }
 

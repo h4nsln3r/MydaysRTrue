@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
-import { IntakeCard } from "@/components/IntakeCard/IntakeCard";
 import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
 import { getDailySummary } from "@/lib/water.server";
 import {
@@ -103,6 +102,14 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
       {view === "progress" ? (
         <>
           <section className={styles.section}>
+            <GymDayCard
+              weekStart={gymDay.weekStart}
+              sessions={gymDay.sessions}
+              title="Gym idag"
+            />
+          </section>
+
+          <section className={styles.section}>
             <header className={styles.sectionHeader}>
               <h2 className={styles.h2}>Dagen</h2>
               <Link href="/?view=plan" className={styles.muted}>
@@ -115,29 +122,12 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               summary={summary}
               meals={meals}
               snacks={snacks}
+              intake={intake}
               activityLog={activityLog}
               goals={dayPlan.goals}
               waterPlusHref="/water"
               waterPlusLabel="Open water page"
             />
-          </section>
-
-          <section className={styles.section}>
-            <GymDayCard
-              weekStart={gymDay.weekStart}
-              sessions={gymDay.sessions}
-              title="Gym idag"
-            />
-          </section>
-
-          <section className={styles.section} aria-labelledby="intake-heading">
-            <header className={styles.sectionHeader}>
-              <h2 id="intake-heading" className={styles.h2}>
-                Intake
-              </h2>
-              <span className={styles.muted}>näring</span>
-            </header>
-            <IntakeCard date={today} intake={intake} />
           </section>
         </>
       ) : (

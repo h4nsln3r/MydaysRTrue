@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { saveDailyActivityAction } from "@/app/(app)/actions";
 import { Card } from "@/components/Card/Card";
 import { Input } from "@/components/Input/Input";
+import { formatInteger } from "@/lib/format";
 import { formatMl } from "@/lib/water";
 import styles from "./DailyActivityCard.module.scss";
 
@@ -182,7 +183,7 @@ export function DailyActivityCard({
           {steps != null ? (
             <>
               <span className={styles.metricValue}>
-                {steps.toLocaleString()} / {stepsGoal.toLocaleString()}
+                {formatInteger(steps)} / {formatInteger(stepsGoal)}
               </span>
               <div className={styles.bar} aria-hidden>
                 <div
@@ -195,7 +196,7 @@ export function DailyActivityCard({
             </>
           ) : (
             <span className={styles.metricHint}>
-              Mål: {stepsGoal.toLocaleString()} steg
+              Mål: {formatInteger(stepsGoal)} steg
             </span>
           )}
           <Input
@@ -210,7 +211,7 @@ export function DailyActivityCard({
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
             }}
-            placeholder={`T.ex. ${stepsGoal.toLocaleString()}`}
+            placeholder={`T.ex. ${formatInteger(stepsGoal)}`}
             inputMode="numeric"
             disabled={pendingField}
           />

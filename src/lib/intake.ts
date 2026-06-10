@@ -1,5 +1,7 @@
 // Client-safe intake types and helpers.
 // Server-only queries live in `./intake.server`.
+
+import type { HabitStatus } from "./habits";
 //
 // The four daily intakes are kept in one table because they behave the same
 // way: at most one entry per (user, date, kind). Only `creatine` carries a
@@ -92,4 +94,11 @@ export function isWeekend(localDate: string): boolean {
 export function applicableIntakeKinds(localDate: string): IntakeKind[] {
   const weekend = isWeekend(localDate);
   return INTAKE_ORDER.filter((k) => !(weekend && INTAKE_WEEKDAYS_ONLY[k]));
+}
+
+/** Intake rollup: all applicable kinds = yes, some = half, none = no. */
+export function intakeStatusFor(logged: number, total: number): HabitStatus {
+  if (logged <= 0 || total <= 0) return "no";
+  if (logged >= total) return "yes";
+  return "half";
 }

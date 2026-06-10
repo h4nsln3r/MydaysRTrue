@@ -9,25 +9,47 @@ import {
   MEAL_ICON,
   MEAL_LABEL,
   MEAL_ORDER,
+  SNACK_ICON,
+  SNACK_LABEL,
+  SNACK_SLOTS,
+  type DailySnacks,
   type MealEntry,
   type MealKey,
+  type SnackEntry,
+  type SnackSlot,
 } from "@/lib/habits";
 import { formatMl } from "@/lib/water";
-import { clearMealAction, saveMealAction } from "@/app/(app)/actions";
+import {
+  clearMealAction,
+  clearSnackAction,
+  saveMealAction,
+  saveSnackAction,
+} from "@/app/(app)/actions";
 import styles from "./MealsCard.module.scss";
 
 interface Props {
   date: string;
   meals: Record<MealKey, MealEntry | null>;
+  snacks: DailySnacks;
+  showMeals?: boolean;
+  showSnacks?: boolean;
 }
 
 const WATER_PRESETS = [200, 330, 500];
 
-export function MealsCard({ date, meals }: Props) {
+type EditKey = `meal:${MealKey}` | `snack:${SnackSlot}`;
+
+export function MealsCard({
+  date,
+  meals,
+  snacks,
+  showMeals = true,
+  showSnacks = true,
+}: Props) {
   const router = useRouter();
-  const [editing, setEditing] = useState<MealKey | null>(null);
+  const [editing, setEditing] = useState<EditKey | null>(null);
   const [pending, startTransition] = useTransition();
-  const [confirmingClear, setConfirmingClear] = useState<MealKey | null>(null);
+  const [confirmingClear, setConfirmingClear] = useState<EditKey | null>(null);
 
   const close = () => setEditing(null);
 
@@ -36,7 +58,7 @@ export function MealsCard({ date, meals }: Props) {
     router.refresh();
   };
 
-  const clear = (meal: MealKey) => {
+  const clearMeal = (meal: MealKey) => {
     startTransition(async () => {
       const res = await clearMealAction({ meal, localDate: date });
       if (res.ok) {
@@ -46,162 +68,295 @@ export function MealsCard({ date, meals }: Props) {
     });
   };
 
-  const logged = MEAL_ORDER.filter((k) => meals[k]).length;
+  const clearSnack = (slot: SnackSlot) => {
+    startTransition(async () => {
+      const res = await clearSnackAction({ localDate: date, slot });
+      if (res.ok) {
+        setConfirmingClear(null);
+        router.refresh();
+      }
+    });
+  };
+
+  const mealsLogged = showMeals ? MEAL_ORDER.filter((k) => meals[k]).length : 0;
+  const snacksLogged = showSnacks
+    ? SNACK_SLOTS.filter((slot) => snacks[slot]).length
+    : 0;
+  const totalSlots =
+    (showMeals ? MEAL_ORDER.length : 0) + (showSnacks ? SNACK_SLOTS.length : 0);
+  const logged = mealsLogged + snacksLogged;
+  const title =
+    showMeals && showSnacks
+      ? "Måltider"
+      : showMeals
+        ? "Måltider"
+        : "Mellanmål";
 
   return (
     <Card className={styles.card}>
       <header className={styles.header}>
         <div className={styles.titleRow}>
-          <h2 className={styles.title}>Meals</h2>
+          <h2 className={styles.title}>{title}</h2>
           <span
             className={[
               styles.counter,
-              logged === 3 ? styles.counterDone : "",
-              logged > 0 && logged < 3 ? styles.counterPartial : "",
+              logged === totalSlots && totalSlots > 0 ? styles.counterDone : "",
+              logged > 0 && logged < totalSlots ? styles.counterPartial : "",
             ]
               .filter(Boolean)
               .join(" ")}
           >
             <span className={styles.counterBig}>{logged}</span>
-            <span className={styles.counterSlash}>/ 3</span>
+            <span className={styles.counterSlash}>/ {totalSlots}</span>
           </span>
         </div>
-        <p className={styles.subtitle}>Tap each meal and tell us what you had.</p>
+        <p className={styles.subtitle}>
+          {showMeals && showSnacks
+            ? "Logga måltider och mellanmål med vad du åt."
+            : showMeals
+              ? "Tryck på varje måltid och skriv vad du åt."
+              : "Logga mellanmål med vad de innehöll."}
+        </p>
       </header>
 
       <ul className={styles.list}>
-        {MEAL_ORDER.map((meal) => {
-          const entry = meals[meal];
-          const isEditing = editing === meal;
-          const isConfirming = confirmingClear === meal;
-          return (
-            <li key={meal} className={styles.item}>
-              {isEditing ? (
-                <MealForm
-                  meal={meal}
-                  date={date}
-                  initial={entry}
-                  onCancel={close}
-                  onSaved={onSaved}
-                />
-              ) : entry ? (
-                <div
-                  className={[styles.row, styles.rowDone].join(" ")}
-                >
-                  <button
-                    type="button"
-                    className={styles.rowMain}
-                    onClick={() => setEditing(meal)}
-                    aria-label={`Edit ${MEAL_LABEL[meal]}`}
-                    disabled={pending}
-                  >
-                    <span
-                      className={styles.iconBox}
-                      aria-hidden
-                      data-state="done"
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        aria-hidden
-                      >
-                        <path
-                          d="M5 12.5 10 17.5 19 7.5"
-                          stroke="currentColor"
-                          strokeWidth="2.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </span>
-                    <span className={styles.mealText}>
-                      <span className={styles.mealLabel}>
-                        <span className={styles.mealIcon} aria-hidden>
-                          {MEAL_ICON[meal]}
-                        </span>
-                        {MEAL_LABEL[meal]}
-                      </span>
-                      <span className={styles.description}>
-                        {entry.description}
-                      </span>
-                    </span>
-                    {entry.waterMl > 0 ? (
-                      <span className={styles.waterBadge} aria-label="With water">
-                        💧 {formatMl(entry.waterMl)}
-                      </span>
-                    ) : null}
-                  </button>
-                  <span className={styles.clearWrap}>
-                    {isConfirming ? (
-                      <span className={styles.confirmRow}>
-                        <button
-                          type="button"
-                          className={styles.confirmYes}
-                          onClick={() => clear(meal)}
-                          disabled={pending}
-                          aria-label="Confirm clear"
-                        >
-                          Clear
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.confirmNo}
-                          onClick={() => setConfirmingClear(null)}
-                          disabled={pending}
-                          aria-label="Cancel"
-                        >
-                          Cancel
-                        </button>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className={styles.clearBtn}
-                        onClick={() => setConfirmingClear(meal)}
-                        aria-label={`Remove ${MEAL_LABEL[meal]}`}
-                        disabled={pending}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </span>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className={[styles.row, styles.rowEmpty].join(" ")}
-                  onClick={() => setEditing(meal)}
-                  aria-label={`Log ${MEAL_LABEL[meal]}`}
-                  disabled={pending}
-                >
-                  <span className={styles.iconBox} aria-hidden data-state="empty" />
-                  <span className={styles.mealText}>
-                    <span className={styles.mealLabel}>
-                      <span className={styles.mealIcon} aria-hidden>
-                        {MEAL_ICON[meal]}
-                      </span>
-                      {MEAL_LABEL[meal]}
-                    </span>
-                    <span className={styles.mealHint}>Tap to log</span>
-                  </span>
-                  <span className={styles.plus} aria-hidden>
-                    +
-                  </span>
-                </button>
-              )}
-            </li>
-          );
-        })}
+        {showMeals
+          ? MEAL_ORDER.map((meal) => {
+              const entry = meals[meal];
+              const editKey: EditKey = `meal:${meal}`;
+              const isEditing = editing === editKey;
+              const isConfirming = confirmingClear === editKey;
+              return (
+                <li key={meal} className={styles.item}>
+                  {isEditing ? (
+                    <MealForm
+                      meal={meal}
+                      date={date}
+                      initial={entry}
+                      onCancel={close}
+                      onSaved={onSaved}
+                    />
+                  ) : entry ? (
+                    <LoggedRow
+                      icon={MEAL_ICON[meal]}
+                      label={MEAL_LABEL[meal]}
+                      description={entry.description}
+                      waterMl={entry.waterMl}
+                      pending={pending}
+                      onEdit={() => setEditing(editKey)}
+                      onClear={() => clearMeal(meal)}
+                      confirmingClear={isConfirming}
+                      onConfirmClear={() => setConfirmingClear(editKey)}
+                      onCancelClear={() => setConfirmingClear(null)}
+                      editLabel={`Redigera ${MEAL_LABEL[meal]}`}
+                      clearLabel={`Ta bort ${MEAL_LABEL[meal]}`}
+                    />
+                  ) : (
+                    <EmptyRow
+                      icon={MEAL_ICON[meal]}
+                      label={MEAL_LABEL[meal]}
+                      hint="Tryck för att logga"
+                      pending={pending}
+                      onClick={() => setEditing(editKey)}
+                      ariaLabel={`Logga ${MEAL_LABEL[meal]}`}
+                    />
+                  )}
+                </li>
+              );
+            })
+          : null}
+
+        {showMeals && showSnacks ? (
+          <li className={styles.divider} aria-hidden>
+            <span>Mellanmål</span>
+          </li>
+        ) : null}
+
+        {showSnacks
+          ? SNACK_SLOTS.map((slot) => {
+              const entry = snacks[slot];
+              const editKey: EditKey = `snack:${slot}`;
+              const isEditing = editing === editKey;
+              const isConfirming = confirmingClear === editKey;
+              return (
+                <li key={`snack-${slot}`} className={styles.item}>
+                  {isEditing ? (
+                    <SnackForm
+                      slot={slot}
+                      date={date}
+                      initial={entry}
+                      onCancel={close}
+                      onSaved={onSaved}
+                    />
+                  ) : entry ? (
+                    <LoggedRow
+                      icon={SNACK_ICON[slot]}
+                      label={SNACK_LABEL[slot]}
+                      description={entry.description}
+                      pending={pending}
+                      onEdit={() => setEditing(editKey)}
+                      onClear={() => clearSnack(slot)}
+                      confirmingClear={isConfirming}
+                      onConfirmClear={() => setConfirmingClear(editKey)}
+                      onCancelClear={() => setConfirmingClear(null)}
+                      editLabel={`Redigera ${SNACK_LABEL[slot]}`}
+                      clearLabel={`Ta bort ${SNACK_LABEL[slot]}`}
+                    />
+                  ) : (
+                    <EmptyRow
+                      icon={SNACK_ICON[slot]}
+                      label={SNACK_LABEL[slot]}
+                      hint="Tryck för att logga"
+                      pending={pending}
+                      onClick={() => setEditing(editKey)}
+                      ariaLabel={`Logga ${SNACK_LABEL[slot]}`}
+                    />
+                  )}
+                </li>
+              );
+            })
+          : null}
       </ul>
     </Card>
   );
 }
 
-// ============================================================================
-// Inline meal form
-// ============================================================================
+interface LoggedRowProps {
+  icon: string;
+  label: string;
+  description: string;
+  waterMl?: number;
+  pending: boolean;
+  onEdit: () => void;
+  onClear: () => void;
+  confirmingClear: boolean;
+  onConfirmClear: () => void;
+  onCancelClear: () => void;
+  editLabel: string;
+  clearLabel: string;
+}
+
+function LoggedRow({
+  icon,
+  label,
+  description,
+  waterMl = 0,
+  pending,
+  onEdit,
+  onClear,
+  confirmingClear,
+  onConfirmClear,
+  onCancelClear,
+  editLabel,
+  clearLabel,
+}: LoggedRowProps) {
+  return (
+    <div className={[styles.row, styles.rowDone].join(" ")}>
+      <button
+        type="button"
+        className={styles.rowMain}
+        onClick={onEdit}
+        aria-label={editLabel}
+        disabled={pending}
+      >
+        <span className={styles.iconBox} aria-hidden data-state="done">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M5 12.5 10 17.5 19 7.5"
+              stroke="currentColor"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        <span className={styles.mealText}>
+          <span className={styles.mealLabel}>
+            <span className={styles.mealIcon} aria-hidden>
+              {icon}
+            </span>
+            {label}
+          </span>
+          <span className={styles.description}>{description}</span>
+        </span>
+        {waterMl > 0 ? (
+          <span className={styles.waterBadge} aria-label="Med vatten">
+            💧 {formatMl(waterMl)}
+          </span>
+        ) : null}
+      </button>
+      <span className={styles.clearWrap}>
+        {confirmingClear ? (
+          <span className={styles.confirmRow}>
+            <button
+              type="button"
+              className={styles.confirmYes}
+              onClick={onClear}
+              disabled={pending}
+              aria-label="Bekräfta borttagning"
+            >
+              Ta bort
+            </button>
+            <button
+              type="button"
+              className={styles.confirmNo}
+              onClick={onCancelClear}
+              disabled={pending}
+              aria-label="Avbryt"
+            >
+              Avbryt
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            className={styles.clearBtn}
+            onClick={onConfirmClear}
+            aria-label={clearLabel}
+            disabled={pending}
+          >
+            ×
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
+interface EmptyRowProps {
+  icon: string;
+  label: string;
+  hint: string;
+  pending: boolean;
+  onClick: () => void;
+  ariaLabel: string;
+}
+
+function EmptyRow({ icon, label, hint, pending, onClick, ariaLabel }: EmptyRowProps) {
+  return (
+    <button
+      type="button"
+      className={[styles.row, styles.rowEmpty].join(" ")}
+      onClick={onClick}
+      aria-label={ariaLabel}
+      disabled={pending}
+    >
+      <span className={styles.iconBox} aria-hidden data-state="empty" />
+      <span className={styles.mealText}>
+        <span className={styles.mealLabel}>
+          <span className={styles.mealIcon} aria-hidden>
+            {icon}
+          </span>
+          {label}
+        </span>
+        <span className={styles.mealHint}>{hint}</span>
+      </span>
+      <span className={styles.plus} aria-hidden>
+        +
+      </span>
+    </button>
+  );
+}
 
 interface MealFormProps {
   meal: MealKey;
@@ -225,7 +380,7 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
 
     const parsedWater = waterMl.trim() === "" ? 0 : Number(waterMl);
     if (!Number.isFinite(parsedWater) || parsedWater < 0) {
-      setError("Water must be a positive number.");
+      setError("Vattnet måste vara ett positivt tal.");
       return;
     }
 
@@ -237,7 +392,7 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
         waterMl: Math.round(parsedWater),
       });
       if (!res.ok) {
-        setError(res.error ?? "Could not save meal.");
+        setError(res.error ?? "Kunde inte spara.");
         return;
       }
       onSaved();
@@ -257,7 +412,7 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
           type="button"
           className={styles.formClose}
           onClick={onCancel}
-          aria-label="Cancel"
+          aria-label="Avbryt"
           disabled={pending}
         >
           ×
@@ -265,17 +420,17 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
       </div>
 
       <Input
-        label="What did you eat?"
+        label="Vad åt du?"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        placeholder="e.g. Yoghurt, banana, two slices of toast"
+        placeholder="t.ex. yoghurt, banan, två skivor bröd"
         maxLength={280}
         autoFocus
         required
       />
 
       <div className={styles.waterBlock}>
-        <span className={styles.label}>Water with this meal</span>
+        <span className={styles.label}>Vatten till måltiden</span>
         <div className={styles.waterRow}>
           <Input
             type="number"
@@ -305,16 +460,14 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
                 type="button"
                 className={[styles.waterPreset, styles.waterClear].join(" ")}
                 onClick={() => setWaterMl("")}
-                aria-label="Clear water"
+                aria-label="Rensa vatten"
               >
                 ×
               </button>
             ) : null}
           </div>
         </div>
-        <p className={styles.hint}>
-          Added to your water log with a note.
-        </p>
+        <p className={styles.hint}>Läggs till i vattenloggen med en notering.</p>
       </div>
 
       {error ? <p className={styles.error}>{error}</p> : null}
@@ -327,10 +480,91 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
           onClick={onCancel}
           disabled={pending}
         >
-          Cancel
+          Avbryt
         </Button>
         <Button type="submit" variant="primary" size="md" loading={pending}>
-          {initial ? "Save" : "Mark eaten"}
+          {initial ? "Spara" : "Markera äten"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+interface SnackFormProps {
+  slot: SnackSlot;
+  date: string;
+  initial: SnackEntry | null;
+  onCancel: () => void;
+  onSaved: () => void;
+}
+
+function SnackForm({ slot, date, initial, onCancel, onSaved }: SnackFormProps) {
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    startTransition(async () => {
+      const res = await saveSnackAction({
+        slot,
+        localDate: date,
+        description,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte spara.");
+        return;
+      }
+      onSaved();
+    });
+  };
+
+  return (
+    <form className={styles.form} onSubmit={submit}>
+      <div className={styles.formHead}>
+        <span className={styles.formTitle}>
+          <span className={styles.mealIcon} aria-hidden>
+            {SNACK_ICON[slot]}
+          </span>
+          {SNACK_LABEL[slot]}
+        </span>
+        <button
+          type="button"
+          className={styles.formClose}
+          onClick={onCancel}
+          aria-label="Avbryt"
+          disabled={pending}
+        >
+          ×
+        </button>
+      </div>
+
+      <Input
+        label="Vad innehöll mellanmålet?"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="t.ex. äpple och nötter, proteinbar"
+        maxLength={280}
+        autoFocus
+        required
+      />
+
+      {error ? <p className={styles.error}>{error}</p> : null}
+
+      <div className={styles.formActions}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="md"
+          onClick={onCancel}
+          disabled={pending}
+        >
+          Avbryt
+        </Button>
+        <Button type="submit" variant="primary" size="md" loading={pending}>
+          {initial ? "Spara" : "Markera äten"}
         </Button>
       </div>
     </form>

@@ -6,6 +6,7 @@ export type HabitKind =
   | "water"
   | "meal"
   | "snack"
+  | "intake"
   | "steps"
   | "activity_hours";
 
@@ -15,6 +16,10 @@ export const SNACK_SLOTS: SnackSlot[] = [1, 2];
 export const SNACK_LABEL: Record<SnackSlot, string> = {
   1: "Mellanmål 1",
   2: "Mellanmål 2",
+};
+export const SNACK_ICON: Record<SnackSlot, string> = {
+  1: "🍎",
+  2: "🥜",
 };
 export type HabitStatus = "yes" | "half" | "no";
 
@@ -62,14 +67,21 @@ export interface DailyHabit extends Habit {
   metricValue?: number;
   /** Steps / activity — daily goal from profile. */
   metricGoal?: number;
-  /** Snacks — how many of 2 slots are checked off. */
+  /** Snacks — how many of 2 slots are logged. */
   snacksDone?: number;
+  /** Intake — how many applicable kinds are logged. */
+  intakeLogged?: number;
+  /** Intake — applicable kinds for the day (weekday-only kinds excluded on weekends). */
+  intakeTotal?: number;
 }
 
-export interface DailySnacks {
-  slot1: boolean;
-  slot2: boolean;
+export interface SnackEntry {
+  id: string;
+  slot: SnackSlot;
+  description: string;
 }
+
+export type DailySnacks = Record<SnackSlot, SnackEntry | null>;
 
 export interface MealEntry {
   id: string;

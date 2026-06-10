@@ -91,6 +91,27 @@
     gap: $space-2;
 }
 
+.divider {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-1 0;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+
+    &::before,
+    &::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: $color-line;
+    }
+}
+
 .item {
     display: block;
 }

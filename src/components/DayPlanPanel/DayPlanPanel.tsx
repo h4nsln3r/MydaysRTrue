@@ -25,6 +25,7 @@ import {
 } from "@/app/(app)/actions";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { Input } from "@/components/Input/Input";
+import { formatInteger } from "@/lib/format";
 import type { Habit, HabitKind } from "@/lib/habits";
 import type { DailyTrackerGoals } from "@/lib/habits.server";
 import type { TaskCategory } from "@/lib/tasks";
@@ -33,7 +34,8 @@ import styles from "./DayPlanPanel.module.scss";
 const KIND_HINT: Partial<Record<HabitKind, string>> = {
   water: "Vecka/månad — vattenkortet visas alltid",
   meal: "Frukost, lunch, middag",
-  snack: "2 mellanmål att bocka av",
+  snack: "2 mellanmål — loggas i Måltider",
+  intake: "Frukt, kreatin, vitaminer, shake",
   steps: "Antal steg per dag",
   activity_hours: "Aktiva timmar per dag",
   tri_state: "Ja / halv / nej",
@@ -312,7 +314,7 @@ function TrackerGoalAccordion({
 
   if (!config) return null;
 
-  const summary = `${config.saved.toLocaleString()} ${config.suffix}`;
+  const summary = `${formatInteger(config.saved)} ${config.suffix}`;
 
   const save = () => {
     const next = Number(value);

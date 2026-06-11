@@ -17,6 +17,8 @@ import {
 import { getDailyIntake } from "@/lib/intake.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
+import { getWeightForDate } from "@/lib/weight.server";
+import { WeightDayCard } from "@/components/WeightDayCard/WeightDayCard";
 import { getCategories } from "@/lib/tasks.server";
 import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
@@ -47,6 +49,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     intake,
     gymDay,
     cardioDay,
+    weightDay,
     allCategories,
     dayPlan,
     activityLog,
@@ -58,6 +61,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     getDailyIntake(user.id, today),
     getGymSessionsForDate(user.id, today),
     getCardioSessionsForDate(user.id, today),
+    getWeightForDate(user.id, today),
     getCategories(user.id),
     getDayPlanSettings(user.id),
     getDailyActivityLog(user.id, today),
@@ -120,6 +124,12 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               title="Cardio idag"
             />
           </section>
+
+          {weightDay.scheduled ? (
+            <section className={styles.section}>
+              <WeightDayCard context={weightDay} title="Vikt idag" />
+            </section>
+          ) : null}
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>

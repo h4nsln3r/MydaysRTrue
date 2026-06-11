@@ -7,8 +7,10 @@ import { getCategories, getWeekSummary } from "@/lib/tasks.server";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getGymWeekSummary } from "@/lib/gym.server";
+import { getWeightWeekPlan } from "@/lib/weight.server";
 import { CardioWeekBoard } from "./CardioWeekBoard";
 import { GymWeekBoard } from "./GymWeekBoard";
+import { WeightWeekBoard } from "./WeightWeekBoard";
 import {
   addDaysISO,
   formatWeekLabel,
@@ -54,13 +56,14 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
   const start = requested > currentWeekStart ? currentWeekStart : requested;
 
-  const [week, habitWeek, weeklyTasks, gymWeek, cardioWeek, allCategories] =
+  const [week, habitWeek, weeklyTasks, gymWeek, cardioWeek, weightPlan, allCategories] =
     await Promise.all([
       getWeeklySummary(user.id, start),
       getWeekHabitSummary(user.id, start),
       getWeekSummary(user.id, start),
       getGymWeekSummary(user.id, start),
       getCardioWeekSummary(user.id, start),
+      getWeightWeekPlan(user.id, start),
       getCategories(user.id),
     ]);
   const prevStart = addDaysISO(start, -7);
@@ -110,6 +113,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           gymSessions={gymWeek.sessions}
           cardioSessions={cardioWeek.sessions}
           tasks={weeklyTasks.tasks}
+          weightPlan={weightPlan}
         />
       ) : (
         <>
@@ -129,6 +133,14 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
               <span className={styles.muted}>löpning, cykling, simning</span>
             </header>
             <CardioWeekBoard weekStart={start} sessions={cardioWeek.sessions} />
+          </section>
+
+          <section className={styles.section}>
+            <header className={styles.sectionHeader}>
+              <h2 className={styles.h2}>Vikt</h2>
+              <span className={styles.muted}>slå på/av · dra till en dag</span>
+            </header>
+            <WeightWeekBoard weekStart={start} plan={weightPlan} />
           </section>
 
           <section className={styles.section}>

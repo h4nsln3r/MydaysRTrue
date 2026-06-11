@@ -13,6 +13,8 @@ import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekSummary } from "@/lib/water.server";
 import { waterDayStatus, type WaterDayStatus } from "@/lib/water";
 import type { WeeklyTaskForWeek } from "@/lib/tasks";
+import { formatWeightKg } from "@/lib/format";
+import type { WeightWeekPlan } from "@/lib/weight";
 import styles from "./week-progress.module.scss";
 
 interface Props {
@@ -21,6 +23,7 @@ interface Props {
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
+  weightPlan: WeightWeekPlan;
 }
 
 const WATER_LABEL: Record<WaterDayStatus, string> = {
@@ -43,12 +46,16 @@ export function WeekProgressBoard({
   gymSessions,
   cardioSessions,
   tasks,
+  weightPlan,
 }: Props) {
   const gymDone = gymSessions.filter((s) => s.placement.doneAt).length;
   const cardioDone = cardioSessions.filter((s) => s.placement.doneAt).length;
   const placedTasks = tasks.filter((t) => t.placement);
   const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
+  const weightActive =
+    weightPlan.enabled && weightPlan.weekday != null;
+  const weightDone = Boolean(weightPlan.log);
 
   const gymByWeekday = new Map<number, GymSessionForWeek[]>();
   for (const s of gymSessions) {
@@ -138,6 +145,39 @@ export function WeekProgressBoard({
             </div>
           ) : null}
         </Card>
+
+        <Card className={styles.summaryCard}>
+          <span className={styles.summaryLabel}>Vikt</span>
+          <span className={styles.summaryValue}>
+            {!weightPlan.enabled ? (
+              <span className={styles.summaryMuted}>Av</span>
+            ) : !weightActive ? (
+              <span className={styles.summaryMuted}>Ej placerad</span>
+            ) : (
+              <>
+                <span className={styles.summaryBig}>
+                  {weightDone ? "1" : "0"}
+                </span>
+                <span className={styles.summarySlash}>/ 1</span>
+              </>
+            )}
+          </span>
+          {weightActive ? (
+            <div className={styles.summaryBar} aria-hidden>
+              <div
+                className={[styles.summaryFill, styles.summaryFillWeight]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={{ width: weightDone ? "100%" : "0%" }}
+              />
+            </div>
+          ) : null}
+          {weightPlan.log ? (
+            <span className={styles.summaryDetail}>
+              {formatWeightKg(weightPlan.log.weightKg)}
+            </span>
+          ) : null}
+        </Card>
       </div>
 
       {habitWeek.habits.length > 0 ? (
@@ -194,6 +234,11 @@ export function WeekProgressBoard({
               .length;
             const waterStatus = waterDayStatus(d);
             const habitDay = habitDayByDate.get(d.date);
+            const weightScheduled =
+              weightPlan.enabled &&
+              weightPlan.weekday === weekday;
+            const weightLogged =
+              weightScheduled && weightPlan.log?.localDate === d.date;
 
             const className = [
               styles.dayRow,
@@ -225,10 +270,37 @@ export function WeekProgressBoard({
                   <WaterDayIcon status={waterStatus} />
 
                 <div className={styles.dayTraining}>
-                  {dayGym.length === 0 && dayCardio.length === 0 ? (
+                  {dayGym.length === 0 &&
+                  dayCardio.length === 0 &&
+                  !weightScheduled ? (
                     <span className={styles.dayMuted}>—</span>
                   ) : (
                     <>
+                      {weightScheduled ? (
+                        <span
+                          className={[
+                            styles.weightChip,
+                            weightLogged ? styles.weightChipDone : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          title={
+                            weightPlan.log
+                              ? `Vikt: ${formatWeightKg(weightPlan.log.weightKg)}`
+                              : "Planerad vägning"
+                          }
+                          aria-label={
+                            weightLogged ? "Vikt loggad" : "Planerad vägning"
+                          }
+                        >
+                          <span aria-hidden>⚖️</span>
+                          {weightLogged ? (
+                            <span className={styles.gymCheck} aria-hidden>
+                              ✓
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : null}
                       {dayGym.length > 0 ? (
                         <ul className={styles.gymList} aria-label="Gympass">
                           {dayGym.map((s) => (

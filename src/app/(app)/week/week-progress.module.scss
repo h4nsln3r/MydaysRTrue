@@ -73,6 +73,23 @@
     background: linear-gradient(90deg, #6ee7a3, #5fb6ff);
 }
 
+.summaryFillWeight {
+    background: linear-gradient(90deg, #c084fc, #5fb6ff);
+}
+
+.summaryMuted {
+    font-size: 0.95rem;
+    color: $color-fog;
+    font-family: $font-sans;
+    font-weight: 600;
+}
+
+.summaryDetail {
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+}
+
 .section {
     display: flex;
     flex-direction: column;
@@ -273,6 +290,14 @@
     opacity: 1;
     border-color: rgba(110, 231, 163, 0.5);
     background: rgba(110, 231, 163, 0.12);
+}
+
+.weightChip {
+    @extend .gymChip;
+}
+
+.weightChipDone {
+    @extend .gymChipDone;
 }
 
 .gymCheck {

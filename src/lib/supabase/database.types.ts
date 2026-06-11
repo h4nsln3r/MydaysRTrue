@@ -649,6 +649,63 @@ export interface Database {
         };
         Relationships: [];
       };
+      weight_week_plans: {
+        Row: {
+          user_id: string;
+          week_start: string;
+          enabled: boolean;
+          weekday: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          week_start: string;
+          enabled?: boolean;
+          weekday?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          week_start?: string;
+          enabled?: boolean;
+          weekday?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      weight_logs: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          time_of_day: string;
+          weight_kg: number;
+          logged_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          time_of_day: string;
+          weight_kg: number;
+          logged_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          time_of_day?: string;
+          weight_kg?: number;
+          logged_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

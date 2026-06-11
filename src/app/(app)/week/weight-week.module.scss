@@ -1,0 +1,316 @@
+@use "abstracts" as *;
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.headerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+    flex-wrap: wrap;
+}
+
+.headerMeta {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+}
+
+.headerIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    font-size: 1.1rem;
+}
+
+.headerTitle {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1rem;
+    color: $color-cream;
+}
+
+.headerSub {
+    margin: 2px 0 0;
+    color: $color-fog;
+    font-size: 0.82rem;
+}
+
+.toggle {
+    position: relative;
+    width: 44px;
+    height: 26px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition:
+        background 160ms $ease-out,
+        border-color 160ms $ease-out;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.toggleOn {
+    background: rgba(95, 182, 255, 0.25);
+    border-color: rgba(95, 182, 255, 0.6);
+}
+
+.toggleKnob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: $color-cream;
+    transition: transform 160ms $ease-out;
+}
+
+.toggleOn .toggleKnob {
+    transform: translateX(18px);
+}
+
+.disabledNote {
+    margin: 0;
+    padding: $space-4;
+    color: $color-cream-dim;
+    font-size: 0.9rem;
+    background: $color-ink-soft;
+    border: 1px dashed $color-line;
+    border-radius: $radius-md;
+    text-align: center;
+}
+
+.layout {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+
+    @media (min-width: $bp-md) {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: $space-5;
+    }
+}
+
+.backlogPanel {
+    order: 2;
+
+    @media (min-width: $bp-md) {
+        order: 1;
+        width: min(300px, 34%);
+        flex-shrink: 0;
+        position: sticky;
+        top: $space-4;
+    }
+}
+
+.weekPanel {
+    order: 1;
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+    flex: 1;
+    min-width: 0;
+
+    @media (min-width: $bp-md) {
+        order: 2;
+    }
+}
+
+.dragHint {
+    margin: 0 0 $space-2;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+}
+
+.error {
+    color: $color-danger;
+    background: rgba(255, 82, 71, 0.08);
+    border: 1px solid rgba(255, 82, 71, 0.35);
+    border-radius: $radius-md;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+}
+
+.backlogSection,
+.daySection {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    transition:
+        border-color 160ms $ease-out,
+        background 160ms $ease-out;
+}
+
+.backlogSection {
+    border-style: dashed;
+    background: transparent;
+}
+
+.dropZoneOver {
+    border-color: $color-orange;
+    background: rgba(255, 122, 26, 0.06);
+}
+
+.dayHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: $space-2;
+}
+
+.dayTitle {
+    margin: 0;
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: $color-cream;
+}
+
+.daySub {
+    margin: 2px 0 0;
+    color: $color-fog;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.dayCount {
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    color: $color-fog;
+}
+
+.dayEmpty {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+.itemList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: $space-2;
+    align-items: center;
+    padding: $space-2 $space-3;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.itemDone {
+    border-color: rgba(110, 231, 163, 0.45);
+    background: rgba(110, 231, 163, 0.06);
+}
+
+.itemBusy {
+    opacity: 0.6;
+}
+
+.itemDragging {
+    opacity: 0.35;
+}
+
+.itemPreview {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    opacity: 1;
+}
+
+.dragHandle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: $radius-sm;
+    background: transparent;
+    color: $color-fog;
+    cursor: grab;
+    touch-action: none;
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+}
+
+.itemBody {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    min-width: 0;
+}
+
+.itemIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    flex-shrink: 0;
+}
+
+.itemMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.itemTitle {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: $color-cream;
+}
+
+.itemDetail {
+    font-size: 0.78rem;
+    color: $color-fog;
+}
+
+.checkBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(110, 231, 163, 0.15);
+    color: $color-success;
+    font-size: 0.75rem;
+    font-weight: 800;
+}

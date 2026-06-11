@@ -1,0 +1,172 @@
+@use "abstracts" as *;
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.titleRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: $space-3;
+}
+
+.title {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-cream;
+}
+
+.weekLink {
+    color: $color-orange-bright;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.loggedValue {
+    font-family: $font-mono;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: $color-success;
+}
+
+.loggedMeta {
+    font-size: 0.82rem;
+    color: $color-fog;
+}
+
+.error {
+    color: $color-danger;
+    background: rgba(255, 82, 71, 0.08);
+    border: 1px solid rgba(255, 82, 71, 0.35);
+    border-radius: $radius-md;
+    padding: 8px 12px;
+    font-size: 0.88rem;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.actionsLabel {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $color-fog;
+}
+
+.timeRow {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: $space-2;
+}
+
+.timeBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: $space-2 $space-1;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        border-color 160ms $ease-out,
+        background 160ms $ease-out,
+        color 160ms $ease-out;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.timeBtnActive {
+    border-color: rgba(95, 182, 255, 0.6);
+    background: rgba(95, 182, 255, 0.12);
+    color: $color-cream;
+}
+
+.weightInputWrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.weightLabel {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $color-fog;
+}
+
+.weightField {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+}
+
+.weightInput {
+    flex: 1;
+    min-width: 0;
+    padding: $space-3;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-mono;
+    font-size: 1.1rem;
+    font-weight: 700;
+
+    &:focus {
+        outline: none;
+        border-color: $color-orange;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+    }
+}
+
+.weightSuffix {
+    font-family: $font-mono;
+    font-size: 0.9rem;
+    color: $color-fog;
+    flex-shrink: 0;
+}
+
+.undoBtn {
+    align-self: flex-start;
+    border: none;
+    background: none;
+    color: $color-fog;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}

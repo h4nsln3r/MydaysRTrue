@@ -2,15 +2,19 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { getHabits } from "@/lib/habits.server";
+import { getCardioTemplates } from "@/lib/cardio.server";
+import { getGymTemplates } from "@/lib/gym.server";
 import {
   getCategories,
   getMonthlyTasks,
   getWeeklyTasks,
 } from "@/lib/tasks.server";
+import { getWeightDefaultWeekday } from "@/lib/weight.server";
 import { ProfileForm } from "./ProfileForm";
 import { SignOutButton } from "./SignOutButton";
 import { HabitsManager } from "./HabitsManager";
 import { CategoryEditor } from "./CategoryEditor";
+import { WeeklyDefaultsEditor } from "./WeeklyDefaultsEditor";
 import { WeeklyTasksEditor } from "./WeeklyTasksEditor";
 import { MonthlyTasksEditor } from "./MonthlyTasksEditor";
 import styles from "./profile.module.scss";
@@ -32,6 +36,9 @@ export default async function ProfilePage() {
     monthlyCategories,
     weeklyTasks,
     monthlyTasks,
+    gymTemplates,
+    cardioTemplates,
+    weightDefaultWeekday,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -44,6 +51,9 @@ export default async function ProfilePage() {
     getCategories(user.id, "monthly"),
     getWeeklyTasks(user.id),
     getMonthlyTasks(user.id),
+    getGymTemplates(user.id),
+    getCardioTemplates(user.id),
+    getWeightDefaultWeekday(user.id),
   ]);
 
   return (
@@ -85,11 +95,17 @@ export default async function ProfilePage() {
             <p className={styles.cardEyebrow}>Weekly</p>
             <h3 className={styles.h3}>Tasks & categories</h3>
             <p className={styles.muted}>
-              Templates you place out on a day each week from the Week view.
+              Mallar du placerar på dagar i veckovyn — sätt standarddag per aktivitet.
             </p>
           </div>
         </header>
         <div className={styles.stack}>
+          <WeeklyDefaultsEditor
+            gymTemplates={gymTemplates}
+            cardioTemplates={cardioTemplates}
+            weeklyTasks={weeklyTasks}
+            weightDefaultWeekday={weightDefaultWeekday}
+          />
           <WeeklyTasksEditor tasks={weeklyTasks} categories={weeklyCategories} />
           <CategoryEditor scope="weekly" categories={weeklyCategories} />
         </div>

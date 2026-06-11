@@ -45,6 +45,8 @@ export interface WeeklyTask {
   icon: string;
   accent: string;
   sortOrder: number;
+  /** Suggested ISO weekday when a new week is opened (1 = Mon … 7 = Sun). */
+  defaultWeekday: Weekday | null;
 }
 
 export interface MonthlyTask {
@@ -63,7 +65,8 @@ export interface WeeklyPlacement {
   id: string;
   taskId: string;
   weekStart: string; // YYYY-MM-DD (Monday)
-  weekday: Weekday;
+  /** null = in the week backlog until placed on a day. */
+  weekday: Weekday | null;
   doneAt: string | null;
   note: string | null;
 }

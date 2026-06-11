@@ -27,6 +27,8 @@ export interface WeightWeekPlan {
   weekStart: string;
   enabled: boolean;
   weekday: Weekday | null;
+  /** User default from profile — used when seeding new weeks. */
+  defaultWeekday: Weekday | null;
   /** Log for the scheduled day this week, if placed and logged. */
   log: WeightLog | null;
 }

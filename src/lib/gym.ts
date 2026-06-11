@@ -50,13 +50,14 @@ export interface GymPlacement {
   id: string;
   templateId: string;
   weekStart: string;
-  weekday: Weekday;
+  /** null = in the week backlog until placed on a day. */
+  weekday: Weekday | null;
   warmup: GymWarmup | null;
   doneAt: string | null;
   note: string | null;
 }
 
-/** A gym pass in the context of a specific week — always has a placement. */
+/** A gym pass in the context of a specific week. */
 export interface GymSessionForWeek extends GymSessionTemplate {
   placement: GymPlacement;
 }

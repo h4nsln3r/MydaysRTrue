@@ -44,6 +44,33 @@ async function ensurePlan(
   return { ok: true };
 }
 
+/** Set the default weigh-in weekday on the user profile. */
+export async function updateWeightDefaultWeekdayAction(
+  defaultWeekday: Weekday | null,
+): Promise<ActionResult> {
+  if (
+    defaultWeekday != null &&
+    (defaultWeekday < 1 || defaultWeekday > 7)
+  ) {
+    return { ok: false, error: "Ogiltig standarddag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ default_weight_weekday: defaultWeekday })
+    .eq("id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Toggle weight tracking on/off for a specific week. */
 export async function setWeightWeekEnabledAction(input: {
   weekStart: string;

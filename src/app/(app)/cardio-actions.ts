@@ -74,6 +74,59 @@ export async function moveCardioSessionAction(input: {
   return { ok: true };
 }
 
+export async function unplaceCardioSessionAction(input: {
+  templateId: string;
+  weekStart: string;
+}): Promise<ActionResult> {
+  if (!input.templateId) return { ok: false, error: "Saknar pass-id." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Veckan måste börja på en måndag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("cardio_week_placements")
+    .update({ weekday: null })
+    .eq("user_id", user.id)
+    .eq("template_id", input.templateId)
+    .eq("week_start", input.weekStart);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function updateCardioDefaultWeekdayAction(input: {
+  templateId: string;
+  defaultWeekday: Weekday;
+}): Promise<ActionResult> {
+  if (!input.templateId) return { ok: false, error: "Saknar pass-id." };
+  if (input.defaultWeekday < 1 || input.defaultWeekday > 7) {
+    return { ok: false, error: "Ogiltig veckodag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("cardio_session_templates")
+    .update({ default_weekday: input.defaultWeekday })
+    .eq("id", input.templateId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function completeCardioSessionAction(input: {
   templateId: string;
   weekStart: string;

@@ -14,6 +14,7 @@ export interface Database {
           daily_water_goal_ml: number;
           daily_steps_goal: number;
           daily_activity_hours_goal: number;
+          default_weight_weekday: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -23,6 +24,7 @@ export interface Database {
           daily_water_goal_ml?: number;
           daily_steps_goal?: number;
           daily_activity_hours_goal?: number;
+          default_weight_weekday?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -32,6 +34,7 @@ export interface Database {
           daily_water_goal_ml?: number;
           daily_steps_goal?: number;
           daily_activity_hours_goal?: number;
+          default_weight_weekday?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -239,6 +242,7 @@ export interface Database {
           icon: string;
           accent: string;
           sort_order: number;
+          default_weekday: number | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -252,6 +256,7 @@ export interface Database {
           icon?: string;
           accent?: string;
           sort_order?: number;
+          default_weekday?: number | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -265,6 +270,7 @@ export interface Database {
           icon?: string;
           accent?: string;
           sort_order?: number;
+          default_weekday?: number | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -277,7 +283,7 @@ export interface Database {
           user_id: string;
           task_id: string;
           week_start: string;
-          weekday: number;
+          weekday: number | null;
           done_at: string | null;
           note: string | null;
           created_at: string;
@@ -288,7 +294,7 @@ export interface Database {
           user_id: string;
           task_id: string;
           week_start: string;
-          weekday: number;
+          weekday?: number | null;
           done_at?: string | null;
           note?: string | null;
           created_at?: string;
@@ -299,7 +305,7 @@ export interface Database {
           user_id?: string;
           task_id?: string;
           week_start?: string;
-          weekday?: number;
+          weekday?: number | null;
           done_at?: string | null;
           note?: string | null;
           created_at?: string;
@@ -535,7 +541,7 @@ export interface Database {
           user_id: string;
           template_id: string;
           week_start: string;
-          weekday: number;
+          weekday: number | null;
           warmup: "skidor" | "rodd" | "cykel" | "crosstrainer" | "magmaskin" | null;
           done_at: string | null;
           note: string | null;
@@ -547,7 +553,7 @@ export interface Database {
           user_id: string;
           template_id: string;
           week_start: string;
-          weekday: number;
+          weekday?: number | null;
           warmup?: "skidor" | "rodd" | "cykel" | "crosstrainer" | "magmaskin" | null;
           done_at?: string | null;
           note?: string | null;
@@ -559,7 +565,7 @@ export interface Database {
           user_id?: string;
           template_id?: string;
           week_start?: string;
-          weekday?: number;
+          weekday?: number | null;
           warmup?: "skidor" | "rodd" | "cykel" | "crosstrainer" | "magmaskin" | null;
           done_at?: string | null;
           note?: string | null;
@@ -619,7 +625,7 @@ export interface Database {
           user_id: string;
           template_id: string;
           week_start: string;
-          weekday: number;
+          weekday: number | null;
           done_at: string | null;
           note: string | null;
           created_at: string;
@@ -630,7 +636,7 @@ export interface Database {
           user_id: string;
           template_id: string;
           week_start: string;
-          weekday: number;
+          weekday?: number | null;
           done_at?: string | null;
           note?: string | null;
           created_at?: string;
@@ -641,7 +647,7 @@ export interface Database {
           user_id?: string;
           template_id?: string;
           week_start?: string;
-          weekday?: number;
+          weekday?: number | null;
           done_at?: string | null;
           note?: string | null;
           created_at?: string;

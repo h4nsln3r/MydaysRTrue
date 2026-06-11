@@ -46,16 +46,24 @@ interface Props {
   categories: TaskCategory[];
   /** Pre-select scope based on which plan page we're on. */
   defaultScope?: TaskScope;
+  /** Hide scope picker and only allow weekly tasks (veckoplan). */
+  weeklyOnly?: boolean;
+  /** Lighter layout when embedded in the week board. */
+  embedded?: boolean;
 }
 
 export function AddTaskPanel({
   categories,
   defaultScope = "weekly",
+  weeklyOnly = false,
+  embedded = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState<TaskScope>(defaultScope);
+  const [scope, setScope] = useState<TaskScope>(
+    weeklyOnly ? "weekly" : defaultScope,
+  );
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [dayOfMonth, setDayOfMonth] = useState("");
@@ -76,7 +84,7 @@ export function AddTaskPanel({
     setIcon(PRESET_ICONS[0]);
     setAccent(PRESET_ACCENTS[0]);
     setError(null);
-    setScope(defaultScope);
+    setScope(weeklyOnly ? "weekly" : defaultScope);
   };
 
   const submit = (e: React.FormEvent) => {
@@ -140,39 +148,49 @@ export function AddTaskPanel({
         : "t.ex. Betala hyra";
 
   return (
-    <section className={styles.panel}>
-      <header className={styles.header}>
-        <h2 className={styles.title}>Lägg till uppgift</h2>
-        <p className={styles.sub}>
-          Dagliga vanor, veckouppgifter eller månadsuppgifter
-        </p>
-      </header>
+    <section
+      className={[styles.panel, embedded ? styles.panelEmbedded : ""]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {!embedded ? (
+        <header className={styles.header}>
+          <h2 className={styles.title}>Lägg till uppgift</h2>
+          <p className={styles.sub}>
+            {weeklyOnly
+              ? "Skapar en uppgift under knappen — dra den till en veckodag"
+              : "Dagliga vanor, veckouppgifter eller månadsuppgifter"}
+          </p>
+        </header>
+      ) : null}
 
       {open ? (
         <form className={styles.form} onSubmit={submit}>
-          <div className={styles.scopeRow} role="radiogroup" aria-label="Typ">
-            {(["daily", "weekly", "monthly"] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="radio"
-                aria-checked={scope === s}
-                className={[
-                  styles.scopeBtn,
-                  scope === s ? styles.scopeBtnActive : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                onClick={() => {
-                  setScope(s);
-                  setCategoryId("");
-                }}
-                disabled={pending}
-              >
-                {SCOPE_LABEL[s]}
-              </button>
-            ))}
-          </div>
+          {!weeklyOnly ? (
+            <div className={styles.scopeRow} role="radiogroup" aria-label="Typ">
+              {(["daily", "weekly", "monthly"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={scope === s}
+                  className={[
+                    styles.scopeBtn,
+                    scope === s ? styles.scopeBtnActive : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={() => {
+                    setScope(s);
+                    setCategoryId("");
+                  }}
+                  disabled={pending}
+                >
+                  {SCOPE_LABEL[s]}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <Input
             label={titleLabel}
@@ -278,7 +296,7 @@ export function AddTaskPanel({
           fullWidth
           onClick={() => setOpen(true)}
         >
-          + Ny uppgift
+          {embedded ? "+ Lägg till uppgift" : "+ Ny uppgift"}
         </Button>
       )}
     </section>

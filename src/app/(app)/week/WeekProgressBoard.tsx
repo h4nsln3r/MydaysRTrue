@@ -48,8 +48,10 @@ export function WeekProgressBoard({
   tasks,
   weightPlan,
 }: Props) {
-  const gymDone = gymSessions.filter((s) => s.placement.doneAt).length;
-  const cardioDone = cardioSessions.filter((s) => s.placement.doneAt).length;
+  const placedGym = gymSessions.filter((s) => s.placement.weekday != null);
+  const placedCardio = cardioSessions.filter((s) => s.placement.weekday != null);
+  const gymDone = placedGym.filter((s) => s.placement.doneAt).length;
+  const cardioDone = placedCardio.filter((s) => s.placement.doneAt).length;
   const placedTasks = tasks.filter((t) => t.placement);
   const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
@@ -59,6 +61,7 @@ export function WeekProgressBoard({
 
   const gymByWeekday = new Map<number, GymSessionForWeek[]>();
   for (const s of gymSessions) {
+    if (s.placement.weekday == null) continue;
     const list = gymByWeekday.get(s.placement.weekday) ?? [];
     list.push(s);
     gymByWeekday.set(s.placement.weekday, list);
@@ -66,6 +69,7 @@ export function WeekProgressBoard({
 
   const cardioByWeekday = new Map<number, CardioSessionForWeek[]>();
   for (const s of cardioSessions) {
+    if (s.placement.weekday == null) continue;
     const list = cardioByWeekday.get(s.placement.weekday) ?? [];
     list.push(s);
     cardioByWeekday.set(s.placement.weekday, list);
@@ -73,7 +77,7 @@ export function WeekProgressBoard({
 
   const tasksByWeekday = new Map<number, WeeklyTaskForWeek[]>();
   for (const t of tasks) {
-    if (!t.placement) continue;
+    if (t.placement?.weekday == null) continue;
     const list = tasksByWeekday.get(t.placement.weekday) ?? [];
     list.push(t);
     tasksByWeekday.set(t.placement.weekday, list);
@@ -88,14 +92,14 @@ export function WeekProgressBoard({
           <span className={styles.summaryLabel}>Gym</span>
           <span className={styles.summaryValue}>
             <span className={styles.summaryBig}>{gymDone}</span>
-            <span className={styles.summarySlash}>/ {gymSessions.length}</span>
+            <span className={styles.summarySlash}>/ {placedGym.length}</span>
           </span>
-          {gymSessions.length > 0 ? (
+          {placedGym.length > 0 ? (
             <div className={styles.summaryBar} aria-hidden>
               <div
                 className={styles.summaryFill}
                 style={{
-                  width: `${Math.round((gymDone / gymSessions.length) * 100)}%`,
+                  width: `${Math.round((gymDone / placedGym.length) * 100)}%`,
                 }}
               />
             </div>
@@ -107,17 +111,17 @@ export function WeekProgressBoard({
           <span className={styles.summaryValue}>
             <span className={styles.summaryBig}>{cardioDone}</span>
             <span className={styles.summarySlash}>
-              / {cardioSessions.length}
+              / {placedCardio.length}
             </span>
           </span>
-          {cardioSessions.length > 0 ? (
+          {placedCardio.length > 0 ? (
             <div className={styles.summaryBar} aria-hidden>
               <div
                 className={[styles.summaryFill, styles.summaryFillCardio]
                   .filter(Boolean)
                   .join(" ")}
                 style={{
-                  width: `${Math.round((cardioDone / cardioSessions.length) * 100)}%`,
+                  width: `${Math.round((cardioDone / placedCardio.length) * 100)}%`,
                 }}
               />
             </div>

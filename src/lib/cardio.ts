@@ -20,7 +20,8 @@ export interface CardioPlacement {
   id: string;
   templateId: string;
   weekStart: string;
-  weekday: Weekday;
+  /** null = in the week backlog until placed on a day. */
+  weekday: Weekday | null;
   doneAt: string | null;
   note: string | null;
 }

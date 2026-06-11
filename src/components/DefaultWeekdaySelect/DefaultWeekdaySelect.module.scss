@@ -1,0 +1,16 @@
+@use "abstracts" as *;
+
+.select {
+    width: 100%;
+    padding: $space-2 $space-3;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-size: 0.88rem;
+    font-weight: 600;
+
+    &:disabled {
+        opacity: 0.5;
+    }
+}

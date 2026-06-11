@@ -65,6 +65,7 @@ interface WeeklyTaskRow {
   icon: string;
   accent: string;
   sort_order: number;
+  default_weekday: number | null;
 }
 
 function rowToWeekly(r: WeeklyTaskRow): WeeklyTask {
@@ -76,6 +77,7 @@ function rowToWeekly(r: WeeklyTaskRow): WeeklyTask {
     icon: r.icon,
     accent: r.accent,
     sortOrder: r.sort_order,
+    defaultWeekday: r.default_weekday as Weekday | null,
   };
 }
 
@@ -83,7 +85,7 @@ interface WeeklyPlacementRow {
   id: string;
   task_id: string;
   week_start: string;
-  weekday: number;
+  weekday: number | null;
   done_at: string | null;
   note: string | null;
 }
@@ -103,7 +105,9 @@ export async function getWeeklyTasks(userId: string): Promise<WeeklyTask[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("weekly_tasks")
-    .select("id, category_id, title, notes, icon, accent, sort_order")
+    .select(
+      "id, category_id, title, notes, icon, accent, sort_order, default_weekday",
+    )
     .eq("user_id", userId)
     .is("archived_at", null)
     .order("sort_order", { ascending: true });
@@ -128,7 +132,9 @@ export async function getWeekSummary(
   const [tasksRes, placementsRes, catsRes] = await Promise.all([
     supabase
       .from("weekly_tasks")
-      .select("id, category_id, title, notes, icon, accent, sort_order")
+      .select(
+        "id, category_id, title, notes, icon, accent, sort_order, default_weekday",
+      )
       .eq("user_id", userId)
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
@@ -151,10 +157,41 @@ export async function getWeekSummary(
     placements.set(row.task_id, rowToPlacement(row));
   }
 
-  const tasks: WeeklyTaskForWeek[] = (tasksRes.data ?? []).map((row) => ({
-    ...rowToWeekly(row),
-    placement: placements.get(row.id) ?? null,
-  }));
+  const toInsert: {
+    user_id: string;
+    task_id: string;
+    week_start: string;
+    weekday: number;
+  }[] = [];
+
+  for (const row of tasksRes.data ?? []) {
+    if (!placements.has(row.id) && row.default_weekday != null) {
+      toInsert.push({
+        user_id: userId,
+        task_id: row.id,
+        week_start: weekStart,
+        weekday: row.default_weekday,
+      });
+    }
+  }
+
+  if (toInsert.length > 0) {
+    const { data: inserted } = await supabase
+      .from("weekly_task_placements")
+      .insert(toInsert)
+      .select("id, task_id, week_start, weekday, done_at, note");
+    for (const row of inserted ?? []) {
+      placements.set(row.task_id, rowToPlacement(row));
+    }
+  }
+
+  const tasks: WeeklyTaskForWeek[] = (tasksRes.data ?? []).map((row) => {
+    const raw = placements.get(row.id);
+    return {
+      ...rowToWeekly(row),
+      placement: raw?.weekday != null ? raw : null,
+    };
+  });
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
   return { weekStart, tasks, categories };

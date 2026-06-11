@@ -24,7 +24,7 @@ interface PlacementRow {
   id: string;
   template_id: string;
   week_start: string;
-  weekday: number;
+  weekday: number | null;
   warmup: GymWarmup | null;
   done_at: string | null;
   note: string | null;
@@ -58,6 +58,21 @@ function rowToPlacement(r: PlacementRow): GymPlacement {
 export interface GymWeekSummary {
   weekStart: string;
   sessions: GymSessionForWeek[];
+}
+
+export async function getGymTemplates(
+  userId: string,
+): Promise<GymSessionTemplate[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("gym_session_templates")
+    .select(
+      "id, key, label, description, icon, accent, sort_order, default_weekday",
+    )
+    .eq("user_id", userId)
+    .is("archived_at", null)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map(rowToTemplate);
 }
 
 /**
@@ -100,7 +115,7 @@ export async function getGymWeekSummary(
     user_id: string;
     template_id: string;
     week_start: string;
-    weekday: number;
+    weekday: number | null;
   }[] = [];
 
   for (const t of templates) {
@@ -135,6 +150,8 @@ export async function getGymWeekSummary(
     };
   });
 
+  sessions.sort((a, b) => a.sortOrder - b.sortOrder);
+
   return { weekStart, sessions };
 }
 
@@ -154,8 +171,8 @@ export async function getGymSessionsForDate(
   const weekStart = weekStartISO(parseLocalISO(localDate));
   const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
   const { sessions } = await getGymWeekSummary(userId, weekStart);
-  const forDay = sessions
-    .filter((s) => s.placement.weekday === weekday)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const forDay = sessions.filter(
+    (s) => s.placement.weekday != null && s.placement.weekday === weekday,
+  );
   return { localDate, weekStart, weekday, sessions: forDay };
 }

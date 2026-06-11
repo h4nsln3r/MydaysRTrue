@@ -214,6 +214,7 @@ export async function updateWeeklyTaskAction(input: {
   notes?: string | null;
   icon?: string;
   accent?: string;
+  defaultWeekday?: Weekday | null;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Missing task id." };
 
@@ -229,6 +230,15 @@ export async function updateWeeklyTaskAction(input: {
   }
   if (input.icon !== undefined) patch.icon = cleanIcon(input.icon);
   if (input.accent !== undefined) patch.accent = cleanAccent(input.accent);
+  if (input.defaultWeekday !== undefined) {
+    if (input.defaultWeekday === null) {
+      patch.default_weekday = null;
+    } else if (input.defaultWeekday >= 1 && input.defaultWeekday <= 7) {
+      patch.default_weekday = input.defaultWeekday;
+    } else {
+      return { ok: false, error: "Ogiltig standarddag." };
+    }
+  }
 
   if (Object.keys(patch).length === 0) return { ok: true };
 
@@ -317,7 +327,7 @@ export async function placeWeeklyTaskAction(input: {
     if (error) return { ok: false, error: error.message };
   }
 
-  revalidatePath("/week", "page");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 
@@ -336,15 +346,24 @@ export async function unplaceWeeklyTaskAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
-  const { error } = await supabase
+  const { data: existing } = await supabase
     .from("weekly_task_placements")
-    .delete()
+    .select("id")
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
-    .eq("week_start", input.weekStart);
-  if (error) return { ok: false, error: error.message };
+    .eq("week_start", input.weekStart)
+    .maybeSingle();
 
-  revalidatePath("/week", "page");
+  if (existing) {
+    const { error } = await supabase
+      .from("weekly_task_placements")
+      .update({ weekday: null })
+      .eq("id", existing.id)
+      .eq("user_id", user.id);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 
@@ -383,7 +402,7 @@ export async function toggleWeeklyTaskDoneAction(input: {
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/week", "page");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 

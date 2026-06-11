@@ -52,6 +52,19 @@ async function fetchLog(
   return rowToLog(data);
 }
 
+export async function getWeightDefaultWeekday(
+  userId: string,
+): Promise<Weekday | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("default_weight_weekday")
+    .eq("id", userId)
+    .maybeSingle();
+  const n = data?.default_weight_weekday;
+  return n != null && n >= 1 && n <= 7 ? (n as Weekday) : null;
+}
+
 async function ensurePlanRow(
   userId: string,
   weekStart: string,
@@ -67,13 +80,15 @@ async function ensurePlanRow(
 
   if (existing) return existing;
 
+  const defaultWeekday = await getWeightDefaultWeekday(userId);
+
   const { data: inserted, error } = await supabase
     .from("weight_week_plans")
     .insert({
       user_id: userId,
       week_start: weekStart,
       enabled: true,
-      weekday: null,
+      weekday: defaultWeekday,
     })
     .select("week_start, enabled, weekday")
     .single();
@@ -98,10 +113,13 @@ export async function getWeightWeekPlan(
     log = await fetchLog(userId, localDate);
   }
 
+  const defaultWeekday = await getWeightDefaultWeekday(userId);
+
   return {
     weekStart,
     enabled: plan.enabled,
     weekday: plan.weekday as Weekday | null,
+    defaultWeekday,
     log,
   };
 }

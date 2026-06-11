@@ -78,6 +78,7 @@ export function GymWeekBoard({ weekStart, sessions }: Props) {
     WEEKDAYS.map((d) => [d, [] as GymSessionForWeek[]]),
   );
   for (const s of localSessions) {
+    if (s.placement.weekday == null) continue;
     byDay.get(s.placement.weekday)?.push(s);
   }
   for (const list of byDay.values()) {

@@ -71,12 +71,14 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
 
   const catById = new Map(categories.map((c) => [c.id, c]));
 
-  const backlog = localTasks.filter((t) => !t.placement);
+  const backlog = localTasks.filter((t) => !t.placement?.weekday);
   const byDay = new Map<Weekday, WeeklyTaskForWeek[]>(
     WEEKDAYS.map((d) => [d, [] as WeeklyTaskForWeek[]]),
   );
   for (const t of localTasks) {
-    if (t.placement) byDay.get(t.placement.weekday)?.push(t);
+    if (t.placement?.weekday != null) {
+      byDay.get(t.placement.weekday)?.push(t);
+    }
   }
 
   const draggingTask = draggingId

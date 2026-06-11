@@ -24,7 +24,7 @@ interface PlacementRow {
   id: string;
   template_id: string;
   week_start: string;
-  weekday: number;
+  weekday: number | null;
   done_at: string | null;
   note: string | null;
 }
@@ -56,6 +56,21 @@ function rowToPlacement(r: PlacementRow): CardioPlacement {
 export interface CardioWeekSummary {
   weekStart: string;
   sessions: CardioSessionForWeek[];
+}
+
+export async function getCardioTemplates(
+  userId: string,
+): Promise<CardioSessionTemplate[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("cardio_session_templates")
+    .select(
+      "id, key, label, description, icon, accent, sort_order, default_weekday",
+    )
+    .eq("user_id", userId)
+    .is("archived_at", null)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map(rowToTemplate);
 }
 
 export async function getCardioWeekSummary(
@@ -92,7 +107,7 @@ export async function getCardioWeekSummary(
     user_id: string;
     template_id: string;
     week_start: string;
-    weekday: number;
+    weekday: number | null;
   }[] = [];
 
   for (const t of templates) {
@@ -144,8 +159,8 @@ export async function getCardioSessionsForDate(
   const weekStart = weekStartISO(parseLocalISO(localDate));
   const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
   const { sessions } = await getCardioWeekSummary(userId, weekStart);
-  const forDay = sessions
-    .filter((s) => s.placement.weekday === weekday)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const forDay = sessions.filter(
+    (s) => s.placement.weekday != null && s.placement.weekday === weekday,
+  );
   return { localDate, weekStart, weekday, sessions: forDay };
 }

@@ -76,6 +76,61 @@ export async function moveGymSessionAction(input: {
   return { ok: true };
 }
 
+/** Move a gym pass back to the week backlog. */
+export async function unplaceGymSessionAction(input: {
+  templateId: string;
+  weekStart: string;
+}): Promise<ActionResult> {
+  if (!input.templateId) return { ok: false, error: "Missing pass id." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Week must start on a Monday." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("gym_week_placements")
+    .update({ weekday: null })
+    .eq("user_id", user.id)
+    .eq("template_id", input.templateId)
+    .eq("week_start", input.weekStart);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Update a gym template's default weekday. */
+export async function updateGymDefaultWeekdayAction(input: {
+  templateId: string;
+  defaultWeekday: Weekday;
+}): Promise<ActionResult> {
+  if (!input.templateId) return { ok: false, error: "Missing pass id." };
+  if (input.defaultWeekday < 1 || input.defaultWeekday > 7) {
+    return { ok: false, error: "Invalid weekday." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("gym_session_templates")
+    .update({ default_weekday: input.defaultWeekday })
+    .eq("id", input.templateId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Mark a gym pass as done with the chosen warmup. */
 export async function completeGymSessionAction(input: {
   templateId: string;

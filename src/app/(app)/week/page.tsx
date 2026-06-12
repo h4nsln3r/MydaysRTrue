@@ -10,6 +10,8 @@ import { getWeeklySummary } from "@/lib/water.server";
 
 import { getWeekSummary } from "@/lib/tasks.server";
 
+import { getBathingWeekSummary } from "@/lib/bathing.server";
+
 import { getCardioWeekSummary } from "@/lib/cardio.server";
 
 import { getGymWeekSummary } from "@/lib/gym.server";
@@ -104,9 +106,9 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
 
 
-  const start = requested > currentWeekStart ? currentWeekStart : requested;
-
-
+  const nextWeekStart = addDaysISO(currentWeekStart, 7);
+  const start =
+    requested > nextWeekStart ? nextWeekStart : requested;
 
   const [
 
@@ -119,6 +121,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     gymWeek,
 
     cardioWeek,
+
+    bathingWeek,
 
     weightPlan,
 
@@ -136,6 +140,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
     getCardioWeekSummary(user.id, start),
 
+    getBathingWeekSummary(user.id, start),
+
     getWeightWeekPlan(user.id, start),
 
     getUnifiedWeekPlan(user.id, start),
@@ -146,7 +152,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
   const nextStart = addDaysISO(start, 7);
 
-  const canGoForward = start < currentWeekStart;
+  const canGoForward = start < nextWeekStart;
 
 
 
@@ -157,9 +163,11 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
       <header className={styles.header}>
 
         <p className={styles.kicker}>
-
-          {start === currentWeekStart ? "This week" : "Past week"}
-
+          {start === currentWeekStart
+            ? "Den här veckan"
+            : start === nextWeekStart
+              ? "Nästa vecka"
+              : "Tidigare vecka"}
         </p>
 
         <div className={styles.weekNav}>
@@ -233,6 +241,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           gymSessions={gymWeek.sessions}
 
           cardioSessions={cardioWeek.sessions}
+
+          bathingSessions={bathingWeek.placedSessions}
 
           tasks={weeklyTasks.tasks}
 

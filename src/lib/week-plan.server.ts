@@ -1,9 +1,13 @@
 import "server-only";
+import { getBathingWeekSummary } from "@/lib/bathing.server";
 import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getGymWeekSummary } from "@/lib/gym.server";
+import { formatWeeklyTaskDetail } from "@/lib/tasks";
 import { getWeekSummary } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import {
+  weekPlanBathingPlacementDragId,
+  weekPlanBathingSourceDragId,
   weekPlanDragId,
   type UnifiedWeekPlan,
   type WeekPlanItem,
@@ -13,8 +17,9 @@ import { WEIGHT_ITEM_ID } from "@/lib/weight";
 const KIND_SORT: Record<WeekPlanItem["kind"], number> = {
   gym: 0,
   cardio: 1,
-  task: 2,
-  weight: 3,
+  bathing: 2,
+  task: 3,
+  weight: 4,
 };
 
 function sortItems(items: WeekPlanItem[]): WeekPlanItem[] {
@@ -30,12 +35,14 @@ export async function getUnifiedWeekPlan(
   userId: string,
   weekStart: string,
 ): Promise<UnifiedWeekPlan> {
-  const [gymWeek, cardioWeek, taskWeek, weightPlan] = await Promise.all([
-    getGymWeekSummary(userId, weekStart),
-    getCardioWeekSummary(userId, weekStart),
-    getWeekSummary(userId, weekStart),
-    getWeightWeekPlan(userId, weekStart),
-  ]);
+  const [gymWeek, cardioWeek, bathingWeek, taskWeek, weightPlan] =
+    await Promise.all([
+      getGymWeekSummary(userId, weekStart),
+      getCardioWeekSummary(userId, weekStart),
+      getBathingWeekSummary(userId, weekStart),
+      getWeekSummary(userId, weekStart),
+      getWeightWeekPlan(userId, weekStart),
+    ]);
 
   const items: WeekPlanItem[] = [];
 
@@ -74,19 +81,74 @@ export async function getUnifiedWeekPlan(
     });
   }
 
+  for (const t of bathingWeek.templates) {
+    items.push({
+      dragId: weekPlanBathingSourceDragId(t.id),
+      kind: "bathing",
+      bathingRole: "source",
+      templateId: t.id,
+      placementId: null,
+      label: t.label,
+      subtitle: t.description,
+      icon: t.icon,
+      accent: t.accent,
+      defaultWeekday: t.defaultWeekday,
+      weekday: null,
+      done: false,
+      sortOrder: t.sortOrder,
+      session: {
+        ...t,
+        placement: {
+          id: "",
+          templateId: t.id,
+          weekStart,
+          weekday: null,
+          waterTempC: null,
+          doneAt: null,
+          note: null,
+        },
+      },
+    });
+  }
+
+  for (const s of bathingWeek.placedSessions) {
+    items.push({
+      dragId: weekPlanBathingPlacementDragId(s.placement.id),
+      kind: "bathing",
+      bathingRole: "placement",
+      templateId: s.id,
+      placementId: s.placement.id,
+      label: s.label,
+      subtitle: s.description,
+      icon: s.icon,
+      accent: s.accent,
+      defaultWeekday: s.defaultWeekday,
+      weekday: s.placement.weekday,
+      done: Boolean(s.placement.doneAt),
+      sortOrder: s.sortOrder,
+      session: s,
+    });
+  }
+
   for (const t of taskWeek.tasks) {
+    const done = Boolean(t.placement?.doneAt);
     items.push({
       dragId: weekPlanDragId("task", t.id),
       kind: "task",
       taskId: t.id,
       categoryId: t.categoryId,
+      completionKind: t.completionKind,
+      placement: t.placement,
       label: t.title,
-      subtitle: t.notes,
+      subtitle:
+        done && t.placement
+          ? formatWeeklyTaskDetail(t.placement) ?? t.notes
+          : t.notes,
       icon: t.icon,
       accent: t.accent,
       defaultWeekday: t.defaultWeekday,
       weekday: t.placement?.weekday ?? null,
-      done: Boolean(t.placement?.doneAt),
+      done,
       sortOrder: t.sortOrder,
     });
   }

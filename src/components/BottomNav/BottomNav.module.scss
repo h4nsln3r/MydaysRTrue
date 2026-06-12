@@ -17,6 +17,15 @@
     margin: 0 auto;
     padding: $space-2;
     max-width: $container-max;
+
+    @media (min-width: $bp-md) {
+        max-width: $container-max-md;
+    }
+
+    @media (min-width: $bp-lg) {
+        max-width: $container-max-lg;
+    }
+
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: $space-1;

@@ -17,6 +17,10 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  completeBathingSessionAction,
+  uncompleteBathingSessionAction,
+} from "@/app/(app)/bathing-actions";
+import {
   completeCardioSessionAction,
   uncompleteCardioSessionAction,
 } from "@/app/(app)/cardio-actions";
@@ -24,7 +28,7 @@ import {
   completeGymSessionAction,
   uncompleteGymSessionAction,
 } from "@/app/(app)/gym-actions";
-import { toggleWeeklyTaskDoneAction } from "@/app/(app)/tasks-actions";
+import { updateWeeklyTaskPlanAction } from "@/app/(app)/tasks-actions";
 import { setWeightWeekEnabledAction } from "@/app/(app)/weight-actions";
 import {
   enableWeightWeekAction,
@@ -36,6 +40,10 @@ import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { formatWeightKg } from "@/lib/format";
+import {
+  bathingRequiresWaterTemp,
+  formatWaterTemp,
+} from "@/lib/bathing";
 import {
   GYM_WARMUP_ICON,
   GYM_WARMUP_LABEL,
@@ -51,8 +59,12 @@ import {
 } from "@/lib/tasks";
 import { WEIGHT_TIME_LABEL } from "@/lib/weight";
 import {
+  groupWeekPlanBacklogItems,
+  groupWeekPlanDayItems,
+  type WeekPlanItemGroup,
+} from "@/lib/week-plan-groups";
+import {
   WEEK_PLAN_BACKLOG_DROP_ID,
-  WEEK_PLAN_TASK_STAGING_DROP_ID,
   weekPlanDayDropId,
   weekdayFromWeekPlanDropId,
   type UnifiedWeekPlan,
@@ -91,11 +103,10 @@ export function UnifiedWeekBoard({
   );
 
   const catById = new Map(plan.categories.map((c) => [c.id, c]));
-  const taskStaging = localItems.filter(
-    (i) => i.kind === "task" && i.weekday == null,
-  );
   const sidebarBacklog = localItems.filter(
-    (i) => i.kind !== "task" && i.weekday == null,
+    (i) =>
+      i.weekday == null ||
+      (i.kind === "bathing" && i.bathingRole === "source"),
   );
   const byDay = new Map<Weekday, WeekPlanItem[]>(
     WEEKDAYS.map((d) => [d, [] as WeekPlanItem[]]),
@@ -104,7 +115,11 @@ export function UnifiedWeekBoard({
     if (item.weekday != null) byDay.get(item.weekday)?.push(item);
   }
 
-  const placedCount = localItems.filter((i) => i.weekday != null).length;
+  const placedCount = localItems.filter(
+    (i) =>
+      i.weekday != null &&
+      !(i.kind === "bathing" && i.bathingRole === "source"),
+  ).length;
   const doneCount = localItems.filter((i) => i.done).length;
   const draggingItem = draggingId
     ? localItems.find((i) => i.dragId === draggingId)
@@ -112,12 +127,18 @@ export function UnifiedWeekBoard({
 
   const place = (dragId: string, weekday: Weekday) => {
     const item = localItems.find((i) => i.dragId === dragId);
-    if (!item || item.weekday === weekday) return;
+    if (!item) return;
+
+    const isBathingSource =
+      item.kind === "bathing" && item.bathingRole === "source";
+    if (!isBathingSource && item.weekday === weekday) return;
 
     setError(null);
-    setLocalItems((prev) =>
-      prev.map((i) => (i.dragId === dragId ? { ...i, weekday } : i)),
-    );
+    if (!isBathingSource) {
+      setLocalItems((prev) =>
+        prev.map((i) => (i.dragId === dragId ? { ...i, weekday } : i)),
+      );
+    }
     setPendingId(dragId);
     startTransition(async () => {
       const res = await placeWeekPlanItemAction({ dragId, weekStart, weekday });
@@ -133,10 +154,13 @@ export function UnifiedWeekBoard({
   const unplace = (dragId: string) => {
     const item = localItems.find((i) => i.dragId === dragId);
     if (!item || item.weekday == null) return;
+    if (item.kind === "bathing" && item.bathingRole === "source") return;
 
     setError(null);
     setLocalItems((prev) =>
-      prev.map((i) => (i.dragId === dragId ? { ...i, weekday: null } : i)),
+      item.kind === "bathing" && item.bathingRole === "placement"
+        ? prev.filter((i) => i.dragId !== dragId)
+        : prev.map((i) => (i.dragId === dragId ? { ...i, weekday: null } : i)),
     );
     setPendingId(dragId);
     startTransition(async () => {
@@ -163,10 +187,9 @@ export function UnifiedWeekBoard({
     const dragId = String(active.id);
     const overId = String(over.id);
 
-    if (
-      overId === WEEK_PLAN_BACKLOG_DROP_ID ||
-      overId === WEEK_PLAN_TASK_STAGING_DROP_ID
-    ) {
+    if (overId === WEEK_PLAN_BACKLOG_DROP_ID) {
+      const item = localItems.find((i) => i.dragId === dragId);
+      if (item?.kind === "bathing" && item.bathingRole === "source") return;
       unplace(dragId);
       return;
     }
@@ -192,6 +215,19 @@ export function UnifiedWeekBoard({
       router.refresh();
     });
   };
+
+  const renderGroupedLists = (
+    groups: WeekPlanItemGroup[],
+    showCheck: boolean,
+  ) =>
+    groups.map((group) => (
+      <div key={group.id} className={styles.itemGroup}>
+        <p className={styles.groupLabel}>{group.label}</p>
+        <ul className={styles.taskList}>
+          {group.items.map((item) => renderItemRow(item, showCheck))}
+        </ul>
+      </div>
+    ));
 
   const renderItemRow = (
     item: WeekPlanItem,
@@ -238,17 +274,6 @@ export function UnifiedWeekBoard({
           weeklyOnly
           embedded
         />
-        <TaskStagingDropZone count={taskStaging.length}>
-          {taskStaging.length === 0 ? (
-            <p className={styles.stagingEmpty}>
-              Nya uppgifter hamnar här — dra dem till en veckodag nedan.
-            </p>
-          ) : (
-            <ul className={styles.taskList}>
-              {taskStaging.map((item) => renderItemRow(item, false))}
-            </ul>
-          )}
-        </TaskStagingDropZone>
       </div>
 
       {!weightEnabled ? (
@@ -272,14 +297,17 @@ export function UnifiedWeekBoard({
         <aside className={styles.backlogPanel}>
           <BacklogDropZone count={sidebarBacklog.length}>
             <p className={styles.dragHint}>
-              Gym, cardio, vikt · dra till en dag
+              Dra till en veckodag →
             </p>
             {sidebarBacklog.length === 0 ? (
               <p className={styles.dayEmpty}>Alla placerade den här veckan.</p>
             ) : (
-              <ul className={styles.taskList}>
-                {sidebarBacklog.map((item) => renderItemRow(item, false))}
-              </ul>
+              <div className={styles.dayGroups}>
+                {renderGroupedLists(
+                  groupWeekPlanBacklogItems(sidebarBacklog, plan.categories),
+                  false,
+                )}
+              </div>
             )}
           </BacklogDropZone>
         </aside>
@@ -307,9 +335,12 @@ export function UnifiedWeekBoard({
                 {dayItems.length === 0 ? (
                   <p className={styles.dayEmpty}>Släpp en aktivitet här.</p>
                 ) : (
-                  <ul className={styles.taskList}>
-                    {dayItems.map((item) => renderItemRow(item, true))}
-                  </ul>
+                  <div className={styles.dayGroups}>
+                    {renderGroupedLists(
+                      groupWeekPlanDayItems(dayItems, plan.categories),
+                      true,
+                    )}
+                  </div>
                 )}
               </DayDropZone>
             );
@@ -347,37 +378,6 @@ export function UnifiedWeekBoard({
         ) : null}
       </DragOverlay>
     </DndContext>
-  );
-}
-
-function TaskStagingDropZone({
-  count,
-  children,
-}: {
-  count: number;
-  children: React.ReactNode;
-}) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: WEEK_PLAN_TASK_STAGING_DROP_ID,
-  });
-
-  return (
-    <section
-      ref={setNodeRef}
-      className={[
-        styles.taskStaging,
-        isOver ? styles.dropZoneOver : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      {count > 0 ? (
-        <p className={styles.stagingLabel}>
-          {count} {count === 1 ? "uppgift" : "uppgifter"} att placera
-        </p>
-      ) : null}
-      {children}
-    </section>
   );
 }
 
@@ -585,27 +585,40 @@ function ItemRowContent({
   const [cardioNote, setCardioNote] = useState(
     item.kind === "cardio" ? (item.session.placement.note ?? "") : "",
   );
+  const [bathingWaterTemp, setBathingWaterTemp] = useState(
+    item.kind === "bathing" && item.session.placement.waterTempC != null
+      ? String(item.session.placement.waterTempC)
+      : "",
+  );
+  const [taskPlanNote, setTaskPlanNote] = useState(
+    item.kind === "task" ? (item.placement?.planNote ?? "") : "",
+  );
+  const taskPlanningExpand =
+    item.kind === "task" &&
+    (item.completionKind === "journal" || item.completionKind === "laundry");
 
   const kindLabel =
     item.kind === "gym"
       ? "Gym"
       : item.kind === "cardio"
         ? "Cardio"
-        : item.kind === "weight"
-          ? "Vikt"
-          : null;
+        : item.kind === "bathing"
+          ? "Bad & bastu"
+          : item.kind === "weight"
+            ? "Vikt"
+            : null;
 
-  const toggleTaskDone = () => {
-    if (item.kind !== "task" || !item.weekday) return;
+  const saveTaskPlan = () => {
+    if (item.kind !== "task") return;
     onError(null);
     onPendingId(item.dragId);
     startTransition(async () => {
-      const res = await toggleWeeklyTaskDoneAction({
+      const res = await updateWeeklyTaskPlanAction({
         taskId: item.taskId,
         weekStart,
-        done: !item.done,
+        planNote: taskPlanNote,
       });
-      if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
       onDone();
     });
@@ -679,6 +692,48 @@ function ItemRowContent({
     });
   };
 
+  const completeBathing = () => {
+    if (item.kind !== "bathing" || item.bathingRole !== "placement" || !item.placementId) {
+      return;
+    }
+    const placementId = item.placementId;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const needsTemp = bathingRequiresWaterTemp(item.session.key);
+      const parsed = needsTemp
+        ? Number(bathingWaterTemp.replace(",", "."))
+        : undefined;
+      const res = await completeBathingSessionAction({
+        placementId,
+        weekStart,
+        waterTempC: parsed,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const uncompleteBathing = () => {
+    if (item.kind !== "bathing" || item.bathingRole !== "placement" || !item.placementId) {
+      return;
+    }
+    const placementId = item.placementId;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await uncompleteBathingSessionAction({
+        placementId,
+        weekStart,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
+      setBathingWaterTemp("");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
   const disableWeight = () => {
     if (item.kind !== "weight") return;
     onError(null);
@@ -697,37 +752,19 @@ function ItemRowContent({
   const detail =
     item.kind === "weight" && item.log
       ? `${formatWeightKg(item.log.weightKg)} · ${WEIGHT_TIME_LABEL[item.log.timeOfDay]}`
-      : item.subtitle;
+      : item.kind === "bathing" &&
+          item.done &&
+          item.session.placement.waterTempC != null
+        ? formatWaterTemp(item.session.placement.waterTempC)
+        : item.subtitle;
 
   return (
     <>
-      {showCheck && item.kind === "task" ? (
-        <button
-          type="button"
-          className={[styles.checkBtn, item.done ? styles.checkBtnDone : ""]
-            .filter(Boolean)
-            .join(" ")}
-          aria-label={item.done ? "Markera ej klar" : "Markera klar"}
-          aria-pressed={item.done}
-          disabled={pending}
-          onClick={toggleTaskDone}
-        >
-          {item.done ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M5 12.5 10 17.5 19 7.5"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          ) : (
-            <span aria-hidden />
-          )}
-        </button>
-      ) : showCheck &&
-        (item.kind === "gym" || item.kind === "cardio" || item.kind === "weight") ? (
+      {showCheck &&
+        (item.kind === "gym" ||
+          item.kind === "cardio" ||
+          (item.kind === "bathing" && item.bathingRole === "placement") ||
+          item.kind === "weight") ? (
         <button
           type="button"
           className={[styles.checkBtn, item.done ? styles.checkBtnDone : ""]
@@ -799,7 +836,12 @@ function ItemRowContent({
           ) : null}
           {detail ? <span className={styles.taskNotes}>{detail}</span> : null}
         </span>
-        {!preview && (item.kind === "gym" || item.kind === "cardio" || item.kind === "weight") ? (
+        {!preview &&
+        (taskPlanningExpand ||
+          item.kind === "gym" ||
+          item.kind === "cardio" ||
+          (item.kind === "bathing" && item.bathingRole === "placement") ||
+          item.kind === "weight") ? (
           <span
             className={[styles.chevron, expanded ? styles.chevronUp : ""]
               .filter(Boolean)
@@ -921,6 +963,49 @@ function ItemRowContent({
             </button>
           ) : null}
 
+          {item.kind === "bathing" &&
+          item.bathingRole === "placement" &&
+          !item.done ? (
+            <>
+              {bathingRequiresWaterTemp(item.session.key) ? (
+                <Input
+                  label="Vattentemperatur (°C)"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  value={bathingWaterTemp}
+                  onChange={(e) => setBathingWaterTemp(e.target.value)}
+                  placeholder="t.ex. 4"
+                  disabled={pending}
+                />
+              ) : null}
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={completeBathing}
+              >
+                Markera klart
+              </Button>
+            </>
+          ) : null}
+
+          {item.kind === "bathing" &&
+          item.bathingRole === "placement" &&
+          item.done ? (
+            <button
+              type="button"
+              className={styles.undoBtn}
+              onClick={uncompleteBathing}
+              disabled={pending}
+            >
+              Ångra klarmarkering
+            </button>
+          ) : null}
+
           {item.kind === "weight" ? (
             <button
               type="button"
@@ -930,6 +1015,42 @@ function ItemRowContent({
             >
               Stäng av vikt den här veckan
             </button>
+          ) : null}
+
+          {item.kind === "task" && taskPlanningExpand ? (
+            <>
+              {item.completionKind === "journal" ? (
+                <Input
+                  label="Vad ska du jobba med?"
+                  value={taskPlanNote}
+                  onChange={(e) => setTaskPlanNote(e.target.value)}
+                  placeholder="Beskriv uppgiften"
+                  maxLength={280}
+                  disabled={pending}
+                />
+              ) : null}
+              {item.completionKind === "laundry" ? (
+                <Input
+                  label="Bokad tid"
+                  value={taskPlanNote}
+                  onChange={(e) => setTaskPlanNote(e.target.value)}
+                  placeholder="t.ex. 14:00"
+                  maxLength={80}
+                  disabled={pending}
+                />
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={saveTaskPlan}
+              >
+                Spara plan
+              </Button>
+            </>
           ) : null}
         </div>
       ) : null}

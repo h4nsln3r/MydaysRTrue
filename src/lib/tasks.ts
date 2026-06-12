@@ -37,14 +37,18 @@ export interface TaskCategory {
   sortOrder: number;
 }
 
+export type WeeklyTaskCompletionKind = "simple" | "shop" | "journal" | "laundry";
+
 export interface WeeklyTask {
   id: string;
   categoryId: string | null;
+  key: string | null;
   title: string;
   notes: string | null;
   icon: string;
   accent: string;
   sortOrder: number;
+  completionKind: WeeklyTaskCompletionKind;
   /** Suggested ISO weekday when a new week is opened (1 = Mon … 7 = Sun). */
   defaultWeekday: Weekday | null;
 }
@@ -68,7 +72,13 @@ export interface WeeklyPlacement {
   /** null = in the week backlog until placed on a day. */
   weekday: Weekday | null;
   doneAt: string | null;
+  /** Plan / booked time before completing (journal, laundry). */
+  planNote: string | null;
+  /** Completion summary (journal) or legacy note. */
   note: string | null;
+  shopLocation: string | null;
+  shopAmount: number | null;
+  laundryLoads: number | null;
 }
 
 export interface MonthlyCompletion {
@@ -81,8 +91,21 @@ export interface MonthlyCompletion {
 
 /** A weekly task in the context of a specific week. */
 export interface WeeklyTaskForWeek extends WeeklyTask {
-  /** null = not placed this week (sits in the backlog). */
+  /** null = no row yet for this week. */
   placement: WeeklyPlacement | null;
+}
+
+export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | null {
+  if (placement.shopLocation && placement.shopAmount != null) {
+    return `${placement.shopLocation} · ${placement.shopAmount} kr`;
+  }
+  if (placement.laundryLoads != null) {
+    const time = placement.planNote ? `${placement.planNote} · ` : "";
+    return `${time}${placement.laundryLoads} tvättar`;
+  }
+  if (placement.note) return placement.note;
+  if (placement.planNote) return placement.planNote;
+  return null;
 }
 
 /** A monthly task in the context of a specific month. */

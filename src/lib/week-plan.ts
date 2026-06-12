@@ -1,13 +1,19 @@
 // Unified weekly planning — all recurring activities in one board.
 // Server aggregation lives in `./week-plan.server`.
 
+import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek, GymWarmup } from "@/lib/gym";
-import type { TaskCategory, Weekday, WeeklyTaskForWeek } from "@/lib/tasks";
+import type {
+  TaskCategory,
+  Weekday,
+  WeeklyPlacement,
+  WeeklyTaskCompletionKind,
+} from "@/lib/tasks";
 import type { WeightLog, WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_ITEM_ID } from "@/lib/weight";
 
-export type WeekPlanItemKind = "task" | "gym" | "cardio" | "weight";
+export type WeekPlanItemKind = "task" | "gym" | "cardio" | "bathing" | "weight";
 
 export interface WeekPlanItemBase {
   dragId: string;
@@ -27,6 +33,8 @@ export interface WeekPlanTaskItem extends WeekPlanItemBase {
   kind: "task";
   taskId: string;
   categoryId: string | null;
+  completionKind: WeeklyTaskCompletionKind;
+  placement: WeeklyPlacement | null;
 }
 
 export interface WeekPlanGymItem extends WeekPlanItemBase {
@@ -42,6 +50,14 @@ export interface WeekPlanCardioItem extends WeekPlanItemBase {
   session: CardioSessionForWeek;
 }
 
+export interface WeekPlanBathingItem extends WeekPlanItemBase {
+  kind: "bathing";
+  bathingRole: BathingDragRole;
+  templateId: string;
+  placementId: string | null;
+  session: BathingSessionForWeek;
+}
+
 export interface WeekPlanWeightItem extends WeekPlanItemBase {
   kind: "weight";
   enabled: boolean;
@@ -53,6 +69,7 @@ export type WeekPlanItem =
   | WeekPlanTaskItem
   | WeekPlanGymItem
   | WeekPlanCardioItem
+  | WeekPlanBathingItem
   | WeekPlanWeightItem;
 
 export interface UnifiedWeekPlan {
@@ -77,6 +94,14 @@ export function weekdayFromWeekPlanDropId(id: string): Weekday | null {
   return n >= 1 && n <= 7 ? (n as Weekday) : null;
 }
 
+export type BathingDragRole = "source" | "placement";
+
+export interface ParsedWeekPlanDragId {
+  kind: WeekPlanItemKind;
+  entityId: string;
+  bathingRole?: BathingDragRole;
+}
+
 export function weekPlanDragId(
   kind: WeekPlanItemKind,
   entityId: string,
@@ -84,9 +109,27 @@ export function weekPlanDragId(
   return `${kind}:${entityId}`;
 }
 
-export function parseWeekPlanDragId(
-  dragId: string,
-): { kind: WeekPlanItemKind; entityId: string } | null {
+/** Draggable bathing template in the left backlog (infinite copy source). */
+export function weekPlanBathingSourceDragId(templateId: string): string {
+  return `bathing-source:${templateId}`;
+}
+
+/** A bathing instance placed on a weekday. */
+export function weekPlanBathingPlacementDragId(placementId: string): string {
+  return `bathing:${placementId}`;
+}
+
+export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null {
+  const source = /^bathing-source:(.+)$/.exec(dragId);
+  if (source) {
+    return { kind: "bathing", entityId: source[1], bathingRole: "source" };
+  }
+
+  const bathing = /^bathing:(.+)$/.exec(dragId);
+  if (bathing) {
+    return { kind: "bathing", entityId: bathing[1], bathingRole: "placement" };
+  }
+
   const m = /^(task|gym|cardio|weight):(.+)$/.exec(dragId);
   if (!m) return null;
   return {

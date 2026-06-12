@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { resetBathingWeekToDefaultsAction } from "@/app/(app)/bathing-actions";
 import { resetCardioWeekToDefaultsAction } from "@/app/(app)/cardio-actions";
 import { resetGymWeekToDefaultsAction } from "@/app/(app)/gym-actions";
 import {
@@ -16,6 +17,11 @@ import { createClient } from "@/lib/supabase/server";
 import type { Weekday } from "@/lib/tasks";
 import { getWeightDefaultWeekday } from "@/lib/weight.server";
 import { parseWeekPlanDragId } from "@/lib/week-plan";
+import {
+  addBathingPlacementAction,
+  deleteBathingPlacementAction,
+  moveBathingPlacementAction,
+} from "./bathing-actions";
 import {
   moveCardioSessionAction,
   unplaceCardioSessionAction,
@@ -70,6 +76,19 @@ export async function placeWeekPlanItemAction(input: {
         weekStart: input.weekStart,
         weekday: input.weekday,
       });
+    case "bathing":
+      if (parsed.bathingRole === "source") {
+        return addBathingPlacementAction({
+          templateId: parsed.entityId,
+          weekStart: input.weekStart,
+          weekday: input.weekday,
+        });
+      }
+      return moveBathingPlacementAction({
+        placementId: parsed.entityId,
+        weekStart: input.weekStart,
+        weekday: input.weekday,
+      });
     case "weight":
       return placeWeightWeekAction({
         weekStart: input.weekStart,
@@ -107,6 +126,14 @@ export async function unplaceWeekPlanItemAction(input: {
         templateId: parsed.entityId,
         weekStart: input.weekStart,
       });
+    case "bathing":
+      if (parsed.bathingRole === "source") {
+        return { ok: true };
+      }
+      return deleteBathingPlacementAction({
+        placementId: parsed.entityId,
+        weekStart: input.weekStart,
+      });
     case "weight":
       return unplaceWeightWeekAction(input.weekStart);
     default:
@@ -133,6 +160,9 @@ export async function resetWeekPlanToDefaultsAction(
 
   const cardioRes = await resetCardioWeekToDefaultsAction(weekStart);
   if (!cardioRes.ok) return cardioRes;
+
+  const bathingRes = await resetBathingWeekToDefaultsAction(weekStart);
+  if (!bathingRes.ok) return bathingRes;
 
   const { data: tasks } = await supabase
     .from("weekly_tasks")

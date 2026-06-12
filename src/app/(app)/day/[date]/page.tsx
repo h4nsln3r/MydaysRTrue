@@ -7,6 +7,7 @@ import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTracker
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { WaterLogItem } from "@/components/WaterLogItem/WaterLogItem";
 import { TrainingDaySection } from "@/components/TrainingDaySection/TrainingDaySection";
+import { WeeklyTasksDayCard } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
 import { createClient } from "@/lib/supabase/server";
 import { getDailySummary } from "@/lib/water.server";
 import {
@@ -17,10 +18,11 @@ import {
   getDailySnacks,
 } from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
+import { getBathingSessionsForDate } from "@/lib/bathing.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
-import { getCategories } from "@/lib/tasks.server";
+import { getCategories, getWeeklyTasksForDate } from "@/lib/tasks.server";
 import { parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
 import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
@@ -57,7 +59,9 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     intake,
     gymDay,
     cardioDay,
+    bathingDay,
     weightDay,
+    weeklyTasksDay,
     allCategories,
     dayPlan,
     activityLog,
@@ -69,7 +73,9 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getDailyIntake(user.id, date),
     getGymSessionsForDate(user.id, date),
     getCardioSessionsForDate(user.id, date),
+    getBathingSessionsForDate(user.id, date),
     getWeightForDate(user.id, date),
+    getWeeklyTasksForDate(user.id, date),
     getCategories(user.id),
     getDayPlanSettings(user.id),
     getDailyActivityLog(user.id, date),
@@ -103,8 +109,20 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
             weekStart={gymDay.weekStart}
             gymSessions={gymDay.sessions}
             cardioSessions={cardioDay.sessions}
+            bathingSessions={bathingDay.sessions}
             weightContext={weightDay}
           />
+
+          <section className={styles.section}>
+            <WeeklyTasksDayCard
+              weekStart={weeklyTasksDay.weekStart}
+              tasks={weeklyTasksDay.tasks}
+              categories={weeklyTasksDay.categories}
+              title="Veckouppgifter"
+              hideWhenEmpty
+              showWeekLink={false}
+            />
+          </section>
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>

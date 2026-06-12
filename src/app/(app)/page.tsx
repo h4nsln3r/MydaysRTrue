@@ -5,6 +5,7 @@ import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { TrainingDaySection } from "@/components/TrainingDaySection/TrainingDaySection";
+import { WeeklyTasksDayCard } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
 import { getDailySummary } from "@/lib/water.server";
 import {
   getDailyActivityLog,
@@ -14,10 +15,11 @@ import {
   getDailySnacks,
 } from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
+import { getBathingSessionsForDate } from "@/lib/bathing.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
-import { getCategories } from "@/lib/tasks.server";
+import { getCategories, getWeeklyTasksForDate } from "@/lib/tasks.server";
 import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
 import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
@@ -47,7 +49,9 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     intake,
     gymDay,
     cardioDay,
+    bathingDay,
     weightDay,
+    weeklyTasksDay,
     allCategories,
     dayPlan,
     activityLog,
@@ -59,7 +63,9 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     getDailyIntake(user.id, today),
     getGymSessionsForDate(user.id, today),
     getCardioSessionsForDate(user.id, today),
+    getBathingSessionsForDate(user.id, today),
     getWeightForDate(user.id, today),
+    getWeeklyTasksForDate(user.id, today),
     getCategories(user.id),
     getDayPlanSettings(user.id),
     getDailyActivityLog(user.id, today),
@@ -111,11 +117,24 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
             weekStart={gymDay.weekStart}
             gymSessions={gymDay.sessions}
             cardioSessions={cardioDay.sessions}
+            bathingSessions={bathingDay.sessions}
             weightContext={weightDay}
             gymTitle="Gym idag"
             cardioTitle="Cardio idag"
+            bathingTitle="Bad & bastu idag"
             weightTitle="Vikt idag"
           />
+
+          <section className={styles.section}>
+            <WeeklyTasksDayCard
+              weekStart={weeklyTasksDay.weekStart}
+              tasks={weeklyTasksDay.tasks}
+              categories={weeklyTasksDay.categories}
+              title="Veckouppgifter idag"
+              hideWhenEmpty
+              showWeekLink={false}
+            />
+          </section>
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>

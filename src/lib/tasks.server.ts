@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { isoWeekdayFromLocalISO, parseLocalISO, weekStartISO } from "@/lib/date";
 import type {
   MonthlyCompletion,
   MonthlyTask,
@@ -60,23 +61,27 @@ export async function getCategories(
 interface WeeklyTaskRow {
   id: string;
   category_id: string | null;
+  key: string | null;
   title: string;
   notes: string | null;
   icon: string;
   accent: string;
   sort_order: number;
   default_weekday: number | null;
+  completion_kind: string;
 }
 
 function rowToWeekly(r: WeeklyTaskRow): WeeklyTask {
   return {
     id: r.id,
     categoryId: r.category_id,
+    key: r.key,
     title: r.title,
     notes: r.notes,
     icon: r.icon,
     accent: r.accent,
     sortOrder: r.sort_order,
+    completionKind: r.completion_kind as WeeklyTask["completionKind"],
     defaultWeekday: r.default_weekday as Weekday | null,
   };
 }
@@ -87,7 +92,11 @@ interface WeeklyPlacementRow {
   week_start: string;
   weekday: number | null;
   done_at: string | null;
+  plan_note: string | null;
   note: string | null;
+  shop_location: string | null;
+  shop_amount: number | null;
+  laundry_loads: number | null;
 }
 
 function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
@@ -95,19 +104,27 @@ function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
     id: r.id,
     taskId: r.task_id,
     weekStart: r.week_start,
-    weekday: r.weekday as Weekday,
+    weekday: r.weekday as Weekday | null,
     doneAt: r.done_at,
+    planNote: r.plan_note,
     note: r.note,
+    shopLocation: r.shop_location,
+    shopAmount: r.shop_amount != null ? Number(r.shop_amount) : null,
+    laundryLoads: r.laundry_loads,
   };
 }
+
+const WEEKLY_TASK_SELECT =
+  "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind";
+
+const WEEKLY_PLACEMENT_SELECT =
+  "id, task_id, week_start, weekday, done_at, plan_note, note, shop_location, shop_amount, laundry_loads";
 
 export async function getWeeklyTasks(userId: string): Promise<WeeklyTask[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("weekly_tasks")
-    .select(
-      "id, category_id, title, notes, icon, accent, sort_order, default_weekday",
-    )
+    .select(WEEKLY_TASK_SELECT)
     .eq("user_id", userId)
     .is("archived_at", null)
     .order("sort_order", { ascending: true });
@@ -132,15 +149,13 @@ export async function getWeekSummary(
   const [tasksRes, placementsRes, catsRes] = await Promise.all([
     supabase
       .from("weekly_tasks")
-      .select(
-        "id, category_id, title, notes, icon, accent, sort_order, default_weekday",
-      )
+      .select(WEEKLY_TASK_SELECT)
       .eq("user_id", userId)
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
     supabase
       .from("weekly_task_placements")
-      .select("id, task_id, week_start, weekday, done_at, note")
+      .select(WEEKLY_PLACEMENT_SELECT)
       .eq("user_id", userId)
       .eq("week_start", weekStart),
     supabase
@@ -161,11 +176,11 @@ export async function getWeekSummary(
     user_id: string;
     task_id: string;
     week_start: string;
-    weekday: number;
+    weekday: number | null;
   }[] = [];
 
   for (const row of tasksRes.data ?? []) {
-    if (!placements.has(row.id) && row.default_weekday != null) {
+    if (!placements.has(row.id)) {
       toInsert.push({
         user_id: userId,
         task_id: row.id,
@@ -179,22 +194,41 @@ export async function getWeekSummary(
     const { data: inserted } = await supabase
       .from("weekly_task_placements")
       .insert(toInsert)
-      .select("id, task_id, week_start, weekday, done_at, note");
+      .select(WEEKLY_PLACEMENT_SELECT);
     for (const row of inserted ?? []) {
       placements.set(row.task_id, rowToPlacement(row));
     }
   }
 
-  const tasks: WeeklyTaskForWeek[] = (tasksRes.data ?? []).map((row) => {
-    const raw = placements.get(row.id);
-    return {
-      ...rowToWeekly(row),
-      placement: raw?.weekday != null ? raw : null,
-    };
-  });
+  const tasks: WeeklyTaskForWeek[] = (tasksRes.data ?? []).map((row) => ({
+    ...rowToWeekly(row),
+    placement: placements.get(row.id) ?? null,
+  }));
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
   return { weekStart, tasks, categories };
+}
+
+export interface WeeklyTasksDaySummary {
+  localDate: string;
+  weekStart: string;
+  weekday: Weekday;
+  tasks: WeeklyTaskForWeek[];
+  categories: TaskCategory[];
+}
+
+/** Weekly tasks placed on the weekday of `localDate` (within that ISO week). */
+export async function getWeeklyTasksForDate(
+  userId: string,
+  localDate: string,
+): Promise<WeeklyTasksDaySummary> {
+  const weekStart = weekStartISO(parseLocalISO(localDate));
+  const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
+  const { tasks, categories } = await getWeekSummary(userId, weekStart);
+  const forDay = tasks.filter(
+    (t) => t.placement?.weekday != null && t.placement.weekday === weekday,
+  );
+  return { localDate, weekStart, weekday, tasks: forDay, categories };
 }
 
 // ----------------------------------------------------------------------------

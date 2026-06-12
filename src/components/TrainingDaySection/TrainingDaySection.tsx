@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Card } from "@/components/Card/Card";
+import { BathingDayCard } from "@/components/BathingDayCard/BathingDayCard";
 import { CardioDayCard } from "@/components/CardioDayCard/CardioDayCard";
 import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
 import { WeightDayCard } from "@/components/WeightDayCard/WeightDayCard";
+import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { WeightDayContext } from "@/lib/weight";
@@ -12,10 +14,12 @@ interface Props {
   weekStart: string;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
+  bathingSessions: BathingSessionForWeek[];
   weightContext: WeightDayContext;
   title?: string;
   gymTitle?: string;
   cardioTitle?: string;
+  bathingTitle?: string;
   weightTitle?: string;
 }
 
@@ -23,16 +27,19 @@ export function TrainingDaySection({
   weekStart,
   gymSessions,
   cardioSessions,
+  bathingSessions,
   weightContext,
   title = "Träning & hälsa",
   gymTitle = "Gym",
   cardioTitle = "Cardio",
+  bathingTitle = "Bad & bastu",
   weightTitle = "Vikt",
 }: Props) {
   const hasGym = gymSessions.length > 0;
   const hasCardio = cardioSessions.length > 0;
+  const hasBathing = bathingSessions.length > 0;
   const hasWeight = weightContext.scheduled;
-  const allEmpty = !hasGym && !hasCardio && !hasWeight;
+  const allEmpty = !hasGym && !hasCardio && !hasBathing && !hasWeight;
 
   return (
     <section className={styles.section}>
@@ -65,6 +72,13 @@ export function TrainingDaySection({
             weekStart={weekStart}
             sessions={cardioSessions}
             title={cardioTitle}
+            hideWhenEmpty
+            showWeekLink={false}
+          />
+          <BathingDayCard
+            weekStart={weekStart}
+            sessions={bathingSessions}
+            title={bathingTitle}
             hideWhenEmpty
             showWeekLink={false}
           />

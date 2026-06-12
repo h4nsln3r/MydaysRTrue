@@ -1,6 +1,7 @@
 import type { HTMLAttributes } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card/Card";
+import { formatWaterTemp, type BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
 import {
@@ -22,6 +23,7 @@ interface Props {
   habitWeek: WeekHabitSummary;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
+  bathingSessions: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
   weightPlan: WeightWeekPlan;
 }
@@ -45,13 +47,16 @@ export function WeekProgressBoard({
   habitWeek,
   gymSessions,
   cardioSessions,
+  bathingSessions,
   tasks,
   weightPlan,
 }: Props) {
   const placedGym = gymSessions.filter((s) => s.placement.weekday != null);
   const placedCardio = cardioSessions.filter((s) => s.placement.weekday != null);
+  const placedBathing = bathingSessions.filter((s) => s.placement.weekday != null);
   const gymDone = placedGym.filter((s) => s.placement.doneAt).length;
   const cardioDone = placedCardio.filter((s) => s.placement.doneAt).length;
+  const bathingDone = placedBathing.filter((s) => s.placement.doneAt).length;
   const placedTasks = tasks.filter((t) => t.placement);
   const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
@@ -73,6 +78,14 @@ export function WeekProgressBoard({
     const list = cardioByWeekday.get(s.placement.weekday) ?? [];
     list.push(s);
     cardioByWeekday.set(s.placement.weekday, list);
+  }
+
+  const bathingByWeekday = new Map<number, BathingSessionForWeek[]>();
+  for (const s of bathingSessions) {
+    if (s.placement.weekday == null) continue;
+    const list = bathingByWeekday.get(s.placement.weekday) ?? [];
+    list.push(s);
+    bathingByWeekday.set(s.placement.weekday, list);
   }
 
   const tasksByWeekday = new Map<number, WeeklyTaskForWeek[]>();
@@ -122,6 +135,28 @@ export function WeekProgressBoard({
                   .join(" ")}
                 style={{
                   width: `${Math.round((cardioDone / placedCardio.length) * 100)}%`,
+                }}
+              />
+            </div>
+          ) : null}
+        </Card>
+
+        <Card className={styles.summaryCard}>
+          <span className={styles.summaryLabel}>Bad & bastu</span>
+          <span className={styles.summaryValue}>
+            <span className={styles.summaryBig}>{bathingDone}</span>
+            <span className={styles.summarySlash}>
+              / {placedBathing.length}
+            </span>
+          </span>
+          {placedBathing.length > 0 ? (
+            <div className={styles.summaryBar} aria-hidden>
+              <div
+                className={[styles.summaryFill, styles.summaryFillBathing]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={{
+                  width: `${Math.round((bathingDone / placedBathing.length) * 100)}%`,
                 }}
               />
             </div>
@@ -233,6 +268,7 @@ export function WeekProgressBoard({
             const weekday = isoWeekdayFromLocalISO(d.date);
             const dayGym = gymByWeekday.get(weekday) ?? [];
             const dayCardio = cardioByWeekday.get(weekday) ?? [];
+            const dayBathing = bathingByWeekday.get(weekday) ?? [];
             const dayTasks = tasksByWeekday.get(weekday) ?? [];
             const dayTasksDone = dayTasks.filter((t) => t.placement?.doneAt)
               .length;
@@ -276,6 +312,7 @@ export function WeekProgressBoard({
                 <div className={styles.dayTraining}>
                   {dayGym.length === 0 &&
                   dayCardio.length === 0 &&
+                  dayBathing.length === 0 &&
                   !weightScheduled ? (
                     <span className={styles.dayMuted}>—</span>
                   ) : (
@@ -344,6 +381,36 @@ export function WeekProgressBoard({
                                 s.placement.note
                                   ? `${s.label}: ${s.placement.note}`
                                   : s.label
+                              }
+                            >
+                              <span aria-hidden>{s.icon}</span>
+                              {s.placement.doneAt ? (
+                                <span className={styles.gymCheck} aria-hidden>
+                                  ✓
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {dayBathing.length > 0 ? (
+                        <ul className={styles.gymList} aria-label="Bad och bastu">
+                          {dayBathing.map((s) => (
+                            <li
+                              key={s.id}
+                              className={[
+                                styles.gymChip,
+                                styles.bathingChip,
+                                s.placement.doneAt ? styles.gymChipDone : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                              title={
+                                s.placement.waterTempC != null
+                                  ? `${s.label}: ${formatWaterTemp(s.placement.waterTempC)}`
+                                  : s.description
+                                    ? `${s.label}: ${s.description}`
+                                    : s.label
                               }
                             >
                               <span aria-hidden>{s.icon}</span>

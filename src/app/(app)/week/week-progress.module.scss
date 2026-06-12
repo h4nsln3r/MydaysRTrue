@@ -73,6 +73,10 @@
     background: linear-gradient(90deg, #6ee7a3, #5fb6ff);
 }
 
+.summaryFillBathing {
+    background: linear-gradient(90deg, #38bdf8, #7dd3fc);
+}
+
 .summaryFillWeight {
     background: linear-gradient(90deg, #c084fc, #5fb6ff);
 }
@@ -261,6 +265,10 @@
 
 .cardioChip {
     border-color: rgba(95, 182, 255, 0.35);
+}
+
+.bathingChip {
+    border-color: rgba(56, 189, 248, 0.35);
 }
 
 .gymList {

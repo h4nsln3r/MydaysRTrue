@@ -84,4 +84,14 @@ p { margin: 0; }
     max-width: $container-max;
     margin: 0 auto;
     padding: $space-6 $space-5 calc(#{$nav-height} + #{$space-6});
+
+    @media (min-width: $bp-md) {
+        max-width: $container-max-md;
+        padding-left: $space-6;
+        padding-right: $space-6;
+    }
+
+    @media (min-width: $bp-lg) {
+        max-width: $container-max-lg;
+    }
 }

@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
-import { isHexColor, type TaskScope, type Weekday } from "@/lib/tasks";
+import {
+  isHexColor,
+  type TaskScope,
+  type Weekday,
+  type WeeklyTaskCompletionKind,
+} from "@/lib/tasks";
 
 type CategoryUpdate = Database["public"]["Tables"]["task_categories"]["Update"];
 type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
@@ -367,6 +372,200 @@ export async function unplaceWeeklyTaskAction(input: {
   return { ok: true };
 }
 
+/** Save planning fields (plan note) without marking the task done. */
+export async function updateWeeklyTaskPlanAction(input: {
+  taskId: string;
+  weekStart: string;
+  planNote: string;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Veckan måste börja på en måndag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: task } = await supabase
+    .from("weekly_tasks")
+    .select("completion_kind")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+
+  const kind = task.completion_kind as WeeklyTaskCompletionKind;
+  const planNote = input.planNote.trim();
+  if (kind === "journal" && !planNote) {
+    return { ok: false, error: "Skriv vad du ska jobba med." };
+  }
+  if (kind === "laundry" && !planNote) {
+    return { ok: false, error: "Skriv vilken tid du bokat." };
+  }
+  if (kind !== "journal" && kind !== "laundry") {
+    return { ok: false, error: "Uppgiften har inget att planera." };
+  }
+
+  const { data: existing } = await supabase
+    .from("weekly_task_placements")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("task_id", input.taskId)
+    .eq("week_start", input.weekStart)
+    .maybeSingle();
+  if (!existing) {
+    return { ok: false, error: "Placera uppgiften på en dag först." };
+  }
+
+  const { error } = await supabase
+    .from("weekly_task_placements")
+    .update({ plan_note: planNote })
+    .eq("id", existing.id)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Complete a weekly task with kind-specific fields. */
+export async function completeWeeklyTaskAction(input: {
+  taskId: string;
+  weekStart: string;
+  planNote?: string;
+  note?: string;
+  shopLocation?: string;
+  shopAmount?: number;
+  laundryLoads?: number;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Veckan måste börja på en måndag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: task } = await supabase
+    .from("weekly_tasks")
+    .select("completion_kind")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+
+  const kind = task.completion_kind as WeeklyTaskCompletionKind;
+  const note = (input.note ?? "").trim();
+  const shopLocation = (input.shopLocation ?? "").trim();
+
+  const { data: existing } = await supabase
+    .from("weekly_task_placements")
+    .select("id, plan_note")
+    .eq("user_id", user.id)
+    .eq("task_id", input.taskId)
+    .eq("week_start", input.weekStart)
+    .maybeSingle();
+  if (!existing) {
+    return { ok: false, error: "Placera uppgiften på en dag först." };
+  }
+
+  const planNote =
+    (input.planNote ?? "").trim() || (existing.plan_note ?? "").trim();
+
+  let shopAmount: number | null = null;
+  let completionNote: string | null = null;
+  let laundryLoads: number | null = null;
+
+  if (kind === "shop") {
+    if (!shopLocation) {
+      return { ok: false, error: "Ange var du handlade." };
+    }
+    const amount = input.shopAmount;
+    if (amount == null || !Number.isFinite(amount) || amount < 0) {
+      return { ok: false, error: "Ange hur mycket du handlade för." };
+    }
+    shopAmount = Math.round(amount * 100) / 100;
+  } else if (kind === "journal") {
+    if (!planNote) {
+      return { ok: false, error: "Planera uppgiften i veckovyn först." };
+    }
+    if (!note) {
+      return { ok: false, error: "Anteckna vad du gjorde." };
+    }
+    if (note.length > 500) {
+      return { ok: false, error: "Håll anteckningen under 500 tecken." };
+    }
+    completionNote = note;
+  } else if (kind === "laundry") {
+    if (!planNote) {
+      return { ok: false, error: "Ange bokad tid i veckoplaneringen först." };
+    }
+    const loads = input.laundryLoads;
+    if (loads == null || !Number.isInteger(loads) || loads < 1 || loads > 30) {
+      return { ok: false, error: "Ange antal tvättar (1–30)." };
+    }
+    laundryLoads = loads;
+  } else if (note) {
+    completionNote = note.slice(0, 500);
+  }
+
+  const { error } = await supabase
+    .from("weekly_task_placements")
+    .update({
+      done_at: new Date().toISOString(),
+      plan_note: planNote || null,
+      note: completionNote,
+      shop_location: kind === "shop" ? shopLocation : null,
+      shop_amount: shopAmount,
+      laundry_loads: laundryLoads,
+    })
+    .eq("id", existing.id)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function uncompleteWeeklyTaskAction(input: {
+  taskId: string;
+  weekStart: string;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Veckan måste börja på en måndag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("weekly_task_placements")
+    .update({
+      done_at: null,
+      note: null,
+      shop_location: null,
+      shop_amount: null,
+      laundry_loads: null,
+    })
+    .eq("user_id", user.id)
+    .eq("task_id", input.taskId)
+    .eq("week_start", input.weekStart);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Toggle the done state for a weekly task placement on a given week. */
 export async function toggleWeeklyTaskDoneAction(input: {
   taskId: string;
@@ -397,7 +596,18 @@ export async function toggleWeeklyTaskDoneAction(input: {
 
   const { error } = await supabase
     .from("weekly_task_placements")
-    .update({ done_at: input.done ? new Date().toISOString() : null })
+    .update(
+      input.done
+        ? { done_at: new Date().toISOString() }
+        : {
+            done_at: null,
+            plan_note: null,
+            note: null,
+            shop_location: null,
+            shop_amount: null,
+            laundry_loads: null,
+          },
+    )
     .eq("id", existing.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };

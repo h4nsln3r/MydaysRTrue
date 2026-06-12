@@ -101,7 +101,11 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
                 weekStart,
                 weekday,
                 doneAt: t.placement?.doneAt ?? null,
+                planNote: t.placement?.planNote ?? null,
                 note: t.placement?.note ?? null,
+                shopLocation: t.placement?.shopLocation ?? null,
+                shopAmount: t.placement?.shopAmount ?? null,
+                laundryLoads: t.placement?.laundryLoads ?? null,
               },
             }
           : t,

@@ -3,12 +3,14 @@ import { getBathingWeekSummary } from "@/lib/bathing.server";
 import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getGymWeekSummary } from "@/lib/gym.server";
 import { formatWeeklyTaskDetail } from "@/lib/tasks";
-import { getWeekSummary } from "@/lib/tasks.server";
+import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
+import { resolveMonthlyBillsForWeek } from "@/lib/monthly-bills";
 import {
   weekPlanBathingPlacementDragId,
   weekPlanBathingSourceDragId,
   weekPlanDragId,
+  weekPlanMonthlyBillDragId,
   type UnifiedWeekPlan,
   type WeekPlanItem,
 } from "@/lib/week-plan";
@@ -19,7 +21,8 @@ const KIND_SORT: Record<WeekPlanItem["kind"], number> = {
   cardio: 1,
   bathing: 2,
   task: 3,
-  weight: 4,
+  monthly_bill: 4,
+  weight: 5,
 };
 
 function sortItems(items: WeekPlanItem[]): WeekPlanItem[] {
@@ -35,13 +38,14 @@ export async function getUnifiedWeekPlan(
   userId: string,
   weekStart: string,
 ): Promise<UnifiedWeekPlan> {
-  const [gymWeek, cardioWeek, bathingWeek, taskWeek, weightPlan] =
+  const [gymWeek, cardioWeek, bathingWeek, taskWeek, weightPlan, billsWeek] =
     await Promise.all([
       getGymWeekSummary(userId, weekStart),
       getCardioWeekSummary(userId, weekStart),
       getBathingWeekSummary(userId, weekStart),
       getWeekSummary(userId, weekStart),
       getWeightWeekPlan(userId, weekStart),
+      getMonthlyBillsForWeek(userId, weekStart),
     ]);
 
   const items: WeekPlanItem[] = [];
@@ -171,9 +175,70 @@ export async function getUnifiedWeekPlan(
     });
   }
 
+  const { placed, backlog } = resolveMonthlyBillsForWeek(
+    billsWeek.tasks,
+    weekStart,
+    billsWeek.completionsByTaskMonth,
+  );
+
+  for (const slot of placed) {
+    const completion = billsWeek.completionsByTaskMonth.get(
+      `${slot.task.id}|${slot.monthStart}`,
+    ) ?? null;
+    items.push({
+      dragId: weekPlanMonthlyBillDragId(slot.task.id, slot.monthStart),
+      kind: "monthly_bill",
+      taskId: slot.task.id,
+      categoryId: slot.task.categoryId,
+      monthStart: slot.monthStart,
+      scheduledDayOfMonth:
+        completion?.scheduledDayOfMonth ?? slot.task.dayOfMonth,
+      completion,
+      label: slot.task.title,
+      subtitle: slot.task.notes,
+      icon: slot.task.icon,
+      accent: slot.task.accent,
+      defaultWeekday: null,
+      weekday: slot.weekday as import("@/lib/tasks").Weekday,
+      done: Boolean(completion?.doneAt),
+      sortOrder: 8000 + slot.task.sortOrder,
+    });
+  }
+
+  for (const entry of backlog) {
+    const completion =
+      billsWeek.completionsByTaskMonth.get(
+        `${entry.task.id}|${entry.monthStart}`,
+      ) ?? null;
+    items.push({
+      dragId: weekPlanMonthlyBillDragId(entry.task.id, entry.monthStart),
+      kind: "monthly_bill",
+      taskId: entry.task.id,
+      categoryId: entry.task.categoryId,
+      monthStart: entry.monthStart,
+      scheduledDayOfMonth: null,
+      completion,
+      label: entry.task.title,
+      subtitle: entry.task.notes ?? "Placera på en dag den här månaden",
+      icon: entry.task.icon,
+      accent: entry.task.accent,
+      defaultWeekday: null,
+      weekday: null,
+      done: Boolean(completion?.doneAt),
+      sortOrder: 8000 + entry.task.sortOrder,
+    });
+  }
+
+  const allCategories = [
+    ...taskWeek.categories,
+    ...billsWeek.categories.filter(
+      (c) => !taskWeek.categories.some((w) => w.id === c.id),
+    ),
+  ];
+
   return {
     weekStart,
     items: sortItems(items),
-    categories: taskWeek.categories,
+    categories: allCategories,
   };
 }

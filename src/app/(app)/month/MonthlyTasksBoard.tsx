@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toggleMonthlyTaskDoneAction } from "@/app/(app)/tasks-actions";
+import { toggleMonthlyTaskDoneAction, scheduleMonthlyBillDayAction } from "@/app/(app)/tasks-actions";
 import {
   groupByCategory,
   type MonthlyTaskForMonth,
   type TaskCategory,
 } from "@/lib/tasks";
+import { effectiveScheduledDay } from "@/lib/monthly-bills";
 import styles from "./monthly-tasks.module.scss";
 
 interface Props {
@@ -33,6 +34,23 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
         done: next,
       });
       if (!res.ok) setError(res.error ?? "Could not update task.");
+      setPendingId(null);
+      router.refresh();
+    });
+  };
+
+  const scheduleDay = (task: MonthlyTaskForMonth, raw: string) => {
+    const dayOfMonth = raw === "" ? null : Number(raw);
+    if (dayOfMonth != null && (dayOfMonth < 1 || dayOfMonth > 31)) return;
+    setError(null);
+    setPendingId(task.id);
+    startTransition(async () => {
+      const res = await scheduleMonthlyBillDayAction({
+        taskId: task.id,
+        monthStart,
+        dayOfMonth,
+      });
+      if (!res.ok) setError(res.error ?? "Kunde inte placera.");
       setPendingId(null);
       router.refresh();
     });
@@ -102,6 +120,7 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
             {items.map((t) => {
               const done = Boolean(t.completion?.doneAt);
               const busy = pendingId === t.id;
+              const scheduledDay = effectiveScheduledDay(t, t.completion);
               return (
                 <li
                   key={t.id}
@@ -155,11 +174,23 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
                   </span>
                   <div className={styles.taskMeta}>
                     <span className={styles.taskTitle}>{t.title}</span>
-                    <span className={styles.taskDay}>
-                      {t.dayOfMonth
-                        ? `Day ${t.dayOfMonth}`
-                        : "Anytime this month"}
-                    </span>
+                    <label className={styles.taskDay}>
+                      <span className={styles.taskDayLabel}>Dag</span>
+                      <select
+                        className={styles.taskDaySelect}
+                        value={scheduledDay ?? ""}
+                        disabled={pending}
+                        onChange={(e) => scheduleDay(t, e.target.value)}
+                        aria-label={`Placera ${t.title} på dag i månaden`}
+                      >
+                        <option value="">Ej placerad</option>
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                 </li>
               );

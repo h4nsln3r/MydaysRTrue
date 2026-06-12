@@ -237,32 +237,80 @@
     font-weight: 700;
 }
 
-.weekdayRow {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+.fieldLabel {
+    display: block;
+    margin-bottom: 4px;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
 }
 
-.weekdayBtn {
-    height: 32px;
-    border-radius: $radius-sm;
-    background: $color-ink-elevated;
-    border: 1px solid $color-line;
-    color: $color-cream-dim;
-    font-family: $font-mono;
-    font-size: 0.7rem;
-    font-weight: 700;
+.tempRow {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-self: flex-start;
+}
 
-    &:hover:not(:disabled) {
-        border-color: $color-orange;
-        color: $color-cream;
+.tempField {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tempInput {
+    width: 52px;
+    padding: 6px 8px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-mono;
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-align: center;
+
+    &:focus-visible {
+        outline: 2px solid $color-orange;
+        outline-offset: 1px;
     }
 }
 
-.weekdayBtnActive {
-    background: $color-orange;
-    color: $color-ink;
-    border-color: $color-orange;
+.tempUnit {
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.noteField {
+    display: flex;
+    flex-direction: column;
+}
+
+.noteInput {
+    width: 100%;
+    padding: $space-2 $space-3;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-sans;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 56px;
+
+    &::placeholder {
+        color: $color-fog;
+    }
+
+    &:focus-visible {
+        outline: 2px solid $color-orange;
+        outline-offset: 1px;
+    }
 }
 
 .undoBtn {

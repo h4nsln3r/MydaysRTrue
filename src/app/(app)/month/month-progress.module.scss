@@ -1,0 +1,493 @@
+@use "abstracts" as *;
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.legendBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-3 $space-5;
+    padding: $space-3 $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.legendGroup {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.legendTitle {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-right: 2px;
+}
+
+.legendMark {
+    color: $color-success;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+}
+
+.legendMarkDim {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+}
+
+.legendStat {
+    color: $color-orange-bright;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.swatch_yes { background: rgba(110, 231, 163, 0.85); }
+.swatch_half { background: rgba(255, 207, 58, 0.9); }
+.swatch_no { background: rgba(255, 82, 71, 0.85); }
+.swatch_empty {
+    background: transparent;
+    border: 1px dashed $color-fog;
+}
+
+.spreadsheetWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    box-shadow: $shadow-soft;
+    background:
+        linear-gradient(90deg, $color-ink-soft 30%, rgba(10, 10, 10, 0)),
+        linear-gradient(90deg, rgba(10, 10, 10, 0), $color-ink-soft 70%) 100% 0,
+        radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0)),
+        radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0)) 100% 0;
+    background-repeat: no-repeat;
+    background-size: 24px 100%, 24px 100%, 12px 100%, 12px 100%;
+    background-attachment: local, local, scroll, scroll;
+}
+
+.sheet {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+}
+
+.stickyCol {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+}
+
+.stickyColRight {
+    position: sticky;
+    right: 0;
+    z-index: 3;
+}
+
+.cornerCell,
+.dayHead,
+.totalHead {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: $color-ink-elevated;
+    border-bottom: 1px solid $color-line;
+    border-right: 1px solid $color-line;
+    padding: 4px 2px;
+    text-align: center;
+    vertical-align: middle;
+    font-family: $font-mono;
+    color: $color-fog;
+    font-weight: 700;
+}
+
+.cornerCell {
+    z-index: 5;
+    text-align: left;
+    width: 118px;
+    min-width: 118px;
+    padding: $space-2 $space-3;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid $color-line;
+}
+
+.dayHead {
+    width: 30px;
+    min-width: 30px;
+}
+
+.dayHeadToday {
+    background: rgba(255, 122, 26, 0.18);
+    box-shadow: inset 0 -2px 0 $color-orange;
+}
+
+.dayHeadFuture {
+    opacity: 0.45;
+}
+
+.dayHeadLink {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+    text-decoration: none;
+    padding: 2px 0;
+    border-radius: $radius-xs;
+
+    &:hover .dayHeadNum {
+        color: $color-orange-bright;
+    }
+}
+
+.dayHeadNum {
+    font-family: $font-display;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: $color-cream;
+}
+
+.dayHeadToday .dayHeadNum {
+    color: $color-orange-bright;
+}
+
+.totalHead {
+    width: 40px;
+    min-width: 40px;
+    background: rgba(255, 122, 26, 0.12);
+    color: $color-orange-bright;
+    font-family: $font-display;
+    font-size: 0.85rem;
+    border-left: 2px solid rgba(255, 122, 26, 0.35);
+}
+
+.weekdayRow {
+    .weekdayCorner,
+    .weekdayHead {
+        position: sticky;
+        top: 28px;
+        z-index: 4;
+        background: rgba(20, 20, 20, 0.98);
+        border-bottom: 2px solid $color-line;
+        border-right: 1px solid rgba(42, 42, 42, 0.85);
+        padding: 2px 0;
+        text-align: center;
+        font-family: $font-mono;
+        font-size: 0.55rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: $color-fog;
+        font-weight: 600;
+    }
+
+    .weekdayCorner {
+        z-index: 5;
+    }
+
+    .weekdayHeadToday {
+        color: $color-orange-bright;
+    }
+
+    .weekdayHeadFuture {
+        opacity: 0.45;
+    }
+}
+
+.sectionRow td {
+    padding: 6px $space-3;
+    background: rgba(255, 122, 26, 0.08);
+    border-bottom: 1px solid $color-line;
+    border-top: 1px solid $color-line;
+    color: $color-orange-bright;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+}
+
+.rowLabel {
+    width: 118px;
+    min-width: 118px;
+    max-width: 118px;
+    padding: $space-2 $space-3;
+    background: $color-ink-elevated;
+    border-right: 1px solid $color-line;
+    border-bottom: 1px solid $color-line;
+    text-align: left;
+    vertical-align: middle;
+    font-weight: 600;
+}
+
+.rowIcon {
+    display: inline-block;
+    width: 18px;
+    margin-right: 6px;
+    text-align: center;
+    font-size: 0.85rem;
+    vertical-align: middle;
+}
+
+.rowText {
+    color: $color-cream-dim;
+    font-size: 0.68rem;
+    font-family: $font-mono;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    max-width: calc(100% - 26px);
+}
+
+.dataCell {
+    width: 30px;
+    min-width: 30px;
+    padding: 3px 1px;
+    border-right: 1px solid rgba(42, 42, 42, 0.85);
+    border-bottom: 1px solid rgba(42, 42, 42, 0.85);
+    text-align: center;
+    vertical-align: middle;
+    background: $color-ink-soft;
+    height: 36px;
+}
+
+.cellToday {
+    background: rgba(255, 122, 26, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(255, 122, 26, 0.15);
+}
+
+.cellFuture {
+    opacity: 0.35;
+    background: transparent;
+}
+
+.emptyMark {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+}
+
+.habitCell_yes { background: rgba(110, 231, 163, 0.14); }
+.habitCell_half { background: rgba(255, 207, 58, 0.12); }
+.habitCell_no { background: rgba(255, 82, 71, 0.12); }
+.habitCell_empty { background: rgba(20, 20, 20, 0.5); }
+
+.statusMark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.statusMark_yes { color: $color-success; }
+.statusMark_half { color: $color-warning; }
+.statusMark_no { color: $color-danger; }
+.statusMark_empty { color: $color-fog; font-size: 0.85rem; }
+
+.taskCell {
+    font-family: $font-mono;
+}
+
+.taskCellDone {
+    background: rgba(110, 231, 163, 0.14);
+}
+
+.taskCellScheduled {
+    background: rgba(255, 122, 26, 0.08);
+}
+
+.doneMark {
+    color: $color-success;
+    font-weight: 800;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+}
+
+.plannedMark {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+}
+
+.totalCell {
+    width: 40px;
+    min-width: 40px;
+    padding: $space-2 4px;
+    text-align: center;
+    vertical-align: middle;
+    background: rgba(255, 122, 26, 0.06);
+    border-left: 2px solid rgba(255, 122, 26, 0.25);
+    border-bottom: 1px solid rgba(42, 42, 42, 0.85);
+    font-family: $font-mono;
+}
+
+.totalCellDone {
+    background: rgba(110, 231, 163, 0.1);
+
+    .totalValue {
+        color: $color-success;
+    }
+}
+
+.totalCellMuted {
+    background: rgba(20, 20, 20, 0.6);
+}
+
+.totalFraction {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 1px;
+}
+
+.totalValue {
+    color: $color-orange-bright;
+    font-weight: 800;
+    font-size: 0.78rem;
+}
+
+.totalSlash {
+    color: $color-fog;
+    font-size: 0.62rem;
+}
+
+.footerRow {
+    .footerLabel,
+    .footerCell {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        background: $color-ink-elevated;
+        border-top: 2px solid $color-line;
+        padding: $space-2 2px;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .footerLabel {
+        z-index: 4;
+        text-align: left;
+        padding-left: $space-3;
+        font-family: $font-mono;
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: $color-fog;
+        font-weight: 700;
+        border-right: 1px solid $color-line;
+    }
+}
+
+.footerTotal {
+    background: rgba(255, 122, 26, 0.14) !important;
+    border-left: 2px solid rgba(255, 122, 26, 0.35);
+}
+
+.footerTotalValue {
+    font-family: $font-display;
+    font-weight: 800;
+    font-size: 0.82rem;
+    color: $color-orange-bright;
+}
+
+.dayScore {
+    display: inline-block;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-family: $font-mono;
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: $color-cream-dim;
+    background: $color-ink-soft;
+}
+
+.dayScoreGood {
+    color: $color-success;
+    background: rgba(110, 231, 163, 0.12);
+}
+
+.dayScoreMid {
+    color: $color-warning;
+    background: rgba(255, 207, 58, 0.1);
+}
+
+.dayScoreLow {
+    color: $color-danger;
+    background: rgba(255, 82, 71, 0.1);
+}
+
+tbody tr:nth-child(even):not(.sectionRow) .dataCell {
+    background: rgba(20, 20, 20, 0.55);
+}
+
+tbody tr:nth-child(even):not(.sectionRow) .rowLabel {
+    background: rgba(28, 28, 28, 0.95);
+}
+
+tbody tr:nth-child(even):not(.sectionRow) .totalCell {
+    background: rgba(255, 122, 26, 0.08);
+}
+
+tbody tr:nth-child(even):not(.sectionRow) .cellToday {
+    background: rgba(255, 122, 26, 0.1);
+}
+
+@media (min-width: $bp-md) {
+    .cornerCell,
+    .rowLabel {
+        width: 148px;
+        min-width: 148px;
+        max-width: 148px;
+    }
+
+    .dayHead,
+    .dataCell {
+        width: 36px;
+        min-width: 36px;
+    }
+
+    .dataCell {
+        height: 40px;
+    }
+
+    .dayHeadNum {
+        font-size: 0.9rem;
+    }
+
+    .statusMark {
+        width: 20px;
+        height: 20px;
+        font-size: 0.78rem;
+    }
+
+    .dayScore {
+        font-size: 0.62rem;
+    }
+}

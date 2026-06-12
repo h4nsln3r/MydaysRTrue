@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { addDaysISO } from "@/lib/date";
+import { monthStartFromDate } from "@/lib/monthly-bills";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   isHexColor,
@@ -742,6 +744,150 @@ export async function archiveMonthlyTaskAction(id: string): Promise<ActionResult
 
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+async function upsertMonthlyBillSchedule(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  taskId: string,
+  monthStart: string,
+  scheduledDayOfMonth: number | null,
+  isUnscheduled: boolean,
+): Promise<ActionResult> {
+  const { data: existing } = await supabase
+    .from("monthly_task_completions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("task_id", taskId)
+    .eq("month_start", monthStart)
+    .maybeSingle();
+
+  const payload = {
+    scheduled_day_of_month: scheduledDayOfMonth,
+    is_unscheduled: isUnscheduled,
+  };
+
+  if (existing) {
+    const { error } = await supabase
+      .from("monthly_task_completions")
+      .update(payload)
+      .eq("id", existing.id)
+      .eq("user_id", userId);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from("monthly_task_completions").insert({
+      user_id: userId,
+      task_id: taskId,
+      month_start: monthStart,
+      done_at: null,
+      ...payload,
+    });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Set which day of the month a bill is due (month plan). */
+export async function scheduleMonthlyBillDayAction(input: {
+  taskId: string;
+  monthStart: string;
+  dayOfMonth: number | null;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+  if (!MONTH_START_RE.test(input.monthStart)) {
+    return { ok: false, error: "Invalid month." };
+  }
+  if (
+    input.dayOfMonth != null &&
+    (input.dayOfMonth < 1 || input.dayOfMonth > 31)
+  ) {
+    return { ok: false, error: "Invalid day." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  if (input.dayOfMonth == null) {
+    return upsertMonthlyBillSchedule(
+      supabase,
+      user.id,
+      input.taskId,
+      input.monthStart,
+      null,
+      true,
+    );
+  }
+
+  return upsertMonthlyBillSchedule(
+    supabase,
+    user.id,
+    input.taskId,
+    input.monthStart,
+    input.dayOfMonth,
+    false,
+  );
+}
+
+/** Place a monthly bill on a weekday in the unified week board. */
+export async function placeMonthlyBillFromWeekAction(input: {
+  taskId: string;
+  weekStart: string;
+  weekday: Weekday;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+  if (!ISO_DATE_RE.test(input.weekStart)) {
+    return { ok: false, error: "Invalid week." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const localDate = addDaysISO(input.weekStart, input.weekday - 1);
+  const monthStart = monthStartFromDate(localDate);
+  const dayOfMonth = Number(localDate.split("-")[2]);
+
+  return upsertMonthlyBillSchedule(
+    supabase,
+    user.id,
+    input.taskId,
+    monthStart,
+    dayOfMonth,
+    false,
+  );
+}
+
+/** Move a monthly bill back to the backlog for a month. */
+export async function unplaceMonthlyBillFromWeekAction(input: {
+  taskId: string;
+  monthStart: string;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+  if (!MONTH_START_RE.test(input.monthStart)) {
+    return { ok: false, error: "Invalid month." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  return upsertMonthlyBillSchedule(
+    supabase,
+    user.id,
+    input.taskId,
+    input.monthStart,
+    null,
+    true,
+  );
 }
 
 /** Toggle the done state for a monthly task on a given month. */

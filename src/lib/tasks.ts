@@ -56,6 +56,7 @@ export interface WeeklyTask {
 export interface MonthlyTask {
   id: string;
   categoryId: string | null;
+  key: string | null;
   title: string;
   notes: string | null;
   /** Suggested day in the month (1–31). Null = anytime. */
@@ -87,6 +88,10 @@ export interface MonthlyCompletion {
   monthStart: string; // YYYY-MM-01
   doneAt: string | null;
   note: string | null;
+  /** Per-month placement override (1–31). */
+  scheduledDayOfMonth: number | null;
+  /** User moved this bill back to backlog for the month. */
+  isUnscheduled: boolean;
 }
 
 /** A weekly task in the context of a specific week. */

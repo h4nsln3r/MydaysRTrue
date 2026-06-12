@@ -5,10 +5,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
-import { Input } from "@/components/Input/Input";
 import {
   completeBathingSessionAction,
-  moveBathingPlacementAction,
   uncompleteBathingSessionAction,
 } from "@/app/(app)/bathing-actions";
 import {
@@ -16,11 +14,6 @@ import {
   formatWaterTemp,
   type BathingSessionForWeek,
 } from "@/lib/bathing";
-import {
-  WEEKDAY_SHORT,
-  WEEKDAYS,
-  type Weekday,
-} from "@/lib/tasks";
 import styles from "./BathingDayCard.module.scss";
 
 interface Props {
@@ -153,22 +146,8 @@ function SessionRow({
       ? String(session.placement.waterTempC)
       : "",
   );
+  const [note, setNote] = useState(session.placement.note ?? "");
   const [, startTransition] = useTransition();
-
-  const move = (weekday: Weekday) => {
-    onError(null);
-    onPendingId(session.placement.id);
-    startTransition(async () => {
-      const res = await moveBathingPlacementAction({
-        placementId: session.placement.id,
-        weekStart,
-        weekday,
-      });
-      if (!res.ok) onError(res.error ?? "Kunde inte flytta passet.");
-      onPendingId(null);
-      onDone();
-    });
-  };
 
   const complete = () => {
     onError(null);
@@ -181,6 +160,7 @@ function SessionRow({
         placementId: session.placement.id,
         weekStart,
         waterTempC: parsed,
+        note,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -198,6 +178,7 @@ function SessionRow({
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
       setWaterTemp("");
+      setNote("");
       onPendingId(null);
       onDone();
     });
@@ -261,6 +242,9 @@ function SessionRow({
               {formatWaterTemp(session.placement.waterTempC)}
             </span>
           ) : null}
+          {done && session.placement.note ? (
+            <span className={styles.noteBadge}>{session.placement.note}</span>
+          ) : null}
         </span>
         <span
           className={[styles.chevron, expanded ? styles.chevronUp : ""]
@@ -274,45 +258,37 @@ function SessionRow({
 
       {expanded ? (
         <div className={styles.sessionActions}>
-          <p className={styles.actionsLabel}>Flytta till annan dag</p>
-          <div className={styles.weekdayRow} role="radiogroup">
-            {WEEKDAYS.map((d) => {
-              const active = session.placement.weekday === d;
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  className={[
-                    styles.weekdayBtn,
-                    active ? styles.weekdayBtnActive : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => move(d)}
-                  disabled={pending}
-                >
-                  {WEEKDAY_SHORT[d]}
-                </button>
-              );
-            })}
-          </div>
-
           {!done ? (
             <>
               {needsTemp ? (
-                <Input
-                  label="Vattentemperatur (°C)"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  value={waterTemp}
-                  onChange={(e) => setWaterTemp(e.target.value)}
-                  placeholder="t.ex. 4"
-                  required
-                />
+                <div className={styles.tempRow}>
+                  <span className={styles.fieldLabel}>Temp</span>
+                  <div className={styles.tempField}>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      className={styles.tempInput}
+                      value={waterTemp}
+                      onChange={(e) => setWaterTemp(e.target.value)}
+                      placeholder="4"
+                      aria-label="Vattentemperatur i grader Celsius"
+                    />
+                    <span className={styles.tempUnit}>°C</span>
+                  </div>
+                </div>
               ) : null}
+              <label className={styles.noteField}>
+                <span className={styles.fieldLabel}>Kommentar</span>
+                <textarea
+                  className={styles.noteInput}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Var badade du? Hur kändes det?"
+                  rows={2}
+                  maxLength={280}
+                />
+              </label>
               <Button
                 type="button"
                 variant="primary"

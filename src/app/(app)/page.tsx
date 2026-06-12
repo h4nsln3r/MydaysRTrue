@@ -77,9 +77,6 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
       <header className={styles.header}>
         <div className={styles.headerMain}>
           <DayNav date={today} today={today} view={view} />
-          <h1 className={styles.h1}>
-            Stay <span className={styles.accent}>hydrated</span>
-          </h1>
         </div>
         {view === "progress" ? (
           <Link

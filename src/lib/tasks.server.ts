@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { isoWeekdayFromLocalISO, parseLocalISO, weekStartISO } from "@/lib/date";
+import { addDaysISO, isoWeekdayFromLocalISO, parseLocalISO, weekStartISO } from "@/lib/date";
 import type {
   MonthlyCompletion,
   MonthlyTask,
@@ -238,6 +238,7 @@ export async function getWeeklyTasksForDate(
 interface MonthlyTaskRow {
   id: string;
   category_id: string | null;
+  key: string | null;
   title: string;
   notes: string | null;
   day_of_month: number | null;
@@ -250,6 +251,7 @@ function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
   return {
     id: r.id,
     categoryId: r.category_id,
+    key: r.key,
     title: r.title,
     notes: r.notes,
     dayOfMonth: r.day_of_month,
@@ -265,6 +267,8 @@ interface MonthlyCompletionRow {
   month_start: string;
   done_at: string | null;
   note: string | null;
+  scheduled_day_of_month: number | null;
+  is_unscheduled: boolean;
 }
 
 function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
@@ -274,16 +278,22 @@ function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
     monthStart: r.month_start,
     doneAt: r.done_at,
     note: r.note,
+    scheduledDayOfMonth: r.scheduled_day_of_month,
+    isUnscheduled: r.is_unscheduled,
   };
 }
+
+const MONTHLY_TASK_SELECT =
+  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order";
+
+const MONTHLY_COMPLETION_SELECT =
+  "id, task_id, month_start, done_at, note, scheduled_day_of_month, is_unscheduled";
 
 export async function getMonthlyTasks(userId: string): Promise<MonthlyTask[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("monthly_tasks")
-    .select(
-      "id, category_id, title, notes, day_of_month, icon, accent, sort_order",
-    )
+    .select(MONTHLY_TASK_SELECT)
     .eq("user_id", userId)
     .is("archived_at", null)
     .order("sort_order", { ascending: true });
@@ -308,15 +318,13 @@ export async function getMonthTaskSummary(
   const [tasksRes, completionsRes, catsRes] = await Promise.all([
     supabase
       .from("monthly_tasks")
-      .select(
-        "id, category_id, title, notes, day_of_month, icon, accent, sort_order",
-      )
+      .select(MONTHLY_TASK_SELECT)
       .eq("user_id", userId)
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
     supabase
       .from("monthly_task_completions")
-      .select("id, task_id, month_start, done_at, note")
+      .select(MONTHLY_COMPLETION_SELECT)
       .eq("user_id", userId)
       .eq("month_start", monthStart),
     supabase
@@ -340,4 +348,58 @@ export async function getMonthTaskSummary(
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
   return { monthStart, tasks, categories };
+}
+
+export interface MonthlyBillsWeekContext {
+  tasks: MonthlyTaskForMonth[];
+  categories: TaskCategory[];
+  completionsByTaskMonth: Map<string, MonthlyCompletion>;
+}
+
+/** Monthly bills + completions for all months touched by an ISO week. */
+export async function getMonthlyBillsForWeek(
+  userId: string,
+  weekStart: string,
+): Promise<MonthlyBillsWeekContext> {
+  const supabase = await createClient();
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
+  const monthStarts = [...new Set(weekDates.map((d) => `${d.slice(0, 7)}-01`))];
+
+  const [tasksRes, catsRes, completionsRes] = await Promise.all([
+    supabase
+      .from("monthly_tasks")
+      .select(MONTHLY_TASK_SELECT)
+      .eq("user_id", userId)
+      .is("archived_at", null)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("task_categories")
+      .select("id, scope, name, icon, accent, sort_order")
+      .eq("user_id", userId)
+      .eq("scope", "monthly")
+      .is("archived_at", null)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("monthly_task_completions")
+      .select(MONTHLY_COMPLETION_SELECT)
+      .eq("user_id", userId)
+      .in("month_start", monthStarts),
+  ]);
+
+  const completionsByTaskMonth = new Map<string, MonthlyCompletion>();
+  for (const row of completionsRes.data ?? []) {
+    const c = rowToCompletion(row);
+    completionsByTaskMonth.set(`${c.taskId}|${c.monthStart}`, c);
+  }
+
+  const tasks: MonthlyTaskForMonth[] = (tasksRes.data ?? []).map((row) => ({
+    ...rowToMonthly(row),
+    completion: null,
+  }));
+
+  return {
+    tasks,
+    categories: (catsRes.data ?? []).map(rowToCategory),
+    completionsByTaskMonth,
+  };
 }

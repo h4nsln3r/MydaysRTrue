@@ -20,13 +20,14 @@ function categoryIdByName(
   return categories.find((c) => c.name === name)?.id;
 }
 
-/** Groups placed day items: training, HOME, DEV, other tasks, weight. */
+/** Groups placed day items: training, HOME, DEV, bills, other tasks, weight. */
 export function groupWeekPlanDayItems(
   items: WeekPlanItem[],
   categories: TaskCategory[],
 ): WeekPlanItemGroup[] {
   const homeId = categoryIdByName(categories, "HOME");
   const devId = categoryIdByName(categories, "DEV");
+  const billsId = categoryIdByName(categories, "Räkningar");
 
   const training = items.filter(
     (i) =>
@@ -37,11 +38,17 @@ export function groupWeekPlanDayItems(
     (i) => i.kind === "task" && i.categoryId === homeId,
   );
   const dev = items.filter((i) => i.kind === "task" && i.categoryId === devId);
+  const bills = items.filter(
+    (i) =>
+      i.kind === "monthly_bill" ||
+      (i.kind === "task" && i.categoryId === billsId),
+  );
   const otherTasks = items.filter(
     (i) =>
       i.kind === "task" &&
       i.categoryId !== homeId &&
-      i.categoryId !== devId,
+      i.categoryId !== devId &&
+      i.categoryId !== billsId,
   );
   const weight = items.filter((i) => i.kind === "weight");
 
@@ -51,6 +58,9 @@ export function groupWeekPlanDayItems(
   }
   if (home.length > 0) groups.push({ id: "home", label: "HOME", items: home });
   if (dev.length > 0) groups.push({ id: "dev", label: "DEV", items: dev });
+  if (bills.length > 0) {
+    groups.push({ id: "bills", label: "Räkningar", items: bills });
+  }
   if (otherTasks.length > 0) {
     groups.push({ id: "other", label: "Övrigt", items: otherTasks });
   }
@@ -65,13 +75,14 @@ function isBacklogTrainingItem(item: WeekPlanItem): boolean {
   return TRAINING_KINDS.has(item.kind);
 }
 
-/** Groups everything in the left backlog: training, weight, HOME, DEV, other. */
+/** Groups everything in the left backlog: training, weight, HOME, DEV, bills, other. */
 export function groupWeekPlanBacklogItems(
   items: WeekPlanItem[],
   categories: TaskCategory[],
 ): WeekPlanItemGroup[] {
   const homeId = categoryIdByName(categories, "HOME");
   const devId = categoryIdByName(categories, "DEV");
+  const billsId = categoryIdByName(categories, "Räkningar");
 
   const training = items.filter((i) => isBacklogTrainingItem(i));
   const weight = items.filter((i) => i.kind === "weight");
@@ -79,11 +90,17 @@ export function groupWeekPlanBacklogItems(
     (i) => i.kind === "task" && i.categoryId === homeId,
   );
   const dev = items.filter((i) => i.kind === "task" && i.categoryId === devId);
+  const bills = items.filter(
+    (i) =>
+      i.kind === "monthly_bill" ||
+      (i.kind === "task" && i.categoryId === billsId),
+  );
   const otherTasks = items.filter(
     (i) =>
       i.kind === "task" &&
       i.categoryId !== homeId &&
-      i.categoryId !== devId,
+      i.categoryId !== devId &&
+      i.categoryId !== billsId,
   );
 
   const groups: WeekPlanItemGroup[] = [];
@@ -95,6 +112,9 @@ export function groupWeekPlanBacklogItems(
   }
   if (home.length > 0) groups.push({ id: "home", label: "HOME", items: home });
   if (dev.length > 0) groups.push({ id: "dev", label: "DEV", items: dev });
+  if (bills.length > 0) {
+    groups.push({ id: "bills", label: "Räkningar", items: bills });
+  }
   if (otherTasks.length > 0) {
     groups.push({ id: "other", label: "Övrigt", items: otherTasks });
   }

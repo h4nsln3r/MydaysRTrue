@@ -235,9 +235,33 @@
 }
 
 .taskDay {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-family: $font-mono;
     font-size: 0.72rem;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     color: $color-fog;
+}
+
+.taskDayLabel {
+    flex-shrink: 0;
+}
+
+.taskDaySelect {
+    appearance: none;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-xs;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    min-width: 0;
+
+    &:focus-visible {
+        outline: 2px solid $color-orange;
+        outline-offset: 1px;
+    }
 }

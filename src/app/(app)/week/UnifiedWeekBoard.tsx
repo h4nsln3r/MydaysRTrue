@@ -28,7 +28,7 @@ import {
   completeGymSessionAction,
   uncompleteGymSessionAction,
 } from "@/app/(app)/gym-actions";
-import { updateWeeklyTaskPlanAction } from "@/app/(app)/tasks-actions";
+import { updateWeeklyTaskPlanAction, toggleMonthlyTaskDoneAction } from "@/app/(app)/tasks-actions";
 import { setWeightWeekEnabledAction } from "@/app/(app)/weight-actions";
 import {
   enableWeightWeekAction,
@@ -65,6 +65,7 @@ import {
 } from "@/lib/week-plan-groups";
 import {
   WEEK_PLAN_BACKLOG_DROP_ID,
+  weekPlanBathingSourceDragId,
   weekPlanDayDropId,
   weekdayFromWeekPlanDropId,
   type UnifiedWeekPlan,
@@ -134,7 +135,27 @@ export function UnifiedWeekBoard({
     if (!isBathingSource && item.weekday === weekday) return;
 
     setError(null);
-    if (!isBathingSource) {
+    if (isBathingSource) {
+      setLocalItems((prev) => {
+        const source = prev.find((i) => i.dragId === dragId);
+        if (
+          !source ||
+          source.kind !== "bathing" ||
+          source.bathingRole !== "source"
+        ) {
+          return prev.filter((i) => i.dragId !== dragId);
+        }
+        const withoutSource = prev.filter((i) => i.dragId !== dragId);
+        const optimisticPlacement: WeekPlanItem = {
+          ...source,
+          dragId: `bathing:optimistic-${source.templateId}`,
+          bathingRole: "placement",
+          placementId: `optimistic-${source.templateId}`,
+          weekday,
+        };
+        return [...withoutSource, optimisticPlacement];
+      });
+    } else {
       setLocalItems((prev) =>
         prev.map((i) => (i.dragId === dragId ? { ...i, weekday } : i)),
       );
@@ -157,11 +178,42 @@ export function UnifiedWeekBoard({
     if (item.kind === "bathing" && item.bathingRole === "source") return;
 
     setError(null);
-    setLocalItems((prev) =>
-      item.kind === "bathing" && item.bathingRole === "placement"
-        ? prev.filter((i) => i.dragId !== dragId)
-        : prev.map((i) => (i.dragId === dragId ? { ...i, weekday: null } : i)),
-    );
+    setLocalItems((prev) => {
+      if (item.kind === "bathing" && item.bathingRole === "placement") {
+        const without = prev.filter((i) => i.dragId !== dragId);
+        const sourceItem: WeekPlanItem = {
+          dragId: weekPlanBathingSourceDragId(item.templateId),
+          kind: "bathing",
+          bathingRole: "source",
+          templateId: item.templateId,
+          placementId: null,
+          label: item.label,
+          subtitle: item.subtitle,
+          icon: item.icon,
+          accent: item.accent,
+          defaultWeekday: item.defaultWeekday,
+          weekday: null,
+          done: false,
+          sortOrder: item.sortOrder,
+          session: {
+            ...item.session,
+            placement: {
+              id: "",
+              templateId: item.templateId,
+              weekStart,
+              weekday: null,
+              waterTempC: null,
+              doneAt: null,
+              note: null,
+            },
+          },
+        };
+        return [...without, sourceItem];
+      }
+      return prev.map((i) =>
+        i.dragId === dragId ? { ...i, weekday: null } : i,
+      );
+    });
     setPendingId(dragId);
     startTransition(async () => {
       const res = await unplaceWeekPlanItemAction({ dragId, weekStart });
@@ -237,7 +289,7 @@ export function UnifiedWeekBoard({
       key={item.dragId}
       item={item}
       category={
-        item.kind === "task" && item.categoryId
+        (item.kind === "task" || item.kind === "monthly_bill") && item.categoryId
           ? catById.get(item.categoryId)
           : undefined
       }
@@ -370,7 +422,9 @@ export function UnifiedWeekBoard({
           <ItemCardPreview
             item={draggingItem}
             category={
-              draggingItem.kind === "task" && draggingItem.categoryId
+              (draggingItem.kind === "task" ||
+                draggingItem.kind === "monthly_bill") &&
+              draggingItem.categoryId
                 ? catById.get(draggingItem.categoryId)
                 : undefined
             }
@@ -590,6 +644,9 @@ function ItemRowContent({
       ? String(item.session.placement.waterTempC)
       : "",
   );
+  const [bathingNote, setBathingNote] = useState(
+    item.kind === "bathing" ? (item.session.placement.note ?? "") : "",
+  );
   const [taskPlanNote, setTaskPlanNote] = useState(
     item.kind === "task" ? (item.placement?.planNote ?? "") : "",
   );
@@ -606,7 +663,25 @@ function ItemRowContent({
           ? "Bad & bastu"
           : item.kind === "weight"
             ? "Vikt"
-            : null;
+            : item.kind === "monthly_bill"
+              ? "Räkning"
+              : null;
+
+  const toggleMonthlyBill = () => {
+    if (item.kind !== "monthly_bill") return;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await toggleMonthlyTaskDoneAction({
+        taskId: item.taskId,
+        monthStart: item.monthStart,
+        done: !item.done,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
+      onPendingId(null);
+      onDone();
+    });
+  };
 
   const saveTaskPlan = () => {
     if (item.kind !== "task") return;
@@ -708,6 +783,7 @@ function ItemRowContent({
         placementId,
         weekStart,
         waterTempC: parsed,
+        note: bathingNote,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -729,6 +805,7 @@ function ItemRowContent({
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
       setBathingWaterTemp("");
+      setBathingNote("");
       onPendingId(null);
       onDone();
     });
@@ -749,14 +826,22 @@ function ItemRowContent({
     });
   };
 
+  const bathingDetail =
+    item.kind === "bathing" && item.done
+      ? [
+          item.session.placement.waterTempC != null
+            ? formatWaterTemp(item.session.placement.waterTempC)
+            : null,
+          item.session.placement.note?.trim() || null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined
+      : undefined;
+
   const detail =
     item.kind === "weight" && item.log
       ? `${formatWeightKg(item.log.weightKg)} · ${WEIGHT_TIME_LABEL[item.log.timeOfDay]}`
-      : item.kind === "bathing" &&
-          item.done &&
-          item.session.placement.waterTempC != null
-        ? formatWaterTemp(item.session.placement.waterTempC)
-        : item.subtitle;
+      : bathingDetail ?? item.subtitle;
 
   return (
     <>
@@ -764,14 +849,17 @@ function ItemRowContent({
         (item.kind === "gym" ||
           item.kind === "cardio" ||
           (item.kind === "bathing" && item.bathingRole === "placement") ||
-          item.kind === "weight") ? (
+          item.kind === "weight" ||
+          item.kind === "monthly_bill") ? (
         <button
           type="button"
           className={[styles.checkBtn, item.done ? styles.checkBtnDone : ""]
             .filter(Boolean)
             .join(" ")}
           aria-label={item.done ? "Klart" : "Logga"}
-          onClick={onToggleExpand}
+          onClick={
+            item.kind === "monthly_bill" ? toggleMonthlyBill : onToggleExpand
+          }
           disabled={pending}
         >
           {item.done ? (
@@ -855,30 +943,34 @@ function ItemRowContent({
 
       {expanded && !preview ? (
         <div className={styles.taskActions}>
-          <p className={styles.actionsLabel}>Flytta till annan dag</p>
-          <div className={styles.weekdayRow} role="radiogroup">
-            {WEEKDAYS.map((d) => {
-              const active = item.weekday === d;
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  className={[
-                    styles.weekdayBtn,
-                    active ? styles.weekdayBtnActive : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => onPlace(item.dragId, d)}
-                  disabled={pending}
-                >
-                  {WEEKDAY_SHORT[d]}
-                </button>
-              );
-            })}
-          </div>
+          {item.kind !== "bathing" ? (
+            <>
+              <p className={styles.actionsLabel}>Flytta till annan dag</p>
+              <div className={styles.weekdayRow} role="radiogroup">
+                {WEEKDAYS.map((d) => {
+                  const active = item.weekday === d;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      className={[
+                        styles.weekdayBtn,
+                        active ? styles.weekdayBtnActive : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onClick={() => onPlace(item.dragId, d)}
+                      disabled={pending}
+                    >
+                      {WEEKDAY_SHORT[d]}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : null}
 
           {item.kind === "gym" && !item.done ? (
             <>
@@ -968,17 +1060,36 @@ function ItemRowContent({
           !item.done ? (
             <>
               {bathingRequiresWaterTemp(item.session.key) ? (
-                <Input
-                  label="Vattentemperatur (°C)"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.1"
-                  value={bathingWaterTemp}
-                  onChange={(e) => setBathingWaterTemp(e.target.value)}
-                  placeholder="t.ex. 4"
+                <div className={styles.bathingTempRow}>
+                  <span className={styles.bathingFieldLabel}>Temp</span>
+                  <div className={styles.bathingTempField}>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      className={styles.bathingTempInput}
+                      value={bathingWaterTemp}
+                      onChange={(e) => setBathingWaterTemp(e.target.value)}
+                      placeholder="4"
+                      aria-label="Vattentemperatur i grader Celsius"
+                      disabled={pending}
+                    />
+                    <span className={styles.bathingTempUnit}>°C</span>
+                  </div>
+                </div>
+              ) : null}
+              <label className={styles.bathingNoteField}>
+                <span className={styles.bathingFieldLabel}>Kommentar</span>
+                <textarea
+                  className={styles.bathingNoteInput}
+                  value={bathingNote}
+                  onChange={(e) => setBathingNote(e.target.value)}
+                  placeholder="Var badade du? Hur kändes det?"
+                  rows={2}
+                  maxLength={280}
                   disabled={pending}
                 />
-              ) : null}
+              </label>
               <Button
                 type="button"
                 variant="primary"

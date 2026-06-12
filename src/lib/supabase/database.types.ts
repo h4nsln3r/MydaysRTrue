@@ -444,6 +444,7 @@ export interface Database {
           id: string;
           user_id: string;
           category_id: string | null;
+          key: string | null;
           title: string;
           notes: string | null;
           day_of_month: number | null;
@@ -458,6 +459,7 @@ export interface Database {
           id?: string;
           user_id: string;
           category_id?: string | null;
+          key?: string | null;
           title: string;
           notes?: string | null;
           day_of_month?: number | null;
@@ -472,6 +474,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           category_id?: string | null;
+          key?: string | null;
           title?: string;
           notes?: string | null;
           day_of_month?: number | null;
@@ -492,6 +495,8 @@ export interface Database {
           month_start: string;
           done_at: string | null;
           note: string | null;
+          scheduled_day_of_month: number | null;
+          is_unscheduled: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -502,6 +507,8 @@ export interface Database {
           month_start: string;
           done_at?: string | null;
           note?: string | null;
+          scheduled_day_of_month?: number | null;
+          is_unscheduled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -512,6 +519,8 @@ export interface Database {
           month_start?: string;
           done_at?: string | null;
           note?: string | null;
+          scheduled_day_of_month?: number | null;
+          is_unscheduled?: boolean;
           created_at?: string;
           updated_at?: string;
         };

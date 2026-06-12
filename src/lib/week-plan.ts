@@ -13,7 +13,13 @@ import type {
 import type { WeightLog, WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_ITEM_ID } from "@/lib/weight";
 
-export type WeekPlanItemKind = "task" | "gym" | "cardio" | "bathing" | "weight";
+export type WeekPlanItemKind =
+  | "task"
+  | "gym"
+  | "cardio"
+  | "bathing"
+  | "weight"
+  | "monthly_bill";
 
 export interface WeekPlanItemBase {
   dragId: string;
@@ -65,12 +71,22 @@ export interface WeekPlanWeightItem extends WeekPlanItemBase {
   plan: WeightWeekPlan;
 }
 
+export interface WeekPlanMonthlyBillItem extends WeekPlanItemBase {
+  kind: "monthly_bill";
+  taskId: string;
+  categoryId: string | null;
+  monthStart: string;
+  scheduledDayOfMonth: number | null;
+  completion: import("@/lib/tasks").MonthlyCompletion | null;
+}
+
 export type WeekPlanItem =
   | WeekPlanTaskItem
   | WeekPlanGymItem
   | WeekPlanCardioItem
   | WeekPlanBathingItem
-  | WeekPlanWeightItem;
+  | WeekPlanWeightItem
+  | WeekPlanMonthlyBillItem;
 
 export interface UnifiedWeekPlan {
   weekStart: string;
@@ -100,6 +116,7 @@ export interface ParsedWeekPlanDragId {
   kind: WeekPlanItemKind;
   entityId: string;
   bathingRole?: BathingDragRole;
+  monthStart?: string;
 }
 
 export function weekPlanDragId(
@@ -109,7 +126,7 @@ export function weekPlanDragId(
   return `${kind}:${entityId}`;
 }
 
-/** Draggable bathing template in the left backlog (infinite copy source). */
+/** Draggable bathing template in the left backlog (one per template per week). */
 export function weekPlanBathingSourceDragId(templateId: string): string {
   return `bathing-source:${templateId}`;
 }
@@ -117,6 +134,10 @@ export function weekPlanBathingSourceDragId(templateId: string): string {
 /** A bathing instance placed on a weekday. */
 export function weekPlanBathingPlacementDragId(placementId: string): string {
   return `bathing:${placementId}`;
+}
+
+export function weekPlanMonthlyBillDragId(taskId: string, monthStart: string): string {
+  return `monthly_bill:${taskId}:${monthStart}`;
 }
 
 export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null {
@@ -128,6 +149,15 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
   const bathing = /^bathing:(.+)$/.exec(dragId);
   if (bathing) {
     return { kind: "bathing", entityId: bathing[1], bathingRole: "placement" };
+  }
+
+  const monthlyBill = /^monthly_bill:([^:]+):(\d{4}-\d{2}-\d{2})$/.exec(dragId);
+  if (monthlyBill) {
+    return {
+      kind: "monthly_bill",
+      entityId: monthlyBill[1],
+      monthStart: monthlyBill[2],
+    };
   }
 
   const m = /^(task|gym|cardio|weight):(.+)$/.exec(dragId);

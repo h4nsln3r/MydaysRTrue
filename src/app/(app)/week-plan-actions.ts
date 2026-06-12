@@ -7,6 +7,8 @@ import { resetGymWeekToDefaultsAction } from "@/app/(app)/gym-actions";
 import {
   placeWeeklyTaskAction,
   unplaceWeeklyTaskAction,
+  placeMonthlyBillFromWeekAction,
+  unplaceMonthlyBillFromWeekAction,
 } from "@/app/(app)/tasks-actions";
 import {
   placeWeightWeekAction,
@@ -94,6 +96,12 @@ export async function placeWeekPlanItemAction(input: {
         weekStart: input.weekStart,
         weekday: input.weekday,
       });
+    case "monthly_bill":
+      return placeMonthlyBillFromWeekAction({
+        taskId: parsed.entityId,
+        weekStart: input.weekStart,
+        weekday: input.weekday,
+      });
     default:
       return { ok: false, error: "Okänd aktivitetstyp." };
   }
@@ -136,6 +144,14 @@ export async function unplaceWeekPlanItemAction(input: {
       });
     case "weight":
       return unplaceWeightWeekAction(input.weekStart);
+    case "monthly_bill":
+      if (!parsed.monthStart) {
+        return { ok: false, error: "Ogiltig räkning." };
+      }
+      return unplaceMonthlyBillFromWeekAction({
+        taskId: parsed.entityId,
+        monthStart: parsed.monthStart,
+      });
     default:
       return { ok: false, error: "Okänd aktivitetstyp." };
   }

@@ -8,15 +8,9 @@ import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import {
   completeCardioSessionAction,
-  moveCardioSessionAction,
   uncompleteCardioSessionAction,
 } from "@/app/(app)/cardio-actions";
 import type { CardioSessionForWeek } from "@/lib/cardio";
-import {
-  WEEKDAY_SHORT,
-  WEEKDAYS,
-  type Weekday,
-} from "@/lib/tasks";
 import styles from "./CardioDayCard.module.scss";
 
 interface Props {
@@ -144,21 +138,6 @@ function SessionRow({
   const [note, setNote] = useState(session.placement.note ?? "");
   const [, startTransition] = useTransition();
 
-  const move = (weekday: Weekday) => {
-    onError(null);
-    onPendingId(session.id);
-    startTransition(async () => {
-      const res = await moveCardioSessionAction({
-        templateId: session.id,
-        weekStart,
-        weekday,
-      });
-      if (!res.ok) onError(res.error ?? "Kunde inte flytta passet.");
-      onPendingId(null);
-      onDone();
-    });
-  };
-
   const complete = () => {
     onError(null);
     onPendingId(session.id);
@@ -258,31 +237,6 @@ function SessionRow({
 
       {expanded ? (
         <div className={styles.sessionActions}>
-          <p className={styles.actionsLabel}>Flytta till annan dag</p>
-          <div className={styles.weekdayRow} role="radiogroup">
-            {WEEKDAYS.map((d) => {
-              const active = session.placement.weekday === d;
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  className={[
-                    styles.weekdayBtn,
-                    active ? styles.weekdayBtnActive : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => move(d)}
-                  disabled={pending}
-                >
-                  {WEEKDAY_SHORT[d]}
-                </button>
-              );
-            })}
-          </div>
-
           {!done ? (
             <>
               <Input

@@ -23,12 +23,16 @@ interface Props {
   weekStart: string;
   sessions: CardioSessionForWeek[];
   title?: string;
+  hideWhenEmpty?: boolean;
+  showWeekLink?: boolean;
 }
 
 export function CardioDayCard({
   weekStart,
   sessions,
   title = "Cardio",
+  hideWhenEmpty = false,
+  showWeekLink = true,
 }: Props) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -39,15 +43,19 @@ export function CardioDayCard({
   const doneCount = sessions.filter((s) => s.placement.doneAt).length;
 
   if (sessions.length === 0) {
+    if (hideWhenEmpty) return null;
+
     return (
       <Card className={styles.card}>
         <p className={styles.empty}>Inget cardiopass planerat den här dagen.</p>
-        <Link
-          href={`/week?start=${weekStart}&view=plan`}
-          className={styles.weekLink}
-        >
-          Se veckoplan →
-        </Link>
+        {showWeekLink ? (
+          <Link
+            href={`/week?start=${weekStart}&view=plan`}
+            className={styles.weekLink}
+          >
+            Se veckoplan →
+          </Link>
+        ) : null}
       </Card>
     );
   }
@@ -72,12 +80,14 @@ export function CardioDayCard({
             <span className={styles.counterSlash}>/ {sessions.length}</span>
           </span>
         </div>
-        <Link
-          href={`/week?start=${weekStart}&view=plan`}
-          className={styles.weekLink}
-        >
-          Veckoplan →
-        </Link>
+        {showWeekLink ? (
+          <Link
+            href={`/week?start=${weekStart}&view=plan`}
+            className={styles.weekLink}
+          >
+            Veckoplan →
+          </Link>
+        ) : null}
       </header>
 
       {error ? <p className={styles.error}>{error}</p> : null}

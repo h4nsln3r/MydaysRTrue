@@ -1,0 +1,49 @@
+@use "abstracts" as *;
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: $space-3;
+}
+
+.title {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-cream;
+    margin: 0;
+}
+
+.weekLink {
+    color: $color-orange-bright;
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.emptyCard {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.empty {
+    color: $color-cream-dim;
+    font-size: 0.9rem;
+    margin: 0;
+}

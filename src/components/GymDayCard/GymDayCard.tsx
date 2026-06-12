@@ -29,12 +29,18 @@ interface Props {
   sessions: GymSessionForWeek[];
   /** Card title — e.g. "Gym idag" vs "Gym". */
   title?: string;
+  /** Omit the card when there are no sessions (parent shows combined empty state). */
+  hideWhenEmpty?: boolean;
+  /** Show link to week plan in card header. */
+  showWeekLink?: boolean;
 }
 
 export function GymDayCard({
   weekStart,
   sessions,
   title = "Gym",
+  hideWhenEmpty = false,
+  showWeekLink = true,
 }: Props) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -45,15 +51,19 @@ export function GymDayCard({
   const doneCount = sessions.filter((s) => s.placement.doneAt).length;
 
   if (sessions.length === 0) {
+    if (hideWhenEmpty) return null;
+
     return (
       <Card className={styles.card}>
         <p className={styles.empty}>Inget gympass planerat den här dagen.</p>
-        <Link
-          href={`/week?start=${weekStart}&view=plan`}
-          className={styles.weekLink}
-        >
-          Se veckoplan →
-        </Link>
+        {showWeekLink ? (
+          <Link
+            href={`/week?start=${weekStart}&view=plan`}
+            className={styles.weekLink}
+          >
+            Se veckoplan →
+          </Link>
+        ) : null}
       </Card>
     );
   }
@@ -78,12 +88,14 @@ export function GymDayCard({
             <span className={styles.counterSlash}>/ {sessions.length}</span>
           </span>
         </div>
-        <Link
-          href={`/week?start=${weekStart}&view=plan`}
-          className={styles.weekLink}
-        >
-          Veckoplan →
-        </Link>
+        {showWeekLink ? (
+          <Link
+            href={`/week?start=${weekStart}&view=plan`}
+            className={styles.weekLink}
+          >
+            Veckoplan →
+          </Link>
+        ) : null}
       </header>
 
       {error ? <p className={styles.error}>{error}</p> : null}

@@ -6,8 +6,7 @@ import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { WaterLogItem } from "@/components/WaterLogItem/WaterLogItem";
-import { CardioDayCard } from "@/components/CardioDayCard/CardioDayCard";
-import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
+import { TrainingDaySection } from "@/components/TrainingDaySection/TrainingDaySection";
 import { createClient } from "@/lib/supabase/server";
 import { getDailySummary } from "@/lib/water.server";
 import {
@@ -21,7 +20,6 @@ import { getDailyIntake } from "@/lib/intake.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
-import { WeightDayCard } from "@/components/WeightDayCard/WeightDayCard";
 import { getCategories } from "@/lib/tasks.server";
 import { parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
@@ -101,22 +99,12 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
 
       {view === "progress" ? (
         <>
-          <section className={styles.section}>
-            <GymDayCard weekStart={gymDay.weekStart} sessions={gymDay.sessions} />
-          </section>
-
-          <section className={styles.section}>
-            <CardioDayCard
-              weekStart={cardioDay.weekStart}
-              sessions={cardioDay.sessions}
-            />
-          </section>
-
-          {weightDay.scheduled ? (
-            <section className={styles.section}>
-              <WeightDayCard context={weightDay} />
-            </section>
-          ) : null}
+          <TrainingDaySection
+            weekStart={gymDay.weekStart}
+            gymSessions={gymDay.sessions}
+            cardioSessions={cardioDay.sessions}
+            weightContext={weightDay}
+          />
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>

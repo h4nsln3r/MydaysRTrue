@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
-import { CardioDayCard } from "@/components/CardioDayCard/CardioDayCard";
-import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
+import { TrainingDaySection } from "@/components/TrainingDaySection/TrainingDaySection";
 import { getDailySummary } from "@/lib/water.server";
 import {
   getDailyActivityLog,
@@ -18,7 +17,6 @@ import { getDailyIntake } from "@/lib/intake.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
-import { WeightDayCard } from "@/components/WeightDayCard/WeightDayCard";
 import { getCategories } from "@/lib/tasks.server";
 import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
@@ -109,27 +107,15 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
 
       {view === "progress" ? (
         <>
-          <section className={styles.section}>
-            <GymDayCard
-              weekStart={gymDay.weekStart}
-              sessions={gymDay.sessions}
-              title="Gym idag"
-            />
-          </section>
-
-          <section className={styles.section}>
-            <CardioDayCard
-              weekStart={cardioDay.weekStart}
-              sessions={cardioDay.sessions}
-              title="Cardio idag"
-            />
-          </section>
-
-          {weightDay.scheduled ? (
-            <section className={styles.section}>
-              <WeightDayCard context={weightDay} title="Vikt idag" />
-            </section>
-          ) : null}
+          <TrainingDaySection
+            weekStart={gymDay.weekStart}
+            gymSessions={gymDay.sessions}
+            cardioSessions={cardioDay.sessions}
+            weightContext={weightDay}
+            gymTitle="Gym idag"
+            cardioTitle="Cardio idag"
+            weightTitle="Vikt idag"
+          />
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>

@@ -1,17 +1,11 @@
-import type { HTMLAttributes } from "react";
 import Link from "next/link";
-import { Card } from "@/components/Card/Card";
+import { formatDayShort, formatWeekdayShort, isoWeekdayFromLocalISO } from "@/lib/date";
 import { formatWaterTemp, type BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
-import {
-  formatDayShort,
-  formatWeekdayShort,
-  isoWeekdayFromLocalISO,
-} from "@/lib/date";
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
-import type { WeekSummary } from "@/lib/water.server";
+import type { WeekSummary, WeekDay } from "@/lib/water.server";
 import { waterDayStatus, type WaterDayStatus } from "@/lib/water";
 import type { WeeklyTaskForWeek } from "@/lib/tasks";
 import { formatWeightKg } from "@/lib/format";
@@ -29,18 +23,20 @@ interface Props {
 }
 
 const WATER_LABEL: Record<WaterDayStatus, string> = {
-  future: "Kommande dag",
-  good: "Vattenmål uppnått",
-  almost: "Nästan uppnått vattenmål",
-  low: "Långt från vattenmål",
+  future: "Kommande",
+  good: "Mål uppnått",
+  almost: "Nästan",
+  low: "Lågt",
 };
 
 const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
-  yes: "Uppnått",
+  yes: "Ja",
   half: "Delvis",
   no: "Nej",
-  empty: "Ej loggat",
+  empty: "—",
 };
+
+const WEEKDAY_HEAD = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
 
 export function WeekProgressBoard({
   week,
@@ -51,524 +47,676 @@ export function WeekProgressBoard({
   tasks,
   weightPlan,
 }: Props) {
+  const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
+
+  const gymByWeekday = groupByWeekday(gymSessions);
+  const cardioByWeekday = groupByWeekday(cardioSessions);
+  const bathingByWeekday = groupByWeekday(bathingSessions);
+  const tasksByWeekday = groupTasksByWeekday(tasks);
+  const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
+
   const placedGym = gymSessions.filter((s) => s.placement.weekday != null);
   const placedCardio = cardioSessions.filter((s) => s.placement.weekday != null);
   const placedBathing = bathingSessions.filter((s) => s.placement.weekday != null);
+  const placedTasks = tasks.filter((t) => t.placement);
   const gymDone = placedGym.filter((s) => s.placement.doneAt).length;
   const cardioDone = placedCardio.filter((s) => s.placement.doneAt).length;
   const bathingDone = placedBathing.filter((s) => s.placement.doneAt).length;
-  const placedTasks = tasks.filter((t) => t.placement);
   const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
-  const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
-  const weightActive =
-    weightPlan.enabled && weightPlan.weekday != null;
+  const weightActive = weightPlan.enabled && weightPlan.weekday != null;
   const weightDone = Boolean(weightPlan.log);
-
-  const gymByWeekday = new Map<number, GymSessionForWeek[]>();
-  for (const s of gymSessions) {
-    if (s.placement.weekday == null) continue;
-    const list = gymByWeekday.get(s.placement.weekday) ?? [];
-    list.push(s);
-    gymByWeekday.set(s.placement.weekday, list);
-  }
-
-  const cardioByWeekday = new Map<number, CardioSessionForWeek[]>();
-  for (const s of cardioSessions) {
-    if (s.placement.weekday == null) continue;
-    const list = cardioByWeekday.get(s.placement.weekday) ?? [];
-    list.push(s);
-    cardioByWeekday.set(s.placement.weekday, list);
-  }
-
-  const bathingByWeekday = new Map<number, BathingSessionForWeek[]>();
-  for (const s of bathingSessions) {
-    if (s.placement.weekday == null) continue;
-    const list = bathingByWeekday.get(s.placement.weekday) ?? [];
-    list.push(s);
-    bathingByWeekday.set(s.placement.weekday, list);
-  }
-
-  const tasksByWeekday = new Map<number, WeeklyTaskForWeek[]>();
-  for (const t of tasks) {
-    if (t.placement?.weekday == null) continue;
-    const list = tasksByWeekday.get(t.placement.weekday) ?? [];
-    list.push(t);
-    tasksByWeekday.set(t.placement.weekday, list);
-  }
-
-  const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
+  const colSpan = week.days.length + 2;
 
   return (
     <div className={styles.board}>
-      <div className={styles.summaryGrid}>
-        <Card className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Gym</span>
-          <span className={styles.summaryValue}>
-            <span className={styles.summaryBig}>{gymDone}</span>
-            <span className={styles.summarySlash}>/ {placedGym.length}</span>
-          </span>
-          {placedGym.length > 0 ? (
-            <div className={styles.summaryBar} aria-hidden>
-              <div
-                className={styles.summaryFill}
-                style={{
-                  width: `${Math.round((gymDone / placedGym.length) * 100)}%`,
-                }}
-              />
-            </div>
-          ) : null}
-        </Card>
-
-        <Card className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Cardio</span>
-          <span className={styles.summaryValue}>
-            <span className={styles.summaryBig}>{cardioDone}</span>
-            <span className={styles.summarySlash}>
-              / {placedCardio.length}
-            </span>
-          </span>
-          {placedCardio.length > 0 ? (
-            <div className={styles.summaryBar} aria-hidden>
-              <div
-                className={[styles.summaryFill, styles.summaryFillCardio]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{
-                  width: `${Math.round((cardioDone / placedCardio.length) * 100)}%`,
-                }}
-              />
-            </div>
-          ) : null}
-        </Card>
-
-        <Card className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Bad & bastu</span>
-          <span className={styles.summaryValue}>
-            <span className={styles.summaryBig}>{bathingDone}</span>
-            <span className={styles.summarySlash}>
-              / {placedBathing.length}
-            </span>
-          </span>
-          {placedBathing.length > 0 ? (
-            <div className={styles.summaryBar} aria-hidden>
-              <div
-                className={[styles.summaryFill, styles.summaryFillBathing]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{
-                  width: `${Math.round((bathingDone / placedBathing.length) * 100)}%`,
-                }}
-              />
-            </div>
-          ) : null}
-        </Card>
-
-        <Card className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Uppgifter</span>
-          <span className={styles.summaryValue}>
-            <span className={styles.summaryBig}>{tasksDone}</span>
-            <span className={styles.summarySlash}>
-              / {placedTasks.length || "—"}
-            </span>
-          </span>
-          {placedTasks.length > 0 ? (
-            <div className={styles.summaryBar} aria-hidden>
-              <div
-                className={[styles.summaryFill, styles.summaryFillTasks]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{
-                  width: `${Math.round((tasksDone / placedTasks.length) * 100)}%`,
-                }}
-              />
-            </div>
-          ) : null}
-        </Card>
-
-        <Card className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Vikt</span>
-          <span className={styles.summaryValue}>
-            {!weightPlan.enabled ? (
-              <span className={styles.summaryMuted}>Av</span>
-            ) : !weightActive ? (
-              <span className={styles.summaryMuted}>Ej placerad</span>
-            ) : (
-              <>
-                <span className={styles.summaryBig}>
-                  {weightDone ? "1" : "0"}
-                </span>
-                <span className={styles.summarySlash}>/ 1</span>
-              </>
-            )}
-          </span>
-          {weightActive ? (
-            <div className={styles.summaryBar} aria-hidden>
-              <div
-                className={[styles.summaryFill, styles.summaryFillWeight]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{ width: weightDone ? "100%" : "0%" }}
-              />
-            </div>
-          ) : null}
-          {weightPlan.log ? (
-            <span className={styles.summaryDetail}>
-              {formatWeightKg(weightPlan.log.weightKg)}
-            </span>
-          ) : null}
-        </Card>
+      <div className={styles.legendBar} aria-label="Förklaring">
+        <span className={styles.legendGroup}>
+          <span className={styles.legendTitle}>Vanor</span>
+          <StatusSwatch status="yes" />
+          <StatusSwatch status="half" />
+          <StatusSwatch status="no" />
+          <StatusSwatch status="empty" />
+        </span>
+        <span className={styles.legendGroup}>
+          <span className={styles.legendTitle}>Vatten</span>
+          <WaterSwatch status="good" />
+          <WaterSwatch status="almost" />
+          <WaterSwatch status="low" />
+        </span>
+        <span className={styles.legendGroup}>
+          <span className={styles.legendTitle}>Träning</span>
+          <span className={styles.legendMark}>✓ klar</span>
+          <span className={styles.legendMarkDim}>○ planerad</span>
+        </span>
       </div>
 
-      {habitWeek.habits.length > 0 ? (
-        <section className={styles.section}>
-          <header className={styles.sectionHeader}>
-            <h2 className={styles.h2}>Dagliga spårare</h2>
-            <span className={styles.legend}>
-              <HabitStatusDot status="yes" compact aria-hidden />
-              <HabitStatusDot status="half" compact aria-hidden />
-              <HabitStatusDot status="no" compact aria-hidden />
-            </span>
-          </header>
+      <div className={styles.spreadsheetWrap}>
+        <table className={styles.sheet}>
+          <thead>
+            <tr>
+              <th className={[styles.cornerCell, styles.stickyCol].join(" ")} scope="col">
+                Kategori
+              </th>
+              {week.days.map((d, i) => (
+                <DayHeader key={d.date} day={d} fallbackLabel={WEEKDAY_HEAD[i] ?? ""} />
+              ))}
+              <th className={[styles.totalHead, styles.stickyColRight].join(" ")} scope="col">
+                ∑
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <SectionRow label="Dagligt" colSpan={colSpan} />
 
-          <div className={styles.habitSummaryGrid}>
-            {habitWeek.habits.map((h) => (
-              <div key={h.id} className={styles.habitSummaryChip}>
-                <span className={styles.habitSummaryIcon} aria-hidden>
-                  {h.icon}
-                </span>
-                <span className={styles.habitSummaryMeta}>
-                  <span className={styles.habitSummaryLabel}>{h.label}</span>
-                  <span className={styles.habitSummaryCount}>
-                    <span className={styles.habitSummaryBig}>
-                      {habitWeek.yesByHabit[h.id] ?? 0}
-                    </span>
-                    <span className={styles.habitSummarySlash}>
-                      / {pastDays || "—"}
-                    </span>
-                  </span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className={styles.section}>
-        <header className={styles.sectionHeader}>
-          <h2 className={styles.h2}>Dag för dag</h2>
-          <span className={styles.legend}>
-            <WaterDayIcon status="good" compact aria-hidden />
-            <WaterDayIcon status="almost" compact aria-hidden />
-            <WaterDayIcon status="low" compact aria-hidden />
-          </span>
-        </header>
-
-        <ul className={styles.dayList}>
-          {week.days.map((d) => {
-            const weekday = isoWeekdayFromLocalISO(d.date);
-            const dayGym = gymByWeekday.get(weekday) ?? [];
-            const dayCardio = cardioByWeekday.get(weekday) ?? [];
-            const dayBathing = bathingByWeekday.get(weekday) ?? [];
-            const dayTasks = tasksByWeekday.get(weekday) ?? [];
-            const dayTasksDone = dayTasks.filter((t) => t.placement?.doneAt)
-              .length;
-            const waterStatus = waterDayStatus(d);
-            const habitDay = habitDayByDate.get(d.date);
-            const weightScheduled =
-              weightPlan.enabled &&
-              weightPlan.weekday === weekday;
-            const weightLogged =
-              weightScheduled && weightPlan.log?.localDate === d.date;
-
-            const className = [
-              styles.dayRow,
-              d.isFuture ? styles.dayRowFuture : "",
-              d.isToday ? styles.dayRowToday : "",
-            ]
-              .filter(Boolean)
-              .join(" ");
-
-            const inner = (
-              <>
-                <div className={styles.dayRowMain}>
-                  <div className={styles.dayInfo}>
-                    <span
-                      className={[
-                        styles.dayName,
-                        d.isToday ? styles.dayNameToday : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                    >
-                      {formatWeekdayShort(d.date)}
-                    </span>
-                    <span className={styles.dayDate}>
-                      {formatDayShort(d.date)}
-                    </span>
-                  </div>
-
-                  <WaterDayIcon status={waterStatus} />
-
-                <div className={styles.dayTraining}>
-                  {dayGym.length === 0 &&
-                  dayCardio.length === 0 &&
-                  dayBathing.length === 0 &&
-                  !weightScheduled ? (
-                    <span className={styles.dayMuted}>—</span>
-                  ) : (
-                    <>
-                      {weightScheduled ? (
-                        <span
-                          className={[
-                            styles.weightChip,
-                            weightLogged ? styles.weightChipDone : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          title={
-                            weightPlan.log
-                              ? `Vikt: ${formatWeightKg(weightPlan.log.weightKg)}`
-                              : "Planerad vägning"
-                          }
-                          aria-label={
-                            weightLogged ? "Vikt loggad" : "Planerad vägning"
-                          }
-                        >
-                          <span aria-hidden>⚖️</span>
-                          {weightLogged ? (
-                            <span className={styles.gymCheck} aria-hidden>
-                              ✓
-                            </span>
-                          ) : null}
-                        </span>
-                      ) : null}
-                      {dayGym.length > 0 ? (
-                        <ul className={styles.gymList} aria-label="Gympass">
-                          {dayGym.map((s) => (
-                            <li
-                              key={s.id}
-                              className={[
-                                styles.gymChip,
-                                s.placement.doneAt ? styles.gymChipDone : "",
-                              ]
-                                .filter(Boolean)
-                                .join(" ")}
-                              title={s.label}
-                            >
-                              <span aria-hidden>{s.icon}</span>
-                              {s.placement.doneAt ? (
-                                <span className={styles.gymCheck} aria-hidden>
-                                  ✓
-                                </span>
-                              ) : null}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      {dayCardio.length > 0 ? (
-                        <ul className={styles.gymList} aria-label="Cardiopass">
-                          {dayCardio.map((s) => (
-                            <li
-                              key={s.id}
-                              className={[
-                                styles.gymChip,
-                                styles.cardioChip,
-                                s.placement.doneAt ? styles.gymChipDone : "",
-                              ]
-                                .filter(Boolean)
-                                .join(" ")}
-                              title={
-                                s.placement.note
-                                  ? `${s.label}: ${s.placement.note}`
-                                  : s.label
-                              }
-                            >
-                              <span aria-hidden>{s.icon}</span>
-                              {s.placement.doneAt ? (
-                                <span className={styles.gymCheck} aria-hidden>
-                                  ✓
-                                </span>
-                              ) : null}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      {dayBathing.length > 0 ? (
-                        <ul className={styles.gymList} aria-label="Bad och bastu">
-                          {dayBathing.map((s) => (
-                            <li
-                              key={s.id}
-                              className={[
-                                styles.gymChip,
-                                styles.bathingChip,
-                                s.placement.doneAt ? styles.gymChipDone : "",
-                              ]
-                                .filter(Boolean)
-                                .join(" ")}
-                              title={
-                                s.placement.waterTempC != null
-                                  ? `${s.label}: ${formatWaterTemp(s.placement.waterTempC)}`
-                                  : s.description
-                                    ? `${s.label}: ${s.description}`
-                                    : s.label
-                              }
-                            >
-                              <span aria-hidden>{s.icon}</span>
-                              {s.placement.doneAt ? (
-                                <span className={styles.gymCheck} aria-hidden>
-                                  ✓
-                                </span>
-                              ) : null}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </>
+            <tr>
+              <RowLabel sticky icon="💧" label="Vatten" />
+              {week.days.map((d) => (
+                <td
+                  key={d.date}
+                  className={cellClass(
+                    styles.dataCell,
+                    d.isFuture && styles.cellFuture,
+                    d.isToday && styles.cellToday,
+                    styles[`waterCell_${waterDayStatus(d)}`],
                   )}
-                </div>
+                  title={`${formatDayShort(d.date)}: ${WATER_LABEL[waterDayStatus(d)]}`}
+                >
+                  <WaterMark status={waterDayStatus(d)} />
+                </td>
+              ))}
+              <TotalCell
+                value={week.daysHit}
+                total={pastDays}
+                highlight={week.daysHit === pastDays && pastDays > 0}
+              />
+            </tr>
 
-                  <div className={styles.dayTasks}>
+            {habitWeek.habits.map((h) => (
+              <tr key={h.id}>
+                <RowLabel sticky icon={h.icon} label={h.label} />
+                {week.days.map((d) => {
+                  const habitDay = habitDayByDate.get(d.date);
+                  const status = habitDay?.statuses[h.id] ?? null;
+                  return (
+                    <td
+                      key={d.date}
+                      className={cellClass(
+                        styles.dataCell,
+                        d.isFuture && styles.cellFuture,
+                        d.isToday && styles.cellToday,
+                        !d.isFuture && styles[`habitCell_${status ?? "empty"}`],
+                      )}
+                      title={`${h.label}, ${formatDayShort(d.date)}: ${
+                        d.isFuture ? "Kommande" : HABIT_STATUS_LABEL[status ?? "empty"]
+                      }`}
+                    >
+                      {!d.isFuture ? <StatusMark status={status} /> : null}
+                    </td>
+                  );
+                })}
+                <TotalCell
+                  value={habitWeek.yesByHabit[h.id] ?? 0}
+                  total={pastDays}
+                  highlight={(habitWeek.yesByHabit[h.id] ?? 0) === pastDays && pastDays > 0}
+                />
+              </tr>
+            ))}
+
+            <SectionRow label="Träning & hälsa" colSpan={colSpan} />
+
+            <TrainingRow
+              icon="🏋️"
+              label="Gym"
+              days={week.days}
+              byWeekday={gymByWeekday}
+              done={gymDone}
+              total={placedGym.length}
+              renderSession={(s) => ({
+                icon: s.icon,
+                done: Boolean(s.placement.doneAt),
+                title: s.label,
+              })}
+            />
+
+            <TrainingRow
+              icon="🏃"
+              label="Cardio"
+              days={week.days}
+              byWeekday={cardioByWeekday}
+              done={cardioDone}
+              total={placedCardio.length}
+              chipClass={styles.cardioChip}
+              renderSession={(s) => ({
+                icon: s.icon,
+                done: Boolean(s.placement.doneAt),
+                title: s.placement.note ? `${s.label}: ${s.placement.note}` : s.label,
+              })}
+            />
+
+            <TrainingRow
+              icon="🧖"
+              label="Bad & bastu"
+              days={week.days}
+              byWeekday={bathingByWeekday}
+              done={bathingDone}
+              total={placedBathing.length}
+              chipClass={styles.bathingChip}
+              renderSession={(s) => ({
+                icon: s.icon,
+                done: Boolean(s.placement.doneAt),
+                title:
+                  s.placement.waterTempC != null
+                    ? `${s.label}: ${formatWaterTemp(s.placement.waterTempC)}`
+                    : s.description
+                      ? `${s.label}: ${s.description}`
+                      : s.label,
+              })}
+            />
+
+            {weightPlan.enabled ? (
+              <tr>
+                <RowLabel sticky icon="⚖️" label="Vikt" />
+                {week.days.map((d) => {
+                  const weekday = isoWeekdayFromLocalISO(d.date);
+                  const scheduled = weightPlan.weekday === weekday;
+                  const logged =
+                    scheduled && weightPlan.log?.localDate === d.date;
+                  return (
+                    <td
+                      key={d.date}
+                      className={cellClass(
+                        styles.dataCell,
+                        d.isFuture && styles.cellFuture,
+                        d.isToday && styles.cellToday,
+                        scheduled && !d.isFuture && logged && styles.habitCell_yes,
+                        scheduled && !d.isFuture && !logged && styles.habitCell_empty,
+                      )}
+                      title={
+                        !scheduled
+                          ? undefined
+                          : logged && weightPlan.log
+                            ? `Vikt: ${formatWeightKg(weightPlan.log.weightKg)}`
+                            : "Planerad vägning"
+                      }
+                    >
+                      {scheduled && !d.isFuture ? (
+                        logged ? (
+                          <span className={styles.doneMark} aria-label="Loggad">
+                            ✓
+                          </span>
+                        ) : (
+                          <span className={styles.plannedMark} aria-label="Planerad">
+                            ○
+                          </span>
+                        )
+                      ) : null}
+                    </td>
+                  );
+                })}
+                <TotalCell
+                  value={weightActive ? (weightDone ? 1 : 0) : null}
+                  total={weightActive ? 1 : null}
+                  muted={!weightActive}
+                  mutedLabel={!weightActive ? "Av" : !weightDone && weightActive ? "0/1" : undefined}
+                  highlight={weightDone}
+                />
+              </tr>
+            ) : null}
+
+            <SectionRow label="Uppgifter" colSpan={colSpan} />
+
+            <tr>
+              <RowLabel sticky icon="📋" label="Veckouppgifter" />
+              {week.days.map((d) => {
+                const weekday = isoWeekdayFromLocalISO(d.date);
+                const dayTasks = tasksByWeekday.get(weekday) ?? [];
+                const dayDone = dayTasks.filter((t) => t.placement?.doneAt).length;
+                const allDone = dayTasks.length > 0 && dayDone === dayTasks.length;
+                return (
+                  <td
+                    key={d.date}
+                    className={cellClass(
+                      styles.dataCell,
+                      styles.taskCell,
+                      d.isFuture && styles.cellFuture,
+                      d.isToday && styles.cellToday,
+                      allDone && styles.taskCellDone,
+                    )}
+                  >
                     {dayTasks.length === 0 ? (
-                      <span className={styles.dayMuted}>—</span>
+                      <span className={styles.emptyMark}>—</span>
                     ) : (
-                      <span
-                        className={[
-                          styles.taskCount,
-                          dayTasksDone === dayTasks.length
-                            ? styles.taskCountDone
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                      >
-                        {dayTasksDone}/{dayTasks.length}
+                      <span className={styles.taskFraction}>
+                        {dayDone}/{dayTasks.length}
                       </span>
                     )}
-                  </div>
-                </div>
-
-                {habitDay && habitWeek.habits.length > 0 ? (
-                  <div className={styles.dayHabits} aria-label="Dagliga spårare">
-                    {habitWeek.habits.map((h) => (
-                      <HabitDayChip
-                        key={h.id}
-                        habit={h}
-                        status={habitDay.statuses[h.id] ?? null}
-                        isFuture={d.isFuture}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </>
-            );
-
-            return (
-              <li key={d.date}>
-                {d.isFuture ? (
-                  <div className={className} aria-disabled="true">
-                    {inner}
-                  </div>
-                ) : (
-                  <Link
-                    href={d.isToday ? "/" : `/day/${d.date}`}
-                    className={className}
-                  >
-                    {inner}
-                  </Link>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+                  </td>
+                );
+              })}
+              <TotalCell
+                value={tasksDone}
+                total={placedTasks.length || null}
+                muted={placedTasks.length === 0}
+                mutedLabel={placedTasks.length === 0 ? "—" : undefined}
+                highlight={placedTasks.length > 0 && tasksDone === placedTasks.length}
+              />
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr className={styles.footerRow}>
+              <td className={[styles.footerLabel, styles.stickyCol].join(" ")}>Veckans total</td>
+              {week.days.map((d) => (
+                <td
+                  key={d.date}
+                  className={cellClass(
+                    styles.footerCell,
+                    d.isFuture && styles.cellFuture,
+                    d.isToday && styles.cellToday,
+                  )}
+                >
+                  {!d.isFuture ? (
+                    <DayScore
+                      day={d}
+                      habitDay={habitDayByDate.get(d.date)}
+                      habits={habitWeek.habits}
+                      gym={gymByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
+                      cardio={cardioByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
+                      bathing={bathingByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
+                      tasks={tasksByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
+                      weightScheduled={
+                        weightPlan.enabled && weightPlan.weekday === isoWeekdayFromLocalISO(d.date)
+                      }
+                      weightLogged={
+                        weightPlan.enabled &&
+                        weightPlan.weekday === isoWeekdayFromLocalISO(d.date) &&
+                        weightPlan.log?.localDate === d.date
+                      }
+                    />
+                  ) : null}
+                </td>
+              ))}
+              <td className={[styles.footerCell, styles.footerTotal, styles.stickyColRight].join(" ")}>
+                <span className={styles.footerTotalValue}>
+                  {summaryScore({
+                    gymDone,
+                    gymTotal: placedGym.length,
+                    cardioDone,
+                    cardioTotal: placedCardio.length,
+                    bathingDone,
+                    bathingTotal: placedBathing.length,
+                    tasksDone,
+                    tasksTotal: placedTasks.length,
+                    waterHit: week.daysHit,
+                    waterTotal: pastDays,
+                    habitYes: Object.values(habitWeek.yesByHabit).reduce((a, b) => a + b, 0),
+                    habitTotal: habitWeek.habits.length * pastDays,
+                    weightDone: weightActive && weightDone ? 1 : 0,
+                    weightTotal: weightActive ? 1 : 0,
+                  })}
+                </span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }
 
-function HabitDayChip({
-  habit,
-  status,
-  isFuture,
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function DayHeader({ day, fallbackLabel }: { day: WeekDay; fallbackLabel: string }) {
+  const label = formatWeekdayShort(day.date);
+  const dayNum = parseLocalDayNum(day.date);
+  const className = cellClass(
+    styles.dayHead,
+    day.isToday && styles.dayHeadToday,
+    day.isFuture && styles.dayHeadFuture,
+  );
+
+  const inner = (
+    <>
+      <span className={styles.dayHeadWeekday}>{label || fallbackLabel}</span>
+      <span className={styles.dayHeadDate}>{dayNum}</span>
+    </>
+  );
+
+  if (day.isFuture) {
+    return (
+      <th className={className} scope="col">
+        {inner}
+      </th>
+    );
+  }
+
+  return (
+    <th className={className} scope="col">
+      <Link
+        href={day.isToday ? "/" : `/day/${day.date}`}
+        className={styles.dayHeadLink}
+        aria-label={formatDayShort(day.date)}
+      >
+        {inner}
+      </Link>
+    </th>
+  );
+}
+
+function SectionRow({ label, colSpan }: { label: string; colSpan: number }) {
+  return (
+    <tr className={styles.sectionRow}>
+      <td colSpan={colSpan}>{label}</td>
+    </tr>
+  );
+}
+
+function RowLabel({
+  icon,
+  label,
+  sticky,
 }: {
-  habit: Habit;
-  status: HabitStatus | null;
-  isFuture: boolean;
+  icon: string;
+  label: string;
+  sticky?: boolean;
 }) {
-  const label = isFuture
-    ? "Kommande dag"
-    : HABIT_STATUS_LABEL[status ?? "empty"];
+  return (
+    <th
+      className={[styles.rowLabel, sticky ? styles.stickyCol : ""].filter(Boolean).join(" ")}
+      scope="row"
+    >
+      <span className={styles.rowIcon} aria-hidden>
+        {icon}
+      </span>
+      <span className={styles.rowText}>{label}</span>
+    </th>
+  );
+}
+
+function TotalCell({
+  value,
+  total,
+  highlight,
+  muted,
+  mutedLabel,
+}: {
+  value: number | null;
+  total: number | null;
+  highlight?: boolean;
+  muted?: boolean;
+  mutedLabel?: string;
+}) {
+  return (
+    <td
+      className={cellClass(
+        styles.totalCell,
+        highlight && styles.totalCellDone,
+        muted && styles.totalCellMuted,
+      )}
+    >
+      {muted && mutedLabel ? (
+        <span className={styles.emptyMark}>{mutedLabel}</span>
+      ) : value != null && total != null ? (
+        <span className={styles.totalFraction}>
+          <span className={styles.totalValue}>{value}</span>
+          <span className={styles.totalSlash}>/{total}</span>
+        </span>
+      ) : (
+        <span className={styles.emptyMark}>—</span>
+      )}
+    </td>
+  );
+}
+
+function TrainingRow<T extends { id: string; placement: { weekday: number | null; doneAt: string | null } }>({
+  icon,
+  label,
+  days,
+  byWeekday,
+  done,
+  total,
+  chipClass,
+  renderSession,
+}: {
+  icon: string;
+  label: string;
+  days: WeekDay[];
+  byWeekday: Map<number, T[]>;
+  done: number;
+  total: number;
+  chipClass?: string;
+  renderSession: (item: T) => { icon: string; done: boolean; title: string };
+}) {
+  return (
+    <tr>
+      <RowLabel sticky icon={icon} label={label} />
+      {days.map((d) => {
+        const sessions = byWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? [];
+        return (
+          <td
+            key={d.date}
+            className={cellClass(
+              styles.dataCell,
+              styles.trainingCell,
+              d.isFuture && styles.cellFuture,
+              d.isToday && styles.cellToday,
+            )}
+          >
+            {sessions.length === 0 ? (
+              <span className={styles.emptyMark}>—</span>
+            ) : (
+              <ul className={styles.sessionList}>
+                {sessions.map((s) => {
+                  const meta = renderSession(s);
+                  return (
+                    <li
+                      key={s.id}
+                      className={cellClass(
+                        styles.sessionChip,
+                        chipClass,
+                        meta.done && styles.sessionChipDone,
+                      )}
+                      title={meta.title}
+                    >
+                      <span aria-hidden>{meta.icon}</span>
+                      {meta.done ? (
+                        <span className={styles.sessionCheck} aria-hidden>
+                          ✓
+                        </span>
+                      ) : (
+                        <span className={styles.sessionPending} aria-hidden>
+                          ○
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </td>
+        );
+      })}
+      <TotalCell
+        value={done}
+        total={total || null}
+        muted={total === 0}
+        mutedLabel={total === 0 ? "—" : undefined}
+        highlight={total > 0 && done === total}
+      />
+    </tr>
+  );
+}
+
+function DayScore({
+  day,
+  habitDay,
+  habits,
+  gym,
+  cardio,
+  bathing,
+  tasks,
+  weightScheduled,
+  weightLogged,
+}: {
+  day: WeekDay;
+  habitDay: { statuses: Record<string, HabitStatus | null> } | undefined;
+  habits: Habit[];
+  gym: GymSessionForWeek[];
+  cardio: CardioSessionForWeek[];
+  bathing: BathingSessionForWeek[];
+  tasks: WeeklyTaskForWeek[];
+  weightScheduled: boolean;
+  weightLogged: boolean;
+}) {
+  let hit = 0;
+  let total = 0;
+
+  if (waterDayStatus(day) === "good") hit += 1;
+  total += 1;
+
+  for (const h of habits) {
+    total += 1;
+    if (habitDay?.statuses[h.id] === "yes") hit += 1;
+  }
+
+  for (const s of [...gym, ...cardio, ...bathing]) {
+    total += 1;
+    if (s.placement.doneAt) hit += 1;
+  }
+
+  if (tasks.length > 0) {
+    total += 1;
+    if (tasks.every((t) => t.placement?.doneAt)) hit += 1;
+  }
+
+  if (weightScheduled) {
+    total += 1;
+    if (weightLogged) hit += 1;
+  }
+
+  const pct = total > 0 ? Math.round((hit / total) * 100) : 0;
 
   return (
     <span
-      className={[
-        styles.habitChip,
-        isFuture ? styles.habitChipFuture : "",
-        status ? styles[`habitChip_${status}`] : styles.habitChip_empty,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      title={`${habit.label}: ${label}`}
-      aria-label={`${habit.label}: ${label}`}
+      className={cellClass(
+        styles.dayScore,
+        pct >= 80 && styles.dayScoreGood,
+        pct >= 50 && pct < 80 && styles.dayScoreMid,
+        pct < 50 && styles.dayScoreLow,
+      )}
+      title={`${hit}/${total} klart (${pct}%)`}
     >
-      <span className={styles.habitChipIcon} aria-hidden>
-        {habit.icon}
-      </span>
-      {!isFuture ? (
-        <HabitStatusDot status={status} compact className={styles.habitChipDot} />
-      ) : null}
+      {pct}%
     </span>
   );
 }
 
-function HabitStatusDot({
-  status,
-  compact = false,
-  className,
-  ...rest
-}: {
-  status: HabitStatus | null;
-  compact?: boolean;
-  className?: string;
-} & HTMLAttributes<HTMLSpanElement>) {
+function StatusMark({ status }: { status: HabitStatus | null }) {
   const resolved = status ?? "empty";
+  const label = HABIT_STATUS_LABEL[resolved];
+  return (
+    <span className={cellClass(styles.statusMark, styles[`statusMark_${resolved}`])} aria-label={label}>
+      {resolved === "yes" ? "✓" : resolved === "half" ? "½" : resolved === "no" ? "✗" : "·"}
+    </span>
+  );
+}
+
+function StatusSwatch({ status }: { status: HabitStatus | "empty" }) {
   return (
     <span
-      className={[
-        styles.habitDot,
-        styles[`habitDot_${resolved}`],
-        compact ? styles.habitDotCompact : "",
-        className ?? "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={cellClass(styles.swatch, styles[`swatch_${status}`])}
       aria-hidden
-      {...rest}
     />
   );
 }
 
-function WaterDayIcon({
-  status,
-  compact = false,
-}: {
-  status: WaterDayStatus;
-  compact?: boolean;
-}) {
+function WaterMark({ status }: { status: WaterDayStatus }) {
+  if (status === "future") return null;
   return (
-    <span
-      className={[
-        styles.waterIcon,
-        styles[`waterIcon_${status}`],
-        compact ? styles.waterIconCompact : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      aria-label={compact ? undefined : WATER_LABEL[status]}
-      title={WATER_LABEL[status]}
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M12 2.5c-3.2 4.8-7 9.1-7 13.2a7 7 0 1 0 14 0c0-4.1-3.8-8.4-7-13.2Z" />
-      </svg>
+    <span className={cellClass(styles.waterMark, styles[`waterMark_${status}`])} aria-hidden>
+      {status === "good" ? "✓" : status === "almost" ? "~" : "!"}
     </span>
   );
+}
+
+function WaterSwatch({ status }: { status: WaterDayStatus }) {
+  return (
+    <span
+      className={cellClass(styles.swatch, styles[`swatch_water_${status}`])}
+      aria-hidden
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function cellClass(...parts: (string | false | undefined)[]) {
+  return parts.filter(Boolean).join(" ");
+}
+
+function parseLocalDayNum(localDate: string): number {
+  return Number(localDate.split("-")[2]);
+}
+
+function groupByWeekday<T extends { placement: { weekday: number | null } }>(
+  items: T[],
+): Map<number, T[]> {
+  const map = new Map<number, T[]>();
+  for (const item of items) {
+    if (item.placement.weekday == null) continue;
+    const list = map.get(item.placement.weekday) ?? [];
+    list.push(item);
+    map.set(item.placement.weekday, list);
+  }
+  return map;
+}
+
+function groupTasksByWeekday(tasks: WeeklyTaskForWeek[]): Map<number, WeeklyTaskForWeek[]> {
+  const map = new Map<number, WeeklyTaskForWeek[]>();
+  for (const t of tasks) {
+    if (t.placement?.weekday == null) continue;
+    const list = map.get(t.placement.weekday) ?? [];
+    list.push(t);
+    map.set(t.placement.weekday, list);
+  }
+  return map;
+}
+
+function summaryScore(parts: {
+  gymDone: number;
+  gymTotal: number;
+  cardioDone: number;
+  cardioTotal: number;
+  bathingDone: number;
+  bathingTotal: number;
+  tasksDone: number;
+  tasksTotal: number;
+  waterHit: number;
+  waterTotal: number;
+  habitYes: number;
+  habitTotal: number;
+  weightDone: number;
+  weightTotal: number;
+}): string {
+  const hit =
+    parts.gymDone +
+    parts.cardioDone +
+    parts.bathingDone +
+    parts.tasksDone +
+    parts.waterHit +
+    parts.habitYes +
+    parts.weightDone;
+  const total =
+    parts.gymTotal +
+    parts.cardioTotal +
+    parts.bathingTotal +
+    parts.tasksTotal +
+    parts.waterTotal +
+    parts.habitTotal +
+    parts.weightTotal;
+  if (total === 0) return "—";
+  return `${hit}/${total}`;
 }

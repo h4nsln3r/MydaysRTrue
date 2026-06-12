@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth.server";
 import { getMonthSummary, shiftMonth } from "@/lib/habits.server";
 import { getCategories, getMonthTaskSummary } from "@/lib/tasks.server";
 import { todayLocalISO } from "@/lib/date";
@@ -39,11 +38,7 @@ function formatMonthLabel(year: number, month: number): string {
 const WEEKDAY_HEAD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default async function MonthPage({ searchParams }: MonthPageProps) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const user = await getAuthUser();
 
   const params = await searchParams;
   const view = parsePeriodView(params.view);

@@ -1,0 +1,33 @@
+@use "abstracts" as *;
+
+.bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: 2px;
+    pointer-events: none;
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(90deg, $color-orange-dark, $color-orange-bright);
+    transition: opacity 120ms $ease-out;
+}
+
+.active {
+    opacity: 1;
+    animation: progress 1.4s $ease-out infinite;
+}
+
+@keyframes progress {
+    0% {
+        transform: scaleX(0.08);
+    }
+    45% {
+        transform: scaleX(0.72);
+    }
+    100% {
+        transform: scaleX(0.96);
+    }
+}

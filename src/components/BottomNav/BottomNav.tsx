@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link, { useLinkStatus } from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useNavPending } from "@/components/NavProgress/NavProgress";
 import styles from "./BottomNav.module.scss";
 
-type IconName = "home" | "week" | "month" | "user";
+type IconName = "home" | "week" | "month" | "year" | "user";
 
 interface NavItem {
   href: string;
@@ -37,6 +39,12 @@ const items: NavItem[] = [
     isActive: (p) => p.startsWith("/month"),
   },
   {
+    href: "/year",
+    label: "Year",
+    icon: "year",
+    isActive: (p) => p.startsWith("/year"),
+  },
+  {
     href: "/profile",
     label: "Profile",
     icon: "user",
@@ -45,28 +53,58 @@ const items: NavItem[] = [
 ];
 
 export function BottomNav() {
-  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    for (const item of items) {
+      router.prefetch(item.href);
+    }
+  }, [router]);
 
   return (
     <nav className={styles.nav} aria-label="Primary">
       <ul className={styles.list}>
-        {items.map((item) => {
-          const active = item.isActive(pathname);
-          return (
-            <li key={item.href} className={styles.item}>
-              <Link
-                href={item.href}
-                className={[styles.link, active ? styles.active : ""].filter(Boolean).join(" ")}
-                aria-current={active ? "page" : undefined}
-              >
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-              </Link>
-            </li>
-          );
-        })}
+        {items.map((item) => (
+          <li key={item.href} className={styles.item}>
+            <Link
+              href={item.href}
+              prefetch
+              className={styles.linkWrap}
+            >
+              <BottomNavLinkContent item={item} />
+            </Link>
+          </li>
+        ))}
       </ul>
     </nav>
+  );
+}
+
+function BottomNavLinkContent({ item }: { item: NavItem }) {
+  const pathname = usePathname();
+  const { pending } = useLinkStatus();
+  const { setPending } = useNavPending();
+  const active = item.isActive(pathname);
+
+  useEffect(() => {
+    setPending(pending);
+    return () => setPending(false);
+  }, [pending, setPending]);
+
+  return (
+    <span
+      className={[
+        styles.link,
+        active ? styles.active : "",
+        pending ? styles.pending : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-current={active ? "page" : undefined}
+    >
+      <Icon name={item.icon} />
+      <span>{item.label}</span>
+    </span>
   );
 }
 
@@ -132,6 +170,38 @@ function Icon({ name }: { name: IconName }) {
           <circle cx="8" cy="18" r="1" fill="currentColor" />
           <circle cx="12" cy="18" r="1" fill="currentColor" />
           <circle cx="16" cy="18" r="1" fill="currentColor" />
+        </svg>
+      );
+    case "year":
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <rect
+            x="3"
+            y="4"
+            width="18"
+            height="17"
+            rx="2"
+            stroke="currentColor"
+            strokeWidth="2"
+          />
+          <path d="M3 9h18" stroke="currentColor" strokeWidth="2" />
+          <path
+            d="M8 2v4M16 2v4"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <text
+            x="12"
+            y="18"
+            textAnchor="middle"
+            fill="currentColor"
+            fontSize="7"
+            fontWeight="700"
+            fontFamily="system-ui, sans-serif"
+          >
+            12
+          </text>
         </svg>
       );
     case "user":

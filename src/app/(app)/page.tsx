@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { TrainingDaySection } from "@/components/TrainingDaySection/TrainingDaySection";
 import { WeeklyTasksDayCard } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
+import { getAuthUser } from "@/lib/auth.server";
 import { getDailySummary } from "@/lib/water.server";
 import {
   getDailyActivityLog,
@@ -15,6 +14,8 @@ import {
   getDailySnacks,
 } from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
+import { getDailyMobileGames } from "@/lib/mobile-games.server";
+import { getDailyMedia } from "@/lib/media.server";
 import { getBathingSessionsForDate } from "@/lib/bathing.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
@@ -32,11 +33,7 @@ interface HomePageProps {
 }
 
 export default async function DashboardPage({ searchParams }: HomePageProps) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const user = await getAuthUser();
 
   const view = parsePeriodView((await searchParams).view);
   const today = todayLocalISO();
@@ -55,6 +52,8 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     allCategories,
     dayPlan,
     activityLog,
+    media,
+    mobileGames,
   ] = await Promise.all([
     getDailySummary(user.id, today),
     getDailyHabits(user.id, today),
@@ -69,6 +68,8 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     getCategories(user.id),
     getDayPlanSettings(user.id),
     getDailyActivityLog(user.id, today),
+    getDailyMedia(user.id, today),
+    getDailyMobileGames(user.id, today),
   ]);
 
   return (
@@ -152,6 +153,8 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               intake={intake}
               activityLog={activityLog}
               goals={dayPlan.goals}
+              media={media}
+              mobileGames={mobileGames}
               waterPlusHref="/water"
               waterPlusLabel="Open water page"
             />

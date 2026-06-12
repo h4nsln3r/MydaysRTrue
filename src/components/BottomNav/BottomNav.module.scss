@@ -27,7 +27,7 @@
     }
 
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: $space-1;
     background: $color-ink-soft;
     border: 1px solid $color-line;
@@ -40,8 +40,15 @@
     display: flex;
 }
 
+.linkWrap {
+    flex: 1;
+    display: flex;
+    text-decoration: none;
+}
+
 .link {
     flex: 1;
+    width: 100%;
     display: inline-flex;
     flex-direction: column;
     align-items: center;
@@ -68,4 +75,8 @@
     color: $color-ink;
 
     &:hover { color: $color-ink; }
+}
+
+.pending {
+    opacity: 0.65;
 }

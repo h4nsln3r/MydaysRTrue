@@ -1,0 +1,84 @@
+@use "abstracts" as *;
+
+.main {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.kicker {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+}
+
+.yearNav {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-3;
+}
+
+.h1 {
+    font-family: $font-display;
+    font-size: clamp(1.4rem, 6vw, 1.8rem);
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: $color-cream;
+}
+
+.navBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    color: $color-cream;
+    font-size: 1.4rem;
+    line-height: 1;
+
+    &:hover {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+    }
+}
+
+.navBtnDisabled {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.sectionHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.h2 {
+    font-family: $font-display;
+    font-size: 1.1rem;
+    color: $color-cream;
+}
+
+.muted {
+    color: $color-fog;
+    font-size: 0.85rem;
+}

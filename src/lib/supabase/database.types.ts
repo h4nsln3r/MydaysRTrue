@@ -137,7 +137,9 @@ export interface Database {
             | "snack"
             | "intake"
             | "steps"
-            | "activity_hours";
+            | "activity_hours"
+            | "media"
+            | "mobile_games";
           icon: string;
           accent: string;
           sort_order: number;
@@ -159,7 +161,9 @@ export interface Database {
             | "snack"
             | "intake"
             | "steps"
-            | "activity_hours";
+            | "activity_hours"
+            | "media"
+            | "mobile_games";
           icon?: string;
           accent?: string;
           sort_order?: number;
@@ -181,13 +185,117 @@ export interface Database {
             | "snack"
             | "intake"
             | "steps"
-            | "activity_hours";
+            | "activity_hours"
+            | "media"
+            | "mobile_games";
           icon?: string;
           accent?: string;
           sort_order?: number;
           category_id?: string | null;
           enabled?: boolean;
           archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      media_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          year: number;
+          kind: "book" | "series" | "movie";
+          title: string;
+          total_length: number | null;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          year: number;
+          kind: "book" | "series" | "movie";
+          title: string;
+          total_length?: number | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          year?: number;
+          kind?: "book" | "series" | "movie";
+          title?: string;
+          total_length?: number | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      media_daily_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          media_item_id: string;
+          local_date: string;
+          position: number;
+          did_consume: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          media_item_id: string;
+          local_date: string;
+          position?: number;
+          did_consume?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          media_item_id?: string;
+          local_date?: string;
+          position?: number;
+          did_consume?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      mobile_game_daily_logs: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          chess_done: boolean;
+          duolingo_done: boolean;
+          pokemon_go_done: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          chess_done?: boolean;
+          duolingo_done?: boolean;
+          pokemon_go_done?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          chess_done?: boolean;
+          duolingo_done?: boolean;
+          pokemon_go_done?: boolean;
           created_at?: string;
           updated_at?: string;
         };

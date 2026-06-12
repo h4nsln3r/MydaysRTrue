@@ -1,8 +1,6 @@
 import Link from "next/link";
 
-import { redirect } from "next/navigation";
-
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth.server";
 
 import { getWeekHabitSummary } from "@/lib/habits.server";
 
@@ -74,15 +72,7 @@ function parseView(raw: string | undefined): WeekView {
 
 export default async function WeekPage({ searchParams }: WeekPageProps) {
 
-  const supabase = await createClient();
-
-  const {
-
-    data: { user },
-
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
+  const user = await getAuthUser();
 
 
 

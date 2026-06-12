@@ -16,6 +16,8 @@ import {
   waterStatusFor,
 } from "@/lib/habits";
 import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
+import { mobileGamesStatusFor } from "@/lib/mobile-games";
+import { mediaStatusFor } from "@/lib/media";
 
 interface HabitRow {
   id: string;
@@ -167,8 +169,18 @@ export async function getDailyHabits(
   const today = todayLocalISO();
   const isFuture = localDate > today;
 
-  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes, intakeRes] =
-    await Promise.all([
+  const [
+    habitsRes,
+    checksRes,
+    waterRes,
+    profileRes,
+    mealsRes,
+    activityRes,
+    snacksRes,
+    intakeRes,
+    mediaLogRes,
+    mobileGamesRes,
+  ] = await Promise.all([
     supabase
       .from("habits")
       .select(
@@ -216,6 +228,18 @@ export async function getDailyHabits(
       .select("kind")
       .eq("user_id", userId)
       .eq("local_date", localDate),
+    supabase
+      .from("media_daily_logs")
+      .select("media_item_id, position, did_consume")
+      .eq("user_id", userId)
+      .eq("local_date", localDate)
+      .maybeSingle(),
+    supabase
+      .from("mobile_game_daily_logs")
+      .select("chess_done, duolingo_done, pokemon_go_done")
+      .eq("user_id", userId)
+      .eq("local_date", localDate)
+      .maybeSingle(),
   ]);
 
   const habits = habitsRes.data ?? [];
@@ -243,6 +267,21 @@ export async function getDailyHabits(
   for (const c of checks) {
     checkByHabit.set(c.habit_id, { status: c.status, note: c.note });
   }
+
+  const mediaDayLog = mediaLogRes.data
+    ? {
+        mediaItemId: mediaLogRes.data.media_item_id,
+        position: mediaLogRes.data.position,
+        didConsume: mediaLogRes.data.did_consume,
+      }
+    : null;
+  const mobileGamesCtx = {
+    localDate,
+    chess: mobileGamesRes.data?.chess_done ?? false,
+    duolingo: mobileGamesRes.data?.duolingo_done ?? false,
+    pokemonGo: mobileGamesRes.data?.pokemon_go_done ?? false,
+    hasLog: Boolean(mobileGamesRes.data),
+  };
 
   return habits.map((row): DailyHabit => {
     const habit = rowToHabit(row);
@@ -305,6 +344,22 @@ export async function getDailyHabits(
         metricValue: activityHours,
         metricGoal: activityHoursGoal,
         progress,
+      };
+    }
+    if (habit.kind === "media") {
+      return {
+        ...habit,
+        status: isFuture ? null : mediaStatusFor(mediaDayLog, isFuture),
+        note: null,
+      };
+    }
+    if (habit.kind === "mobile_games") {
+      return {
+        ...habit,
+        status: isFuture
+          ? null
+          : mobileGamesStatusFor(mobileGamesCtx, isFuture),
+        note: null,
       };
     }
     const c = checkByHabit.get(habit.id);

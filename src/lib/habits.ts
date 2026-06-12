@@ -8,7 +8,9 @@ export type HabitKind =
   | "snack"
   | "intake"
   | "steps"
-  | "activity_hours";
+  | "activity_hours"
+  | "media"
+  | "mobile_games";
 
 export type SnackSlot = 1 | 2;
 

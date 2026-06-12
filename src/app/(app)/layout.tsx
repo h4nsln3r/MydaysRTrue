@@ -1,19 +1,13 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { BottomNav } from "@/components/BottomNav/BottomNav";
+import { NavPendingProvider } from "@/components/NavProgress/NavProgress";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="app-shell">
-      <div className="container">{children}</div>
-      <BottomNav />
-    </div>
+    <NavPendingProvider>
+      <div className="app-shell">
+        <div className="container">{children}</div>
+        <BottomNav />
+      </div>
+    </NavPendingProvider>
   );
 }

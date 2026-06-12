@@ -18,6 +18,8 @@ import {
   getDailySnacks,
 } from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
+import { getDailyMobileGames } from "@/lib/mobile-games.server";
+import { getDailyMedia } from "@/lib/media.server";
 import { getBathingSessionsForDate } from "@/lib/bathing.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
@@ -65,6 +67,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     allCategories,
     dayPlan,
     activityLog,
+    media,
+    mobileGames,
   ] = await Promise.all([
     getDailySummary(user.id, date),
     getDailyHabits(user.id, date),
@@ -79,6 +83,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getCategories(user.id),
     getDayPlanSettings(user.id),
     getDailyActivityLog(user.id, date),
+    getDailyMedia(user.id, date),
+    getDailyMobileGames(user.id, date),
   ]);
 
   const backToWeek = `/week?start=${weekStartISO(parseLocalISO(date))}`;
@@ -143,6 +149,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               intake={intake}
               activityLog={activityLog}
               goals={dayPlan.goals}
+              media={media}
+              mobileGames={mobileGames}
             />
           </section>
 

@@ -1,0 +1,86 @@
+@use "abstracts" as *;
+
+.main {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+    animation: fadeIn 180ms $ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0.6; }
+    to { opacity: 1; }
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.kicker {
+    width: 96px;
+    height: 12px;
+    border-radius: $radius-pill;
+}
+
+.titleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.title {
+    flex: 1;
+    height: 36px;
+    max-width: 220px;
+    border-radius: $radius-sm;
+}
+
+.tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-2;
+    padding: $space-1;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-pill;
+}
+
+.tab {
+    height: 36px;
+    border-radius: $radius-pill;
+}
+
+.cards {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.card {
+    height: 120px;
+    border-radius: $radius-md;
+}
+
+.cardTall {
+    height: 200px;
+    border-radius: $radius-md;
+}
+
+.bone {
+    background: linear-gradient(
+        90deg,
+        $color-ink-soft 0%,
+        $color-ink-elevated 45%,
+        $color-ink-soft 90%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.1s $ease-out infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}

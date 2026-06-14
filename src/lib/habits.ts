@@ -137,3 +137,51 @@ export function nextHabitStatus(
 ): HabitStatus | null {
   return current === pressed ? null : pressed;
 }
+
+const NUTRITION_KINDS = new Set<HabitKind>(["meal", "snack", "intake"]);
+
+/** User has logged or answered — not necessarily yes / goal met. */
+export function isDailyHabitFilledIn(habit: DailyHabit): boolean {
+  switch (habit.kind) {
+    case "meal":
+      return (habit.mealsLogged ?? 0) > 0;
+    case "snack":
+      return (habit.snacksDone ?? 0) > 0;
+    case "intake":
+      return (habit.intakeLogged ?? 0) > 0;
+    case "water":
+      return (habit.waterMl ?? 0) > 0;
+    default:
+      return habit.status !== null;
+  }
+}
+
+/** Unfilled habits first; nutrition (meals/snacks/intake) moves as one block. */
+export function sortDailyHabitsIncompleteFirst(
+  habits: DailyHabit[],
+): DailyHabit[] {
+  const nutrition = habits.filter((h) => NUTRITION_KINDS.has(h.kind));
+  const rest = habits.filter((h) => !NUTRITION_KINDS.has(h.kind));
+
+  type Block = { sortOrder: number; filledIn: boolean; habits: DailyHabit[] };
+  const blocks: Block[] = rest.map((h) => ({
+    sortOrder: h.sortOrder,
+    filledIn: isDailyHabitFilledIn(h),
+    habits: [h],
+  }));
+
+  if (nutrition.length > 0) {
+    blocks.push({
+      sortOrder: Math.min(...nutrition.map((h) => h.sortOrder)),
+      filledIn: nutrition.every(isDailyHabitFilledIn),
+      habits: [...nutrition].sort((a, b) => a.sortOrder - b.sortOrder),
+    });
+  }
+
+  blocks.sort((a, b) => {
+    if (a.filledIn !== b.filledIn) return a.filledIn ? 1 : -1;
+    return a.sortOrder - b.sortOrder;
+  });
+
+  return blocks.flatMap((b) => b.habits);
+}

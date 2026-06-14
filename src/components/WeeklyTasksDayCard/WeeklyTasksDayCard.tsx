@@ -14,6 +14,7 @@ import {
 import {
   formatWeeklyTaskDetail,
   groupByCategory,
+  sortIncompleteFirst,
   type TaskCategory,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
@@ -43,7 +44,14 @@ export function WeeklyTasksDayCard({
   const [pending, startTransition] = useTransition();
 
   const doneCount = tasks.filter((t) => t.placement?.doneAt).length;
-  const grouped = groupByCategory(tasks, categories);
+  const grouped = groupByCategory(tasks, categories).map(({ category, items }) => ({
+    category,
+    items: sortIncompleteFirst(
+      items,
+      (t) => Boolean(t.placement?.doneAt),
+      (a, b) => a.sortOrder - b.sortOrder,
+    ),
+  }));
 
   if (tasks.length === 0) {
     if (hideWhenEmpty) return null;

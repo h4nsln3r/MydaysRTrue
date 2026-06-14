@@ -11,6 +11,7 @@ import {
   uncompleteCardioSessionAction,
 } from "@/app/(app)/cardio-actions";
 import type { CardioSessionForWeek } from "@/lib/cardio";
+import { sortIncompleteFirst } from "@/lib/tasks";
 import styles from "./CardioDayCard.module.scss";
 
 interface Props {
@@ -35,6 +36,11 @@ export function CardioDayCard({
   const [pending, startTransition] = useTransition();
 
   const doneCount = sessions.filter((s) => s.placement.doneAt).length;
+  const orderedSessions = sortIncompleteFirst(
+    sessions,
+    (s) => Boolean(s.placement.doneAt),
+    (a, b) => a.sortOrder - b.sortOrder,
+  );
 
   if (sessions.length === 0) {
     if (hideWhenEmpty) return null;
@@ -87,7 +93,7 @@ export function CardioDayCard({
       {error ? <p className={styles.error}>{error}</p> : null}
 
       <ul className={styles.list}>
-        {sessions.map((s) => (
+        {orderedSessions.map((s) => (
           <SessionRow
             key={s.id}
             session={s}

@@ -5,7 +5,14 @@ import { MediaDayCard } from "@/components/MediaDayCard/MediaDayCard";
 import { TriStateHabitRow } from "@/components/TriStateHabitRow/TriStateHabitRow";
 import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
-import type { DailyHabit, DailySnacks, HabitKind, MealEntry, MealKey } from "@/lib/habits";
+import {
+  sortDailyHabitsIncompleteFirst,
+  type DailyHabit,
+  type DailySnacks,
+  type HabitKind,
+  type MealEntry,
+  type MealKey,
+} from "@/lib/habits";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { DailyMobileGamesContext } from "@/lib/mobile-games";
 import type { DailyMediaContext } from "@/lib/media";
@@ -52,14 +59,16 @@ export function DailyTrackersBoard({
     );
   }
 
-  const showMeals = habits.some((h) => h.kind === "meal");
-  const showSnacks = habits.some((h) => h.kind === "snack");
-  const showIntake = habits.some((h) => h.kind === "intake");
+  const orderedHabits = sortDailyHabitsIncompleteFirst(habits);
+
+  const showMeals = orderedHabits.some((h) => h.kind === "meal");
+  const showSnacks = orderedHabits.some((h) => h.kind === "snack");
+  const showIntake = orderedHabits.some((h) => h.kind === "intake");
   let nutritionRendered = false;
 
   return (
     <div className={styles.stack}>
-      {habits.map((habit) => {
+      {orderedHabits.map((habit) => {
         if (NUTRITION_KINDS.has(habit.kind)) {
           if (nutritionRendered) return null;
           nutritionRendered = true;

@@ -128,6 +128,20 @@ export function monthStartFor(localDate: string): string {
   return `${localDate.slice(0, 7)}-01`;
 }
 
+/** Incomplete items first; optional tie-breaker preserves plan order within each group. */
+export function sortIncompleteFirst<T>(
+  items: T[],
+  isComplete: (item: T) => boolean,
+  tieBreak: (a: T, b: T) => number = () => 0,
+): T[] {
+  return [...items].sort((a, b) => {
+    const aDone = isComplete(a);
+    const bDone = isComplete(b);
+    if (aDone !== bDone) return aDone ? 1 : -1;
+    return tieBreak(a, b);
+  });
+}
+
 /** Group items by category id, preserving the order of `categories` then `none`. */
 export function groupByCategory<T extends { categoryId: string | null }>(
   items: T[],

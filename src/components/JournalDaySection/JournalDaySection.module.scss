@@ -1,0 +1,270 @@
+@use "abstracts" as *;
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.headerText {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.title {
+    font-family: $font-display;
+    font-size: 1.35rem;
+    color: $color-cream;
+    margin: 0;
+}
+
+.subtitle {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.85rem;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 122, 26, 0.12);
+    border: 1px solid rgba(255, 122, 26, 0.35);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.emptyCard {
+    padding: $space-4;
+}
+
+.emptyText {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.entry {
+    display: grid;
+    grid-template-columns: 16px 1fr;
+    gap: $space-3;
+    align-items: stretch;
+}
+
+.entryRail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 10px;
+}
+
+.entryDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: $color-orange;
+    box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.2);
+    flex-shrink: 0;
+}
+
+.entryAuto .entryDot {
+    background: $color-fog;
+    box-shadow: 0 0 0 3px rgba(160, 160, 160, 0.15);
+}
+
+.entryBody {
+    padding: $space-3 $space-4;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+}
+
+.entryManual .entryBody {
+    border-color: rgba(255, 122, 26, 0.3);
+    background:
+        linear-gradient(135deg, rgba(255, 122, 26, 0.06), transparent 55%),
+        $color-ink-soft;
+}
+
+.entryAuto .entryBody {
+    border-style: dashed;
+    border-color: rgba(160, 160, 160, 0.35);
+}
+
+.entryMeta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px $space-2;
+    margin-bottom: $space-2;
+}
+
+.entryIcon {
+    font-size: 1rem;
+}
+
+.entryTitle {
+    font-weight: 700;
+    color: $color-cream;
+    font-size: 0.9rem;
+}
+
+.entrySource {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.entryTime {
+    margin-left: auto;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+}
+
+.entryText {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.autoTag {
+    display: inline-block;
+    margin-top: $space-2;
+    padding: 2px 8px;
+    border-radius: $radius-pill;
+    background: rgba(160, 160, 160, 0.12);
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.composeCard {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-4;
+}
+
+.composeLabel {
+    font-weight: 700;
+    color: $color-cream;
+    font-size: 0.85rem;
+}
+
+.textarea {
+    width: 100%;
+    min-height: 88px;
+    padding: $space-3;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: inherit;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    resize: vertical;
+
+    &::placeholder {
+        color: $color-fog;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: $color-orange;
+        box-shadow: 0 0 0 2px rgba(255, 122, 26, 0.2);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+    }
+}
+
+.composeActions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.entryActions {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    margin-top: $space-2;
+}
+
+.linkBtn,
+.linkBtnDanger {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.linkBtn {
+    color: $color-orange-bright;
+
+    &:hover:not(:disabled) {
+        color: $color-orange;
+    }
+}
+
+.linkBtnDanger {
+    color: $color-danger;
+
+    &:hover:not(:disabled) {
+        opacity: 0.85;
+    }
+}
+
+.confirmLabel {
+    color: $color-fog;
+    font-size: 0.8rem;
+}
+
+.editBlock {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.85rem;
+}

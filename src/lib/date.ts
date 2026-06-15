@@ -8,7 +8,8 @@ export function todayLocalISO(now: Date = new Date()): string {
 
 export function formatTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  // Fixed 24h format — avoids SSR/client locale mismatch (e.g. "06:17" vs "06:17 AM").
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 export function formatDateLong(date: Date = new Date()): string {

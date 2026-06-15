@@ -16,6 +16,8 @@ import { getGymWeekSummary } from "@/lib/gym.server";
 
 import { getWeightWeekPlan } from "@/lib/weight.server";
 
+import { getWeekJournalSummary } from "@/lib/journal.server";
+
 import { getUnifiedWeekPlan } from "@/lib/week-plan.server";
 
 import {
@@ -138,6 +140,15 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
   ]);
 
+  const journalWeek = await getWeekJournalSummary(user.id, {
+    weekStart: start,
+    gymSessions: gymWeek.sessions,
+    cardioSessions: cardioWeek.sessions,
+    bathingSessions: bathingWeek.placedSessions,
+    tasks: weeklyTasks.tasks,
+    weightPlan,
+  });
+
   const prevStart = addDaysISO(start, -7);
 
   const nextStart = addDaysISO(start, 7);
@@ -237,6 +248,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           tasks={weeklyTasks.tasks}
 
           weightPlan={weightPlan}
+
+          journalWeek={journalWeek}
 
         />
 

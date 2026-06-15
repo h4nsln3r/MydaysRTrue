@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { JournalDaySection } from "@/components/JournalDaySection/JournalDaySection";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
@@ -16,6 +17,7 @@ import {
 import { getDailyIntake } from "@/lib/intake.server";
 import { getDailyMobileGames } from "@/lib/mobile-games.server";
 import { getDailyMood } from "@/lib/mood.server";
+import { getDailyJournal } from "@/lib/journal.server";
 import { getDailyMedia } from "@/lib/media.server";
 import { getBathingSessionsForDate } from "@/lib/bathing.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
@@ -74,6 +76,16 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     getDailyMobileGames(user.id, today),
     getDailyMood(user.id, today),
   ]);
+
+  const journal = await getDailyJournal(user.id, {
+    localDate: today,
+    gymSessions: gymDay.sessions,
+    cardioSessions: cardioDay.sessions,
+    bathingSessions: bathingDay.sessions,
+    tasks: weeklyTasksDay.tasks,
+    mood: mood.mood,
+    weightKg: weightDay.log?.weightKg ?? null,
+  });
 
   return (
     <main className={styles.main}>
@@ -159,6 +171,10 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               waterPlusHref="/water"
               waterPlusLabel="Open water page"
             />
+          </section>
+
+          <section className={styles.section}>
+            <JournalDaySection date={today} journal={journal} />
           </section>
         </>
       ) : (

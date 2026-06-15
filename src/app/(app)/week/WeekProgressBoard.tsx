@@ -5,6 +5,7 @@ import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
+import type { WeekJournalSummary } from "@/lib/journal";
 import type { WeekSummary, WeekDay } from "@/lib/water.server";
 import { waterDayStatus, type WaterDayStatus } from "@/lib/water";
 import type { WeeklyTaskForWeek } from "@/lib/tasks";
@@ -20,6 +21,7 @@ interface Props {
   bathingSessions: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
   weightPlan: WeightWeekPlan;
+  journalWeek: WeekJournalSummary;
 }
 
 const WATER_LABEL: Record<WaterDayStatus, string> = {
@@ -46,6 +48,7 @@ export function WeekProgressBoard({
   bathingSessions,
   tasks,
   weightPlan,
+  journalWeek,
 }: Props) {
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
 
@@ -54,6 +57,7 @@ export function WeekProgressBoard({
   const bathingByWeekday = groupByWeekday(bathingSessions);
   const tasksByWeekday = groupTasksByWeekday(tasks);
   const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
+  const journalByDate = new Map(journalWeek.days.map((d) => [d.localDate, d]));
 
   const placedGym = gymSessions.filter((s) => s.placement.weekday != null);
   const placedCardio = cardioSessions.filter((s) => s.placement.weekday != null);
@@ -300,6 +304,55 @@ export function WeekProgressBoard({
                 mutedLabel={placedTasks.length === 0 ? "—" : undefined}
                 highlight={placedTasks.length > 0 && tasksDone === placedTasks.length}
               />
+            </tr>
+
+            <SectionRow label="Dagbok" colSpan={colSpan} />
+
+            <tr>
+              <RowLabel sticky icon="📓" label="Dagbok" />
+              {week.days.map((d) => {
+                const dayJournal = journalByDate.get(d.date);
+                const entries = dayJournal?.entries ?? [];
+                const href = d.isToday ? "/" : `/day/${d.date}`;
+                return (
+                  <td
+                    key={d.date}
+                    className={cellClass(
+                      styles.dataCell,
+                      styles.journalCell,
+                      d.isFuture && styles.cellFuture,
+                      d.isToday && styles.cellToday,
+                      entries.length > 0 && styles.journalCellHasEntries,
+                    )}
+                  >
+                    {d.isFuture ? null : entries.length === 0 ? (
+                      <span className={styles.emptyMark}>—</span>
+                    ) : (
+                      <Link href={href} className={styles.journalLink} title={dayJournal?.preview ?? ""}>
+                        <span className={styles.journalCount}>{entries.length}</span>
+                        {dayJournal?.preview ? (
+                          <span className={styles.journalPreview}>{dayJournal.preview}</span>
+                        ) : null}
+                      </Link>
+                    )}
+                  </td>
+                );
+              })}
+              <td
+                className={cellClass(
+                  styles.totalCell,
+                  journalWeek.days.some((d) => d.entryCount > 0) && styles.totalCellDone,
+                )}
+              >
+                {(() => {
+                  const total = journalWeek.days.reduce((sum, d) => sum + d.entryCount, 0);
+                  return total > 0 ? (
+                    <span className={styles.totalValue}>{total}</span>
+                  ) : (
+                    <span className={styles.emptyMark}>—</span>
+                  );
+                })()}
+              </td>
             </tr>
           </tbody>
           <tfoot>

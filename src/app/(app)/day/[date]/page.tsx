@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
+import { JournalDaySection } from "@/components/JournalDaySection/JournalDaySection";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
@@ -20,6 +21,7 @@ import {
 import { getDailyIntake } from "@/lib/intake.server";
 import { getDailyMobileGames } from "@/lib/mobile-games.server";
 import { getDailyMood } from "@/lib/mood.server";
+import { getDailyJournal } from "@/lib/journal.server";
 import { getDailyMedia } from "@/lib/media.server";
 import { getBathingSessionsForDate } from "@/lib/bathing.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
@@ -90,6 +92,16 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getDailyMood(user.id, date),
   ]);
 
+  const journal = await getDailyJournal(user.id, {
+    localDate: date,
+    gymSessions: gymDay.sessions,
+    cardioSessions: cardioDay.sessions,
+    bathingSessions: bathingDay.sessions,
+    tasks: weeklyTasksDay.tasks,
+    mood: mood.mood,
+    weightKg: weightDay.log?.weightKg ?? null,
+  });
+
   const backToWeek = `/week?start=${weekStartISO(parseLocalISO(date))}`;
 
   return (
@@ -159,8 +171,12 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
           </section>
 
           <section className={styles.section}>
+            <JournalDaySection date={date} journal={journal} />
+          </section>
+
+          <section className={styles.section}>
             <header className={styles.sectionHeader}>
-              <h2 className={styles.h2}>Log</h2>
+              <h2 className={styles.h2}>Vattenlogg</h2>
               <span className={styles.muted}>{summary.logs.length} entries</span>
             </header>
             {summary.logs.length === 0 ? (

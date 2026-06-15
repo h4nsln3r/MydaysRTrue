@@ -1,12 +1,13 @@
 import { DailyActivityCard } from "@/components/DailyActivityCard/DailyActivityCard";
 import { MobileGamesDayCard } from "@/components/MobileGamesDayCard/MobileGamesDayCard";
+import { MoodDayCard } from "@/components/MoodDayCard/MoodDayCard";
 import { NutritionBoard } from "@/components/NutritionBoard/NutritionBoard";
 import { MediaDayCard } from "@/components/MediaDayCard/MediaDayCard";
 import { TriStateHabitRow } from "@/components/TriStateHabitRow/TriStateHabitRow";
 import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import {
-  sortDailyHabitsIncompleteFirst,
+  sortOtherDailyTrackersIncompleteFirst,
   type DailyHabit,
   type DailySnacks,
   type HabitKind,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/habits";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { DailyMobileGamesContext } from "@/lib/mobile-games";
+import type { DailyMoodContext } from "@/lib/mood";
 import type { DailyMediaContext } from "@/lib/media";
 import type { WaterSummary } from "@/lib/water";
 import styles from "./DailyTrackersBoard.module.scss";
@@ -33,6 +35,7 @@ interface Props {
   goals: DailyTrackerGoals;
   media: DailyMediaContext;
   mobileGames: DailyMobileGamesContext;
+  mood: DailyMoodContext;
   waterPlusHref?: string;
   waterPlusLabel?: string;
 }
@@ -48,6 +51,7 @@ export function DailyTrackersBoard({
   goals,
   media,
   mobileGames,
+  mood,
   waterPlusHref,
   waterPlusLabel,
 }: Props) {
@@ -59,97 +63,106 @@ export function DailyTrackersBoard({
     );
   }
 
-  const orderedHabits = sortDailyHabitsIncompleteFirst(habits);
+  const showMeals = habits.some((h) => h.kind === "meal");
+  const showSnacks = habits.some((h) => h.kind === "snack");
+  const showIntake = habits.some((h) => h.kind === "intake");
+  const showNutrition = showMeals || showSnacks || showIntake;
+  const waterHabit = habits.find((h) => h.kind === "water");
+  const activityHabits = sortOtherDailyTrackersIncompleteFirst(
+    habits.filter((h) => h.kind !== "water" && !NUTRITION_KINDS.has(h.kind)),
+  );
 
-  const showMeals = orderedHabits.some((h) => h.kind === "meal");
-  const showSnacks = orderedHabits.some((h) => h.kind === "snack");
-  const showIntake = orderedHabits.some((h) => h.kind === "intake");
-  let nutritionRendered = false;
+  const renderTracker = (habit: DailyHabit) => {
+    switch (habit.kind) {
+      case "water":
+        return (
+          <WaterHeroCard
+            key={habit.id}
+            summary={summary}
+            plusHref={waterPlusHref}
+            plusLabel={waterPlusLabel}
+          />
+        );
+      case "steps":
+        return (
+          <DailyActivityCard
+            key={habit.id}
+            date={date}
+            steps={activityLog.steps}
+            stepsGoal={goals.stepsGoal}
+            activityHours={activityLog.activityHours}
+            activityHoursGoal={goals.activityHoursGoal}
+            showSteps
+            showActivity={false}
+            compact
+          />
+        );
+      case "activity_hours":
+        return (
+          <DailyActivityCard
+            key={habit.id}
+            date={date}
+            steps={activityLog.steps}
+            stepsGoal={goals.stepsGoal}
+            activityHours={activityLog.activityHours}
+            activityHoursGoal={goals.activityHoursGoal}
+            showSteps={false}
+            showActivity
+            compact
+          />
+        );
+      case "tri_state":
+        return (
+          <TriStateHabitRow key={habit.id} date={date} habit={habit} />
+        );
+      case "media":
+        return (
+          <MediaDayCard
+            key={habit.id}
+            date={date}
+            habit={habit}
+            media={media}
+          />
+        );
+      case "mobile_games":
+        return (
+          <MobileGamesDayCard
+            key={habit.id}
+            date={date}
+            habit={habit}
+            games={mobileGames}
+          />
+        );
+      case "mood":
+        return (
+          <MoodDayCard
+            key={habit.id}
+            date={date}
+            habit={habit}
+            mood={mood}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className={styles.stack}>
-      {orderedHabits.map((habit) => {
-        if (NUTRITION_KINDS.has(habit.kind)) {
-          if (nutritionRendered) return null;
-          nutritionRendered = true;
-          return (
-            <NutritionBoard
-              key="nutrition"
-              date={date}
-              showMeals={showMeals}
-              showSnacks={showSnacks}
-              showIntake={showIntake}
-              meals={meals}
-              snacks={snacks}
-              intake={intake}
-            />
-          );
-        }
-
-        switch (habit.kind) {
-          case "water":
-            return (
-              <WaterHeroCard
-                key={habit.id}
-                summary={summary}
-                plusHref={waterPlusHref}
-                plusLabel={waterPlusLabel}
-              />
-            );
-          case "steps":
-            return (
-              <DailyActivityCard
-                key={habit.id}
-                date={date}
-                steps={activityLog.steps}
-                stepsGoal={goals.stepsGoal}
-                activityHours={activityLog.activityHours}
-                activityHoursGoal={goals.activityHoursGoal}
-                showSteps
-                showActivity={false}
-                compact
-              />
-            );
-          case "activity_hours":
-            return (
-              <DailyActivityCard
-                key={habit.id}
-                date={date}
-                steps={activityLog.steps}
-                stepsGoal={goals.stepsGoal}
-                activityHours={activityLog.activityHours}
-                activityHoursGoal={goals.activityHoursGoal}
-                showSteps={false}
-                showActivity
-                compact
-              />
-            );
-          case "tri_state":
-            return (
-              <TriStateHabitRow key={habit.id} date={date} habit={habit} />
-            );
-          case "media":
-            return (
-              <MediaDayCard
-                key={habit.id}
-                date={date}
-                habit={habit}
-                media={media}
-              />
-            );
-          case "mobile_games":
-            return (
-              <MobileGamesDayCard
-                key={habit.id}
-                date={date}
-                habit={habit}
-                games={mobileGames}
-              />
-            );
-          default:
-            return null;
-        }
-      })}
+      {waterHabit ? renderTracker(waterHabit) : null}
+      {showNutrition ? (
+        <NutritionBoard
+          key="nutrition"
+          date={date}
+          showMeals={showMeals}
+          showSnacks={showSnacks}
+          showIntake={showIntake}
+          meals={meals}
+          snacks={snacks}
+          intake={intake}
+        />
+      ) : null}
+      {activityHabits.map(renderTracker)}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 // Client-safe habit types and helpers.
 // Server-only queries live in `./habits.server`.
 
+import type { MoodKey } from "@/lib/mood";
+
 export type HabitKind =
   | "tri_state"
   | "water"
@@ -10,7 +12,8 @@ export type HabitKind =
   | "steps"
   | "activity_hours"
   | "media"
-  | "mobile_games";
+  | "mobile_games"
+  | "mood";
 
 export type SnackSlot = 1 | 2;
 
@@ -75,6 +78,8 @@ export interface DailyHabit extends Habit {
   intakeLogged?: number;
   /** Intake — applicable kinds for the day (weekday-only kinds excluded on weekends). */
   intakeTotal?: number;
+  /** Mood — selected feeling for the day. */
+  moodKey?: MoodKey | null;
 }
 
 export interface SnackEntry {
@@ -138,8 +143,6 @@ export function nextHabitStatus(
   return current === pressed ? null : pressed;
 }
 
-const NUTRITION_KINDS = new Set<HabitKind>(["meal", "snack", "intake"]);
-
 /** User has logged or answered — not necessarily yes / goal met. */
 export function isDailyHabitFilledIn(habit: DailyHabit): boolean {
   switch (habit.kind) {
@@ -151,37 +154,21 @@ export function isDailyHabitFilledIn(habit: DailyHabit): boolean {
       return (habit.intakeLogged ?? 0) > 0;
     case "water":
       return (habit.waterMl ?? 0) > 0;
+    case "mood":
+      return habit.moodKey != null;
     default:
       return habit.status !== null;
   }
 }
 
-/** Unfilled habits first; nutrition (meals/snacks/intake) moves as one block. */
-export function sortDailyHabitsIncompleteFirst(
+/** Steps, habits, media, etc. — unfilled first, then sort_order. */
+export function sortOtherDailyTrackersIncompleteFirst(
   habits: DailyHabit[],
 ): DailyHabit[] {
-  const nutrition = habits.filter((h) => NUTRITION_KINDS.has(h.kind));
-  const rest = habits.filter((h) => !NUTRITION_KINDS.has(h.kind));
-
-  type Block = { sortOrder: number; filledIn: boolean; habits: DailyHabit[] };
-  const blocks: Block[] = rest.map((h) => ({
-    sortOrder: h.sortOrder,
-    filledIn: isDailyHabitFilledIn(h),
-    habits: [h],
-  }));
-
-  if (nutrition.length > 0) {
-    blocks.push({
-      sortOrder: Math.min(...nutrition.map((h) => h.sortOrder)),
-      filledIn: nutrition.every(isDailyHabitFilledIn),
-      habits: [...nutrition].sort((a, b) => a.sortOrder - b.sortOrder),
-    });
-  }
-
-  blocks.sort((a, b) => {
-    if (a.filledIn !== b.filledIn) return a.filledIn ? 1 : -1;
+  return [...habits].sort((a, b) => {
+    const aFilled = isDailyHabitFilledIn(a);
+    const bFilled = isDailyHabitFilledIn(b);
+    if (aFilled !== bFilled) return aFilled ? 1 : -1;
     return a.sortOrder - b.sortOrder;
   });
-
-  return blocks.flatMap((b) => b.habits);
 }

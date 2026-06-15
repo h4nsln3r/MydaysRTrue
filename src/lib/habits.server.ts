@@ -18,6 +18,7 @@ import {
 import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
 import { mobileGamesStatusFor } from "@/lib/mobile-games";
 import { mediaStatusFor } from "@/lib/media";
+import { isMoodKey, moodStatusFor, type MoodKey } from "@/lib/mood";
 
 interface HabitRow {
   id: string;
@@ -180,6 +181,7 @@ export async function getDailyHabits(
     intakeRes,
     mediaLogRes,
     mobileGamesRes,
+    moodRes,
   ] = await Promise.all([
     supabase
       .from("habits")
@@ -240,6 +242,12 @@ export async function getDailyHabits(
       .eq("user_id", userId)
       .eq("local_date", localDate)
       .maybeSingle(),
+    supabase
+      .from("mood_daily_logs")
+      .select("mood")
+      .eq("user_id", userId)
+      .eq("local_date", localDate)
+      .maybeSingle(),
   ]);
 
   const habits = habitsRes.data ?? [];
@@ -282,6 +290,11 @@ export async function getDailyHabits(
     pokemonGo: mobileGamesRes.data?.pokemon_go_done ?? false,
     hasLog: Boolean(mobileGamesRes.data),
   };
+  const moodKey =
+    moodRes.data?.mood && isMoodKey(moodRes.data.mood)
+      ? (moodRes.data.mood as MoodKey)
+      : null;
+  const moodCtx = { localDate, mood: moodKey };
 
   return habits.map((row): DailyHabit => {
     const habit = rowToHabit(row);
@@ -360,6 +373,14 @@ export async function getDailyHabits(
           ? null
           : mobileGamesStatusFor(mobileGamesCtx, isFuture),
         note: null,
+      };
+    }
+    if (habit.kind === "mood") {
+      return {
+        ...habit,
+        status: isFuture ? null : moodStatusFor(moodCtx, isFuture),
+        note: null,
+        moodKey,
       };
     }
     const c = checkByHabit.get(habit.id);

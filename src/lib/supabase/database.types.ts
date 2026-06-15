@@ -139,7 +139,8 @@ export interface Database {
             | "steps"
             | "activity_hours"
             | "media"
-            | "mobile_games";
+            | "mobile_games"
+            | "mood";
           icon: string;
           accent: string;
           sort_order: number;
@@ -163,7 +164,8 @@ export interface Database {
             | "steps"
             | "activity_hours"
             | "media"
-            | "mobile_games";
+            | "mobile_games"
+            | "mood";
           icon?: string;
           accent?: string;
           sort_order?: number;
@@ -187,7 +189,8 @@ export interface Database {
             | "steps"
             | "activity_hours"
             | "media"
-            | "mobile_games";
+            | "mobile_games"
+            | "mood";
           icon?: string;
           accent?: string;
           sort_order?: number;
@@ -296,6 +299,30 @@ export interface Database {
           chess_done?: boolean;
           duolingo_done?: boolean;
           pokemon_go_done?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      mood_daily_logs: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          mood: "angry" | "sad" | "stressed" | "tired" | "happy" | "joyful";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          mood: "angry" | "sad" | "stressed" | "tired" | "happy" | "joyful";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          mood?: "angry" | "sad" | "stressed" | "tired" | "happy" | "joyful";
           created_at?: string;
           updated_at?: string;
         };

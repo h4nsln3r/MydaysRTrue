@@ -18,6 +18,8 @@ import { getWeightWeekPlan } from "@/lib/weight.server";
 
 import { getWeekJournalSummary } from "@/lib/journal.server";
 
+import { getWorkLogsForWeek } from "@/lib/work.server";
+
 import { getUnifiedWeekPlan } from "@/lib/week-plan.server";
 
 import {
@@ -147,6 +149,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     bathingSessions: bathingWeek.placedSessions,
     tasks: weeklyTasks.tasks,
     weightPlan,
+    workByDate: await getWorkLogsForWeek(user.id, start),
   });
 
   const prevStart = addDaysISO(start, -7);

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
 import { JournalDaySection } from "@/components/JournalDaySection/JournalDaySection";
+import { WorkDayCard } from "@/components/WorkDayCard/WorkDayCard";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
@@ -22,6 +23,7 @@ import { getDailyIntake } from "@/lib/intake.server";
 import { getDailyMobileGames } from "@/lib/mobile-games.server";
 import { getDailyMood } from "@/lib/mood.server";
 import { getDailyJournal } from "@/lib/journal.server";
+import { getWorkDailyLog } from "@/lib/work.server";
 import { getDailyMedia } from "@/lib/media.server";
 import { getBathingSessionsForDate } from "@/lib/bathing.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
@@ -92,6 +94,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getDailyMood(user.id, date),
   ]);
 
+  const work = await getWorkDailyLog(user.id, date);
+
   const journal = await getDailyJournal(user.id, {
     localDate: date,
     gymSessions: gymDay.sessions,
@@ -100,6 +104,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     tasks: weeklyTasksDay.tasks,
     mood: mood.mood,
     weightKg: weightDay.log?.weightKg ?? null,
+    work,
   });
 
   const backToWeek = `/week?start=${weekStartISO(parseLocalISO(date))}`;
@@ -168,6 +173,10 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               mobileGames={mobileGames}
               mood={mood}
             />
+          </section>
+
+          <section className={styles.section}>
+            <WorkDayCard date={date} work={work} />
           </section>
 
           <section className={styles.section}>

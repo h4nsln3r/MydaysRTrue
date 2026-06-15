@@ -7,6 +7,7 @@ import { addDaysISO, isoWeekdayFromLocalISO } from "@/lib/date";
 import type { GymSessionForWeek } from "@/lib/gym";
 import { GYM_WARMUP_LABEL } from "@/lib/gym";
 import {
+  buildJournalNarrative,
   buildJournalPreview,
   type DailyJournal,
   type JournalDisplayEntry,
@@ -19,6 +20,7 @@ import { isMoodKey } from "@/lib/mood";
 import type { WeeklyTaskForWeek } from "@/lib/tasks";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
+import type { WorkDailyLog } from "@/lib/work";
 
 interface ManualRow {
   id: string;
@@ -58,6 +60,7 @@ export interface JournalDayContext {
   tasks: WeeklyTaskForWeek[];
   mood: MoodKey | null;
   weightKg: number | null;
+  work: WorkDailyLog | null;
 }
 
 export interface WeekJournalContext {
@@ -67,6 +70,7 @@ export interface WeekJournalContext {
   bathingSessions: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
   weightPlan: WeightWeekPlan;
+  workByDate: Map<string, WorkDailyLog>;
 }
 
 function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
@@ -74,17 +78,17 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
 
   for (const s of ctx.gymSessions) {
     if (!s.placement.doneAt) continue;
+    const userNote = s.placement.note?.trim();
     const parts: string[] = [];
-    if (s.placement.warmup) {
+    if (!userNote && s.placement.warmup) {
       parts.push(`Uppvärmning: ${GYM_WARMUP_LABEL[s.placement.warmup]}`);
     }
-    if (s.placement.note) parts.push(s.placement.note);
     entries.push({
       id: `gym-${s.placement.id}`,
       source: "gym",
       icon: s.icon,
       title: s.label,
-      body: parts.length > 0 ? parts.join(". ") : "Pass klart.",
+      body: userNote || (parts.length > 0 ? parts.join(". ") : s.label),
       at: s.placement.doneAt,
       editable: false,
     });
@@ -158,6 +162,30 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
       title: "Vikt",
       body: formatWeightKg(ctx.weightKg),
       at: `${ctx.localDate}T08:00:00.000Z`,
+      editable: false,
+    });
+  }
+
+  if (ctx.work?.startedAt) {
+    entries.push({
+      id: `work-start-${ctx.localDate}`,
+      source: "work_start",
+      icon: "💼",
+      title: "Jobb start",
+      body: ctx.work.startNote?.trim() || "",
+      at: ctx.work.startedAt,
+      editable: false,
+    });
+  }
+
+  if (ctx.work?.endedAt) {
+    entries.push({
+      id: `work-end-${ctx.localDate}`,
+      source: "work_end",
+      icon: "🏠",
+      title: "Jobb slut",
+      body: ctx.work.endNote?.trim() || "",
+      at: ctx.work.endedAt,
       editable: false,
     });
   }
@@ -250,10 +278,12 @@ export function buildDailyJournal(
   manual: ManualJournalEntry[],
   ctx: JournalDayContext,
 ): DailyJournal {
-  const auto = buildAutoEntries(ctx);
+  const entries = mergeJournalEntries(manual, buildAutoEntries(ctx));
+  const narrative = buildJournalNarrative(entries);
   return {
     localDate: ctx.localDate,
-    entries: mergeJournalEntries(manual, auto),
+    entries,
+    narrative,
   };
 }
 
@@ -292,13 +322,16 @@ export async function getWeekJournalSummary(
       tasks: tasksForDate(context.tasks, localDate),
       mood: moods.get(localDate) ?? null,
       weightKg: weightForDate(context.weightPlan, localDate),
+      work: context.workByDate.get(localDate) ?? null,
     };
     const manual = manualByDate.get(localDate) ?? [];
     const entries = mergeJournalEntries(manual, buildAutoEntries(dayCtx));
+    const narrative = buildJournalNarrative(entries);
     days.push({
       localDate,
       entries,
-      preview: buildJournalPreview(entries),
+      narrative,
+      preview: buildJournalPreview(entries, narrative),
       entryCount: entries.length,
     });
   }

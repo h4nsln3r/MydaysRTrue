@@ -355,6 +355,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      work_daily_logs: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          started_at: string | null;
+          start_note: string | null;
+          ended_at: string | null;
+          end_note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          started_at?: string | null;
+          start_note?: string | null;
+          ended_at?: string | null;
+          end_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          started_at?: string | null;
+          start_note?: string | null;
+          ended_at?: string | null;
+          end_note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       task_categories: {
         Row: {
           id: string;

@@ -468,13 +468,16 @@ export async function completeWeeklyTaskAction(input: {
 
   const { data: existing } = await supabase
     .from("weekly_task_placements")
-    .select("id, plan_note")
+    .select("id, plan_note, weekday")
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
     .eq("week_start", input.weekStart)
     .maybeSingle();
   if (!existing) {
     return { ok: false, error: "Placera uppgiften på en dag först." };
+  }
+  if (existing.weekday == null) {
+    return { ok: false, error: "Dra uppgiften till en dag i veckovyn först." };
   }
 
   const planNote =
@@ -494,9 +497,6 @@ export async function completeWeeklyTaskAction(input: {
     }
     shopAmount = Math.round(amount * 100) / 100;
   } else if (kind === "journal") {
-    if (!planNote) {
-      return { ok: false, error: "Planera uppgiften i veckovyn först." };
-    }
     if (!note) {
       return { ok: false, error: "Anteckna vad du gjorde." };
     }
@@ -505,9 +505,6 @@ export async function completeWeeklyTaskAction(input: {
     }
     completionNote = note;
   } else if (kind === "laundry") {
-    if (!planNote) {
-      return { ok: false, error: "Ange bokad tid i veckoplaneringen först." };
-    }
     const loads = input.laundryLoads;
     if (loads == null || !Number.isInteger(loads) || loads < 1 || loads > 30) {
       return { ok: false, error: "Ange antal tvättar (1–30)." };

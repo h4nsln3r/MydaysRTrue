@@ -25,6 +25,7 @@ interface Props {
 export function JournalDaySection({ date, journal }: Props) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -47,9 +48,9 @@ export function JournalDaySection({ date, journal }: Props) {
         <div className={styles.headerText}>
           <h2 className={styles.title}>Dagbok</h2>
           <p className={styles.subtitle}>
-            {journal.entries.length === 0
-              ? "Skriv anteckningar under dagen — gym och uppgifter läggs till automatiskt."
-              : `${journal.entries.length} ${journal.entries.length === 1 ? "rad" : "rader"} idag`}
+            {journal.narrative
+              ? "Din dag i löpande text"
+              : "Skriv anteckningar — gym, jobb och uppgifter vävs in automatiskt."}
           </p>
         </div>
         <span className={styles.badge} aria-hidden>
@@ -57,31 +58,49 @@ export function JournalDaySection({ date, journal }: Props) {
         </span>
       </header>
 
-      {journal.entries.length === 0 ? (
-        <Card className={styles.emptyCard}>
-          <p className={styles.emptyText}>
-            Inga anteckningar ännu. Lägg till en rad nedan eller markera gym, uppgifter
-            och annat klart — det syns här automatiskt.
-          </p>
+      {journal.narrative ? (
+        <Card className={styles.narrativeCard}>
+          <p className={styles.narrative}>{journal.narrative}</p>
         </Card>
       ) : (
-        <ol className={styles.timeline}>
-          {journal.entries.map((entry) => (
-            <JournalEntryRow key={entry.id} entry={entry} />
-          ))}
-        </ol>
+        <Card className={styles.emptyCard}>
+          <p className={styles.emptyText}>
+            Inga händelser ännu. Logga gym, jobb start/slut eller skriv en egen
+            anteckning — då formas dagboken som en sammanhängande text.
+          </p>
+        </Card>
       )}
+
+      {journal.entries.length > 0 ? (
+        <div className={styles.detailsWrap}>
+          <button
+            type="button"
+            className={styles.detailsToggle}
+            onClick={() => setShowDetails((v) => !v)}
+            aria-expanded={showDetails}
+          >
+            {showDetails ? "Dölj detaljer" : `Visa detaljer (${journal.entries.length})`}
+          </button>
+          {showDetails ? (
+            <ol className={styles.timeline}>
+              {journal.entries.map((entry) => (
+                <JournalEntryRow key={entry.id} entry={entry} />
+              ))}
+            </ol>
+          ) : null}
+        </div>
+      ) : null}
 
       <Card className={styles.composeCard}>
         <label className={styles.composeLabel} htmlFor={`journal-draft-${date}`}>
-          Ny anteckning
+          Egen anteckning
         </label>
         <textarea
           id={`journal-draft-${date}`}
           className={styles.textarea}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Vad hände? Tankar, möten, humör…"
+          placeholder="Vad mer hände idag?"
           rows={3}
           maxLength={2000}
           disabled={pending}
@@ -203,7 +222,7 @@ function JournalEntryRow({ entry }: { entry: JournalDisplayEntry }) {
           </div>
         ) : (
           <>
-            <p className={styles.entryText}>{entry.body}</p>
+            <p className={styles.entryText}>{entry.body || "—"}</p>
             {error ? <p className={styles.error}>{error}</p> : null}
             {entry.editable ? (
               <div className={styles.entryActions}>

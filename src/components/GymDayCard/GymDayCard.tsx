@@ -5,9 +5,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
+import { Input } from "@/components/Input/Input";
 import {
   completeGymSessionAction,
   uncompleteGymSessionAction,
+  updateGymSessionNoteAction,
 } from "@/app/(app)/gym-actions";
 import {
   GYM_WARMUP_ICON,
@@ -152,6 +154,7 @@ function SessionRow({
   const [warmup, setWarmup] = useState<GymWarmup | null>(
     session.placement.warmup,
   );
+  const [note, setNote] = useState(session.placement.note ?? "");
   const [, startTransition] = useTransition();
 
   const complete = () => {
@@ -166,6 +169,7 @@ function SessionRow({
         templateId: session.id,
         weekStart,
         warmup,
+        note,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -183,6 +187,22 @@ function SessionRow({
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
       setWarmup(null);
+      setNote("");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const saveNote = () => {
+    onError(null);
+    onPendingId(session.id);
+    startTransition(async () => {
+      const res = await updateGymSessionNoteAction({
+        templateId: session.id,
+        weekStart,
+        note,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
       onDone();
     });
@@ -247,6 +267,9 @@ function SessionRow({
               {GYM_WARMUP_LABEL[session.placement.warmup]}
             </span>
           ) : null}
+          {done && session.placement.note ? (
+            <span className={styles.sessionDesc}>{session.placement.note}</span>
+          ) : null}
         </span>
         <span
           className={[styles.chevron, expanded ? styles.chevronUp : ""]
@@ -283,6 +306,14 @@ function SessionRow({
                   </button>
                 ))}
               </div>
+              <Input
+                label="Kommentar"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="t.ex. gym på Berga i Helsingborg"
+                maxLength={280}
+                disabled={pending}
+              />
               <Button
                 type="button"
                 variant="primary"
@@ -296,7 +327,29 @@ function SessionRow({
               </Button>
             </>
           ) : (
-            <button
+            <>
+              <Input
+                label="Kommentar"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="t.ex. gym på Berga i Helsingborg"
+                maxLength={280}
+                disabled={pending}
+              />
+              {note !== (session.placement.note ?? "") ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={saveNote}
+                >
+                  Spara kommentar
+                </Button>
+              ) : null}
+              <button
               type="button"
               className={styles.undoBtn}
               onClick={uncomplete}
@@ -304,6 +357,7 @@ function SessionRow({
             >
               Ångra klarmarkering
             </button>
+            </>
           )}
         </div>
       ) : null}

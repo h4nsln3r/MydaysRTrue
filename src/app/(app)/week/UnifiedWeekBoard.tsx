@@ -636,6 +636,9 @@ function ItemRowContent({
   const [warmup, setWarmup] = useState<GymWarmup | null>(
     item.kind === "gym" ? item.warmup : null,
   );
+  const [gymNote, setGymNote] = useState(
+    item.kind === "gym" ? (item.session.placement.note ?? "") : "",
+  );
   const [cardioNote, setCardioNote] = useState(
     item.kind === "cardio" ? (item.session.placement.note ?? "") : "",
   );
@@ -712,6 +715,7 @@ function ItemRowContent({
         templateId: item.templateId,
         weekStart,
         warmup,
+        note: gymNote,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -730,6 +734,7 @@ function ItemRowContent({
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
       setWarmup(null);
+      setGymNote("");
       onPendingId(null);
       onDone();
     });
@@ -995,6 +1000,14 @@ function ItemRowContent({
                   </button>
                 ))}
               </div>
+              <Input
+                label="Kommentar"
+                value={gymNote}
+                onChange={(e) => setGymNote(e.target.value)}
+                placeholder="t.ex. gym på Berga i Helsingborg"
+                maxLength={280}
+                disabled={pending}
+              />
               <Button
                 type="button"
                 variant="primary"

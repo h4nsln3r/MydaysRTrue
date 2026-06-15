@@ -328,10 +328,12 @@ export function WeekProgressBoard({
                     {d.isFuture ? null : entries.length === 0 ? (
                       <span className={styles.emptyMark}>—</span>
                     ) : (
-                      <Link href={href} className={styles.journalLink} title={dayJournal?.preview ?? ""}>
+                      <Link href={href} className={styles.journalLink} title={dayJournal?.narrative ?? dayJournal?.preview ?? ""}>
                         <span className={styles.journalCount}>{entries.length}</span>
-                        {dayJournal?.preview ? (
-                          <span className={styles.journalPreview}>{dayJournal.preview}</span>
+                        {dayJournal?.narrative || dayJournal?.preview ? (
+                          <span className={styles.journalPreview}>
+                            {dayJournal.narrative || dayJournal.preview}
+                          </span>
                         ) : null}
                       </Link>
                     )}

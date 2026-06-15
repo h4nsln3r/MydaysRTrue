@@ -184,6 +184,41 @@ export async function completeGymSessionAction(input: {
   return { ok: true };
 }
 
+/** Update gym pass comment without changing completion. */
+export async function updateGymSessionNoteAction(input: {
+  templateId: string;
+  weekStart: string;
+  note?: string;
+}): Promise<ActionResult> {
+  if (!input.templateId) return { ok: false, error: "Missing pass id." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Week must start on a Monday." };
+  }
+
+  const note = input.note?.trim() || null;
+  if (note && note.length > 280) {
+    return { ok: false, error: "Keep notes under 280 characters." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("gym_week_placements")
+    .update({ note })
+    .eq("user_id", user.id)
+    .eq("template_id", input.templateId)
+    .eq("week_start", input.weekStart)
+    .not("done_at", "is", null);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Clear completion (keeps the day placement). */
 export async function uncompleteGymSessionAction(input: {
   templateId: string;

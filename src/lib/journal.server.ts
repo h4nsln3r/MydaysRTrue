@@ -21,6 +21,19 @@ import type { WeeklyTaskForWeek } from "@/lib/tasks";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
 import type { WorkDailyLog } from "@/lib/work";
+import {
+  getJournalTrackersForDate,
+  getJournalTrackersForWeek,
+  intakeJournalIcon,
+  intakeJournalTitle,
+  mealJournalBody,
+  mealJournalIcon,
+  mealJournalTitle,
+  type JournalDailyTrackers,
+} from "@/lib/journal-trackers.server";
+import { MEDIA_KIND_LABEL } from "@/lib/media";
+import { SNACK_ICON, SNACK_LABEL } from "@/lib/habits";
+import { formatMl } from "@/lib/water";
 
 interface ManualRow {
   id: string;
@@ -61,6 +74,7 @@ export interface JournalDayContext {
   mood: MoodKey | null;
   weightKg: number | null;
   work: WorkDailyLog | null;
+  trackers?: JournalDailyTrackers;
 }
 
 export interface WeekJournalContext {
@@ -73,8 +87,140 @@ export interface WeekJournalContext {
   workByDate: Map<string, WorkDailyLog>;
 }
 
+function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntry[] {
+  const entries: JournalDisplayEntry[] = [];
+
+  for (const meal of trackers.meals) {
+    entries.push({
+      id: `meal-${meal.id}`,
+      source: "meal",
+      icon: mealJournalIcon(meal.meal),
+      title: mealJournalTitle(meal.meal),
+      body: mealJournalBody(meal.meal, meal.description, meal.waterMl),
+      at: meal.loggedAt,
+      editable: false,
+    });
+  }
+
+  for (const snack of trackers.snacks) {
+    entries.push({
+      id: `snack-${snack.slot}-${snack.loggedAt}`,
+      source: "snack",
+      icon: SNACK_ICON[snack.slot],
+      title: SNACK_LABEL[snack.slot],
+      body: snack.description.trim() || "Mellanmål",
+      at: snack.loggedAt,
+      editable: false,
+    });
+  }
+
+  for (const item of trackers.intake) {
+    const body =
+      item.kind === "creatine"
+        ? "Kreatin"
+        : item.kind === "shake"
+          ? "Shake"
+          : item.description.trim();
+    entries.push({
+      id: `intake-${item.id}`,
+      source: "intake",
+      icon: intakeJournalIcon(item.kind),
+      title: intakeJournalTitle(item.kind),
+      body,
+      at: item.loggedAt,
+      editable: false,
+    });
+  }
+
+  for (const log of trackers.waterLogs) {
+    const body = log.note?.trim()
+      ? `${formatMl(log.amountMl)} — ${log.note.trim()}`
+      : formatMl(log.amountMl);
+    entries.push({
+      id: `water-${log.id}`,
+      source: "water",
+      icon: "💧",
+      title: "Vatten",
+      body,
+      at: log.loggedAt,
+      editable: false,
+    });
+  }
+
+  for (const habit of trackers.habits) {
+    const statusText =
+      habit.status === "yes"
+        ? habit.label
+        : `${habit.label} (delvis)`;
+    entries.push({
+      id: `habit-${habit.id}`,
+      source: "habit",
+      icon: habit.icon,
+      title: habit.label,
+      body: habit.note?.trim() || statusText,
+      at: habit.loggedAt,
+      editable: false,
+    });
+  }
+
+  if (trackers.activity.loggedAt) {
+    const parts: string[] = [];
+    if (trackers.activity.steps != null && trackers.activity.steps > 0) {
+      parts.push(`${trackers.activity.steps.toLocaleString("sv-SE")} steg`);
+    }
+    if (
+      trackers.activity.activityHours != null &&
+      trackers.activity.activityHours > 0
+    ) {
+      parts.push(`${trackers.activity.activityHours} h aktivitet`);
+    }
+    if (parts.length > 0) {
+      entries.push({
+        id: `activity-${trackers.activity.loggedAt}`,
+        source: "activity",
+        icon: "👟",
+        title: "Aktivitet",
+        body: parts.join(", "),
+        at: trackers.activity.loggedAt,
+        editable: false,
+      });
+    }
+  }
+
+  if (trackers.media) {
+    const kindLabel = MEDIA_KIND_LABEL[trackers.media.kind].toLowerCase();
+    entries.push({
+      id: `media-${trackers.media.loggedAt}`,
+      source: "media",
+      icon: "📺",
+      title: MEDIA_KIND_LABEL[trackers.media.kind],
+      body: `${kindLabel}: ${trackers.media.title} (${trackers.media.detail})`,
+      at: trackers.media.loggedAt,
+      editable: false,
+    });
+  }
+
+  if (trackers.mobileGames) {
+    entries.push({
+      id: `games-${trackers.mobileGames.loggedAt}`,
+      source: "mobile_game",
+      icon: "📱",
+      title: "Mobilspel",
+      body: trackers.mobileGames.labels.join(", "),
+      at: trackers.mobileGames.loggedAt,
+      editable: false,
+    });
+  }
+
+  return entries;
+}
+
 function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
   const entries: JournalDisplayEntry[] = [];
+
+  if (ctx.trackers) {
+    entries.push(...buildTrackerEntries(ctx.trackers));
+  }
 
   for (const s of ctx.gymSessions) {
     if (!s.placement.doneAt) continue;
@@ -291,17 +437,27 @@ export async function getDailyJournal(
   userId: string,
   ctx: JournalDayContext,
 ): Promise<DailyJournal> {
-  const manual = await getManualJournalEntries(userId, ctx.localDate);
-  return buildDailyJournal(manual, ctx);
+  const [manual, trackers] = await Promise.all([
+    getManualJournalEntries(userId, ctx.localDate),
+    ctx.trackers
+      ? Promise.resolve(ctx.trackers)
+      : getJournalTrackersForDate(userId, ctx.localDate),
+  ]);
+  return buildDailyJournal(manual, { ...ctx, trackers });
 }
 
 export async function getWeekJournalSummary(
   userId: string,
   context: WeekJournalContext,
 ): Promise<WeekJournalSummary> {
-  const [manualEntries, moods] = await Promise.all([
+  const [manualEntries, moods, trackersByDate] = await Promise.all([
     getManualJournalEntriesForWeek(userId, context.weekStart),
     getMoodsForWeek(userId, context.weekStart),
+    getJournalTrackersForWeek(
+      userId,
+      context.weekStart,
+      addDaysISO(context.weekStart, 6),
+    ),
   ]);
 
   const manualByDate = new Map<string, ManualJournalEntry[]>();
@@ -323,6 +479,7 @@ export async function getWeekJournalSummary(
       mood: moods.get(localDate) ?? null,
       weightKg: weightForDate(context.weightPlan, localDate),
       work: context.workByDate.get(localDate) ?? null,
+      trackers: trackersByDate.get(localDate),
     };
     const manual = manualByDate.get(localDate) ?? [];
     const entries = mergeJournalEntries(manual, buildAutoEntries(dayCtx));

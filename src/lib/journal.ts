@@ -11,7 +11,15 @@ export type JournalEntrySource =
   | "task"
   | "weight"
   | "work_start"
-  | "work_end";
+  | "work_end"
+  | "meal"
+  | "snack"
+  | "intake"
+  | "water"
+  | "habit"
+  | "activity"
+  | "media"
+  | "mobile_game";
 
 export const JOURNAL_SOURCE_LABEL: Record<JournalEntrySource, string> = {
   manual: "Anteckning",
@@ -23,6 +31,14 @@ export const JOURNAL_SOURCE_LABEL: Record<JournalEntrySource, string> = {
   weight: "Vikt",
   work_start: "Jobb start",
   work_end: "Jobb slut",
+  meal: "Måltid",
+  snack: "Mellanmål",
+  intake: "Intake",
+  water: "Vatten",
+  habit: "Vana",
+  activity: "Aktivitet",
+  media: "Media",
+  mobile_game: "Mobilspel",
 };
 
 export interface ManualJournalEntry {
@@ -161,6 +177,50 @@ function phraseEntry(entry: JournalDisplayEntry): string {
     }
     case "weight":
       return ensureSentence(`Vägde ${entry.body}`);
+    case "meal": {
+      const note = entry.body.trim();
+      const title = entry.title.toLowerCase();
+      if (title === "frukost") {
+        return ensureSentence(`Till frukost åt jag ${lowercaseFirst(note)}`);
+      }
+      if (title === "lunch") {
+        return ensureSentence(`Till lunch åt jag ${lowercaseFirst(note)}`);
+      }
+      if (title === "middag") {
+        return ensureSentence(`Till middag åt jag ${lowercaseFirst(note)}`);
+      }
+      return ensureSentence(`${entry.title}: ${note}`);
+    }
+    case "snack":
+      return ensureSentence(`Mellanmål: ${lowercaseFirst(entry.body)}`);
+    case "intake": {
+      const note = entry.body.trim();
+      if (entry.title === "Frukt") {
+        return ensureSentence(`Åt ${lowercaseFirst(note)}`);
+      }
+      if (entry.title === "Kreatin") {
+        return ensureSentence("Tog kreatin");
+      }
+      if (entry.title === "Shake") {
+        return ensureSentence("Tog shake");
+      }
+      return note
+        ? ensureSentence(`Tog ${entry.title.toLowerCase()}: ${lowercaseFirst(note)}`)
+        : ensureSentence(`Tog ${entry.title.toLowerCase()}`);
+    }
+    case "water":
+      return ensureSentence(entry.body);
+    case "habit": {
+      const note = entry.body.trim();
+      if (note) return ensureSentence(note);
+      return ensureSentence(entry.title);
+    }
+    case "activity":
+      return ensureSentence(entry.body);
+    case "media":
+      return ensureSentence(entry.body);
+    case "mobile_game":
+      return ensureSentence(`Spelade ${lowercaseFirst(entry.body)}`);
     default:
       return ensureSentence(entry.body || entry.title);
   }

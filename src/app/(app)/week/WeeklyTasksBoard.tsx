@@ -106,6 +106,7 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
                 shopLocation: t.placement?.shopLocation ?? null,
                 shopAmount: t.placement?.shopAmount ?? null,
                 laundryLoads: t.placement?.laundryLoads ?? null,
+                band: t.placement?.band ?? null,
               },
             }
           : t,

@@ -1,0 +1,100 @@
+@use "abstracts" as *;
+
+.wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.label {
+    margin: 0;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $color-fog;
+    font-weight: 700;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+}
+
+.item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-1 $space-2;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+}
+
+.check {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid $color-line;
+    background: $color-ink-soft;
+    color: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.checkDone {
+    background: $color-success;
+    border-color: $color-success;
+    color: $color-ink;
+}
+
+.text {
+    font-size: 0.88rem;
+    color: $color-cream;
+    min-width: 0;
+}
+
+.textDone {
+    text-decoration: line-through;
+    color: $color-fog;
+}
+
+.remove {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: $color-fog;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-danger;
+    }
+}
+
+.empty {
+    margin: 0;
+    font-size: 0.82rem;
+    color: $color-cream-dim;
+    font-style: italic;
+}
+
+.addRow {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.82rem;
+}

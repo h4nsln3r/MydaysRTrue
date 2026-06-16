@@ -37,7 +37,19 @@ export interface TaskCategory {
   sortOrder: number;
 }
 
-export type WeeklyTaskCompletionKind = "simple" | "shop" | "journal" | "laundry";
+export type WeeklyTaskCompletionKind =
+  | "simple"
+  | "shop"
+  | "journal"
+  | "laundry"
+  | "music";
+
+export const MUSIC_BANDS = ["Totes", "Bojeng"] as const;
+export type MusicBand = (typeof MUSIC_BANDS)[number];
+
+export function isMusicRepTask(key: string | null): boolean {
+  return key?.startsWith("music_rep_") ?? false;
+}
 
 export interface WeeklyTask {
   id: string;
@@ -80,6 +92,16 @@ export interface WeeklyPlacement {
   shopLocation: string | null;
   shopAmount: number | null;
   laundryLoads: number | null;
+  /** Band name for music rep tasks (Totes / Bojeng). */
+  band: MusicBand | null;
+}
+
+export interface WeeklyTaskChecklistItem {
+  id: string;
+  taskId: string;
+  text: string;
+  doneAt: string | null;
+  sortOrder: number;
 }
 
 export interface MonthlyCompletion {
@@ -98,6 +120,7 @@ export interface MonthlyCompletion {
 export interface WeeklyTaskForWeek extends WeeklyTask {
   /** null = no row yet for this week. */
   placement: WeeklyPlacement | null;
+  checklist: WeeklyTaskChecklistItem[];
 }
 
 export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | null {
@@ -108,6 +131,10 @@ export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | nul
     const time = placement.planNote ? `${placement.planNote} · ` : "";
     return `${time}${placement.laundryLoads} tvättar`;
   }
+  if (placement.band && placement.note) {
+    return `${placement.band} · ${placement.note}`;
+  }
+  if (placement.band) return placement.band;
   if (placement.note) return placement.note;
   if (placement.planNote) return placement.planNote;
   return null;

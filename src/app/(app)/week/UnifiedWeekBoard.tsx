@@ -39,6 +39,7 @@ import {
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { MusicTaskChecklist } from "@/components/MusicTaskChecklist/MusicTaskChecklist";
 import { formatWeightKg } from "@/lib/format";
 import {
   bathingRequiresWaterTemp,
@@ -655,7 +656,9 @@ function ItemRowContent({
   );
   const taskPlanningExpand =
     item.kind === "task" &&
-    (item.completionKind === "journal" || item.completionKind === "laundry");
+    (item.completionKind === "journal" ||
+      item.completionKind === "laundry" ||
+      item.completionKind === "music");
 
   const kindLabel =
     item.kind === "gym"
@@ -1162,6 +1165,23 @@ function ItemRowContent({
                   maxLength={80}
                   disabled={pending}
                 />
+              ) : null}
+              {item.completionKind === "music" ? (
+                <>
+                  <MusicTaskChecklist
+                    taskId={item.taskId}
+                    items={item.checklist}
+                    disabled={pending}
+                  />
+                  <Input
+                    label="Kommentar denna vecka"
+                    value={taskPlanNote}
+                    onChange={(e) => setTaskPlanNote(e.target.value)}
+                    placeholder="Valfri anteckning"
+                    maxLength={280}
+                    disabled={pending}
+                  />
+                </>
               ) : null}
               <Button
                 type="button"

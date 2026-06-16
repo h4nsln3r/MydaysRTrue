@@ -140,9 +140,11 @@ export async function getUnifiedWeekPlan(
       dragId: weekPlanDragId("task", t.id),
       kind: "task",
       taskId: t.id,
+      taskKey: t.key,
       categoryId: t.categoryId,
       completionKind: t.completionKind,
       placement: t.placement,
+      checklist: t.checklist,
       label: t.title,
       subtitle:
         done && t.placement

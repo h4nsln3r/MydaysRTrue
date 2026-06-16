@@ -274,3 +274,43 @@
         color: $color-cream;
     }
 }
+
+.bandPicker {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.bandLabel {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-weight: 600;
+}
+
+.bandBtns {
+    display: flex;
+    gap: $space-2;
+    flex-wrap: wrap;
+}
+
+.bandBtn {
+    padding: 8px 14px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-family: $font-display;
+    font-size: 0.9rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-fog;
+    }
+}
+
+.bandBtnActive {
+    background: rgba(232, 121, 249, 0.15);
+    border-color: #e879f9;
+    color: #e879f9;
+}

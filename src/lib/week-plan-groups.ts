@@ -27,6 +27,7 @@ export function groupWeekPlanDayItems(
 ): WeekPlanItemGroup[] {
   const homeId = categoryIdByName(categories, "HOME");
   const devId = categoryIdByName(categories, "DEV");
+  const musicId = categoryIdByName(categories, "MUSIC");
   const billsId = categoryIdByName(categories, "Räkningar");
 
   const training = items.filter(
@@ -38,6 +39,9 @@ export function groupWeekPlanDayItems(
     (i) => i.kind === "task" && i.categoryId === homeId,
   );
   const dev = items.filter((i) => i.kind === "task" && i.categoryId === devId);
+  const music = items.filter(
+    (i) => i.kind === "task" && i.categoryId === musicId,
+  );
   const bills = items.filter(
     (i) =>
       i.kind === "monthly_bill" ||
@@ -48,6 +52,7 @@ export function groupWeekPlanDayItems(
       i.kind === "task" &&
       i.categoryId !== homeId &&
       i.categoryId !== devId &&
+      i.categoryId !== musicId &&
       i.categoryId !== billsId,
   );
   const weight = items.filter((i) => i.kind === "weight");
@@ -58,6 +63,9 @@ export function groupWeekPlanDayItems(
   }
   if (home.length > 0) groups.push({ id: "home", label: "HOME", items: home });
   if (dev.length > 0) groups.push({ id: "dev", label: "DEV", items: dev });
+  if (music.length > 0) {
+    groups.push({ id: "music", label: "MUSIC", items: music });
+  }
   if (bills.length > 0) {
     groups.push({ id: "bills", label: "Räkningar", items: bills });
   }
@@ -82,6 +90,7 @@ export function groupWeekPlanBacklogItems(
 ): WeekPlanItemGroup[] {
   const homeId = categoryIdByName(categories, "HOME");
   const devId = categoryIdByName(categories, "DEV");
+  const musicId = categoryIdByName(categories, "MUSIC");
   const billsId = categoryIdByName(categories, "Räkningar");
 
   const training = items.filter((i) => isBacklogTrainingItem(i));
@@ -90,6 +99,9 @@ export function groupWeekPlanBacklogItems(
     (i) => i.kind === "task" && i.categoryId === homeId,
   );
   const dev = items.filter((i) => i.kind === "task" && i.categoryId === devId);
+  const music = items.filter(
+    (i) => i.kind === "task" && i.categoryId === musicId,
+  );
   const bills = items.filter(
     (i) =>
       i.kind === "monthly_bill" ||
@@ -100,6 +112,7 @@ export function groupWeekPlanBacklogItems(
       i.kind === "task" &&
       i.categoryId !== homeId &&
       i.categoryId !== devId &&
+      i.categoryId !== musicId &&
       i.categoryId !== billsId,
   );
 
@@ -112,6 +125,9 @@ export function groupWeekPlanBacklogItems(
   }
   if (home.length > 0) groups.push({ id: "home", label: "HOME", items: home });
   if (dev.length > 0) groups.push({ id: "dev", label: "DEV", items: dev });
+  if (music.length > 0) {
+    groups.push({ id: "music", label: "MUSIC", items: music });
+  }
   if (bills.length > 0) {
     groups.push({ id: "bills", label: "Räkningar", items: bills });
   }

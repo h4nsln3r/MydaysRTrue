@@ -10,7 +10,9 @@ import type {
   Weekday,
   WeeklyPlacement,
   WeeklyTask,
+  WeeklyTaskChecklistItem,
   WeeklyTaskForWeek,
+  MusicBand,
 } from "@/lib/tasks";
 
 // ----------------------------------------------------------------------------
@@ -97,6 +99,7 @@ interface WeeklyPlacementRow {
   shop_location: string | null;
   shop_amount: number | null;
   laundry_loads: number | null;
+  band: string | null;
 }
 
 function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
@@ -111,6 +114,25 @@ function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
     shopLocation: r.shop_location,
     shopAmount: r.shop_amount != null ? Number(r.shop_amount) : null,
     laundryLoads: r.laundry_loads,
+    band: (r.band as MusicBand | null) ?? null,
+  };
+}
+
+interface ChecklistRow {
+  id: string;
+  task_id: string;
+  text: string;
+  done_at: string | null;
+  sort_order: number;
+}
+
+function rowToChecklistItem(r: ChecklistRow): WeeklyTaskChecklistItem {
+  return {
+    id: r.id,
+    taskId: r.task_id,
+    text: r.text,
+    doneAt: r.done_at,
+    sortOrder: r.sort_order,
   };
 }
 
@@ -118,7 +140,9 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, done_at, plan_note, note, shop_location, shop_amount, laundry_loads";
+  "id, task_id, week_start, weekday, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band";
+
+const CHECKLIST_SELECT = "id, task_id, text, done_at, sort_order";
 
 export async function getWeeklyTasks(userId: string): Promise<WeeklyTask[]> {
   const supabase = await createClient();
@@ -146,7 +170,7 @@ export async function getWeekSummary(
   weekStart: string,
 ): Promise<WeekSummary> {
   const supabase = await createClient();
-  const [tasksRes, placementsRes, catsRes] = await Promise.all([
+  const [tasksRes, placementsRes, catsRes, checklistRes] = await Promise.all([
     supabase
       .from("weekly_tasks")
       .select(WEEKLY_TASK_SELECT)
@@ -165,11 +189,23 @@ export async function getWeekSummary(
       .eq("scope", "weekly")
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("weekly_task_checklist_items")
+      .select(CHECKLIST_SELECT)
+      .eq("user_id", userId)
+      .order("sort_order", { ascending: true }),
   ]);
 
   const placements = new Map<string, WeeklyPlacement>();
   for (const row of placementsRes.data ?? []) {
     placements.set(row.task_id, rowToPlacement(row));
+  }
+
+  const checklistByTask = new Map<string, WeeklyTaskChecklistItem[]>();
+  for (const row of checklistRes.data ?? []) {
+    const list = checklistByTask.get(row.task_id) ?? [];
+    list.push(rowToChecklistItem(row));
+    checklistByTask.set(row.task_id, list);
   }
 
   const toInsert: {
@@ -203,6 +239,7 @@ export async function getWeekSummary(
   const tasks: WeeklyTaskForWeek[] = (tasksRes.data ?? []).map((row) => ({
     ...rowToWeekly(row),
     placement: placements.get(row.id) ?? null,
+    checklist: checklistByTask.get(row.id) ?? [],
   }));
 
   const categories = (catsRes.data ?? []).map(rowToCategory);

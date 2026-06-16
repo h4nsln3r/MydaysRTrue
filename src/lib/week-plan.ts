@@ -8,6 +8,7 @@ import type {
   TaskCategory,
   Weekday,
   WeeklyPlacement,
+  WeeklyTaskChecklistItem,
   WeeklyTaskCompletionKind,
 } from "@/lib/tasks";
 import type { WeightLog, WeightWeekPlan } from "@/lib/weight";
@@ -38,9 +39,11 @@ export interface WeekPlanItemBase {
 export interface WeekPlanTaskItem extends WeekPlanItemBase {
   kind: "task";
   taskId: string;
+  taskKey: string | null;
   categoryId: string | null;
   completionKind: WeeklyTaskCompletionKind;
   placement: WeeklyPlacement | null;
+  checklist: WeeklyTaskChecklistItem[];
 }
 
 export interface WeekPlanGymItem extends WeekPlanItemBase {

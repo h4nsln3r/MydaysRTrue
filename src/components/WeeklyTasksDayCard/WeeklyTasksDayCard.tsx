@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { MusicTaskChecklist } from "@/components/MusicTaskChecklist/MusicTaskChecklist";
 import {
   completeWeeklyTaskAction,
   toggleWeeklyTaskDoneAction,
@@ -14,7 +15,10 @@ import {
 import {
   formatWeeklyTaskDetail,
   groupByCategory,
+  isMusicRepTask,
+  MUSIC_BANDS,
   sortIncompleteFirst,
+  type MusicBand,
   type TaskCategory,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
@@ -177,6 +181,9 @@ function TaskRow({
   const [laundryLoads, setLaundryLoads] = useState(
     placement?.laundryLoads != null ? String(placement.laundryLoads) : "",
   );
+  const [band, setBand] = useState<MusicBand | null>(
+    placement?.band ?? null,
+  );
 
   const detail = placement ? formatWeeklyTaskDetail(placement) : null;
   const planNote = placement?.planNote?.trim() ?? "";
@@ -211,6 +218,7 @@ function TaskRow({
             : Number(shopAmount.replace(",", ".")),
         laundryLoads:
           laundryLoads.trim() === "" ? undefined : Number(laundryLoads),
+        band: band ?? undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -231,6 +239,7 @@ function TaskRow({
       setShopLocation("");
       setShopAmount("");
       setLaundryLoads("");
+      setBand(null);
       onPendingId(null);
       onDone();
     });
@@ -319,6 +328,8 @@ function TaskRow({
             <span className={styles.planHint}>Planerat: {planNote}</span>
           ) : !done && planNote && task.completionKind === "laundry" ? (
             <span className={styles.planHint}>Bokad: {planNote}</span>
+          ) : !done && planNote && task.completionKind === "music" ? (
+            <span className={styles.planHint}>{planNote}</span>
           ) : null}
         </span>
         {needsExpand ? (
@@ -344,6 +355,19 @@ function TaskRow({
           {task.completionKind === "laundry" && planNote ? (
             <p className={styles.planReadout}>
               <span className={styles.planReadoutLabel}>Bokad tid</span>
+              {planNote}
+            </p>
+          ) : null}
+          {task.completionKind === "music" ? (
+            <MusicTaskChecklist
+              taskId={task.id}
+              items={task.checklist}
+              disabled={pending}
+            />
+          ) : null}
+          {task.completionKind === "music" && planNote ? (
+            <p className={styles.planReadout}>
+              <span className={styles.planReadoutLabel}>Kommentar</span>
               {planNote}
             </p>
           ) : null}
@@ -392,6 +416,42 @@ function TaskRow({
                   placeholder="t.ex. 2"
                   disabled={pending}
                 />
+              ) : null}
+              {task.completionKind === "music" ? (
+                <>
+                  {isMusicRepTask(task.key) ? (
+                    <div className={styles.bandPicker}>
+                      <span className={styles.bandLabel}>Vilket band?</span>
+                      <div className={styles.bandBtns}>
+                        {MUSIC_BANDS.map((b) => (
+                          <button
+                            key={b}
+                            type="button"
+                            className={[
+                              styles.bandBtn,
+                              band === b ? styles.bandBtnActive : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            aria-pressed={band === b}
+                            disabled={pending}
+                            onClick={() => setBand(b)}
+                          >
+                            {b}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  <Input
+                    label="Kommentar"
+                    value={taskNote}
+                    onChange={(e) => setTaskNote(e.target.value)}
+                    placeholder="Vad gjorde du?"
+                    maxLength={500}
+                    disabled={pending}
+                  />
+                </>
               ) : null}
               <Button
                 type="button"

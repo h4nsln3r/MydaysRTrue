@@ -276,6 +276,7 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
     if (!t.placement?.doneAt) continue;
     const parts: string[] = [];
     if (t.placement.planNote) parts.push(`Plan: ${t.placement.planNote}`);
+    if (t.placement.band) parts.push(t.placement.band);
     if (t.placement.note) parts.push(t.placement.note);
     entries.push({
       id: `task-${t.placement.id}`,

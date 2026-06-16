@@ -439,7 +439,7 @@ export interface Database {
           accent: string;
           sort_order: number;
           default_weekday: number | null;
-          completion_kind: "simple" | "shop" | "journal" | "laundry";
+          completion_kind: "simple" | "shop" | "journal" | "laundry" | "music";
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -491,6 +491,7 @@ export interface Database {
           shop_location: string | null;
           shop_amount: number | null;
           laundry_loads: number | null;
+          band: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -506,6 +507,7 @@ export interface Database {
           shop_location?: string | null;
           shop_amount?: number | null;
           laundry_loads?: number | null;
+          band?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -521,6 +523,40 @@ export interface Database {
           shop_location?: string | null;
           shop_amount?: number | null;
           laundry_loads?: number | null;
+          band?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      weekly_task_checklist_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          task_id: string;
+          text: string;
+          done_at: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          task_id: string;
+          text: string;
+          done_at?: string | null;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          task_id?: string;
+          text?: string;
+          done_at?: string | null;
+          sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };

@@ -7,6 +7,9 @@ import { monthStartFromDate } from "@/lib/monthly-bills";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   isHexColor,
+  isMusicRepTask,
+  MUSIC_BANDS,
+  type MusicBand,
   type TaskScope,
   type Weekday,
   type WeeklyTaskCompletionKind,
@@ -407,7 +410,7 @@ export async function updateWeeklyTaskPlanAction(input: {
   if (kind === "laundry" && !planNote) {
     return { ok: false, error: "Skriv vilken tid du bokat." };
   }
-  if (kind !== "journal" && kind !== "laundry") {
+  if (kind !== "journal" && kind !== "laundry" && kind !== "music") {
     return { ok: false, error: "Uppgiften har inget att planera." };
   }
 
@@ -442,6 +445,7 @@ export async function completeWeeklyTaskAction(input: {
   shopLocation?: string;
   shopAmount?: number;
   laundryLoads?: number;
+  band?: string;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -456,7 +460,7 @@ export async function completeWeeklyTaskAction(input: {
 
   const { data: task } = await supabase
     .from("weekly_tasks")
-    .select("completion_kind")
+    .select("completion_kind, key")
     .eq("id", input.taskId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -465,6 +469,7 @@ export async function completeWeeklyTaskAction(input: {
   const kind = task.completion_kind as WeeklyTaskCompletionKind;
   const note = (input.note ?? "").trim();
   const shopLocation = (input.shopLocation ?? "").trim();
+  const bandInput = (input.band ?? "").trim();
 
   const { data: existing } = await supabase
     .from("weekly_task_placements")
@@ -486,6 +491,7 @@ export async function completeWeeklyTaskAction(input: {
   let shopAmount: number | null = null;
   let completionNote: string | null = null;
   let laundryLoads: number | null = null;
+  let band: MusicBand | null = null;
 
   if (kind === "shop") {
     if (!shopLocation) {
@@ -510,6 +516,20 @@ export async function completeWeeklyTaskAction(input: {
       return { ok: false, error: "Ange antal tvättar (1–30)." };
     }
     laundryLoads = loads;
+  } else if (kind === "music") {
+    if (!note) {
+      return { ok: false, error: "Skriv en kommentar om vad du gjorde." };
+    }
+    if (note.length > 500) {
+      return { ok: false, error: "Håll kommentaren under 500 tecken." };
+    }
+    completionNote = note;
+    if (isMusicRepTask(task.key)) {
+      if (!bandInput || !MUSIC_BANDS.includes(bandInput as MusicBand)) {
+        return { ok: false, error: "Välj vilket band du repade med." };
+      }
+      band = bandInput as MusicBand;
+    }
   } else if (note) {
     completionNote = note.slice(0, 500);
   }
@@ -523,6 +543,7 @@ export async function completeWeeklyTaskAction(input: {
       shop_location: kind === "shop" ? shopLocation : null,
       shop_amount: shopAmount,
       laundry_loads: laundryLoads,
+      band: kind === "music" ? band : null,
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
@@ -555,6 +576,7 @@ export async function uncompleteWeeklyTaskAction(input: {
       shop_location: null,
       shop_amount: null,
       laundry_loads: null,
+      band: null,
     })
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
@@ -605,9 +627,103 @@ export async function toggleWeeklyTaskDoneAction(input: {
             shop_location: null,
             shop_amount: null,
             laundry_loads: null,
+            band: null,
           },
     )
     .eq("id", existing.id)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+// ============================================================================
+// Weekly task checklist (music tasks)
+// ============================================================================
+
+export async function addWeeklyTaskChecklistItemAction(input: {
+  taskId: string;
+  text: string;
+}): Promise<ActionResult> {
+  const text = (input.text ?? "").trim();
+  if (!text) return { ok: false, error: "Skriv en uppgift." };
+  if (text.length > 200) return { ok: false, error: "Max 200 tecken." };
+  if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: task } = await supabase
+    .from("weekly_tasks")
+    .select("id")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+
+  const { data: maxRow } = await supabase
+    .from("weekly_task_checklist_items")
+    .select("sort_order")
+    .eq("task_id", input.taskId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase.from("weekly_task_checklist_items").insert({
+    user_id: user.id,
+    task_id: input.taskId,
+    text,
+    sort_order: nextOrder,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function toggleWeeklyTaskChecklistItemAction(input: {
+  itemId: string;
+  done: boolean;
+}): Promise<ActionResult> {
+  if (!input.itemId) return { ok: false, error: "Saknar id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("weekly_task_checklist_items")
+    .update({ done_at: input.done ? new Date().toISOString() : null })
+    .eq("id", input.itemId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function deleteWeeklyTaskChecklistItemAction(
+  itemId: string,
+): Promise<ActionResult> {
+  if (!itemId) return { ok: false, error: "Saknar id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("weekly_task_checklist_items")
+    .delete()
+    .eq("id", itemId)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
 

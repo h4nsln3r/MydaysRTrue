@@ -17,7 +17,7 @@ import {
 } from "@/lib/habits";
 import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
 import { mobileGamesStatusFor } from "@/lib/mobile-games";
-import { mediaStatusFor } from "@/lib/media";
+import { mediaStatusFor, type MediaDayLog } from "@/lib/media";
 import { isMoodKey, moodStatusFor, type MoodKey } from "@/lib/mood";
 
 interface HabitRow {
@@ -489,8 +489,19 @@ export async function getMonthSummary(
   const supabase = await createClient();
   const { startISO, endISO, daysInMonth } = monthBounds(year, month);
 
-  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes, intakeRes] =
-    await Promise.all([
+  const [
+    habitsRes,
+    checksRes,
+    waterRes,
+    profileRes,
+    mealsRes,
+    activityRes,
+    snacksRes,
+    intakeRes,
+    mobileGamesRes,
+    moodRes,
+    mediaLogRes,
+  ] = await Promise.all([
     supabase
       .from("habits")
       .select(
@@ -543,6 +554,24 @@ export async function getMonthSummary(
       .eq("user_id", userId)
       .gte("local_date", startISO)
       .lte("local_date", endISO),
+    supabase
+      .from("mobile_game_daily_logs")
+      .select("local_date, chess_done, duolingo_done, pokemon_go_done")
+      .eq("user_id", userId)
+      .gte("local_date", startISO)
+      .lte("local_date", endISO),
+    supabase
+      .from("mood_daily_logs")
+      .select("local_date, mood")
+      .eq("user_id", userId)
+      .gte("local_date", startISO)
+      .lte("local_date", endISO),
+    supabase
+      .from("media_daily_logs")
+      .select("local_date, media_item_id, position, did_consume")
+      .eq("user_id", userId)
+      .gte("local_date", startISO)
+      .lte("local_date", endISO),
   ]);
 
   const habits = (habitsRes.data ?? []).map(rowToHabit);
@@ -591,6 +620,38 @@ export async function getMonthSummary(
     intakeByDate.set(i.local_date, set);
   }
 
+  const mobileGamesByDate = new Map<
+    string,
+    {
+      chess: boolean;
+      duolingo: boolean;
+      pokemonGo: boolean;
+      hasLog: boolean;
+    }
+  >();
+  for (const r of mobileGamesRes.data ?? []) {
+    mobileGamesByDate.set(r.local_date, {
+      chess: r.chess_done ?? false,
+      duolingo: r.duolingo_done ?? false,
+      pokemonGo: r.pokemon_go_done ?? false,
+      hasLog: true,
+    });
+  }
+
+  const moodByDate = new Map<string, MoodKey>();
+  for (const r of moodRes.data ?? []) {
+    if (isMoodKey(r.mood)) moodByDate.set(r.local_date, r.mood);
+  }
+
+  const mediaLogByDate = new Map<string, MediaDayLog>();
+  for (const r of mediaLogRes.data ?? []) {
+    mediaLogByDate.set(r.local_date, {
+      mediaItemId: r.media_item_id,
+      position: r.position,
+      didConsume: r.did_consume,
+    });
+  }
+
   const today = todayLocalISO();
   const days: MonthDay[] = [];
   const yesByHabit: Record<string, number> = Object.fromEntries(
@@ -628,6 +689,18 @@ export async function getMonthSummary(
             activityHoursByDate.get(date) ?? 0,
             activityHoursGoal,
           );
+        } else if (h.kind === "mobile_games") {
+          const games = mobileGamesByDate.get(date);
+          status = games
+            ? mobileGamesStatusFor({ localDate: date, ...games }, false)
+            : null;
+        } else if (h.kind === "mood") {
+          status = moodStatusFor(
+            { localDate: date, mood: moodByDate.get(date) ?? null },
+            false,
+          );
+        } else if (h.kind === "media") {
+          status = mediaStatusFor(mediaLogByDate.get(date) ?? null, false);
         } else {
           status = checkMap.get(`${h.id}|${date}`) ?? null;
         }
@@ -669,6 +742,8 @@ export const WEEK_PROGRESS_HABIT_KEYS = [
   "activity_hours",
   "smoke_free",
   "sugar_free",
+  "mobile_games",
+  "mood",
 ] as const;
 
 export interface WeekHabitDay {
@@ -677,6 +752,8 @@ export interface WeekHabitDay {
   isToday: boolean;
   weekday: number;
   statuses: Record<string, HabitStatus | null>;
+  /** Selected mood for the day, when logged. */
+  mood: MoodKey | null;
 }
 
 export interface WeekHabitSummary {
@@ -700,61 +777,90 @@ export async function getWeekHabitSummary(
   const supabase = await createClient();
   const weekEnd = addDaysISO(weekStart, 6);
 
-  const [habitsRes, checksRes, waterRes, profileRes, mealsRes, activityRes, snacksRes, intakeRes] =
-    await Promise.all([
-      supabase
-        .from("habits")
-        .select(
-          "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
-        )
-        .eq("user_id", userId)
-        .is("archived_at", null)
-        .eq("enabled", true)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("habit_checks")
-        .select("habit_id, local_date, status")
-        .eq("user_id", userId)
-        .gte("local_date", weekStart)
-        .lte("local_date", weekEnd),
-      supabase
-        .from("water_logs")
-        .select("amount_ml, local_date")
-        .eq("user_id", userId)
-        .gte("local_date", weekStart)
-        .lte("local_date", weekEnd),
-      supabase
-        .from("profiles")
-        .select(
-          "daily_water_goal_ml, daily_steps_goal, daily_activity_hours_goal",
-        )
-        .eq("id", userId)
-        .maybeSingle(),
-      supabase
-        .from("meal_entries")
-        .select("local_date")
-        .eq("user_id", userId)
-        .gte("local_date", weekStart)
-        .lte("local_date", weekEnd),
-      supabase
-        .from("daily_activity_logs")
-        .select("local_date, steps, activity_hours")
-        .eq("user_id", userId)
-        .gte("local_date", weekStart)
-        .lte("local_date", weekEnd),
-      supabase
-        .from("snack_checks")
-        .select("local_date, slot")
-        .eq("user_id", userId)
-        .gte("local_date", weekStart)
-        .lte("local_date", weekEnd),
-      supabase
-        .from("intake_entries")
-        .select("local_date, kind")
-        .eq("user_id", userId)
-        .gte("local_date", weekStart)
-        .lte("local_date", weekEnd),
-    ]);
+  const [
+    habitsRes,
+    checksRes,
+    waterRes,
+    profileRes,
+    mealsRes,
+    activityRes,
+    snacksRes,
+    intakeRes,
+    mobileGamesRes,
+    moodRes,
+    mediaLogRes,
+  ] = await Promise.all([
+    supabase
+      .from("habits")
+      .select(
+        "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
+      )
+      .eq("user_id", userId)
+      .is("archived_at", null)
+      .eq("enabled", true)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("habit_checks")
+      .select("habit_id, local_date, status")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("water_logs")
+      .select("amount_ml, local_date")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("profiles")
+      .select(
+        "daily_water_goal_ml, daily_steps_goal, daily_activity_hours_goal",
+      )
+      .eq("id", userId)
+      .maybeSingle(),
+    supabase
+      .from("meal_entries")
+      .select("local_date")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("daily_activity_logs")
+      .select("local_date, steps, activity_hours")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("snack_checks")
+      .select("local_date, slot")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("intake_entries")
+      .select("local_date, kind")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("mobile_game_daily_logs")
+      .select("local_date, chess_done, duolingo_done, pokemon_go_done")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("mood_daily_logs")
+      .select("local_date, mood")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("media_daily_logs")
+      .select("local_date, media_item_id, position, did_consume")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+  ]);
 
   const allHabits = (habitsRes.data ?? []).map(rowToHabit);
   const habits = filterWeekProgressHabits(allHabits);
@@ -800,6 +906,38 @@ export async function getWeekHabitSummary(
     intakeByDate.set(i.local_date, set);
   }
 
+  const mobileGamesByDate = new Map<
+    string,
+    {
+      chess: boolean;
+      duolingo: boolean;
+      pokemonGo: boolean;
+      hasLog: boolean;
+    }
+  >();
+  for (const r of mobileGamesRes.data ?? []) {
+    mobileGamesByDate.set(r.local_date, {
+      chess: r.chess_done ?? false,
+      duolingo: r.duolingo_done ?? false,
+      pokemonGo: r.pokemon_go_done ?? false,
+      hasLog: true,
+    });
+  }
+
+  const moodByDate = new Map<string, MoodKey>();
+  for (const r of moodRes.data ?? []) {
+    if (isMoodKey(r.mood)) moodByDate.set(r.local_date, r.mood);
+  }
+
+  const mediaLogByDate = new Map<string, MediaDayLog>();
+  for (const r of mediaLogRes.data ?? []) {
+    mediaLogByDate.set(r.local_date, {
+      mediaItemId: r.media_item_id,
+      position: r.position,
+      didConsume: r.did_consume,
+    });
+  }
+
   const today = todayLocalISO();
   const days: WeekHabitDay[] = [];
   const yesByHabit: Record<string, number> = Object.fromEntries(
@@ -833,6 +971,18 @@ export async function getWeekHabitSummary(
             activityHoursByDate.get(date) ?? 0,
             activityHoursGoal,
           );
+        } else if (h.kind === "mobile_games") {
+          const games = mobileGamesByDate.get(date);
+          status = games
+            ? mobileGamesStatusFor({ localDate: date, ...games }, false)
+            : null;
+        } else if (h.kind === "mood") {
+          status = moodStatusFor(
+            { localDate: date, mood: moodByDate.get(date) ?? null },
+            false,
+          );
+        } else if (h.kind === "media") {
+          status = mediaStatusFor(mediaLogByDate.get(date) ?? null, false);
         } else {
           status = checkMap.get(`${h.id}|${date}`) ?? null;
         }
@@ -847,6 +997,7 @@ export async function getWeekHabitSummary(
       isToday: date === today,
       weekday: isoWeekdayFromLocalISO(date),
       statuses,
+      mood: isFuture ? null : (moodByDate.get(date) ?? null),
     });
   }
 

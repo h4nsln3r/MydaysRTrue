@@ -1,16 +1,19 @@
 import Link from "next/link";
-import { formatDayShort, formatWeekdayShort, isoWeekdayFromLocalISO } from "@/lib/date";
+import { addDaysISO, formatDayShort, formatWeekdayShort, isoWeekdayFromLocalISO } from "@/lib/date";
 import { formatWaterTemp, type BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekJournalSummary } from "@/lib/journal";
+import { MOOD_ICON, MOOD_LABEL } from "@/lib/mood";
 import type { WeekSummary, WeekDay } from "@/lib/water.server";
 import { waterDayStatus, type WaterDayStatus } from "@/lib/water";
 import type { WeeklyTaskForWeek } from "@/lib/tasks";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
+import { WEIGHT_TIME_LABEL } from "@/lib/weight";
+import { WEEKDAY_LONG, type Weekday } from "@/lib/tasks";
 import styles from "./week-progress.module.scss";
 
 interface Props {
@@ -69,6 +72,7 @@ export function WeekProgressBoard({
   const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
   const weightActive = weightPlan.enabled && weightPlan.weekday != null;
   const weightDone = Boolean(weightPlan.log);
+  const today = week.days.find((d) => d.isToday)?.date ?? "";
   const colSpan = week.days.length + 2;
 
   return (
@@ -141,6 +145,7 @@ export function WeekProgressBoard({
                 {week.days.map((d) => {
                   const habitDay = habitDayByDate.get(d.date);
                   const status = habitDay?.statuses[h.id] ?? null;
+                  const moodKey = h.kind === "mood" ? (habitDay?.mood ?? null) : null;
                   return (
                     <td
                       key={d.date}
@@ -151,10 +156,22 @@ export function WeekProgressBoard({
                         !d.isFuture && styles[`habitCell_${status ?? "empty"}`],
                       )}
                       title={`${h.label}, ${formatDayShort(d.date)}: ${
-                        d.isFuture ? "Kommande" : HABIT_STATUS_LABEL[status ?? "empty"]
+                        d.isFuture
+                          ? "Kommande"
+                          : moodKey
+                            ? MOOD_LABEL[moodKey]
+                            : HABIT_STATUS_LABEL[status ?? "empty"]
                       }`}
                     >
-                      {!d.isFuture ? <StatusMark status={status} /> : null}
+                      {!d.isFuture ? (
+                        moodKey ? (
+                          <span className={styles.moodMark} aria-label={MOOD_LABEL[moodKey]}>
+                            {MOOD_ICON[moodKey]}
+                          </span>
+                        ) : (
+                          <StatusMark status={status} />
+                        )
+                      ) : null}
                     </td>
                   );
                 })}
@@ -216,56 +233,6 @@ export function WeekProgressBoard({
                       : s.label,
               })}
             />
-
-            {weightPlan.enabled ? (
-              <tr>
-                <RowLabel sticky icon="⚖️" label="Vikt" />
-                {week.days.map((d) => {
-                  const weekday = isoWeekdayFromLocalISO(d.date);
-                  const scheduled = weightPlan.weekday === weekday;
-                  const logged =
-                    scheduled && weightPlan.log?.localDate === d.date;
-                  return (
-                    <td
-                      key={d.date}
-                      className={cellClass(
-                        styles.dataCell,
-                        d.isFuture && styles.cellFuture,
-                        d.isToday && styles.cellToday,
-                        scheduled && !d.isFuture && logged && styles.habitCell_yes,
-                        scheduled && !d.isFuture && !logged && styles.habitCell_empty,
-                      )}
-                      title={
-                        !scheduled
-                          ? undefined
-                          : logged && weightPlan.log
-                            ? `Vikt: ${formatWeightKg(weightPlan.log.weightKg)}`
-                            : "Planerad vägning"
-                      }
-                    >
-                      {scheduled && !d.isFuture ? (
-                        logged ? (
-                          <span className={styles.doneMark} aria-label="Loggad">
-                            ✓
-                          </span>
-                        ) : (
-                          <span className={styles.plannedMark} aria-label="Planerad">
-                            ○
-                          </span>
-                        )
-                      ) : null}
-                    </td>
-                  );
-                })}
-                <TotalCell
-                  value={weightActive ? (weightDone ? 1 : 0) : null}
-                  total={weightActive ? 1 : null}
-                  muted={!weightActive}
-                  mutedLabel={!weightActive ? "Av" : !weightDone && weightActive ? "0/1" : undefined}
-                  highlight={weightDone}
-                />
-              </tr>
-            ) : null}
 
             <SectionRow label="Uppgifter" colSpan={colSpan} />
 
@@ -414,6 +381,10 @@ export function WeekProgressBoard({
           </tfoot>
         </table>
       </div>
+
+      {weightPlan.enabled ? (
+        <WeightWeekSummary plan={weightPlan} today={today} />
+      ) : null}
     </div>
   );
 }
@@ -421,6 +392,115 @@ export function WeekProgressBoard({
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function WeightWeekSummary({
+  plan,
+  today,
+}: {
+  plan: WeightWeekPlan;
+  today: string;
+}) {
+  const scheduledDate =
+    plan.weekday != null
+      ? addDaysISO(plan.weekStart, plan.weekday - 1)
+      : null;
+  const dayName =
+    plan.weekday != null ? WEEKDAY_LONG[plan.weekday as Weekday] : null;
+  const logged = Boolean(plan.log);
+  const isFuture = scheduledDate ? scheduledDate > today : false;
+  const isToday = scheduledDate === today;
+  const planHref = `/week?start=${plan.weekStart}&view=plan`;
+  const dayHref =
+    scheduledDate == null
+      ? planHref
+      : isToday
+        ? "/"
+        : `/day/${scheduledDate}`;
+
+  let status: "done" | "planned" | "missed" | "unplaced" = "unplaced";
+  if (plan.weekday != null) {
+    if (logged) status = "done";
+    else if (isFuture || isToday) status = "planned";
+    else status = "missed";
+  }
+
+  return (
+    <aside className={styles.weightAside} aria-label="Veckovägning">
+      <div
+        className={cellClass(
+          styles.weightCard,
+          status === "done" && styles.weightCard_done,
+          status === "planned" && styles.weightCard_planned,
+          status === "missed" && styles.weightCard_missed,
+          status === "unplaced" && styles.weightCard_unplaced,
+        )}
+      >
+        <div className={styles.weightCardMain}>
+          <span className={styles.weightCardIcon} aria-hidden>
+            ⚖️
+          </span>
+          <div className={styles.weightCardBody}>
+            <p className={styles.weightCardKicker}>Veckovägning</p>
+            {status === "unplaced" ? (
+              <p className={styles.weightCardDetail}>
+                Ej placerad den här veckan
+              </p>
+            ) : (
+              <p className={styles.weightCardDetail}>
+                {dayName}
+                {scheduledDate ? (
+                  <span className={styles.weightCardDate}>
+                    {" "}
+                    · {formatDayShort(scheduledDate)}
+                  </span>
+                ) : null}
+              </p>
+            )}
+            {logged && plan.log ? (
+              <p className={styles.weightCardValue}>
+                {formatWeightKg(plan.log.weightKg)}
+                <span className={styles.weightCardTime}>
+                  {" "}
+                  · {WEIGHT_TIME_LABEL[plan.log.timeOfDay]}
+                </span>
+              </p>
+            ) : status === "planned" ? (
+              <p className={styles.weightCardHint}>Planerad vägning</p>
+            ) : status === "missed" ? (
+              <p className={styles.weightCardHint}>Inte loggad ännu</p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className={styles.weightCardAside}>
+          {status === "done" ? (
+            <span className={styles.weightStatusDone} aria-label="Loggad">
+              ✓
+            </span>
+          ) : status === "planned" ? (
+            <span className={styles.weightStatusPlanned} aria-label="Planerad">
+              ○
+            </span>
+          ) : status === "missed" ? (
+            <span className={styles.weightStatusMissed} aria-label="Saknas">
+              !
+            </span>
+          ) : null}
+          <Link
+            href={status === "unplaced" ? planHref : dayHref}
+            className={styles.weightCardLink}
+          >
+            {status === "unplaced"
+              ? "Öppna veckoplan"
+              : logged
+                ? "Visa dag"
+                : "Logga vikt"}
+          </Link>
+        </div>
+      </div>
+    </aside>
+  );
+}
 
 function DayHeader({ day, fallbackLabel }: { day: WeekDay; fallbackLabel: string }) {
   const label = formatWeekdayShort(day.date);

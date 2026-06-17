@@ -65,6 +65,179 @@
 .swatch_water_almost { background: rgba(255, 154, 60, 0.9); }
 .swatch_water_low { background: rgba(255, 82, 71, 0.85); }
 
+// --- Weekly weight (outside spreadsheet) -------------------------------------
+
+.weightAside {
+    margin: 0;
+}
+
+.weightCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-4;
+    padding: $space-3 $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    border-left: 3px solid rgba(255, 122, 26, 0.45);
+}
+
+.weightCard_done {
+    border-left-color: $color-success;
+    background: linear-gradient(
+        90deg,
+        rgba(110, 231, 163, 0.08) 0%,
+        $color-ink-soft 40%
+    );
+}
+
+.weightCard_planned {
+    border-left-color: $color-orange;
+}
+
+.weightCard_missed {
+    border-left-color: $color-danger;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 82, 71, 0.06) 0%,
+        $color-ink-soft 40%
+    );
+}
+
+.weightCard_unplaced {
+    border-left-color: $color-fog;
+    opacity: 0.9;
+}
+
+.weightCardMain {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-3;
+    min-width: 0;
+}
+
+.weightCardIcon {
+    font-size: 1.35rem;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.weightCardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.weightCardKicker {
+    margin: 0;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.weightCardDetail {
+    margin: 0;
+    color: $color-cream;
+    font-family: $font-display;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.weightCardDate {
+    color: $color-cream-dim;
+    font-weight: 600;
+}
+
+.weightCardValue {
+    margin: 0;
+    color: $color-success;
+    font-family: $font-display;
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.weightCardTime {
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.weightCardHint {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.78rem;
+}
+
+.weightCardAside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: $space-2;
+    flex-shrink: 0;
+}
+
+.weightStatusDone {
+    color: $color-success;
+    font-family: $font-mono;
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.weightStatusPlanned {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.weightStatusMissed {
+    color: $color-danger;
+    font-family: $font-mono;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.weightCardLink {
+    color: $color-orange-bright;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 4px 0;
+    border-bottom: 1px solid transparent;
+    transition: border-color 120ms $ease-out, color 120ms $ease-out;
+
+    &:hover {
+        color: $color-cream;
+        border-bottom-color: $color-orange;
+    }
+}
+
+@media (max-width: $bp-sm) {
+    .weightCard {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .weightCardAside {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: $space-2;
+        border-top: 1px solid $color-line;
+    }
+}
+
 // --- Spreadsheet -------------------------------------------------------------
 
 .spreadsheetWrap {
@@ -322,6 +495,16 @@
 .statusMark_half { color: $color-warning; }
 .statusMark_no { color: $color-danger; }
 .statusMark_empty { color: $color-fog; font-size: 1rem; }
+
+.moodMark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    font-size: 1rem;
+    line-height: 1;
+}
 
 // Training cells
 .trainingCell {

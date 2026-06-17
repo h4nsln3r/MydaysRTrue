@@ -80,6 +80,16 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
       byDay.get(t.placement.weekday)?.push(t);
     }
   }
+  for (const d of WEEKDAYS) {
+    const list = byDay.get(d);
+    if (list) {
+      list.sort(
+        (a, b) =>
+          (a.placement?.daySortOrder ?? a.sortOrder) -
+          (b.placement?.daySortOrder ?? b.sortOrder),
+      );
+    }
+  }
 
   const draggingTask = draggingId
     ? localTasks.find((t) => t.id === draggingId)
@@ -90,8 +100,15 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
     if (!task || task.placement?.weekday === weekday) return;
 
     setError(null);
-    setLocalTasks((prev) =>
-      prev.map((t) =>
+    setLocalTasks((prev) => {
+      const dayTasks = prev.filter(
+        (t) => t.placement?.weekday === weekday,
+      );
+      const nextOrder =
+        dayTasks.length > 0
+          ? Math.max(...dayTasks.map((t) => t.placement?.daySortOrder ?? 0)) + 1
+          : 0;
+      return prev.map((t) =>
         t.id === taskId
           ? {
               ...t,
@@ -100,6 +117,7 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
                 taskId,
                 weekStart,
                 weekday,
+                daySortOrder: nextOrder,
                 doneAt: t.placement?.doneAt ?? null,
                 planNote: t.placement?.planNote ?? null,
                 note: t.placement?.note ?? null,
@@ -110,8 +128,8 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
               },
             }
           : t,
-      ),
-    );
+      );
+    });
     setPendingId(taskId);
     startTransition(async () => {
       const res = await placeWeeklyTaskAction({ taskId, weekStart, weekday });

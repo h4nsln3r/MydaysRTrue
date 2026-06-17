@@ -22,6 +22,7 @@ export interface BathingPlacement {
   weekStart: string;
   /** null = in the week backlog until placed on a day. */
   weekday: Weekday | null;
+  daySortOrder: number;
   waterTempC: number | null;
   doneAt: string | null;
   note: string | null;

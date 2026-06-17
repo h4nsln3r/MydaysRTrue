@@ -817,6 +817,14 @@ function groupTasksByWeekday(tasks: WeeklyTaskForWeek[]): Map<number, WeeklyTask
     list.push(t);
     map.set(t.placement.weekday, list);
   }
+  for (const [weekday, list] of map) {
+    list.sort(
+      (a, b) =>
+        (a.placement?.daySortOrder ?? a.sortOrder) -
+        (b.placement?.daySortOrder ?? b.sortOrder),
+    );
+    map.set(weekday, list);
+  }
   return map;
 }
 

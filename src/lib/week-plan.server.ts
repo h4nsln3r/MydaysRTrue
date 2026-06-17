@@ -2,7 +2,7 @@ import "server-only";
 import { getBathingWeekSummary } from "@/lib/bathing.server";
 import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getGymWeekSummary } from "@/lib/gym.server";
-import { formatWeeklyTaskDetail } from "@/lib/tasks";
+import { formatWeeklyTaskDetail, type Weekday } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { resolveMonthlyBillsForWeek } from "@/lib/monthly-bills";
@@ -24,6 +24,14 @@ const KIND_SORT: Record<WeekPlanItem["kind"], number> = {
   monthly_bill: 4,
   weight: 5,
 };
+
+function dayPlanSortOrder(
+  weekday: Weekday | null,
+  daySortOrder: number,
+  backlogOrder: number,
+): number {
+  return weekday != null ? daySortOrder : backlogOrder;
+}
 
 function sortItems(items: WeekPlanItem[]): WeekPlanItem[] {
   return [...items].sort((a, b) => {
@@ -62,7 +70,11 @@ export async function getUnifiedWeekPlan(
       defaultWeekday: s.defaultWeekday,
       weekday: s.placement.weekday,
       done: Boolean(s.placement.doneAt),
-      sortOrder: s.sortOrder,
+      sortOrder: dayPlanSortOrder(
+        s.placement.weekday,
+        s.placement.daySortOrder,
+        s.sortOrder,
+      ),
       warmup: s.placement.warmup,
       session: s,
     });
@@ -80,7 +92,11 @@ export async function getUnifiedWeekPlan(
       defaultWeekday: s.defaultWeekday,
       weekday: s.placement.weekday,
       done: Boolean(s.placement.doneAt),
-      sortOrder: s.sortOrder,
+      sortOrder: dayPlanSortOrder(
+        s.placement.weekday,
+        s.placement.daySortOrder,
+        s.sortOrder,
+      ),
       session: s,
     });
   }
@@ -107,6 +123,7 @@ export async function getUnifiedWeekPlan(
           templateId: t.id,
           weekStart,
           weekday: null,
+          daySortOrder: 0,
           waterTempC: null,
           doneAt: null,
           note: null,
@@ -129,7 +146,11 @@ export async function getUnifiedWeekPlan(
       defaultWeekday: s.defaultWeekday,
       weekday: s.placement.weekday,
       done: Boolean(s.placement.doneAt),
-      sortOrder: s.sortOrder,
+      sortOrder: dayPlanSortOrder(
+        s.placement.weekday,
+        s.placement.daySortOrder,
+        s.sortOrder,
+      ),
       session: s,
     });
   }
@@ -155,7 +176,11 @@ export async function getUnifiedWeekPlan(
       defaultWeekday: t.defaultWeekday,
       weekday: t.placement?.weekday ?? null,
       done,
-      sortOrder: t.sortOrder,
+      sortOrder: dayPlanSortOrder(
+        t.placement?.weekday ?? null,
+        t.placement?.daySortOrder ?? 0,
+        t.sortOrder,
+      ),
     });
   }
 
@@ -170,7 +195,11 @@ export async function getUnifiedWeekPlan(
       defaultWeekday: weightPlan.defaultWeekday,
       weekday: weightPlan.weekday,
       done: Boolean(weightPlan.log),
-      sortOrder: 9999,
+      sortOrder: dayPlanSortOrder(
+        weightPlan.weekday,
+        weightPlan.daySortOrder,
+        9999,
+      ),
       enabled: weightPlan.enabled,
       log: weightPlan.log,
       plan: weightPlan,
@@ -201,9 +230,13 @@ export async function getUnifiedWeekPlan(
       icon: slot.task.icon,
       accent: slot.task.accent,
       defaultWeekday: null,
-      weekday: slot.weekday as import("@/lib/tasks").Weekday,
+      weekday: slot.weekday as Weekday,
       done: Boolean(completion?.doneAt),
-      sortOrder: 8000 + slot.task.sortOrder,
+      sortOrder: dayPlanSortOrder(
+        slot.weekday as Weekday,
+        completion?.daySortOrder ?? 0,
+        8000 + slot.task.sortOrder,
+      ),
     });
   }
 

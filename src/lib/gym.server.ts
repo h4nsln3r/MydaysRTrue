@@ -25,6 +25,7 @@ interface PlacementRow {
   template_id: string;
   week_start: string;
   weekday: number | null;
+  day_sort_order: number;
   warmup: GymWarmup | null;
   done_at: string | null;
   note: string | null;
@@ -49,6 +50,7 @@ function rowToPlacement(r: PlacementRow): GymPlacement {
     templateId: r.template_id,
     weekStart: r.week_start,
     weekday: r.weekday as Weekday,
+    daySortOrder: r.day_sort_order ?? 0,
     warmup: r.warmup,
     doneAt: r.done_at,
     note: r.note,
@@ -101,7 +103,7 @@ export async function getGymWeekSummary(
 
   const { data: placements } = await supabase
     .from("gym_week_placements")
-    .select("id, template_id, week_start, weekday, warmup, done_at, note")
+    .select("id, template_id, week_start, weekday, day_sort_order, warmup, done_at, note")
     .eq("user_id", userId)
     .eq("week_start", weekStart);
 
@@ -133,7 +135,7 @@ export async function getGymWeekSummary(
     const { data: inserted } = await supabase
       .from("gym_week_placements")
       .insert(toInsert)
-      .select("id, template_id, week_start, weekday, warmup, done_at, note");
+      .select("id, template_id, week_start, weekday, day_sort_order, warmup, done_at, note");
     for (const p of inserted ?? []) {
       placementByTemplate.set(p.template_id, p);
     }
@@ -171,8 +173,10 @@ export async function getGymSessionsForDate(
   const weekStart = weekStartISO(parseLocalISO(localDate));
   const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
   const { sessions } = await getGymWeekSummary(userId, weekStart);
-  const forDay = sessions.filter(
-    (s) => s.placement.weekday != null && s.placement.weekday === weekday,
-  );
+  const forDay = sessions
+    .filter(
+      (s) => s.placement.weekday != null && s.placement.weekday === weekday,
+    )
+    .sort((a, b) => a.placement.daySortOrder - b.placement.daySortOrder);
   return { localDate, weekStart, weekday, sessions: forDay };
 }

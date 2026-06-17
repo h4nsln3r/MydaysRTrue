@@ -93,6 +93,7 @@ interface WeeklyPlacementRow {
   task_id: string;
   week_start: string;
   weekday: number | null;
+  day_sort_order: number;
   done_at: string | null;
   plan_note: string | null;
   note: string | null;
@@ -108,6 +109,7 @@ function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
     taskId: r.task_id,
     weekStart: r.week_start,
     weekday: r.weekday as Weekday | null,
+    daySortOrder: r.day_sort_order ?? 0,
     doneAt: r.done_at,
     planNote: r.plan_note,
     note: r.note,
@@ -140,7 +142,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band";
 
 const CHECKLIST_SELECT = "id, task_id, text, done_at, sort_order";
 
@@ -208,20 +210,36 @@ export async function getWeekSummary(
     checklistByTask.set(row.task_id, list);
   }
 
+  const dayOrderCursor = new Map<number, number>();
+  for (const p of placements.values()) {
+    if (p.weekday != null) {
+      const next = Math.max(dayOrderCursor.get(p.weekday) ?? -1, p.daySortOrder) + 1;
+      dayOrderCursor.set(p.weekday, next);
+    }
+  }
+
   const toInsert: {
     user_id: string;
     task_id: string;
     week_start: string;
     weekday: number | null;
+    day_sort_order: number;
   }[] = [];
 
   for (const row of tasksRes.data ?? []) {
     if (!placements.has(row.id)) {
+      const wd = row.default_weekday;
+      let daySortOrder = 0;
+      if (wd != null) {
+        daySortOrder = dayOrderCursor.get(wd) ?? 0;
+        dayOrderCursor.set(wd, daySortOrder + 1);
+      }
       toInsert.push({
         user_id: userId,
         task_id: row.id,
         week_start: weekStart,
-        weekday: row.default_weekday,
+        weekday: wd,
+        day_sort_order: daySortOrder,
       });
     }
   }
@@ -262,9 +280,15 @@ export async function getWeeklyTasksForDate(
   const weekStart = weekStartISO(parseLocalISO(localDate));
   const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
   const { tasks, categories } = await getWeekSummary(userId, weekStart);
-  const forDay = tasks.filter(
-    (t) => t.placement?.weekday != null && t.placement.weekday === weekday,
-  );
+  const forDay = tasks
+    .filter(
+      (t) => t.placement?.weekday != null && t.placement.weekday === weekday,
+    )
+    .sort((a, b) => {
+      const ao = a.placement?.daySortOrder ?? a.sortOrder;
+      const bo = b.placement?.daySortOrder ?? b.sortOrder;
+      return ao - bo;
+    });
   return { localDate, weekStart, weekday, tasks: forDay, categories };
 }
 
@@ -306,6 +330,7 @@ interface MonthlyCompletionRow {
   note: string | null;
   scheduled_day_of_month: number | null;
   is_unscheduled: boolean;
+  day_sort_order: number;
 }
 
 function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
@@ -317,6 +342,7 @@ function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
     note: r.note,
     scheduledDayOfMonth: r.scheduled_day_of_month,
     isUnscheduled: r.is_unscheduled,
+    daySortOrder: r.day_sort_order ?? 0,
   };
 }
 
@@ -324,7 +350,7 @@ const MONTHLY_TASK_SELECT =
   "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order";
 
 const MONTHLY_COMPLETION_SELECT =
-  "id, task_id, month_start, done_at, note, scheduled_day_of_month, is_unscheduled";
+  "id, task_id, month_start, done_at, note, scheduled_day_of_month, is_unscheduled, day_sort_order";
 
 export async function getMonthlyTasks(userId: string): Promise<MonthlyTask[]> {
   const supabase = await createClient();

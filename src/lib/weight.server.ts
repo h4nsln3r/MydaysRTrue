@@ -14,6 +14,7 @@ interface PlanRow {
   week_start: string;
   enabled: boolean;
   weekday: number | null;
+  day_sort_order: number;
 }
 
 interface LogRow {
@@ -73,7 +74,7 @@ async function ensurePlanRow(
 
   const { data: existing } = await supabase
     .from("weight_week_plans")
-    .select("week_start, enabled, weekday")
+    .select("week_start, enabled, weekday, day_sort_order")
     .eq("user_id", userId)
     .eq("week_start", weekStart)
     .maybeSingle();
@@ -90,7 +91,7 @@ async function ensurePlanRow(
       enabled: true,
       weekday: defaultWeekday,
     })
-    .select("week_start, enabled, weekday")
+    .select("week_start, enabled, weekday, day_sort_order")
     .single();
 
   if (error || !inserted) {
@@ -119,6 +120,7 @@ export async function getWeightWeekPlan(
     weekStart,
     enabled: plan.enabled,
     weekday: plan.weekday as Weekday | null,
+    daySortOrder: plan.day_sort_order ?? 0,
     defaultWeekday,
     log,
   };

@@ -485,6 +485,7 @@ export interface Database {
           task_id: string;
           week_start: string;
           weekday: number | null;
+          day_sort_order: number;
           done_at: string | null;
           plan_note: string | null;
           note: string | null;
@@ -501,6 +502,7 @@ export interface Database {
           task_id: string;
           week_start: string;
           weekday?: number | null;
+          day_sort_order?: number;
           done_at?: string | null;
           plan_note?: string | null;
           note?: string | null;
@@ -517,6 +519,7 @@ export interface Database {
           task_id?: string;
           week_start?: string;
           weekday?: number | null;
+          day_sort_order?: number;
           done_at?: string | null;
           plan_note?: string | null;
           note?: string | null;
@@ -620,6 +623,7 @@ export interface Database {
           note: string | null;
           scheduled_day_of_month: number | null;
           is_unscheduled: boolean;
+          day_sort_order: number;
           created_at: string;
           updated_at: string;
         };
@@ -632,6 +636,7 @@ export interface Database {
           note?: string | null;
           scheduled_day_of_month?: number | null;
           is_unscheduled?: boolean;
+          day_sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -644,6 +649,7 @@ export interface Database {
           note?: string | null;
           scheduled_day_of_month?: number | null;
           is_unscheduled?: boolean;
+          day_sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -800,6 +806,7 @@ export interface Database {
           template_id: string;
           week_start: string;
           weekday: number | null;
+          day_sort_order: number;
           warmup: "skidor" | "rodd" | "cykel" | "crosstrainer" | "magmaskin" | null;
           done_at: string | null;
           note: string | null;
@@ -812,6 +819,7 @@ export interface Database {
           template_id: string;
           week_start: string;
           weekday?: number | null;
+          day_sort_order?: number;
           warmup?: "skidor" | "rodd" | "cykel" | "crosstrainer" | "magmaskin" | null;
           done_at?: string | null;
           note?: string | null;
@@ -824,6 +832,7 @@ export interface Database {
           template_id?: string;
           week_start?: string;
           weekday?: number | null;
+          day_sort_order?: number;
           warmup?: "skidor" | "rodd" | "cykel" | "crosstrainer" | "magmaskin" | null;
           done_at?: string | null;
           note?: string | null;
@@ -884,6 +893,7 @@ export interface Database {
           template_id: string;
           week_start: string;
           weekday: number | null;
+          day_sort_order: number;
           done_at: string | null;
           note: string | null;
           created_at: string;
@@ -895,6 +905,7 @@ export interface Database {
           template_id: string;
           week_start: string;
           weekday?: number | null;
+          day_sort_order?: number;
           done_at?: string | null;
           note?: string | null;
           created_at?: string;
@@ -906,6 +917,7 @@ export interface Database {
           template_id?: string;
           week_start?: string;
           weekday?: number | null;
+          day_sort_order?: number;
           done_at?: string | null;
           note?: string | null;
           created_at?: string;
@@ -965,6 +977,7 @@ export interface Database {
           template_id: string;
           week_start: string;
           weekday: number | null;
+          day_sort_order: number;
           water_temp_c: number | null;
           done_at: string | null;
           note: string | null;
@@ -977,6 +990,7 @@ export interface Database {
           template_id: string;
           week_start: string;
           weekday?: number | null;
+          day_sort_order?: number;
           water_temp_c?: number | null;
           done_at?: string | null;
           note?: string | null;
@@ -989,6 +1003,7 @@ export interface Database {
           template_id?: string;
           week_start?: string;
           weekday?: number | null;
+          day_sort_order?: number;
           water_temp_c?: number | null;
           done_at?: string | null;
           note?: string | null;
@@ -1003,6 +1018,7 @@ export interface Database {
           week_start: string;
           enabled: boolean;
           weekday: number | null;
+          day_sort_order: number;
           created_at: string;
           updated_at: string;
         };
@@ -1011,6 +1027,7 @@ export interface Database {
           week_start: string;
           enabled?: boolean;
           weekday?: number | null;
+          day_sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -1019,6 +1036,7 @@ export interface Database {
           week_start?: string;
           enabled?: boolean;
           weekday?: number | null;
+          day_sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };

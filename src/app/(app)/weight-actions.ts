@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { addDaysISO } from "@/lib/date";
 import { createClient } from "@/lib/supabase/server";
 import type { Weekday } from "@/lib/tasks";
+import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
 import { isWeightTimeOfDay, type WeightTimeOfDay } from "@/lib/weight";
 
 export interface ActionResult {
@@ -137,7 +138,7 @@ export async function placeWeightWeekAction(input: {
 
   const { data: current } = await supabase
     .from("weight_week_plans")
-    .select("weekday")
+    .select("weekday, day_sort_order")
     .eq("user_id", user.id)
     .eq("week_start", input.weekStart)
     .maybeSingle();
@@ -146,9 +147,18 @@ export async function placeWeightWeekAction(input: {
     await clearWeightLogsForWeek(user.id, input.weekStart);
   }
 
+  const daySortOrder =
+    current?.weekday !== input.weekday
+      ? await nextWeekDaySortOrder(user.id, input.weekStart, input.weekday)
+      : (current?.day_sort_order ?? 0);
+
   const { error } = await supabase
     .from("weight_week_plans")
-    .update({ weekday: input.weekday, enabled: true })
+    .update({
+      weekday: input.weekday,
+      enabled: true,
+      day_sort_order: daySortOrder,
+    })
     .eq("user_id", user.id)
     .eq("week_start", input.weekStart);
   if (error) return { ok: false, error: error.message };

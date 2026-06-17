@@ -84,6 +84,8 @@ export interface WeeklyPlacement {
   weekStart: string; // YYYY-MM-DD (Monday)
   /** null = in the week backlog until placed on a day. */
   weekday: Weekday | null;
+  /** Order among tasks on this weekday in the week plan (0 = first). */
+  daySortOrder: number;
   doneAt: string | null;
   /** Plan / booked time before completing (journal, laundry). */
   planNote: string | null;
@@ -114,6 +116,8 @@ export interface MonthlyCompletion {
   scheduledDayOfMonth: number | null;
   /** User moved this bill back to backlog for the month. */
   isUnscheduled: boolean;
+  /** Order on the weekday when shown in the week plan. */
+  daySortOrder: number;
 }
 
 /** A weekly task in the context of a specific week. */

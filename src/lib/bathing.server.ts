@@ -25,6 +25,7 @@ interface PlacementRow {
   template_id: string;
   week_start: string;
   weekday: number | null;
+  day_sort_order: number;
   water_temp_c: number | null;
   done_at: string | null;
   note: string | null;
@@ -49,6 +50,7 @@ function rowToPlacement(r: PlacementRow): BathingPlacement {
     templateId: r.template_id,
     weekStart: r.week_start,
     weekday: r.weekday as Weekday | null,
+    daySortOrder: r.day_sort_order ?? 0,
     waterTempC: r.water_temp_c != null ? Number(r.water_temp_c) : null,
     doneAt: r.done_at,
     note: r.note,
@@ -96,7 +98,7 @@ export async function getBathingWeekSummary(
     supabase
       .from("bathing_week_placements")
       .select(
-        "id, template_id, week_start, weekday, water_temp_c, done_at, note",
+        "id, template_id, week_start, weekday, day_sort_order, water_temp_c, done_at, note",
       )
       .eq("user_id", userId)
       .eq("week_start", weekStart)
@@ -120,7 +122,7 @@ export async function getBathingWeekSummary(
   placedSessions.sort((a, b) => {
     const wd = (a.placement.weekday ?? 0) - (b.placement.weekday ?? 0);
     if (wd !== 0) return wd;
-    return a.sortOrder - b.sortOrder;
+    return a.placement.daySortOrder - b.placement.daySortOrder;
   });
 
   const placedTemplateIds = new Set(
@@ -150,9 +152,11 @@ export async function getBathingSessionsForDate(
   const weekStart = weekStartISO(parseLocalISO(localDate));
   const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
   const { placedSessions } = await getBathingWeekSummary(userId, weekStart);
-  const forDay = placedSessions.filter(
-    (s) => s.placement.weekday != null && s.placement.weekday === weekday,
-  );
+  const forDay = placedSessions
+    .filter(
+      (s) => s.placement.weekday != null && s.placement.weekday === weekday,
+    )
+    .sort((a, b) => a.placement.daySortOrder - b.placement.daySortOrder);
   return { localDate, weekStart, weekday, sessions: forDay };
 }
 

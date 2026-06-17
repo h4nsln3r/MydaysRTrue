@@ -20,6 +20,9 @@ import type { Weekday } from "@/lib/tasks";
 import { getWeightDefaultWeekday } from "@/lib/weight.server";
 import { parseWeekPlanDragId } from "@/lib/week-plan";
 import {
+  applyWeekDaySortOrder,
+} from "@/lib/week-plan-order.server";
+import {
   addBathingPlacementAction,
   deleteBathingPlacementAction,
   moveBathingPlacementAction,
@@ -157,6 +160,38 @@ export async function unplaceWeekPlanItemAction(input: {
   }
 }
 
+/** Reorder all placed activities on one weekday (tasks, training, weight, bills). */
+export async function reorderWeekPlanDayAction(input: {
+  weekStart: string;
+  weekday: Weekday;
+  dragIds: string[];
+}): Promise<ActionResult> {
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Veckan måste börja på en måndag." };
+  }
+  if (input.weekday < 1 || input.weekday > 7) {
+    return { ok: false, error: "Ogiltig veckodag." };
+  }
+  if (input.dragIds.length === 0) return { ok: true };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const result = await applyWeekDaySortOrder(
+    user.id,
+    input.weekStart,
+    input.weekday,
+    input.dragIds,
+  );
+  if (!result.ok) return result;
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Reset this week's placements to each template's default weekday. */
 export async function resetWeekPlanToDefaultsAction(
   weekStart: string,
@@ -186,6 +221,7 @@ export async function resetWeekPlanToDefaultsAction(
     .eq("user_id", user.id)
     .is("archived_at", null);
 
+  const dayOrderCursor = new Map<number, number>();
   for (const t of tasks ?? []) {
     if (t.default_weekday == null) {
       await supabase
@@ -196,6 +232,9 @@ export async function resetWeekPlanToDefaultsAction(
         .eq("week_start", weekStart);
       continue;
     }
+
+    const daySortOrder = dayOrderCursor.get(t.default_weekday) ?? 0;
+    dayOrderCursor.set(t.default_weekday, daySortOrder + 1);
 
     const { data: existing } = await supabase
       .from("weekly_task_placements")
@@ -208,7 +247,10 @@ export async function resetWeekPlanToDefaultsAction(
     if (existing) {
       await supabase
         .from("weekly_task_placements")
-        .update({ weekday: t.default_weekday })
+        .update({
+          weekday: t.default_weekday,
+          day_sort_order: daySortOrder,
+        })
         .eq("id", existing.id)
         .eq("user_id", user.id);
     } else {
@@ -217,6 +259,7 @@ export async function resetWeekPlanToDefaultsAction(
         task_id: t.id,
         week_start: weekStart,
         weekday: t.default_weekday,
+        day_sort_order: daySortOrder,
       });
     }
   }

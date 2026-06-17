@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { bathingRequiresWaterTemp, type BathingKey } from "@/lib/bathing";
 import type { Weekday } from "@/lib/tasks";
+import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
 
 export interface ActionResult {
   ok: boolean;
@@ -51,6 +52,12 @@ export async function addBathingPlacementAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
+  const daySortOrder = await nextWeekDaySortOrder(
+    user.id,
+    input.weekStart,
+    input.weekday,
+  );
+
   const { data: template } = await supabase
     .from("bathing_session_templates")
     .select("id")
@@ -85,7 +92,7 @@ export async function addBathingPlacementAction(input: {
   if (orphan) {
     const { error } = await supabase
       .from("bathing_week_placements")
-      .update({ weekday: input.weekday })
+      .update({ weekday: input.weekday, day_sort_order: daySortOrder })
       .eq("id", orphan.id)
       .eq("user_id", user.id);
     if (error) return { ok: false, error: error.message };
@@ -98,6 +105,7 @@ export async function addBathingPlacementAction(input: {
     template_id: input.templateId,
     week_start: input.weekStart,
     weekday: input.weekday,
+    day_sort_order: daySortOrder,
   });
 
   if (error) {
@@ -114,7 +122,7 @@ export async function addBathingPlacementAction(input: {
       if (existing) {
         const { error: updateError } = await supabase
           .from("bathing_week_placements")
-          .update({ weekday: input.weekday })
+          .update({ weekday: input.weekday, day_sort_order: daySortOrder })
           .eq("id", existing.id)
           .eq("user_id", user.id);
         if (updateError) return { ok: false, error: updateError.message };
@@ -149,9 +157,22 @@ export async function moveBathingPlacementAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
+  const { data: existing } = await supabase
+    .from("bathing_week_placements")
+    .select("weekday, day_sort_order")
+    .eq("id", input.placementId)
+    .eq("user_id", user.id)
+    .eq("week_start", input.weekStart)
+    .maybeSingle();
+
+  const movingDay = existing?.weekday !== input.weekday;
+  const daySortOrder = movingDay
+    ? await nextWeekDaySortOrder(user.id, input.weekStart, input.weekday)
+    : (existing?.day_sort_order ?? 0);
+
   const { error } = await supabase
     .from("bathing_week_placements")
-    .update({ weekday: input.weekday })
+    .update({ weekday: input.weekday, day_sort_order: daySortOrder })
     .eq("id", input.placementId)
     .eq("user_id", user.id)
     .eq("week_start", input.weekStart);

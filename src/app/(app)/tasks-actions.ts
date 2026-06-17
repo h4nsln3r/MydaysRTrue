@@ -14,6 +14,7 @@ import {
   type Weekday,
   type WeeklyTaskCompletionKind,
 } from "@/lib/tasks";
+import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
 
 type CategoryUpdate = Database["public"]["Tables"]["task_categories"]["Update"];
 type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
@@ -57,6 +58,16 @@ function isMonday(localDate: string): boolean {
   const [y, m, d] = localDate.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   return dt.getDay() === 1; // 1 = Monday
+}
+
+async function nextWeeklyDaySortOrder(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  weekStart: string,
+  weekday: Weekday,
+): Promise<number> {
+  void supabase;
+  return nextWeekDaySortOrder(userId, weekStart, weekday);
 }
 
 // ============================================================================
@@ -314,16 +325,29 @@ export async function placeWeeklyTaskAction(input: {
 
   const { data: existing } = await supabase
     .from("weekly_task_placements")
-    .select("id, done_at, note")
+    .select("id, done_at, note, weekday, day_sort_order")
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
     .eq("week_start", input.weekStart)
     .maybeSingle();
 
+  const movingDay = existing?.weekday !== input.weekday;
+  const daySortOrder = movingDay
+    ? await nextWeeklyDaySortOrder(
+        supabase,
+        user.id,
+        input.weekStart,
+        input.weekday,
+      )
+    : (existing?.day_sort_order ?? 0);
+
   if (existing) {
     const { error } = await supabase
       .from("weekly_task_placements")
-      .update({ weekday: input.weekday })
+      .update({
+        weekday: input.weekday,
+        day_sort_order: daySortOrder,
+      })
       .eq("id", existing.id)
       .eq("user_id", user.id);
     if (error) return { ok: false, error: error.message };
@@ -333,7 +357,52 @@ export async function placeWeeklyTaskAction(input: {
       task_id: input.taskId,
       week_start: input.weekStart,
       weekday: input.weekday,
+      day_sort_order: daySortOrder,
     });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Reorder weekly tasks on a single weekday in the week plan. */
+export async function reorderWeeklyDayTasksAction(input: {
+  weekStart: string;
+  weekday: Weekday;
+  taskIds: string[];
+}): Promise<ActionResult> {
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Week must start on a Monday." };
+  }
+  if (input.weekday < 1 || input.weekday > 7) {
+    return { ok: false, error: "Invalid weekday." };
+  }
+  if (input.taskIds.length === 0) return { ok: true };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: rows } = await supabase
+    .from("weekly_task_placements")
+    .select("id, task_id")
+    .eq("user_id", user.id)
+    .eq("week_start", input.weekStart)
+    .eq("weekday", input.weekday)
+    .in("task_id", input.taskIds);
+
+  const idByTask = new Map((rows ?? []).map((r) => [r.task_id, r.id]));
+  for (let i = 0; i < input.taskIds.length; i++) {
+    const placementId = idByTask.get(input.taskIds[i]);
+    if (!placementId) continue;
+    const { error } = await supabase
+      .from("weekly_task_placements")
+      .update({ day_sort_order: i })
+      .eq("id", placementId)
+      .eq("user_id", user.id);
     if (error) return { ok: false, error: error.message };
   }
 
@@ -967,7 +1036,13 @@ export async function placeMonthlyBillFromWeekAction(input: {
   const monthStart = monthStartFromDate(localDate);
   const dayOfMonth = Number(localDate.split("-")[2]);
 
-  return upsertMonthlyBillSchedule(
+  const daySortOrder = await nextWeekDaySortOrder(
+    user.id,
+    input.weekStart,
+    input.weekday,
+  );
+
+  const scheduleRes = await upsertMonthlyBillSchedule(
     supabase,
     user.id,
     input.taskId,
@@ -975,6 +1050,18 @@ export async function placeMonthlyBillFromWeekAction(input: {
     dayOfMonth,
     false,
   );
+  if (!scheduleRes.ok) return scheduleRes;
+
+  const { error } = await supabase
+    .from("monthly_task_completions")
+    .update({ day_sort_order: daySortOrder })
+    .eq("user_id", user.id)
+    .eq("task_id", input.taskId)
+    .eq("month_start", monthStart);
+
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 /** Move a monthly bill back to the backlog for a month. */

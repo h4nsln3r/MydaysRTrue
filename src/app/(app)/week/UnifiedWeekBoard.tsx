@@ -15,6 +15,12 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   completeBathingSessionAction,
@@ -33,6 +39,7 @@ import { setWeightWeekEnabledAction } from "@/app/(app)/weight-actions";
 import {
   enableWeightWeekAction,
   placeWeekPlanItemAction,
+  reorderWeekPlanDayAction,
   resetWeekPlanToDefaultsAction,
   unplaceWeekPlanItemAction,
 } from "@/app/(app)/week-plan-actions";
@@ -61,7 +68,6 @@ import {
 import { WEIGHT_TIME_LABEL } from "@/lib/weight";
 import {
   groupWeekPlanBacklogItems,
-  groupWeekPlanDayItems,
   type WeekPlanItemGroup,
 } from "@/lib/week-plan-groups";
 import {
@@ -157,9 +163,36 @@ export function UnifiedWeekBoard({
         return [...withoutSource, optimisticPlacement];
       });
     } else {
-      setLocalItems((prev) =>
-        prev.map((i) => (i.dragId === dragId ? { ...i, weekday } : i)),
-      );
+      setLocalItems((prev) => {
+        const moving = prev.find((i) => i.dragId === dragId);
+        if (!moving) return prev;
+        const dayItems = prev.filter(
+          (i) =>
+            i.weekday === weekday &&
+            !(i.kind === "bathing" && i.bathingRole === "source"),
+        );
+        const nextOrder =
+          moving.weekday === weekday
+            ? moving.sortOrder
+            : dayItems.length > 0
+              ? Math.max(...dayItems.map((t) => t.sortOrder)) + 1
+              : 0;
+        return prev.map((i) => {
+          if (i.dragId !== dragId) return i;
+          const next = { ...i, weekday, sortOrder: nextOrder };
+          if (i.kind === "task" && i.placement) {
+            return {
+              ...next,
+              placement: {
+                ...i.placement,
+                weekday,
+                daySortOrder: nextOrder,
+              },
+            };
+          }
+          return next;
+        });
+      });
     }
     setPendingId(dragId);
     startTransition(async () => {
@@ -203,6 +236,7 @@ export function UnifiedWeekBoard({
               templateId: item.templateId,
               weekStart,
               weekday: null,
+              daySortOrder: 0,
               waterTempC: null,
               doneAt: null,
               note: null,
@@ -240,6 +274,65 @@ export function UnifiedWeekBoard({
     const dragId = String(active.id);
     const overId = String(over.id);
 
+    const activeItem = localItems.find((i) => i.dragId === dragId);
+    const overItem = localItems.find((i) => i.dragId === overId);
+    const canReorder = (item: WeekPlanItem | undefined) =>
+      item != null &&
+      item.weekday != null &&
+      !(item.kind === "bathing" && item.bathingRole === "source");
+
+    if (
+      canReorder(activeItem) &&
+      canReorder(overItem) &&
+      activeItem!.weekday === overItem!.weekday
+    ) {
+      const weekday = activeItem!.weekday!;
+      const dayItems = sortDayItems(
+        localItems.filter(
+          (i) =>
+            i.weekday === weekday &&
+            !(i.kind === "bathing" && i.bathingRole === "source"),
+        ),
+      );
+      const oldIndex = dayItems.findIndex((t) => t.dragId === dragId);
+      const newIndex = dayItems.findIndex((t) => t.dragId === overId);
+      if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
+        const reordered = arrayMove(dayItems, oldIndex, newIndex);
+        const orderById = new Map(
+          reordered.map((t, i) => [t.dragId, i] as const),
+        );
+        setLocalItems((prev) =>
+          prev.map((i) => {
+            const order = orderById.get(i.dragId);
+            if (order == null) return i;
+            const next = { ...i, sortOrder: order };
+            if (i.kind === "task" && i.placement) {
+              return {
+                ...next,
+                placement: { ...i.placement, daySortOrder: order },
+              };
+            }
+            return next;
+          }),
+        );
+        setPendingId(dragId);
+        startTransition(async () => {
+          const res = await reorderWeekPlanDayAction({
+            weekStart,
+            weekday,
+            dragIds: reordered.map((t) => t.dragId),
+          });
+          if (!res.ok) {
+            setError(res.error ?? "Kunde inte spara ordning.");
+            setLocalItems(plan.items);
+          }
+          setPendingId(null);
+          router.refresh();
+        });
+      }
+      return;
+    }
+
     if (overId === WEEK_PLAN_BACKLOG_DROP_ID) {
       const item = localItems.find((i) => i.dragId === dragId);
       if (item?.kind === "bathing" && item.bathingRole === "source") return;
@@ -269,6 +362,77 @@ export function UnifiedWeekBoard({
     });
   };
 
+  const renderSortableDayItems = (items: WeekPlanItem[]) => (
+    <SortableContext
+      items={items.map((t) => t.dragId)}
+      strategy={verticalListSortingStrategy}
+    >
+      <ul className={styles.taskList}>
+        {items.map((item) => renderItemRow(item, true, true))}
+      </ul>
+    </SortableContext>
+  );
+
+  const renderItemRow = (
+    item: WeekPlanItem,
+    showCheck: boolean,
+    sortable = false,
+  ) => (
+    sortable ? (
+      <SortableItemRow
+        key={item.dragId}
+        item={item}
+        category={
+          (item.kind === "task" || item.kind === "monthly_bill") && item.categoryId
+            ? catById.get(item.categoryId)
+            : undefined
+        }
+        weekStart={weekStart}
+        expanded={expandedId === item.dragId}
+        busy={pendingId === item.dragId}
+        dragging={draggingId === item.dragId}
+        pending={pending}
+        showCheck={showCheck}
+        onToggleExpand={() =>
+          setExpandedId(expandedId === item.dragId ? null : item.dragId)
+        }
+        onPlace={place}
+        onError={setError}
+        onPendingId={setPendingId}
+        onDone={() => {
+          setExpandedId(null);
+          router.refresh();
+        }}
+      />
+    ) : (
+      <DraggableItemRow
+        key={item.dragId}
+        item={item}
+        category={
+          (item.kind === "task" || item.kind === "monthly_bill") && item.categoryId
+            ? catById.get(item.categoryId)
+            : undefined
+        }
+        weekStart={weekStart}
+        expanded={expandedId === item.dragId}
+        busy={pendingId === item.dragId}
+        dragging={draggingId === item.dragId}
+        pending={pending}
+        showCheck={showCheck}
+        onToggleExpand={() =>
+          setExpandedId(expandedId === item.dragId ? null : item.dragId)
+        }
+        onPlace={place}
+        onError={setError}
+        onPendingId={setPendingId}
+        onDone={() => {
+          setExpandedId(null);
+          router.refresh();
+        }}
+      />
+    )
+  );
+
   const renderGroupedLists = (
     groups: WeekPlanItemGroup[],
     showCheck: boolean,
@@ -281,37 +445,6 @@ export function UnifiedWeekBoard({
         </ul>
       </div>
     ));
-
-  const renderItemRow = (
-    item: WeekPlanItem,
-    showCheck: boolean,
-  ) => (
-    <DraggableItemRow
-      key={item.dragId}
-      item={item}
-      category={
-        (item.kind === "task" || item.kind === "monthly_bill") && item.categoryId
-          ? catById.get(item.categoryId)
-          : undefined
-      }
-      weekStart={weekStart}
-      expanded={expandedId === item.dragId}
-      busy={pendingId === item.dragId}
-      dragging={draggingId === item.dragId}
-      pending={pending}
-      showCheck={showCheck}
-      onToggleExpand={() =>
-        setExpandedId(expandedId === item.dragId ? null : item.dragId)
-      }
-      onPlace={place}
-      onError={setError}
-      onPendingId={setPendingId}
-      onDone={() => {
-        setExpandedId(null);
-        router.refresh();
-      }}
-    />
-  );
 
   return (
     <DndContext
@@ -369,7 +502,11 @@ export function UnifiedWeekBoard({
           {error ? <p className={styles.error}>{error}</p> : null}
 
           {WEEKDAYS.map((d) => {
-            const dayItems = byDay.get(d) ?? [];
+            const dayItems = sortDayItems(
+              (byDay.get(d) ?? []).filter(
+                (i) => !(i.kind === "bathing" && i.bathingRole === "source"),
+              ),
+            );
             const dayDone = dayItems.filter((i) => i.done).length;
             return (
               <DayDropZone key={d} weekday={d}>
@@ -389,10 +526,7 @@ export function UnifiedWeekBoard({
                   <p className={styles.dayEmpty}>Släpp en aktivitet här.</p>
                 ) : (
                   <div className={styles.dayGroups}>
-                    {renderGroupedLists(
-                      groupWeekPlanDayItems(dayItems, plan.categories),
-                      true,
-                    )}
+                    {renderSortableDayItems(dayItems)}
                   </div>
                 )}
               </DayDropZone>
@@ -505,6 +639,58 @@ interface DraggableItemRowProps {
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
+}
+
+function SortableItemRow(props: DraggableItemRowProps) {
+  const { item, pending } = props;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: item.dragId,
+    disabled: pending,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={[
+        styles.task,
+        item.done ? styles.taskDone : "",
+        props.busy ? styles.taskBusy : "",
+        isDragging || props.dragging ? styles.taskDragging : "",
+        props.expanded ? styles.taskExpanded : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <ItemRowContent
+        item={item}
+        category={props.category}
+        weekStart={props.weekStart}
+        expanded={props.expanded}
+        pending={props.pending}
+        busy={props.busy}
+        showCheck={props.showCheck}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        onToggleExpand={props.onToggleExpand}
+        onPlace={props.onPlace}
+        onError={props.onError}
+        onPendingId={props.onPendingId}
+        onDone={props.onDone}
+      />
+    </li>
+  );
 }
 
 function DraggableItemRow({
@@ -1200,4 +1386,8 @@ function ItemRowContent({
       ) : null}
     </>
   );
+}
+
+function sortDayItems(items: WeekPlanItem[]): WeekPlanItem[] {
+  return [...items].sort((a, b) => a.sortOrder - b.sortOrder);
 }

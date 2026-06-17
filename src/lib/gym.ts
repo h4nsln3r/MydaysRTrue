@@ -52,6 +52,8 @@ export interface GymPlacement {
   weekStart: string;
   /** null = in the week backlog until placed on a day. */
   weekday: Weekday | null;
+  /** Order on the weekday in the unified week plan. */
+  daySortOrder: number;
   warmup: GymWarmup | null;
   doneAt: string | null;
   note: string | null;

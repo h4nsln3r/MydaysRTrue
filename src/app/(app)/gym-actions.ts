@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isGymWarmup, type GymWarmup } from "@/lib/gym";
 import type { Weekday } from "@/lib/tasks";
+import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
 
 export interface ActionResult {
   ok: boolean;
@@ -41,16 +42,21 @@ export async function moveGymSessionAction(input: {
 
   const { data: existing } = await supabase
     .from("gym_week_placements")
-    .select("id")
+    .select("id, weekday, day_sort_order")
     .eq("user_id", user.id)
     .eq("template_id", input.templateId)
     .eq("week_start", input.weekStart)
     .maybeSingle();
 
+  const movingDay = existing?.weekday !== input.weekday;
+  const daySortOrder = movingDay
+    ? await nextWeekDaySortOrder(user.id, input.weekStart, input.weekday)
+    : (existing?.day_sort_order ?? 0);
+
   if (existing) {
     const { error } = await supabase
       .from("gym_week_placements")
-      .update({ weekday: input.weekday })
+      .update({ weekday: input.weekday, day_sort_order: daySortOrder })
       .eq("id", existing.id)
       .eq("user_id", user.id);
     if (error) return { ok: false, error: error.message };
@@ -68,6 +74,7 @@ export async function moveGymSessionAction(input: {
       template_id: input.templateId,
       week_start: input.weekStart,
       weekday: input.weekday,
+      day_sort_order: daySortOrder,
     });
     if (error) return { ok: false, error: error.message };
   }

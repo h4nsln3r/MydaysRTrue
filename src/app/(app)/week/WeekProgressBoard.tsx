@@ -13,7 +13,12 @@ import type { WeeklyTaskForWeek } from "@/lib/tasks";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_TIME_LABEL } from "@/lib/weight";
-import { WEEKDAY_LONG, type Weekday } from "@/lib/tasks";
+import {
+  groupByCategory,
+  WEEKDAY_LONG,
+  type TaskCategory,
+  type Weekday,
+} from "@/lib/tasks";
 import styles from "./week-progress.module.scss";
 
 interface Props {
@@ -23,6 +28,7 @@ interface Props {
   cardioSessions: CardioSessionForWeek[];
   bathingSessions: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
+  taskCategories: TaskCategory[];
   weightPlan: WeightWeekPlan;
   journalWeek: WeekJournalSummary;
 }
@@ -50,6 +56,7 @@ export function WeekProgressBoard({
   cardioSessions,
   bathingSessions,
   tasks,
+  taskCategories,
   weightPlan,
   journalWeek,
 }: Props) {
@@ -66,6 +73,14 @@ export function WeekProgressBoard({
   const placedCardio = cardioSessions.filter((s) => s.placement.weekday != null);
   const placedBathing = bathingSessions.filter((s) => s.placement.weekday != null);
   const placedTasks = tasks.filter((t) => t.placement);
+  const taskGroups = groupByCategory(placedTasks, taskCategories).map(
+    ({ category, items }) => ({
+      category,
+      byWeekday: groupTasksByWeekday(items),
+      done: items.filter((t) => t.placement?.doneAt).length,
+      total: items.length,
+    }),
+  );
   const gymDone = placedGym.filter((s) => s.placement.doneAt).length;
   const cardioDone = placedCardio.filter((s) => s.placement.doneAt).length;
   const bathingDone = placedBathing.filter((s) => s.placement.doneAt).length;
@@ -236,14 +251,10 @@ export function WeekProgressBoard({
 
             <SectionRow label="Uppgifter" colSpan={colSpan} />
 
-            <tr>
-              <RowLabel sticky icon="📋" label="Veckouppgifter" />
-              {week.days.map((d) => {
-                const weekday = isoWeekdayFromLocalISO(d.date);
-                const dayTasks = tasksByWeekday.get(weekday) ?? [];
-                const dayDone = dayTasks.filter((t) => t.placement?.doneAt).length;
-                const allDone = dayTasks.length > 0 && dayDone === dayTasks.length;
-                return (
+            {taskGroups.length === 0 ? (
+              <tr>
+                <RowLabel sticky icon="📋" label="Veckouppgifter" />
+                {week.days.map((d) => (
                   <td
                     key={d.date}
                     className={cellClass(
@@ -251,27 +262,60 @@ export function WeekProgressBoard({
                       styles.taskCell,
                       d.isFuture && styles.cellFuture,
                       d.isToday && styles.cellToday,
-                      allDone && styles.taskCellDone,
                     )}
                   >
-                    {dayTasks.length === 0 ? (
-                      <span className={styles.emptyMark}>—</span>
-                    ) : (
-                      <span className={styles.taskFraction}>
-                        {dayDone}/{dayTasks.length}
-                      </span>
-                    )}
+                    <span className={styles.emptyMark}>—</span>
                   </td>
-                );
-              })}
-              <TotalCell
-                value={tasksDone}
-                total={placedTasks.length || null}
-                muted={placedTasks.length === 0}
-                mutedLabel={placedTasks.length === 0 ? "—" : undefined}
-                highlight={placedTasks.length > 0 && tasksDone === placedTasks.length}
-              />
-            </tr>
+                ))}
+                <TotalCell value={null} total={null} muted mutedLabel="—" />
+              </tr>
+            ) : (
+              taskGroups.map(({ category, byWeekday, done, total }) => (
+                <tr key={category?.id ?? "uncategorized"}>
+                  <RowLabel
+                    sticky
+                    icon={category?.icon ?? "📋"}
+                    label={category?.name ?? "Övrigt"}
+                  />
+                  {week.days.map((d) => {
+                    const weekday = isoWeekdayFromLocalISO(d.date);
+                    const dayTasks = byWeekday.get(weekday) ?? [];
+                    const dayDone = dayTasks.filter(
+                      (t) => t.placement?.doneAt,
+                    ).length;
+                    const allDone =
+                      dayTasks.length > 0 && dayDone === dayTasks.length;
+                    return (
+                      <td
+                        key={d.date}
+                        className={cellClass(
+                          styles.dataCell,
+                          styles.taskCell,
+                          d.isFuture && styles.cellFuture,
+                          d.isToday && styles.cellToday,
+                          allDone && styles.taskCellDone,
+                        )}
+                      >
+                        {dayTasks.length === 0 ? (
+                          <span className={styles.emptyMark}>—</span>
+                        ) : (
+                          <span className={styles.taskFraction}>
+                            {dayDone}/{dayTasks.length}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <TotalCell
+                    value={done}
+                    total={total || null}
+                    muted={total === 0}
+                    mutedLabel={total === 0 ? "—" : undefined}
+                    highlight={total > 0 && done === total}
+                  />
+                </tr>
+              ))
+            )}
 
             <SectionRow label="Dagbok" colSpan={colSpan} />
 

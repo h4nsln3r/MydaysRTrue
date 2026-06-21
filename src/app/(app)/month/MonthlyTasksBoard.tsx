@@ -2,7 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toggleMonthlyTaskDoneAction, scheduleMonthlyBillDayAction } from "@/app/(app)/tasks-actions";
+import { Input } from "@/components/Input/Input";
+import { Button } from "@/components/Button/Button";
+import {
+  toggleMonthlyTaskDoneAction,
+  scheduleMonthlyBillDayAction,
+  setMonthlyTaskCategoryAction,
+} from "@/app/(app)/tasks-actions";
 import {
   groupByCategory,
   type MonthlyTaskForMonth,
@@ -21,40 +27,69 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const toggle = (task: MonthlyTaskForMonth) => {
-    const next = !task.completion?.doneAt;
+  const run = (taskId: string, fn: () => Promise<{ ok: boolean; error?: string }>) => {
     setError(null);
-    setPendingId(task.id);
+    setPendingId(taskId);
     startTransition(async () => {
-      const res = await toggleMonthlyTaskDoneAction({
-        taskId: task.id,
-        monthStart,
-        done: next,
-      });
+      const res = await fn();
       if (!res.ok) setError(res.error ?? "Could not update task.");
       setPendingId(null);
       router.refresh();
     });
   };
 
+  const toggleQuick = (task: MonthlyTaskForMonth) =>
+    run(task.id, () =>
+      toggleMonthlyTaskDoneAction({
+        taskId: task.id,
+        monthStart,
+        done: !task.completion?.doneAt,
+      }),
+    );
+
+  const complete = (task: MonthlyTaskForMonth, note: string) =>
+    run(task.id, async () => {
+      const res = await toggleMonthlyTaskDoneAction({
+        taskId: task.id,
+        monthStart,
+        done: true,
+        note,
+      });
+      if (res.ok) setExpandedId(null);
+      return res;
+    });
+
+  const uncomplete = (task: MonthlyTaskForMonth) =>
+    run(task.id, () =>
+      toggleMonthlyTaskDoneAction({
+        taskId: task.id,
+        monthStart,
+        done: false,
+      }),
+    );
+
   const scheduleDay = (task: MonthlyTaskForMonth, raw: string) => {
     const dayOfMonth = raw === "" ? null : Number(raw);
     if (dayOfMonth != null && (dayOfMonth < 1 || dayOfMonth > 31)) return;
-    setError(null);
-    setPendingId(task.id);
-    startTransition(async () => {
-      const res = await scheduleMonthlyBillDayAction({
+    run(task.id, () =>
+      scheduleMonthlyBillDayAction({
         taskId: task.id,
         monthStart,
         dayOfMonth,
-      });
-      if (!res.ok) setError(res.error ?? "Kunde inte placera.");
-      setPendingId(null);
-      router.refresh();
-    });
+      }),
+    );
   };
+
+  const changeCategory = (task: MonthlyTaskForMonth, raw: string) =>
+    run(task.id, () =>
+      setMonthlyTaskCategoryAction({
+        taskId: task.id,
+        categoryId: raw || null,
+      }),
+    );
 
   if (tasks.length === 0) {
     return (
@@ -117,87 +152,205 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
           </header>
 
           <ul className={styles.taskList}>
-            {items.map((t) => {
-              const done = Boolean(t.completion?.doneAt);
-              const busy = pendingId === t.id;
-              const scheduledDay = effectiveScheduledDay(t, t.completion);
-              return (
-                <li
-                  key={t.id}
-                  className={[
-                    styles.task,
-                    done ? styles.taskDone : "",
-                    busy ? styles.taskBusy : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  <button
-                    type="button"
-                    className={[
-                      styles.checkBtn,
-                      done ? styles.checkBtnDone : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    aria-label={done ? "Mark as not done" : "Mark as done"}
-                    aria-pressed={done}
-                    disabled={pending}
-                    onClick={() => toggle(t)}
-                  >
-                    {done ? (
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        aria-hidden
-                      >
-                        <path
-                          d="M5 12.5 10 17.5 19 7.5"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    ) : (
-                      <span aria-hidden />
-                    )}
-                  </button>
-                  <span
-                    className={styles.taskIcon}
-                    aria-hidden
-                    style={{ borderColor: t.accent }}
-                  >
-                    {t.icon}
-                  </span>
-                  <div className={styles.taskMeta}>
-                    <span className={styles.taskTitle}>{t.title}</span>
-                    <label className={styles.taskDay}>
-                      <span className={styles.taskDayLabel}>Dag</span>
-                      <select
-                        className={styles.taskDaySelect}
-                        value={scheduledDay ?? ""}
-                        disabled={pending}
-                        onChange={(e) => scheduleDay(t, e.target.value)}
-                        aria-label={`Placera ${t.title} på dag i månaden`}
-                      >
-                        <option value="">Ej placerad</option>
-                        {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                </li>
-              );
-            })}
+            {items.map((t) => (
+              <MonthlyTaskRow
+                key={t.id}
+                task={t}
+                categories={categories}
+                pending={pending}
+                busy={pendingId === t.id}
+                expanded={expandedId === t.id}
+                onToggleExpand={() =>
+                  setExpandedId(expandedId === t.id ? null : t.id)
+                }
+                onToggleQuick={toggleQuick}
+                onComplete={complete}
+                onUncomplete={uncomplete}
+                onSchedule={scheduleDay}
+                onChangeCategory={changeCategory}
+              />
+            ))}
           </ul>
         </section>
       ))}
     </div>
+  );
+}
+
+interface MonthlyTaskRowProps {
+  task: MonthlyTaskForMonth;
+  categories: TaskCategory[];
+  pending: boolean;
+  busy: boolean;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onToggleQuick: (task: MonthlyTaskForMonth) => void;
+  onComplete: (task: MonthlyTaskForMonth, note: string) => void;
+  onUncomplete: (task: MonthlyTaskForMonth) => void;
+  onSchedule: (task: MonthlyTaskForMonth, raw: string) => void;
+  onChangeCategory: (task: MonthlyTaskForMonth, raw: string) => void;
+}
+
+function MonthlyTaskRow({
+  task,
+  categories,
+  pending,
+  busy,
+  expanded,
+  onToggleExpand,
+  onToggleQuick,
+  onComplete,
+  onUncomplete,
+  onSchedule,
+  onChangeCategory,
+}: MonthlyTaskRowProps) {
+  const done = Boolean(task.completion?.doneAt);
+  const scheduledDay = effectiveScheduledDay(task, task.completion);
+  const savedNote = task.completion?.note?.trim() ?? "";
+  const [note, setNote] = useState(savedNote);
+
+  return (
+    <li
+      className={[
+        styles.task,
+        done ? styles.taskDone : "",
+        busy ? styles.taskBusy : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <button
+        type="button"
+        className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
+          .filter(Boolean)
+          .join(" ")}
+        aria-label={done ? "Mark as not done" : "Mark as done"}
+        aria-pressed={done}
+        disabled={pending}
+        onClick={() => onToggleQuick(task)}
+      >
+        {done ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M5 12.5 10 17.5 19 7.5"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : (
+          <span aria-hidden />
+        )}
+      </button>
+      <span className={styles.taskIcon} aria-hidden style={{ borderColor: task.accent }}>
+        {task.icon}
+      </span>
+      <div className={styles.taskMeta}>
+        <button
+          type="button"
+          className={styles.taskTitleBtn}
+          onClick={onToggleExpand}
+          aria-expanded={expanded}
+          disabled={pending}
+        >
+          <span className={styles.taskTitle}>{task.title}</span>
+          {savedNote ? (
+            <span className={styles.taskNoteHint}>{savedNote}</span>
+          ) : null}
+          <span
+            className={[styles.chevron, expanded ? styles.chevronUp : ""]
+              .filter(Boolean)
+              .join(" ")}
+            aria-hidden
+          >
+            ▾
+          </span>
+        </button>
+        <label className={styles.taskDay}>
+          <span className={styles.taskDayLabel}>Dag</span>
+          <select
+            className={styles.taskDaySelect}
+            value={scheduledDay ?? ""}
+            disabled={pending}
+            onChange={(e) => onSchedule(task, e.target.value)}
+            aria-label={`Placera ${task.title} på dag i månaden`}
+          >
+            <option value="">Ej placerad</option>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {expanded ? (
+        <div className={styles.expand}>
+          {categories.length > 0 ? (
+            <label className={styles.taskDay}>
+              <span className={styles.taskDayLabel}>Kategori</span>
+              <select
+                className={styles.taskDaySelect}
+                value={task.categoryId ?? ""}
+                disabled={pending}
+                onChange={(e) => onChangeCategory(task, e.target.value)}
+                aria-label={`Kategori för ${task.title}`}
+              >
+                <option value="">Ingen kategori</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icon} {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {!done ? (
+            <>
+              <Input
+                label="Kommentar (valfritt)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Skriv en kommentar"
+                maxLength={500}
+                disabled={pending}
+              />
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={() => onComplete(task, note)}
+              >
+                Markera klart
+              </Button>
+            </>
+          ) : (
+            <>
+              {savedNote ? (
+                <p className={styles.noteReadout}>
+                  <span className={styles.noteReadoutLabel}>Kommentar</span>
+                  {savedNote}
+                </p>
+              ) : (
+                <p className={styles.noteEmpty}>Ingen kommentar.</p>
+              )}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={() => onUncomplete(task)}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
+            </>
+          )}
+        </div>
+      ) : null}
+    </li>
   );
 }

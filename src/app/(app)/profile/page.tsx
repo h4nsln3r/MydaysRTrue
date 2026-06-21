@@ -32,8 +32,7 @@ export default async function ProfilePage() {
     { data: profile },
     habits,
     dailyCategories,
-    weeklyCategories,
-    monthlyCategories,
+    taskCategories,
     weeklyTasks,
     monthlyTasks,
     gymTemplates,
@@ -47,8 +46,7 @@ export default async function ProfilePage() {
       .maybeSingle(),
     getHabits(user.id),
     getCategories(user.id, "daily"),
-    getCategories(user.id, "weekly"),
-    getCategories(user.id, "monthly"),
+    getCategories(user.id, "task"),
     getWeeklyTasks(user.id),
     getMonthlyTasks(user.id),
     getGymTemplates(user.id),
@@ -92,10 +90,27 @@ export default async function ProfilePage() {
       <Card>
         <header className={styles.cardHeader}>
           <div>
+            <p className={styles.cardEyebrow}>Vecka & månad</p>
+            <h3 className={styles.h3}>Kategorier</h3>
+            <p className={styles.muted}>
+              Delade kategorier — samma uppsättning används av både vecko- och
+              månadsuppgifter.
+            </p>
+          </div>
+        </header>
+        <div className={styles.stack}>
+          <CategoryEditor scope="task" categories={taskCategories} />
+        </div>
+      </Card>
+
+      <Card>
+        <header className={styles.cardHeader}>
+          <div>
             <p className={styles.cardEyebrow}>Weekly</p>
             <h3 className={styles.h3}>Tasks & categories</h3>
             <p className={styles.muted}>
-              Mallar du placerar på dagar i veckovyn — sätt standarddag per aktivitet.
+              Mallar du placerar på dagar i veckovyn — sätt standarddag och
+              kategori per aktivitet.
             </p>
           </div>
         </header>
@@ -106,8 +121,7 @@ export default async function ProfilePage() {
             weeklyTasks={weeklyTasks}
             weightDefaultWeekday={weightDefaultWeekday}
           />
-          <WeeklyTasksEditor tasks={weeklyTasks} categories={weeklyCategories} />
-          <CategoryEditor scope="weekly" categories={weeklyCategories} />
+          <WeeklyTasksEditor tasks={weeklyTasks} categories={taskCategories} />
         </div>
       </Card>
 
@@ -122,11 +136,7 @@ export default async function ProfilePage() {
           </div>
         </header>
         <div className={styles.stack}>
-          <MonthlyTasksEditor
-            tasks={monthlyTasks}
-            categories={monthlyCategories}
-          />
-          <CategoryEditor scope="monthly" categories={monthlyCategories} />
+          <MonthlyTasksEditor tasks={monthlyTasks} categories={taskCategories} />
         </div>
       </Card>
 

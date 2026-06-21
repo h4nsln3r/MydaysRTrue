@@ -71,10 +71,11 @@ export function AddTaskPanel({
   const [accent, setAccent] = useState(PRESET_ACCENTS[0]);
   const [error, setError] = useState<string | null>(null);
 
-  const scopeCategories = useMemo(
-    () => categories.filter((c) => c.scope === scope),
-    [categories, scope],
-  );
+  // Weekly + monthly tasks share one 'task' category set; daily habits use 'daily'.
+  const scopeCategories = useMemo(() => {
+    const catScope = scope === "daily" ? "daily" : "task";
+    return categories.filter((c) => c.scope === catScope);
+  }, [categories, scope]);
 
   const reset = () => {
     setOpen(false);

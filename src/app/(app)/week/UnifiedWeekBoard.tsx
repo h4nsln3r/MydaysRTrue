@@ -34,7 +34,11 @@ import {
   completeGymSessionAction,
   uncompleteGymSessionAction,
 } from "@/app/(app)/gym-actions";
-import { updateWeeklyTaskPlanAction, toggleMonthlyTaskDoneAction } from "@/app/(app)/tasks-actions";
+import {
+  updateWeeklyTaskPlanAction,
+  toggleMonthlyTaskDoneAction,
+  toggleWeeklyTaskDoneAction,
+} from "@/app/(app)/tasks-actions";
 import { setWeightWeekEnabledAction } from "@/app/(app)/weight-actions";
 import {
   enableWeightWeekAction,
@@ -382,17 +386,13 @@ export function UnifiedWeekBoard({
       <SortableItemRow
         key={item.dragId}
         item={item}
-        category={
-          (item.kind === "task" || item.kind === "monthly_bill") && item.categoryId
-            ? catById.get(item.categoryId)
-            : undefined
-        }
         weekStart={weekStart}
         expanded={expandedId === item.dragId}
         busy={pendingId === item.dragId}
         dragging={draggingId === item.dragId}
         pending={pending}
         showCheck={showCheck}
+        showCategory={false}
         onToggleExpand={() =>
           setExpandedId(expandedId === item.dragId ? null : item.dragId)
         }
@@ -419,6 +419,7 @@ export function UnifiedWeekBoard({
         dragging={draggingId === item.dragId}
         pending={pending}
         showCheck={showCheck}
+        showCategory
         onToggleExpand={() =>
           setExpandedId(expandedId === item.dragId ? null : item.dragId)
         }
@@ -557,12 +558,14 @@ export function UnifiedWeekBoard({
           <ItemCardPreview
             item={draggingItem}
             category={
+              draggingItem.weekday == null &&
               (draggingItem.kind === "task" ||
                 draggingItem.kind === "monthly_bill") &&
               draggingItem.categoryId
                 ? catById.get(draggingItem.categoryId)
                 : undefined
             }
+            showCategory={draggingItem.weekday == null}
           />
         ) : null}
       </DragOverlay>
@@ -634,6 +637,7 @@ interface DraggableItemRowProps {
   dragging: boolean;
   pending: boolean;
   showCheck: boolean;
+  showCategory?: boolean;
   onToggleExpand: () => void;
   onPlace: (dragId: string, weekday: Weekday) => void;
   onError: (msg: string | null) => void;
@@ -682,6 +686,7 @@ function SortableItemRow(props: DraggableItemRowProps) {
         pending={props.pending}
         busy={props.busy}
         showCheck={props.showCheck}
+        showCategory={props.showCategory}
         dragHandleProps={{ ...attributes, ...listeners }}
         onToggleExpand={props.onToggleExpand}
         onPlace={props.onPlace}
@@ -702,6 +707,7 @@ function DraggableItemRow({
   dragging,
   pending,
   showCheck,
+  showCategory = true,
   onToggleExpand,
   onPlace,
   onError,
@@ -739,6 +745,7 @@ function DraggableItemRow({
         pending={pending}
         busy={busy}
         showCheck={showCheck}
+        showCategory={showCategory}
         dragHandleProps={{ ...attributes, ...listeners }}
         onToggleExpand={onToggleExpand}
         onPlace={onPlace}
@@ -753,9 +760,11 @@ function DraggableItemRow({
 function ItemCardPreview({
   item,
   category,
+  showCategory = true,
 }: {
   item: WeekPlanItem;
   category?: TaskCategory;
+  showCategory?: boolean;
 }) {
   return (
     <div
@@ -775,6 +784,7 @@ function ItemCardPreview({
         pending={false}
         busy={false}
         showCheck={false}
+        showCategory={showCategory}
         preview
         onToggleExpand={() => {}}
         onPlace={() => {}}
@@ -794,6 +804,7 @@ interface ItemRowContentProps {
   pending: boolean;
   busy: boolean;
   showCheck: boolean;
+  showCategory?: boolean;
   preview?: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
   onToggleExpand: () => void;
@@ -811,6 +822,7 @@ function ItemRowContent({
   pending,
   busy,
   showCheck,
+  showCategory = true,
   preview = false,
   dragHandleProps,
   onToggleExpand,
@@ -847,7 +859,8 @@ function ItemRowContent({
       item.completionKind === "music");
 
   const kindLabel =
-    item.kind === "gym"
+    showCategory &&
+    (item.kind === "gym"
       ? "Gym"
       : item.kind === "cardio"
         ? "Cardio"
@@ -857,7 +870,7 @@ function ItemRowContent({
             ? "Vikt"
             : item.kind === "monthly_bill"
               ? "Räkning"
-              : null;
+              : null);
 
   const toggleMonthlyBill = () => {
     if (item.kind !== "monthly_bill") return;
@@ -867,6 +880,22 @@ function ItemRowContent({
       const res = await toggleMonthlyTaskDoneAction({
         taskId: item.taskId,
         monthStart: item.monthStart,
+        done: !item.done,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const toggleTaskDone = () => {
+    if (item.kind !== "task") return;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await toggleWeeklyTaskDoneAction({
+        taskId: item.taskId,
+        weekStart,
         done: !item.done,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
@@ -1040,7 +1069,8 @@ function ItemRowContent({
   return (
     <>
       {showCheck &&
-        (item.kind === "gym" ||
+        (item.kind === "task" ||
+          item.kind === "gym" ||
           item.kind === "cardio" ||
           (item.kind === "bathing" && item.bathingRole === "placement") ||
           item.kind === "weight" ||
@@ -1050,9 +1080,14 @@ function ItemRowContent({
           className={[styles.checkBtn, item.done ? styles.checkBtnDone : ""]
             .filter(Boolean)
             .join(" ")}
-          aria-label={item.done ? "Klart" : "Logga"}
+          aria-label={item.done ? "Markera ej klar" : "Markera klar"}
+          aria-pressed={item.done}
           onClick={
-            item.kind === "monthly_bill" ? toggleMonthlyBill : onToggleExpand
+            item.kind === "task"
+              ? toggleTaskDone
+              : item.kind === "monthly_bill"
+                ? toggleMonthlyBill
+                : onToggleExpand
           }
           disabled={pending}
         >
@@ -1111,7 +1146,7 @@ function ItemRowContent({
           <span className={styles.taskTitle}>{item.label}</span>
           {kindLabel ? (
             <span className={styles.taskKind}>{kindLabel}</span>
-          ) : category ? (
+          ) : showCategory && category ? (
             <span className={styles.taskCategory} style={{ color: category.accent }}>
               {category.icon} {category.name}
             </span>

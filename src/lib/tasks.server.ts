@@ -188,7 +188,7 @@ export async function getWeekSummary(
       .from("task_categories")
       .select("id, scope, name, icon, accent, sort_order")
       .eq("user_id", userId)
-      .eq("scope", "weekly")
+      .eq("scope", "task")
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
     supabase
@@ -394,7 +394,7 @@ export async function getMonthTaskSummary(
       .from("task_categories")
       .select("id, scope, name, icon, accent, sort_order")
       .eq("user_id", userId)
-      .eq("scope", "monthly")
+      .eq("scope", "task")
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
   ]);
@@ -439,7 +439,7 @@ export async function getMonthlyBillsForWeek(
       .from("task_categories")
       .select("id, scope, name, icon, accent, sort_order")
       .eq("user_id", userId)
-      .eq("scope", "monthly")
+      .eq("scope", "task")
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
     supabase

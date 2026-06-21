@@ -8,6 +8,7 @@ import type { TaskCategory, WeeklyTask } from "@/lib/tasks";
 import {
   archiveWeeklyTaskAction,
   createWeeklyTaskAction,
+  setWeeklyTaskCategoryAction,
 } from "@/app/(app)/tasks-actions";
 import styles from "./profile.module.scss";
 
@@ -78,6 +79,18 @@ export function WeeklyTasksEditor({ tasks, categories }: Props) {
     });
   };
 
+  const changeCategory = (taskId: string, nextCategoryId: string) => {
+    setError(null);
+    startTransition(async () => {
+      const res = await setWeeklyTaskCategoryAction({
+        taskId,
+        categoryId: nextCategoryId || null,
+      });
+      if (!res.ok) setError(res.error ?? "Could not update category.");
+      router.refresh();
+    });
+  };
+
   const catById = new Map(categories.map((c) => [c.id, c]));
 
   return (
@@ -109,6 +122,22 @@ export function WeeklyTasksEditor({ tasks, categories }: Props) {
                     {category ? `${category.icon} ${category.name}` : "No category"}
                   </span>
                 </div>
+                {categories.length > 0 ? (
+                  <select
+                    className={styles.habitCategorySelect}
+                    value={t.categoryId ?? ""}
+                    onChange={(e) => changeCategory(t.id, e.target.value)}
+                    disabled={pending}
+                    aria-label={`Category for ${t.title}`}
+                  >
+                    <option value="">—</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.icon} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
                 {isConfirming ? (
                   <span className={styles.habitConfirm}>
                     <button

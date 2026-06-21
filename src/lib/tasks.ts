@@ -1,7 +1,10 @@
 // Client-safe types + helpers for categories, weekly tasks and monthly tasks.
 // Server-only queries live in `./tasks.server`.
 
-export type TaskScope = "daily" | "weekly" | "monthly";
+// 'daily' = habit categories. 'task' = shared categories used by BOTH weekly
+// and monthly tasks. 'weekly'/'monthly' are legacy values kept for type-compat
+// with old rows (migrated to 'task' in 0028).
+export type TaskScope = "daily" | "weekly" | "monthly" | "task";
 
 /** ISO weekday: 1 = Mon … 7 = Sun. */
 export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -42,7 +45,8 @@ export type WeeklyTaskCompletionKind =
   | "shop"
   | "journal"
   | "laundry"
-  | "music";
+  | "music"
+  | "note";
 
 export const MUSIC_BANDS = ["Totes", "Bojeng"] as const;
 export type MusicBand = (typeof MUSIC_BANDS)[number];

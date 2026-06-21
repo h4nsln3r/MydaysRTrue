@@ -392,7 +392,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          scope: "daily" | "weekly" | "monthly";
+          scope: "daily" | "weekly" | "monthly" | "task";
           name: string;
           icon: string;
           accent: string;
@@ -404,7 +404,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          scope: "daily" | "weekly" | "monthly";
+          scope: "daily" | "weekly" | "monthly" | "task";
           name: string;
           icon?: string;
           accent?: string;
@@ -416,7 +416,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          scope?: "daily" | "weekly" | "monthly";
+          scope?: "daily" | "weekly" | "monthly" | "task";
           name?: string;
           icon?: string;
           accent?: string;

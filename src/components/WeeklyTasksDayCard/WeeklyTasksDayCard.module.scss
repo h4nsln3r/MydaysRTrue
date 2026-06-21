@@ -114,9 +114,10 @@
 .task {
     display: grid;
     grid-template-columns: auto 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: auto auto auto;
     grid-template-areas:
         "check body"
+        "reschedule reschedule"
         "actions actions";
     gap: 0 $space-3;
     align-items: center;
@@ -132,6 +133,51 @@
     background:
         linear-gradient(90deg, rgba(110, 231, 163, 0.06), transparent 65%),
         $color-ink-soft;
+}
+
+.taskOverdue {
+    border-left-color: $color-warning;
+    background:
+        linear-gradient(90deg, rgba(255, 207, 58, 0.07), transparent 65%),
+        $color-ink-soft;
+}
+
+.reschedule {
+    grid-area: reschedule;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: $space-2;
+    margin-top: $space-2;
+    border-top: 1px dashed $color-line;
+}
+
+.rescheduleLabel {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-warning;
+}
+
+.rescheduleSelect {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-mono;
+    font-size: 0.85rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        border-color: $color-fog;
+    }
+
+    &:disabled {
+        opacity: 0.6;
+    }
 }
 
 .taskBusy {
@@ -272,6 +318,42 @@
 
     &:hover:not(:disabled) {
         color: $color-cream;
+    }
+}
+
+.categoryField {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: $space-2;
+    margin-top: $space-1;
+    border-top: 1px dashed $color-line;
+}
+
+.categoryFieldLabel {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $color-fog;
+}
+
+.categorySelect {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-mono;
+    font-size: 0.85rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        border-color: $color-fog;
+    }
+
+    &:disabled {
+        opacity: 0.6;
     }
 }
 

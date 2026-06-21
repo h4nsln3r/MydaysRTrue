@@ -81,6 +81,10 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
 
   const work = await getWorkDailyLog(user.id, today);
 
+  const hasIncompleteWeekly = weeklyTasksDay.tasks.some(
+    (t) => !t.placement?.doneAt,
+  );
+
   const journal = await getDailyJournal(user.id, {
     localDate: today,
     gymSessions: gymDay.sessions,
@@ -131,28 +135,48 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
 
       {view === "progress" ? (
         <>
-          <TrainingDaySection
-            weekStart={gymDay.weekStart}
-            gymSessions={gymDay.sessions}
-            cardioSessions={cardioDay.sessions}
-            bathingSessions={bathingDay.sessions}
-            weightContext={weightDay}
-            gymTitle="Gym idag"
-            cardioTitle="Cardio idag"
-            bathingTitle="Bad & bastu idag"
-            weightTitle="Vikt idag"
-          />
+          {(() => {
+            const weeklySection = (
+              <section className={styles.section}>
+                <WeeklyTasksDayCard
+                  weekStart={weeklyTasksDay.weekStart}
+                  tasks={weeklyTasksDay.tasks}
+                  categories={weeklyTasksDay.categories}
+                  date={today}
+                  today={today}
+                  title="Veckouppgifter idag"
+                  hideWhenEmpty
+                  showWeekLink={false}
+                />
+              </section>
+            );
 
-          <section className={styles.section}>
-            <WeeklyTasksDayCard
-              weekStart={weeklyTasksDay.weekStart}
-              tasks={weeklyTasksDay.tasks}
-              categories={weeklyTasksDay.categories}
-              title="Veckouppgifter idag"
-              hideWhenEmpty
-              showWeekLink={false}
-            />
-          </section>
+            const training = (
+              <TrainingDaySection
+                weekStart={gymDay.weekStart}
+                gymSessions={gymDay.sessions}
+                cardioSessions={cardioDay.sessions}
+                bathingSessions={bathingDay.sessions}
+                weightContext={weightDay}
+                gymTitle="Gym idag"
+                cardioTitle="Cardio idag"
+                bathingTitle="Bad & bastu idag"
+                weightTitle="Vikt idag"
+              />
+            );
+
+            return hasIncompleteWeekly ? (
+              <>
+                {weeklySection}
+                {training}
+              </>
+            ) : (
+              <>
+                {training}
+                {weeklySection}
+              </>
+            );
+          })()}
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>

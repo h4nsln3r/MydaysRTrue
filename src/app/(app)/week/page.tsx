@@ -250,6 +250,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
           tasks={weeklyTasks.tasks}
 
+          taskCategories={weeklyTasks.categories}
+
           weightPlan={weightPlan}
 
           journalWeek={journalWeek}

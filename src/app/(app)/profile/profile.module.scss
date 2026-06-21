@@ -479,6 +479,17 @@
     gap: 4px;
 }
 
+.categoryActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.categoryItemEditing {
+    flex-basis: 100%;
+    width: 100%;
+}
+
 .categoryChip {
     display: inline-flex;
     align-items: center;

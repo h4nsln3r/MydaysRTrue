@@ -109,6 +109,10 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
 
   const backToWeek = `/week?start=${weekStartISO(parseLocalISO(date))}`;
 
+  const hasIncompleteWeekly = weeklyTasksDay.tasks.some(
+    (t) => !t.placement?.doneAt,
+  );
+
   return (
     <main className={styles.main}>
       <header className={styles.header}>
@@ -131,24 +135,44 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
 
       {view === "progress" ? (
         <>
-          <TrainingDaySection
-            weekStart={gymDay.weekStart}
-            gymSessions={gymDay.sessions}
-            cardioSessions={cardioDay.sessions}
-            bathingSessions={bathingDay.sessions}
-            weightContext={weightDay}
-          />
+          {(() => {
+            const weeklySection = (
+              <section className={styles.section}>
+                <WeeklyTasksDayCard
+                  weekStart={weeklyTasksDay.weekStart}
+                  tasks={weeklyTasksDay.tasks}
+                  categories={weeklyTasksDay.categories}
+                  date={date}
+                  today={today}
+                  title="Veckouppgifter"
+                  hideWhenEmpty
+                  showWeekLink={false}
+                />
+              </section>
+            );
 
-          <section className={styles.section}>
-            <WeeklyTasksDayCard
-              weekStart={weeklyTasksDay.weekStart}
-              tasks={weeklyTasksDay.tasks}
-              categories={weeklyTasksDay.categories}
-              title="Veckouppgifter"
-              hideWhenEmpty
-              showWeekLink={false}
-            />
-          </section>
+            const training = (
+              <TrainingDaySection
+                weekStart={gymDay.weekStart}
+                gymSessions={gymDay.sessions}
+                cardioSessions={cardioDay.sessions}
+                bathingSessions={bathingDay.sessions}
+                weightContext={weightDay}
+              />
+            );
+
+            return hasIncompleteWeekly ? (
+              <>
+                {weeklySection}
+                {training}
+              </>
+            ) : (
+              <>
+                {training}
+                {weeklySection}
+              </>
+            );
+          })()}
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>

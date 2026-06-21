@@ -31,9 +31,30 @@ export interface ActionResult {
 
 const VALID_SCOPES: ReadonlySet<TaskScope> = new Set([
   "daily",
-  "weekly",
-  "monthly",
+  // Shared category set used by both weekly and monthly tasks.
+  "task",
 ]);
+
+/**
+ * Verify a category exists, belongs to the user, and has the expected scope.
+ * Returns null when valid, or an error message otherwise.
+ */
+async function validateCategoryScope(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  categoryId: string,
+  scope: TaskScope,
+): Promise<string | null> {
+  const { data: cat } = await supabase
+    .from("task_categories")
+    .select("scope, user_id")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (!cat || cat.user_id !== userId || cat.scope !== scope) {
+    return "Invalid category.";
+  }
+  return null;
+}
 
 function cleanTitle(raw: string, max = 80): string | null {
   const s = (raw ?? "").trim();
@@ -599,7 +620,11 @@ export async function completeWeeklyTaskAction(input: {
       }
       band = bandInput as MusicBand;
     }
-  } else if (note) {
+  }
+
+  // Any kind without a dedicated required text field may still carry an
+  // optional free-text comment (simple, note, shop, laundry).
+  if (completionNote == null && note) {
     completionNote = note.slice(0, 500);
   }
 
@@ -1090,11 +1115,16 @@ export async function unplaceMonthlyBillFromWeekAction(input: {
   );
 }
 
-/** Toggle the done state for a monthly task on a given month. */
+/**
+ * Toggle the done state for a monthly task on a given month. Optionally stores
+ * a free-text comment. When `note` is omitted on completion any existing
+ * comment is preserved; uncompleting always clears it.
+ */
 export async function toggleMonthlyTaskDoneAction(input: {
   taskId: string;
   monthStart: string;
   done: boolean;
+  note?: string;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Missing task id." };
   if (!MONTH_START_RE.test(input.monthStart)) {
@@ -1116,11 +1146,18 @@ export async function toggleMonthlyTaskDoneAction(input: {
     .maybeSingle();
 
   const doneAt = input.done ? new Date().toISOString() : null;
+  const trimmedNote = (input.note ?? "").trim();
+  const noteValue = input.done ? trimmedNote.slice(0, 500) || null : null;
+  const setNote = input.done ? input.note !== undefined : true;
 
   if (existing) {
+    const patch: { done_at: string | null; note?: string | null } = {
+      done_at: doneAt,
+    };
+    if (setNote) patch.note = noteValue;
     const { error } = await supabase
       .from("monthly_task_completions")
-      .update({ done_at: doneAt })
+      .update(patch)
       .eq("id", existing.id)
       .eq("user_id", user.id);
     if (error) return { ok: false, error: error.message };
@@ -1130,6 +1167,7 @@ export async function toggleMonthlyTaskDoneAction(input: {
       task_id: input.taskId,
       month_start: input.monthStart,
       done_at: doneAt,
+      note: noteValue,
     });
     if (error) return { ok: false, error: error.message };
   }
@@ -1173,6 +1211,78 @@ export async function setHabitCategoryAction(input: {
     .from("habits")
     .update({ category_id: input.categoryId })
     .eq("id", input.habitId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/**
+ * Attach (or detach) a shared 'task' category to an existing weekly task.
+ */
+export async function setWeeklyTaskCategoryAction(input: {
+  taskId: string;
+  categoryId: string | null;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  if (input.categoryId) {
+    const err = await validateCategoryScope(
+      supabase,
+      user.id,
+      input.categoryId,
+      "task",
+    );
+    if (err) return { ok: false, error: err };
+  }
+
+  const { error } = await supabase
+    .from("weekly_tasks")
+    .update({ category_id: input.categoryId })
+    .eq("id", input.taskId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/**
+ * Attach (or detach) a shared 'task' category to an existing monthly task.
+ */
+export async function setMonthlyTaskCategoryAction(input: {
+  taskId: string;
+  categoryId: string | null;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  if (input.categoryId) {
+    const err = await validateCategoryScope(
+      supabase,
+      user.id,
+      input.categoryId,
+      "task",
+    );
+    if (err) return { ok: false, error: err };
+  }
+
+  const { error } = await supabase
+    .from("monthly_tasks")
+    .update({ category_id: input.categoryId })
+    .eq("id", input.taskId)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
@@ -9,8 +9,11 @@ import { Input } from "@/components/Input/Input";
 import { MusicTaskChecklist } from "@/components/MusicTaskChecklist/MusicTaskChecklist";
 import {
   completeWeeklyTaskAction,
+  placeWeeklyTaskAction,
+  setWeeklyTaskCategoryAction,
   toggleWeeklyTaskDoneAction,
   uncompleteWeeklyTaskAction,
+  unplaceWeeklyTaskAction,
 } from "@/app/(app)/tasks-actions";
 import {
   formatWeeklyTaskDetail,
@@ -20,14 +23,25 @@ import {
   sortIncompleteFirst,
   type MusicBand,
   type TaskCategory,
+  type Weekday,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import { addDaysISO, formatDayLong, isoWeekdayFromLocalISO } from "@/lib/date";
 import styles from "./WeeklyTasksDayCard.module.scss";
+
+interface RescheduleDay {
+  weekday: Weekday;
+  label: string;
+}
 
 interface Props {
   weekStart: string;
   tasks: WeeklyTaskForWeek[];
   categories: TaskCategory[];
+  /** The day this card represents (YYYY-MM-DD). */
+  date?: string;
+  /** The user's current local day (YYYY-MM-DD). */
+  today?: string;
   title?: string;
   hideWhenEmpty?: boolean;
   showWeekLink?: boolean;
@@ -37,6 +51,8 @@ export function WeeklyTasksDayCard({
   weekStart,
   tasks,
   categories,
+  date,
+  today,
   title = "Veckouppgifter",
   hideWhenEmpty = false,
   showWeekLink = true,
@@ -46,6 +62,29 @@ export function WeeklyTasksDayCard({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // After 20:00 we let the user reschedule a still-undone task. Evaluated only
+  // on the client (after mount) to avoid an SSR/hydration time mismatch.
+  const [afterEight, setAfterEight] = useState(false);
+  useEffect(() => {
+    setAfterEight(new Date().getHours() >= 20);
+  }, []);
+
+  const isOverdue = date != null && today != null && date < today;
+  const isToday = date != null && today != null && date === today;
+  const canReschedule = isOverdue || (isToday && afterEight);
+
+  // Remaining days of this week the task can move to. Always tomorrow … Sunday;
+  // for an overdue task we also offer today (catch it up to the current day).
+  const rescheduleDays = useMemo<RescheduleDay[]>(() => {
+    if (!today) return [];
+    return Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i))
+      .filter((iso) => iso > today || (isOverdue && iso === today))
+      .map((iso) => ({
+        weekday: isoWeekdayFromLocalISO(iso) as Weekday,
+        label: iso === today ? "Idag" : formatDayLong(iso),
+      }));
+  }, [weekStart, today, isOverdue]);
 
   const doneCount = tasks.filter((t) => t.placement?.doneAt).length;
   const grouped = groupByCategory(tasks, categories).map(({ category, items }) => ({
@@ -121,6 +160,10 @@ export function WeeklyTasksDayCard({
                   key={task.id}
                   task={task}
                   weekStart={weekStart}
+                  categories={categories}
+                  canReschedule={canReschedule}
+                  isOverdue={isOverdue}
+                  rescheduleDays={rescheduleDays}
                   expanded={expandedId === task.id}
                   busy={pendingId === task.id}
                   pending={pending}
@@ -129,6 +172,7 @@ export function WeeklyTasksDayCard({
                   }
                   onError={setError}
                   onPendingId={setPendingId}
+                  onRefresh={() => router.refresh()}
                   onDone={() => {
                     setExpandedId(null);
                     router.refresh();
@@ -146,29 +190,44 @@ export function WeeklyTasksDayCard({
 interface TaskRowProps {
   task: WeeklyTaskForWeek;
   weekStart: string;
+  categories: TaskCategory[];
+  canReschedule: boolean;
+  isOverdue: boolean;
+  rescheduleDays: RescheduleDay[];
   expanded: boolean;
   busy: boolean;
   pending: boolean;
   onToggleExpand: () => void;
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
+  onRefresh: () => void;
   onDone: () => void;
 }
 
 function TaskRow({
   task,
   weekStart,
+  categories,
+  canReschedule,
+  isOverdue,
+  rescheduleDays,
   expanded,
   busy,
   pending,
   onToggleExpand,
   onError,
   onPendingId,
+  onRefresh,
   onDone,
 }: TaskRowProps) {
   const placement = task.placement;
   const done = Boolean(placement?.doneAt);
-  const needsExpand = task.completionKind !== "simple";
+  // Quick tasks complete with one tap on the circle; everything is still
+  // expandable so any task can carry an optional comment.
+  const isQuickToggle =
+    task.completionKind === "simple" || task.completionKind === "note";
+  const needsExpand = true;
+  const showReschedule = canReschedule && !done;
   const [, startTransition] = useTransition();
 
   const [taskNote, setTaskNote] = useState(placement?.note ?? "");
@@ -245,17 +304,51 @@ function TaskRow({
     });
   };
 
+  const reschedule = (value: string) => {
+    if (!value) return;
+    onError(null);
+    onPendingId(task.id);
+    startTransition(async () => {
+      const res =
+        value === "remove"
+          ? await unplaceWeeklyTaskAction({ taskId: task.id, weekStart })
+          : await placeWeeklyTaskAction({
+              taskId: task.id,
+              weekStart,
+              weekday: Number(value) as Weekday,
+            });
+      if (!res.ok) onError(res.error ?? "Kunde inte planera om.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const changeCategory = (value: string) => {
+    onError(null);
+    onPendingId(task.id);
+    startTransition(async () => {
+      const res = await setWeeklyTaskCategoryAction({
+        taskId: task.id,
+        categoryId: value || null,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte byta kategori.");
+      onPendingId(null);
+      onRefresh();
+    });
+  };
+
   return (
     <li
       className={[
         styles.task,
         done ? styles.taskDone : "",
+        showReschedule && isOverdue ? styles.taskOverdue : "",
         busy ? styles.taskBusy : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      {task.completionKind === "simple" ? (
+      {isQuickToggle ? (
         <button
           type="button"
           className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
@@ -344,6 +437,31 @@ function TaskRow({
         ) : null}
       </button>
 
+      {showReschedule ? (
+        <div className={styles.reschedule}>
+          <span className={styles.rescheduleLabel}>
+            {isOverdue ? "Försenad" : "Hinner du inte? Planera om"}
+          </span>
+          <select
+            className={styles.rescheduleSelect}
+            value=""
+            disabled={pending}
+            onChange={(e) => reschedule(e.target.value)}
+            aria-label="Planera om uppgift"
+          >
+            <option value="" disabled>
+              Planera om…
+            </option>
+            {rescheduleDays.map((d) => (
+              <option key={d.weekday} value={String(d.weekday)}>
+                {d.label}
+              </option>
+            ))}
+            <option value="remove">Ta bort från veckoplanen</option>
+          </select>
+        </div>
+      ) : null}
+
       {expanded && needsExpand ? (
         <div className={styles.taskActions}>
           {task.completionKind === "journal" && planNote ? (
@@ -402,6 +520,19 @@ function TaskRow({
                   value={taskNote}
                   onChange={(e) => setTaskNote(e.target.value)}
                   placeholder="Anteckna resultatet"
+                  maxLength={500}
+                  disabled={pending}
+                />
+              ) : null}
+              {task.completionKind === "simple" ||
+              task.completionKind === "note" ||
+              task.completionKind === "shop" ||
+              task.completionKind === "laundry" ? (
+                <Input
+                  label="Kommentar (valfritt)"
+                  value={taskNote}
+                  onChange={(e) => setTaskNote(e.target.value)}
+                  placeholder="Skriv en kommentar"
                   maxLength={500}
                   disabled={pending}
                 />
@@ -475,6 +606,26 @@ function TaskRow({
               Ångra klarmarkering
             </button>
           )}
+
+          {categories.length > 0 ? (
+            <label className={styles.categoryField}>
+              <span className={styles.categoryFieldLabel}>Kategori</span>
+              <select
+                className={styles.categorySelect}
+                value={task.categoryId ?? ""}
+                disabled={pending}
+                onChange={(e) => changeCategory(e.target.value)}
+                aria-label={`Kategori för ${task.title}`}
+              >
+                <option value="">Ingen kategori</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icon} {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
         </div>
       ) : null}
     </li>

@@ -36,7 +36,7 @@ const PRESET_ACCENTS = [
   "#c084fc",
 ];
 
-const SCOPE_LABEL: Record<TaskScope, string> = {
+const SCOPE_LABEL: Record<"daily" | "weekly" | "monthly", string> = {
   daily: "Daglig",
   weekly: "Veckovis",
   monthly: "Månadsvis",

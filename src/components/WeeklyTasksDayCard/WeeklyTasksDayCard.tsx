@@ -9,6 +9,7 @@ import { Input } from "@/components/Input/Input";
 import { MusicTaskChecklist } from "@/components/MusicTaskChecklist/MusicTaskChecklist";
 import {
   completeWeeklyTaskAction,
+  createOneOffWeeklyTaskAction,
   placeWeeklyTaskAction,
   setWeeklyTaskCategoryAction,
   toggleWeeklyTaskDoneAction,
@@ -45,6 +46,8 @@ interface Props {
   title?: string;
   hideWhenEmpty?: boolean;
   showWeekLink?: boolean;
+  /** Show a quick "add a task for this week only" affordance. */
+  enableQuickAdd?: boolean;
 }
 
 export function WeeklyTasksDayCard({
@@ -56,6 +59,7 @@ export function WeeklyTasksDayCard({
   title = "Veckouppgifter",
   hideWhenEmpty = false,
   showWeekLink = true,
+  enableQuickAdd = false,
 }: Props) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -73,6 +77,20 @@ export function WeeklyTasksDayCard({
   const isOverdue = date != null && today != null && date < today;
   const isToday = date != null && today != null && date === today;
   const canReschedule = isOverdue || (isToday && afterEight);
+
+  const quickAddWeekday =
+    enableQuickAdd && date != null
+      ? (isoWeekdayFromLocalISO(date) as Weekday)
+      : null;
+  const quickAdd =
+    quickAddWeekday != null ? (
+      <QuickAddRow
+        weekStart={weekStart}
+        weekday={quickAddWeekday}
+        categories={categories}
+        onAdded={() => router.refresh()}
+      />
+    ) : null;
 
   // Remaining days of this week the task can move to. Always tomorrow … Sunday;
   // for an overdue task we also offer today (catch it up to the current day).
@@ -97,11 +115,15 @@ export function WeeklyTasksDayCard({
   }));
 
   if (tasks.length === 0) {
-    if (hideWhenEmpty) return null;
+    if (hideWhenEmpty) {
+      if (!quickAdd) return null;
+      return <Card className={styles.card}>{quickAdd}</Card>;
+    }
 
     return (
       <Card className={styles.card}>
         <p className={styles.empty}>Inga veckouppgifter planerade idag.</p>
+        {quickAdd}
         {showWeekLink ? (
           <Link
             href={`/week?start=${weekStart}&view=plan`}
@@ -183,7 +205,122 @@ export function WeeklyTasksDayCard({
           </section>
         ))}
       </div>
+      {quickAdd}
     </Card>
+  );
+}
+
+interface QuickAddRowProps {
+  weekStart: string;
+  weekday: Weekday;
+  categories: TaskCategory[];
+  onAdded: () => void;
+}
+
+function QuickAddRow({
+  weekStart,
+  weekday,
+  categories,
+  onAdded,
+}: QuickAddRowProps) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const submit = () => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    setError(null);
+    const cat = categories.find((c) => c.id === categoryId) ?? null;
+    startTransition(async () => {
+      const res = await createOneOffWeeklyTaskAction({
+        title: trimmed,
+        weekStart,
+        weekday,
+        categoryId: categoryId || null,
+        accent: cat?.accent,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte lägga till.");
+        return;
+      }
+      setTitle("");
+      setCategoryId("");
+      setOpen(false);
+      onAdded();
+    });
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={styles.quickAddToggle}
+        onClick={() => setOpen(true)}
+      >
+        + Lägg till uppgift (bara denna vecka)
+      </button>
+    );
+  }
+
+  return (
+    <div className={styles.quickAdd}>
+      {error ? <p className={styles.error}>{error}</p> : null}
+      <Input
+        label="Uppgift"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="t.ex. Extra kodning"
+        maxLength={80}
+        disabled={pending}
+        autoFocus
+      />
+      {categories.length > 0 ? (
+        <label className={styles.categoryField}>
+          <span className={styles.categoryFieldLabel}>Kategori</span>
+          <select
+            className={styles.categorySelect}
+            value={categoryId}
+            disabled={pending}
+            onChange={(e) => setCategoryId(e.target.value)}
+            aria-label="Kategori för uppgiften"
+          >
+            <option value="">Ingen kategori</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icon} {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      <div className={styles.quickAddActions}>
+        <button
+          type="button"
+          className={styles.quickAddCancel}
+          onClick={() => {
+            setOpen(false);
+            setTitle("");
+            setError(null);
+          }}
+          disabled={pending}
+        >
+          Avbryt
+        </button>
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          loading={pending}
+          disabled={pending || !title.trim()}
+          onClick={submit}
+        >
+          Lägg till
+        </Button>
+      </div>
+    </div>
   );
 }
 

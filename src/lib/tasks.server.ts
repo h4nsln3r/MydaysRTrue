@@ -153,6 +153,8 @@ export async function getWeeklyTasks(userId: string): Promise<WeeklyTask[]> {
     .select(WEEKLY_TASK_SELECT)
     .eq("user_id", userId)
     .is("archived_at", null)
+    // Exclude one-off (single-week) tasks from the permanent template list.
+    .is("single_week_start", null)
     .order("sort_order", { ascending: true });
   return (data ?? []).map(rowToWeekly);
 }
@@ -178,6 +180,8 @@ export async function getWeekSummary(
       .select(WEEKLY_TASK_SELECT)
       .eq("user_id", userId)
       .is("archived_at", null)
+      // Permanent templates (single_week_start null) plus one-offs for THIS week.
+      .or(`single_week_start.is.null,single_week_start.eq.${weekStart}`)
       .order("sort_order", { ascending: true }),
     supabase
       .from("weekly_task_placements")

@@ -249,6 +249,89 @@ export async function createWeeklyTaskAction(input: {
   return { ok: true };
 }
 
+/**
+ * Create a one-off weekly task that exists ONLY for the given week and place it
+ * on a weekday (or leave it in the week backlog when weekday is omitted). It
+ * does not recur and is hidden from the profile editor / future weeks.
+ */
+export async function createOneOffWeeklyTaskAction(input: {
+  title: string;
+  weekStart: string;
+  categoryId?: string | null;
+  weekday?: Weekday | null;
+  icon?: string;
+  accent?: string;
+}): Promise<ActionResult> {
+  const title = cleanTitle(input.title, 80);
+  if (!title) return { ok: false, error: "Title is required." };
+  if (!isMonday(input.weekStart)) return { ok: false, error: "Invalid week." };
+  if (input.weekday != null && (input.weekday < 1 || input.weekday > 7)) {
+    return { ok: false, error: "Ogiltig veckodag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  if (input.categoryId) {
+    const err = await validateCategoryScope(
+      supabase,
+      user.id,
+      input.categoryId,
+      "task",
+    );
+    if (err) return { ok: false, error: err };
+  }
+
+  const { data: maxRow } = await supabase
+    .from("weekly_tasks")
+    .select("sort_order")
+    .eq("user_id", user.id)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  // completion_kind omitted → DB default 'note' (quick check + optional comment).
+  const { data: created, error } = await supabase
+    .from("weekly_tasks")
+    .insert({
+      user_id: user.id,
+      category_id: input.categoryId ?? null,
+      title,
+      icon: cleanIcon(input.icon),
+      accent: cleanAccent(input.accent),
+      sort_order: nextOrder,
+      single_week_start: input.weekStart,
+    })
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!created) return { ok: false, error: "Kunde inte skapa uppgiften." };
+
+  const weekday = input.weekday ?? null;
+  const daySortOrder =
+    weekday != null
+      ? await nextWeeklyDaySortOrder(supabase, user.id, input.weekStart, weekday)
+      : 0;
+
+  const { error: placeError } = await supabase
+    .from("weekly_task_placements")
+    .insert({
+      user_id: user.id,
+      task_id: created.id,
+      week_start: input.weekStart,
+      weekday,
+      day_sort_order: daySortOrder,
+    });
+  if (placeError) return { ok: false, error: placeError.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function updateWeeklyTaskAction(input: {
   id: string;
   title?: string;

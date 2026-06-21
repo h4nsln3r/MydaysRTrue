@@ -439,6 +439,7 @@ export interface Database {
           accent: string;
           sort_order: number;
           default_weekday: number | null;
+          single_week_start: string | null;
           completion_kind: "simple" | "shop" | "journal" | "laundry" | "music";
           archived_at: string | null;
           created_at: string;
@@ -455,6 +456,7 @@ export interface Database {
           accent?: string;
           sort_order?: number;
           default_weekday?: number | null;
+          single_week_start?: string | null;
           completion_kind?: "simple" | "shop" | "journal" | "laundry";
           archived_at?: string | null;
           created_at?: string;
@@ -471,6 +473,7 @@ export interface Database {
           accent?: string;
           sort_order?: number;
           default_weekday?: number | null;
+          single_week_start?: string | null;
           completion_kind?: "simple" | "shop" | "journal" | "laundry";
           archived_at?: string | null;
           created_at?: string;

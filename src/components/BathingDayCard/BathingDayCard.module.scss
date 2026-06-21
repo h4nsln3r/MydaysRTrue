@@ -327,3 +327,38 @@
         color: $color-cream;
     }
 }
+
+.extraToggle {
+    align-self: flex-start;
+    padding: 8px 12px;
+    border-radius: $radius-pill;
+    border: 1px dashed $color-line;
+    background: transparent;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+    }
+}
+
+.extra {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-3;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+}
+
+.extraActions {
+    display: flex;
+    gap: $space-2;
+    justify-content: flex-end;
+    align-items: center;
+}

@@ -7,6 +7,7 @@ import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
 import {
   completeBathingSessionAction,
+  logExtraBathAction,
   uncompleteBathingSessionAction,
 } from "@/app/(app)/bathing-actions";
 import {
@@ -14,7 +15,7 @@ import {
   formatWaterTemp,
   type BathingSessionForWeek,
 } from "@/lib/bathing";
-import { sortIncompleteFirst } from "@/lib/tasks";
+import { sortIncompleteFirst, type Weekday } from "@/lib/tasks";
 import styles from "./BathingDayCard.module.scss";
 
 interface Props {
@@ -23,6 +24,10 @@ interface Props {
   title?: string;
   hideWhenEmpty?: boolean;
   showWeekLink?: boolean;
+  /** The weekday this card represents — required for "extra bath" logging. */
+  weekday?: Weekday | null;
+  /** Show a one-tap "extra bath" button that logs a completed bath. */
+  enableExtraBath?: boolean;
 }
 
 export function BathingDayCard({
@@ -31,6 +36,8 @@ export function BathingDayCard({
   title = "Bad & bastu",
   hideWhenEmpty = false,
   showWeekLink = true,
+  weekday = null,
+  enableExtraBath = false,
 }: Props) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -45,12 +52,25 @@ export function BathingDayCard({
     (a, b) => a.sortOrder - b.sortOrder,
   );
 
+  const extraBath =
+    enableExtraBath && weekday != null ? (
+      <ExtraBath
+        weekStart={weekStart}
+        weekday={weekday}
+        onAdded={() => router.refresh()}
+      />
+    ) : null;
+
   if (sessions.length === 0) {
-    if (hideWhenEmpty) return null;
+    if (hideWhenEmpty) {
+      if (!extraBath) return null;
+      return <Card className={styles.card}>{extraBath}</Card>;
+    }
 
     return (
       <Card className={styles.card}>
         <p className={styles.empty}>Inget bad eller bastu planerat den här dagen.</p>
+        {extraBath}
         {showWeekLink ? (
           <Link
             href={`/week?start=${weekStart}&view=plan`}
@@ -118,7 +138,112 @@ export function BathingDayCard({
           />
         ))}
       </ul>
+      {extraBath}
     </Card>
+  );
+}
+
+interface ExtraBathProps {
+  weekStart: string;
+  weekday: Weekday;
+  onAdded: () => void;
+}
+
+function ExtraBath({ weekStart, weekday, onAdded }: ExtraBathProps) {
+  const [open, setOpen] = useState(false);
+  const [waterTemp, setWaterTemp] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const submit = () => {
+    setError(null);
+    const parsed = Number(waterTemp.replace(",", "."));
+    startTransition(async () => {
+      const res = await logExtraBathAction({
+        weekStart,
+        weekday,
+        waterTempC: Number.isFinite(parsed) ? parsed : undefined,
+        note,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte logga badet.");
+        return;
+      }
+      setWaterTemp("");
+      setNote("");
+      setOpen(false);
+      onAdded();
+    });
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={styles.extraToggle}
+        onClick={() => setOpen(true)}
+      >
+        + Extra bad
+      </button>
+    );
+  }
+
+  return (
+    <div className={styles.extra}>
+      {error ? <p className={styles.error}>{error}</p> : null}
+      <div className={styles.tempRow}>
+        <span className={styles.fieldLabel}>Temp</span>
+        <div className={styles.tempField}>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.1"
+            className={styles.tempInput}
+            value={waterTemp}
+            onChange={(e) => setWaterTemp(e.target.value)}
+            placeholder="4"
+            aria-label="Vattentemperatur i grader Celsius"
+            autoFocus
+          />
+          <span className={styles.tempUnit}>°C</span>
+        </div>
+      </div>
+      <label className={styles.noteField}>
+        <span className={styles.fieldLabel}>Kommentar</span>
+        <textarea
+          className={styles.noteInput}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Var badade du? Hur kändes det?"
+          rows={2}
+          maxLength={280}
+        />
+      </label>
+      <div className={styles.extraActions}>
+        <button
+          type="button"
+          className={styles.undoBtn}
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+          }}
+          disabled={pending}
+        >
+          Avbryt
+        </button>
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          loading={pending}
+          disabled={pending}
+          onClick={submit}
+        >
+          Logga bad
+        </Button>
+      </div>
+    </div>
   );
 }
 

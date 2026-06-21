@@ -9,16 +9,18 @@ import type { WeekJournalSummary } from "@/lib/journal";
 import { MOOD_ICON, MOOD_LABEL } from "@/lib/mood";
 import type { WeekSummary, WeekDay } from "@/lib/water.server";
 import { waterDayStatus, type WaterDayStatus } from "@/lib/water";
-import type { WeeklyTaskForWeek } from "@/lib/tasks";
+import {
+  formatWeeklyTaskDetail,
+  groupByCategory,
+  WEEKDAY_LONG,
+  WEEKDAY_SHORT,
+  type TaskCategory,
+  type Weekday,
+  type WeeklyTaskForWeek,
+} from "@/lib/tasks";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_TIME_LABEL } from "@/lib/weight";
-import {
-  groupByCategory,
-  WEEKDAY_LONG,
-  type TaskCategory,
-  type Weekday,
-} from "@/lib/tasks";
 import styles from "./week-progress.module.scss";
 
 interface Props {
@@ -76,6 +78,7 @@ export function WeekProgressBoard({
   const taskGroups = groupByCategory(placedTasks, taskCategories).map(
     ({ category, items }) => ({
       category,
+      items,
       byWeekday: groupTasksByWeekday(items),
       done: items.filter((t) => t.placement?.doneAt).length,
       total: items.length,
@@ -426,6 +429,10 @@ export function WeekProgressBoard({
         </table>
       </div>
 
+      {taskGroups.length > 0 ? (
+        <WeekCategoryRecap taskGroups={taskGroups} days={week.days} />
+      ) : null}
+
       {weightPlan.enabled ? (
         <WeightWeekSummary plan={weightPlan} today={today} />
       ) : null}
@@ -436,6 +443,211 @@ export function WeekProgressBoard({
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+interface TaskGroupRecap {
+  category: TaskCategory | null;
+  items: WeeklyTaskForWeek[];
+  byWeekday: Map<number, WeeklyTaskForWeek[]>;
+  done: number;
+  total: number;
+}
+
+function WeekCategoryRecap({
+  taskGroups,
+  days,
+}: {
+  taskGroups: TaskGroupRecap[];
+  days: WeekDay[];
+}) {
+  return (
+    <aside className={styles.categoryRecap} aria-label="Sammanfattning per kategori">
+      <h3 className={styles.categoryRecapTitle}>Veckans uppgifter per kategori</h3>
+      <div className={styles.categoryRecapGrid}>
+        {taskGroups.map((group) => (
+          <CategoryRecapCard
+            key={group.category?.id ?? "uncategorized"}
+            group={group}
+            days={days}
+          />
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function CategoryRecapCard({
+  group,
+  days,
+}: {
+  group: TaskGroupRecap;
+  days: WeekDay[];
+}) {
+  const { category, items, byWeekday, done, total } = group;
+  const backlog = items.filter((t) => t.placement?.weekday == null);
+  const placed = items.filter((t) => t.placement?.weekday != null);
+  const doneItems = placed
+    .filter((t) => t.placement?.doneAt)
+    .sort((a, b) => {
+      const wd =
+        (a.placement?.weekday ?? 0) - (b.placement?.weekday ?? 0);
+      if (wd !== 0) return wd;
+      return a.sortOrder - b.sortOrder;
+    });
+  const pendingItems = placed
+    .filter((t) => !t.placement?.doneAt)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const allDone = total > 0 && done === total;
+
+  return (
+    <article
+      className={cellClass(
+        styles.categoryCard,
+        allDone && styles.categoryCard_done,
+        done > 0 && done < total && styles.categoryCard_partial,
+      )}
+      style={
+        category?.accent
+          ? { borderLeftColor: category.accent }
+          : undefined
+      }
+    >
+      <header className={styles.categoryCardHeader}>
+        <span className={styles.categoryCardIcon} aria-hidden>
+          {category?.icon ?? "📋"}
+        </span>
+        <div className={styles.categoryCardHeading}>
+          <h4 className={styles.categoryCardName}>
+            {category?.name ?? "Övrigt"}
+          </h4>
+          <span
+            className={cellClass(
+              styles.categoryCardCounter,
+              allDone && styles.categoryCardCounterDone,
+            )}
+          >
+            {done}/{total} klara
+          </span>
+        </div>
+      </header>
+
+      <div className={styles.categoryWeekGrid} role="grid" aria-label="Veckan">
+        {days.map((d) => {
+          const weekday = isoWeekdayFromLocalISO(d.date) as Weekday;
+          const dayTasks = byWeekday.get(weekday) ?? [];
+          return (
+            <div
+              key={d.date}
+              className={cellClass(
+                styles.categoryDayCol,
+                d.isToday && styles.categoryDayColToday,
+                d.isFuture && styles.categoryDayColFuture,
+              )}
+              role="gridcell"
+            >
+              <span className={styles.categoryDayLabel}>
+                {WEEKDAY_SHORT[weekday]}
+              </span>
+              <ul className={styles.categoryDayTasks}>
+                {dayTasks.length === 0 ? (
+                  <li className={styles.categoryDayEmpty} aria-hidden>
+                    ·
+                  </li>
+                ) : (
+                  dayTasks.map((t) => {
+                    const taskDone = Boolean(t.placement?.doneAt);
+                    return (
+                      <li
+                        key={t.id}
+                        className={cellClass(
+                          styles.categoryTaskChip,
+                          taskDone && styles.categoryTaskChipDone,
+                        )}
+                        title={t.title}
+                      >
+                        <span aria-hidden>{t.icon}</span>
+                        <span className={styles.categoryTaskChipMark} aria-hidden>
+                          {taskDone ? "✓" : "○"}
+                        </span>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+
+      {doneItems.length > 0 ? (
+        <section className={styles.categorySection}>
+          <p className={styles.categorySectionLabel}>Klart den här veckan</p>
+          <ul className={styles.categoryDoneList}>
+            {doneItems.map((t) => {
+              const placement = t.placement!;
+              const detail = formatWeeklyTaskDetail(placement);
+              const dayLabel =
+                placement.weekday != null
+                  ? WEEKDAY_LONG[placement.weekday as Weekday]
+                  : null;
+              return (
+                <li key={t.id} className={styles.categoryDoneItem}>
+                  <span className={styles.categoryDoneIcon} aria-hidden>
+                    {t.icon}
+                  </span>
+                  <span className={styles.categoryDoneBody}>
+                    <span className={styles.categoryDoneTitle}>{t.title}</span>
+                    {detail ? (
+                      <span className={styles.categoryDoneDetail}>{detail}</span>
+                    ) : null}
+                  </span>
+                  {dayLabel ? (
+                    <span className={styles.categoryDoneDay}>{dayLabel}</span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {pendingItems.length > 0 ? (
+        <section className={styles.categorySection}>
+          <p className={styles.categorySectionLabel}>Kvar att göra</p>
+          <ul className={styles.categoryPendingList}>
+            {pendingItems.map((t) => {
+              const wd = t.placement?.weekday;
+              return (
+                <li key={t.id} className={styles.categoryPendingItem}>
+                  <span aria-hidden>{t.icon}</span>
+                  <span>{t.title}</span>
+                  {wd != null ? (
+                    <span className={styles.categoryPendingDay}>
+                      {WEEKDAY_LONG[wd as Weekday]}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {backlog.length > 0 ? (
+        <section className={styles.categorySection}>
+          <p className={styles.categorySectionLabel}>Ej placerad</p>
+          <ul className={styles.categoryPendingList}>
+            {backlog.map((t) => (
+              <li key={t.id} className={styles.categoryPendingItem}>
+                <span aria-hidden>{t.icon}</span>
+                <span>{t.title}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </article>
+  );
+}
 
 function WeightWeekSummary({
   plan,

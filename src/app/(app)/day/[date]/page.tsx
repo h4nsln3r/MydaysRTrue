@@ -147,6 +147,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
                   title="Veckouppgifter"
                   hideWhenEmpty
                   showWeekLink={false}
+                  enableQuickAdd
                 />
               </section>
             );
@@ -158,6 +159,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
                 cardioSessions={cardioDay.sessions}
                 bathingSessions={bathingDay.sessions}
                 weightContext={weightDay}
+                bathingWeekday={bathingDay.weekday}
+                enableExtraBath
               />
             );
 

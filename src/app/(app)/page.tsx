@@ -147,6 +147,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
                   title="Veckouppgifter idag"
                   hideWhenEmpty
                   showWeekLink={false}
+                  enableQuickAdd
                 />
               </section>
             );
@@ -162,6 +163,8 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
                 cardioTitle="Cardio idag"
                 bathingTitle="Bad & bastu idag"
                 weightTitle="Vikt idag"
+                bathingWeekday={bathingDay.weekday}
+                enableExtraBath
               />
             );
 

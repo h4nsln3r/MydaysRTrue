@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createHabitAction } from "@/app/(app)/actions";
 import {
   createMonthlyTaskAction,
+  createOneOffWeeklyTaskAction,
   createWeeklyTaskAction,
 } from "@/app/(app)/tasks-actions";
 import { Button } from "@/components/Button/Button";
@@ -50,6 +51,10 @@ interface Props {
   weeklyOnly?: boolean;
   /** Lighter layout when embedded in the week board. */
   embedded?: boolean;
+  /** Current week (Monday) — enables the "only this week" one-off option. */
+  weekStart?: string;
+  /** Allow creating a one-off task that only exists for `weekStart`. */
+  allowOneOff?: boolean;
 }
 
 export function AddTaskPanel({
@@ -57,6 +62,8 @@ export function AddTaskPanel({
   defaultScope = "weekly",
   weeklyOnly = false,
   embedded = false,
+  weekStart,
+  allowOneOff = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -69,7 +76,10 @@ export function AddTaskPanel({
   const [dayOfMonth, setDayOfMonth] = useState("");
   const [icon, setIcon] = useState(PRESET_ICONS[0]);
   const [accent, setAccent] = useState(PRESET_ACCENTS[0]);
+  const [oneOff, setOneOff] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const canOneOff = allowOneOff && weekStart != null && scope === "weekly";
 
   // Weekly + monthly tasks share one 'task' category set; daily habits use 'daily'.
   const scopeCategories = useMemo(() => {
@@ -84,6 +94,7 @@ export function AddTaskPanel({
     setDayOfMonth("");
     setIcon(PRESET_ICONS[0]);
     setAccent(PRESET_ACCENTS[0]);
+    setOneOff(false);
     setError(null);
     setScope(weeklyOnly ? "weekly" : defaultScope);
   };
@@ -113,12 +124,21 @@ export function AddTaskPanel({
           categoryId: categoryId || null,
         });
       } else if (scope === "weekly") {
-        res = await createWeeklyTaskAction({
-          title,
-          categoryId: categoryId || null,
-          icon,
-          accent,
-        });
+        res =
+          canOneOff && oneOff && weekStart
+            ? await createOneOffWeeklyTaskAction({
+                title,
+                weekStart,
+                categoryId: categoryId || null,
+                icon,
+                accent,
+              })
+            : await createWeeklyTaskAction({
+                title,
+                categoryId: categoryId || null,
+                icon,
+                accent,
+              });
       } else {
         res = await createMonthlyTaskAction({
           title,
@@ -233,6 +253,23 @@ export function AddTaskPanel({
                 ))}
               </select>
             </div>
+          ) : null}
+
+          {canOneOff ? (
+            <label className={styles.checkRow}>
+              <input
+                type="checkbox"
+                className={styles.checkbox}
+                checked={oneOff}
+                onChange={(e) => setOneOff(e.target.checked)}
+              />
+              <span className={styles.checkText}>
+                Bara den här veckan
+                <span className={styles.checkHint}>
+                  Engångsuppgift — återkommer inte nästa vecka
+                </span>
+              </span>
+            </label>
           ) : null}
 
           <div className={styles.field}>

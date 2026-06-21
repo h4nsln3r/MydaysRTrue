@@ -132,6 +132,40 @@
     border: 2px solid transparent;
 }
 
+.checkRow {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-2;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    cursor: pointer;
+}
+
+.checkbox {
+    margin-top: 2px;
+    width: 18px;
+    height: 18px;
+    accent-color: $color-orange;
+    flex-shrink: 0;
+}
+
+.checkText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.9rem;
+    color: $color-cream;
+    font-weight: 600;
+}
+
+.checkHint {
+    font-size: 0.74rem;
+    font-weight: 400;
+    color: $color-fog;
+}
+
 .error {
     color: $color-danger;
     font-size: 0.88rem;

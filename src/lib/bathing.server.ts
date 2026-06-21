@@ -131,9 +131,11 @@ export async function getBathingWeekSummary(
 
   return {
     weekStart,
+    // "bad" is repeatable, so keep its source in the backlog even once placed;
+    // other templates (bastu) disappear from the backlog after placement.
     templates: (templates ?? [])
       .map(rowToTemplate)
-      .filter((t) => !placedTemplateIds.has(t.id)),
+      .filter((t) => t.key === "bad" || !placedTemplateIds.has(t.id)),
     placedSessions,
   };
 }

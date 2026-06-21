@@ -117,6 +117,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
       {view === "progress" ? (
         <MonthProgressBoard
           summary={summary}
+          monthStart={monthStart}
           monthlyTasks={monthlyTasks.tasks}
           monthlyDone={monthlyDone}
           monthlyTotal={monthlyTasks.tasks.length}

@@ -2,11 +2,13 @@ import Link from "next/link";
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { MonthDay, MonthSummary } from "@/lib/habits.server";
 import type { MonthlyTaskForMonth } from "@/lib/tasks";
-import { effectiveScheduledDay } from "@/lib/monthly-bills";
+import { dateInMonth, effectiveScheduledDay } from "@/lib/monthly-bills";
+import { formatDayShort } from "@/lib/date";
 import styles from "./month-progress.module.scss";
 
 interface Props {
   summary: MonthSummary;
+  monthStart: string;
   monthlyTasks: MonthlyTaskForMonth[];
   monthlyDone: number;
   monthlyTotal: number;
@@ -24,6 +26,7 @@ const WEEKDAY_HEAD = ["M", "T", "O", "T", "F", "L", "S"];
 
 export function MonthProgressBoard({
   summary,
+  monthStart,
   monthlyTasks,
   monthlyDone,
   monthlyTotal,
@@ -125,14 +128,6 @@ export function MonthProgressBoard({
               </tr>
             ))}
 
-            {hasTasks ? (
-              <>
-                <SectionRow label="Månadsuppgifter" colSpan={colSpan} />
-                {monthlyTasks.map((task) => (
-                  <TaskRow key={task.id} task={task} days={summary.days} />
-                ))}
-              </>
-            ) : null}
           </tbody>
           <tfoot>
             <tr className={styles.footerRow}>
@@ -147,7 +142,11 @@ export function MonthProgressBoard({
                   )}
                 >
                   {!d.isFuture ? (
-                    <DayScore day={d} habits={summary.habits} />
+                    <DayScore
+                      day={d}
+                      habits={summary.habits}
+                      monthlyTasks={monthlyTasks}
+                    />
                   ) : null}
                 </td>
               ))}
@@ -160,6 +159,14 @@ export function MonthProgressBoard({
           </tfoot>
         </table>
       </div>
+
+      {hasTasks ? (
+        <MonthlyTasksSummary
+          tasks={monthlyTasks}
+          monthStart={monthStart}
+          today={today}
+        />
+      ) : null}
     </div>
   );
 }
@@ -194,64 +201,127 @@ function DayHeader({ day, today }: { day: MonthDay; today: string }) {
   );
 }
 
-function TaskRow({
+function MonthlyTasksSummary({
+  tasks,
+  monthStart,
+  today,
+}: {
+  tasks: MonthlyTaskForMonth[];
+  monthStart: string;
+  today: string;
+}) {
+  return (
+    <aside className={styles.monthlyAside} aria-label="Månadsuppgifter">
+      <p className={styles.monthlyAsideTitle}>Månadsuppgifter</p>
+      <div className={styles.monthlyGrid}>
+        {tasks.map((task) => (
+          <MonthlyTaskCard
+            key={task.id}
+            task={task}
+            monthStart={monthStart}
+            today={today}
+          />
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function MonthlyTaskCard({
   task,
-  days,
+  monthStart,
+  today,
 }: {
   task: MonthlyTaskForMonth;
-  days: MonthDay[];
+  monthStart: string;
+  today: string;
 }) {
   const done = Boolean(task.completion?.doneAt);
   const scheduledDay = effectiveScheduledDay(task, task.completion);
+  const scheduledDate =
+    scheduledDay != null ? dateInMonth(monthStart, scheduledDay) : null;
+  const isFuture = scheduledDate ? scheduledDate > today : false;
+  const isToday = scheduledDate === today;
+  const planHref = `/month?m=${monthStart.slice(0, 7)}&view=plan`;
+  const dayHref =
+    scheduledDate == null
+      ? planHref
+      : isToday
+        ? "/"
+        : `/day/${scheduledDate}`;
+
+  let status: "done" | "planned" | "missed" | "unplaced" = "unplaced";
+  if (scheduledDay != null) {
+    if (done) status = "done";
+    else if (isFuture || isToday) status = "planned";
+    else status = "missed";
+  }
 
   return (
-    <tr>
-      <RowLabel sticky icon={task.icon} label={task.title} />
-      {days.map((d) => {
-        const isScheduled = scheduledDay === d.dayOfMonth;
-        if (!isScheduled) {
-          return (
-            <td
-              key={d.date}
-              className={cellClass(styles.dataCell, d.isFuture && styles.cellFuture, d.isToday && styles.cellToday)}
-            />
-          );
-        }
+    <div
+      className={cellClass(
+        styles.monthlyCard,
+        status === "done" && styles.monthlyCard_done,
+        status === "planned" && styles.monthlyCard_planned,
+        status === "missed" && styles.monthlyCard_missed,
+        status === "unplaced" && styles.monthlyCard_unplaced,
+      )}
+    >
+      <div className={styles.monthlyCardMain}>
+        <span className={styles.monthlyCardIcon} aria-hidden>
+          {task.icon}
+        </span>
+        <div className={styles.monthlyCardBody}>
+          <p className={styles.monthlyCardKicker}>{task.title}</p>
+          {status === "unplaced" ? (
+            <p className={styles.monthlyCardDetail}>Ej placerad den här månaden</p>
+          ) : (
+            <p className={styles.monthlyCardDetail}>
+              Dag {scheduledDay}
+              {scheduledDate ? (
+                <span className={styles.monthlyCardDate}>
+                  {" "}
+                  · {formatDayShort(scheduledDate)}
+                </span>
+              ) : null}
+            </p>
+          )}
+          {done && task.completion?.note ? (
+            <p className={styles.monthlyCardHint}>{task.completion.note}</p>
+          ) : status === "planned" ? (
+            <p className={styles.monthlyCardHint}>Planerad uppgift</p>
+          ) : status === "missed" ? (
+            <p className={styles.monthlyCardHint}>Inte klar ännu</p>
+          ) : null}
+        </div>
+      </div>
 
-        return (
-          <td
-            key={d.date}
-            className={cellClass(
-              styles.dataCell,
-              styles.taskCell,
-              d.isFuture && styles.cellFuture,
-              d.isToday && styles.cellToday,
-              !d.isFuture && done && styles.taskCellDone,
-              !d.isFuture && !done && styles.taskCellScheduled,
-            )}
-            title={task.title}
-          >
-            {!d.isFuture ? (
-              done ? (
-                <span className={styles.doneMark} aria-label="Klar">
-                  ✓
-                </span>
-              ) : (
-                <span className={styles.plannedMark} aria-label="Planerad">
-                  ○
-                </span>
-              )
-            ) : null}
-          </td>
-        );
-      })}
-      <TotalCell
-        value={done ? 1 : 0}
-        total={1}
-        highlight={done}
-        muted={scheduledDay != null && !done}
-      />
-    </tr>
+      <div className={styles.monthlyCardAside}>
+        {status === "done" ? (
+          <span className={styles.monthlyStatusDone} aria-label="Klar">
+            ✓
+          </span>
+        ) : status === "planned" ? (
+          <span className={styles.monthlyStatusPlanned} aria-label="Planerad">
+            ○
+          </span>
+        ) : status === "missed" ? (
+          <span className={styles.monthlyStatusMissed} aria-label="Saknas">
+            !
+          </span>
+        ) : null}
+        <Link
+          href={status === "done" && scheduledDate ? dayHref : planHref}
+          className={styles.monthlyCardLink}
+        >
+          {status === "unplaced"
+            ? "Öppna månadsplan"
+            : done
+              ? "Visa dag"
+              : "Öppna månadsplan"}
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -317,13 +387,29 @@ function TotalCell({
   );
 }
 
-function DayScore({ day, habits }: { day: MonthDay; habits: Habit[] }) {
+function DayScore({
+  day,
+  habits,
+  monthlyTasks,
+}: {
+  day: MonthDay;
+  habits: Habit[];
+  monthlyTasks: MonthlyTaskForMonth[];
+}) {
   let hit = 0;
   let total = 0;
 
   for (const h of habits) {
     total += 1;
     if (day.statuses[h.id] === "yes") hit += 1;
+  }
+
+  for (const task of monthlyTasks) {
+    const scheduledDay = effectiveScheduledDay(task, task.completion);
+    if (scheduledDay === day.dayOfMonth) {
+      total += 1;
+      if (task.completion?.doneAt) hit += 1;
+    }
   }
 
   if (total === 0) return <span className={styles.emptyMark}>—</span>;

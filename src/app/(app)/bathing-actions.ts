@@ -60,34 +60,46 @@ export async function addBathingPlacementAction(input: {
 
   const { data: template } = await supabase
     .from("bathing_session_templates")
-    .select("id")
+    .select("id, key")
     .eq("id", input.templateId)
     .eq("user_id", user.id)
     .is("archived_at", null)
     .maybeSingle();
   if (!template) return { ok: false, error: "Passet hittades inte." };
 
-  const { count: placedCount } = await supabase
-    .from("bathing_week_placements")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("template_id", input.templateId)
-    .eq("week_start", input.weekStart)
-    .not("weekday", "is", null);
+  // "bad" is repeatable — any number of baths per week. Other templates
+  // (bastu) keep their one-per-week behaviour and reuse an orphan/existing row.
+  const repeatable = template.key === "bad";
 
-  if (placedCount && placedCount > 0) {
-    return { ok: false, error: "Det här passet är redan placerat den här veckan." };
+  if (!repeatable) {
+    const { count: placedCount } = await supabase
+      .from("bathing_week_placements")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("template_id", input.templateId)
+      .eq("week_start", input.weekStart)
+      .not("weekday", "is", null);
+
+    if (placedCount && placedCount > 0) {
+      return {
+        ok: false,
+        error: "Det här passet är redan placerat den här veckan.",
+      };
+    }
   }
 
-  // Invisible orphan rows (weekday null) block insert under the legacy unique index.
-  const { data: orphan } = await supabase
-    .from("bathing_week_placements")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("template_id", input.templateId)
-    .eq("week_start", input.weekStart)
-    .is("weekday", null)
-    .maybeSingle();
+  // Invisible orphan rows (weekday null) block insert under the legacy unique
+  // index — reuse one for non-repeatable templates.
+  const { data: orphan } = repeatable
+    ? { data: null }
+    : await supabase
+        .from("bathing_week_placements")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("template_id", input.templateId)
+        .eq("week_start", input.weekStart)
+        .is("weekday", null)
+        .maybeSingle();
 
   if (orphan) {
     const { error } = await supabase
@@ -132,6 +144,66 @@ export async function addBathingPlacementAction(input: {
     }
     return { ok: false, error: error.message };
   }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/**
+ * Log an extra, ad-hoc bath on a weekday: creates a NEW placement for the
+ * repeatable "bad" template and immediately marks it done with the water temp.
+ */
+export async function logExtraBathAction(input: {
+  weekStart: string;
+  weekday: Weekday;
+  waterTempC?: number;
+  note?: string;
+}): Promise<ActionResult> {
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Veckan måste börja på en måndag." };
+  }
+  if (input.weekday < 1 || input.weekday > 7) {
+    return { ok: false, error: "Ogiltig veckodag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: template } = await supabase
+    .from("bathing_session_templates")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("key", "bad")
+    .is("archived_at", null)
+    .maybeSingle();
+  if (!template) return { ok: false, error: "Badpasset hittades inte." };
+
+  const tempError = validateWaterTemp("bad", input.waterTempC);
+  if (tempError) return { ok: false, error: tempError };
+
+  const daySortOrder = await nextWeekDaySortOrder(
+    user.id,
+    input.weekStart,
+    input.weekday,
+  );
+
+  const { error } = await supabase.from("bathing_week_placements").insert({
+    user_id: user.id,
+    template_id: template.id,
+    week_start: input.weekStart,
+    weekday: input.weekday,
+    day_sort_order: daySortOrder,
+    done_at: new Date().toISOString(),
+    water_temp_c:
+      input.waterTempC != null && Number.isFinite(input.waterTempC)
+        ? input.waterTempC
+        : null,
+    note: input.note?.trim() || null,
+  });
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
   return { ok: true };

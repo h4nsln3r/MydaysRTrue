@@ -156,15 +156,20 @@ export function UnifiedWeekBoard({
         ) {
           return prev.filter((i) => i.dragId !== dragId);
         }
-        const withoutSource = prev.filter((i) => i.dragId !== dragId);
+        // "bad" is repeatable: keep the source so it can be dragged again.
+        const repeatable = source.session.key === "bad";
+        const rest = repeatable
+          ? prev
+          : prev.filter((i) => i.dragId !== dragId);
+        const uid = `${source.templateId}-${Date.now()}`;
         const optimisticPlacement: WeekPlanItem = {
           ...source,
-          dragId: `bathing:optimistic-${source.templateId}`,
+          dragId: `bathing:optimistic-${uid}`,
           bathingRole: "placement",
-          placementId: `optimistic-${source.templateId}`,
+          placementId: `optimistic-${uid}`,
           weekday,
         };
-        return [...withoutSource, optimisticPlacement];
+        return [...rest, optimisticPlacement];
       });
     } else {
       setLocalItems((prev) => {
@@ -460,6 +465,8 @@ export function UnifiedWeekBoard({
           defaultScope="weekly"
           weeklyOnly
           embedded
+          weekStart={weekStart}
+          allowOneOff
         />
       </div>
 

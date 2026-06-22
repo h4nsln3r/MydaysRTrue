@@ -64,6 +64,7 @@ interface DailyRowProps extends PlanSortableProps {
   onError: (msg: string | null) => void;
   onPendingKey: (active: boolean) => void;
   onDone: () => void;
+  planningMode?: boolean;
 }
 
 export function DayPlanDailyRow(props: DailyRowProps) {
@@ -94,6 +95,7 @@ interface ShellProps extends PlanSortableProps {
   busy: boolean;
   pending: boolean;
   onToggleExpand: () => void;
+  planningMode?: boolean;
   children?: React.ReactNode;
 }
 
@@ -105,6 +107,7 @@ function PlanRowShell({
   busy,
   pending,
   onToggleExpand,
+  planningMode = false,
   dragHandle,
   sortableRef,
   sortableStyle,
@@ -133,9 +136,9 @@ function PlanRowShell({
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
           .filter(Boolean)
           .join(" ")}
-        aria-label={done ? "Klart" : "Logga"}
-        onClick={onToggleExpand}
-        disabled={pending}
+        aria-label={planningMode ? undefined : done ? "Klart" : "Logga"}
+        onClick={planningMode ? undefined : onToggleExpand}
+        disabled={pending || planningMode}
       >
         {done ? (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -155,9 +158,9 @@ function PlanRowShell({
       <button
         type="button"
         className={styles.taskBody}
-        onClick={onToggleExpand}
-        aria-expanded={expanded}
-        disabled={pending}
+        onClick={planningMode ? undefined : onToggleExpand}
+        aria-expanded={planningMode ? undefined : expanded}
+        disabled={pending || planningMode}
       >
         <span className={styles.taskIcon} aria-hidden style={{ borderColor: accent }}>
           {icon}
@@ -166,17 +169,21 @@ function PlanRowShell({
           <span className={styles.taskTitle}>{label}</span>
           {detail ? <span className={styles.taskDetail}>{detail}</span> : null}
         </span>
-        <span
-          className={[styles.chevron, expanded ? styles.chevronUp : ""]
-            .filter(Boolean)
-            .join(" ")}
-          aria-hidden
-        >
-          ▾
-        </span>
+        {planningMode ? null : (
+          <span
+            className={[styles.chevron, expanded ? styles.chevronUp : ""]
+              .filter(Boolean)
+              .join(" ")}
+            aria-hidden
+          >
+            ▾
+          </span>
+        )}
       </button>
 
-      {expanded ? <div className={styles.taskActions}>{children}</div> : null}
+      {!planningMode && expanded ? (
+        <div className={styles.taskActions}>{children}</div>
+      ) : null}
     </li>
   );
 }
@@ -291,6 +298,7 @@ function MealPlanRow(
       pending={pending}
       onToggleExpand={onToggleExpand}
       {...sortableShellProps(props)}
+      planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
       {!done ? (
@@ -441,6 +449,7 @@ function SnackPlanRow(
       pending={pending}
       onToggleExpand={onToggleExpand}
       {...sortableShellProps(props)}
+      planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
       {!done ? (
@@ -560,6 +569,7 @@ function IntakePlanRow(
       pending={pending}
       onToggleExpand={onToggleExpand}
       {...sortableShellProps(props)}
+      planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
       {!done ? (
@@ -670,6 +680,7 @@ function WorkPlanRow(
       pending={pending}
       onToggleExpand={onToggleExpand}
       {...sortableShellProps(props)}
+      planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
       <Input
@@ -779,6 +790,7 @@ function StepsPlanRow(
       pending={pending}
       onToggleExpand={onToggleExpand}
       {...sortableShellProps(props)}
+      planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
       <Input
@@ -866,6 +878,7 @@ function ActivityPlanRow(
       pending={pending}
       onToggleExpand={onToggleExpand}
       {...sortableShellProps(props)}
+      planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
       <Input

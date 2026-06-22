@@ -30,6 +30,7 @@ interface Props extends PlanSortableProps {
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
+  planningMode?: boolean;
 }
 
 export function WeightActivityRow({
@@ -44,6 +45,7 @@ export function WeightActivityRow({
   dragHandle,
   sortableRef,
   sortableStyle,
+  planningMode = false,
 }: Props) {
   const router = useRouter();
   const logged = Boolean(context.log);
@@ -121,8 +123,8 @@ export function WeightActivityRow({
           .filter(Boolean)
           .join(" ")}
         aria-label={done ? "Vikt loggad" : "Logga vikt"}
-        onClick={onToggleExpand}
-        disabled={pending}
+        onClick={planningMode ? undefined : onToggleExpand}
+        disabled={pending || planningMode}
       >
         {done ? (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -142,9 +144,9 @@ export function WeightActivityRow({
       <button
         type="button"
         className={styles.sessionBody}
-        onClick={onToggleExpand}
-        aria-expanded={expanded}
-        disabled={pending}
+        onClick={planningMode ? undefined : onToggleExpand}
+        aria-expanded={planningMode ? undefined : expanded}
+        disabled={pending || planningMode}
       >
         <span className={styles.sessionIcon} aria-hidden style={{ borderColor: "#c084fc" }}>
           ⚖️
@@ -166,17 +168,19 @@ export function WeightActivityRow({
             <span className={styles.sessionDesc}>Veckovägning</span>
           )}
         </span>
-        <span
-          className={[styles.chevron, expanded ? styles.chevronUp : ""]
-            .filter(Boolean)
-            .join(" ")}
-          aria-hidden
-        >
-          ▾
-        </span>
+        {planningMode ? null : (
+          <span
+            className={[styles.chevron, expanded ? styles.chevronUp : ""]
+              .filter(Boolean)
+              .join(" ")}
+            aria-hidden
+          >
+            ▾
+          </span>
+        )}
       </button>
 
-      {expanded ? (
+      {expanded && !planningMode ? (
         <div className={styles.sessionActions}>
           <p className={styles.actionsLabel}>När vägde du dig?</p>
           <div className={styles.warmupRow}>

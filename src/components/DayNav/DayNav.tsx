@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addDaysISO, formatDayShort, formatWeekdayShort } from "@/lib/date";
+import { addDaysISO, formatDayShort, formatWeekdayShort, weekEndISO } from "@/lib/date";
 import type { PeriodView } from "@/lib/period-view";
 import styles from "./DayNav.module.scss";
 
@@ -22,12 +22,16 @@ interface Props {
 export function DayNav({ date, today, view, kicker }: Props) {
   const prevDay = addDaysISO(date, -1);
   const nextDay = addDaysISO(date, 1);
-  const canGoForward = nextDay <= today;
+  const weekEnd = weekEndISO(today);
+  const canGoForward = nextDay <= weekEnd;
   const isToday = date === today;
+  const isUpcoming = date > today;
 
   const title = isToday
     ? "Idag"
-    : `${formatWeekdayShort(date)} · ${formatDayShort(date)}`;
+    : isUpcoming
+      ? `${formatWeekdayShort(date)} · planera`
+      : `${formatWeekdayShort(date)} · ${formatDayShort(date)}`;
 
   return (
     <div className={styles.wrap}>

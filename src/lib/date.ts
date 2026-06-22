@@ -1,3 +1,20 @@
+/** Returns the YYYY-MM-DD for the Sunday of the ISO week containing `localDate`. */
+export function weekEndISO(localDate: string | Date = new Date()): string {
+  const start =
+    typeof localDate === "string"
+      ? weekStartISO(parseLocalISO(localDate))
+      : weekStartISO(localDate);
+  return addDaysISO(start, 6);
+}
+
+/** True when `localDate` is today or later this ISO week (Mon–Sun). */
+export function isUpcomingWeekDay(
+  localDate: string,
+  today: string = todayLocalISO(),
+): boolean {
+  return localDate > today && localDate <= weekEndISO(today);
+}
+
 /** Returns today's date in the user's local timezone as YYYY-MM-DD. */
 export function todayLocalISO(now: Date = new Date()): string {
   const y = now.getFullYear();

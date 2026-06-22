@@ -39,46 +39,77 @@ interface Props extends PlanSortableProps {
   onPendingId: (id: string | null) => void;
   onRefresh: () => void;
   onDone: () => void;
+  planningMode?: boolean;
 }
 
-export function DayActivityRow({
-  item,
-  date,
-  weekStart,
-  categories,
-  canReschedule,
-  isOverdue,
-  rescheduleDays,
-  expanded,
-  busy,
-  pending,
-  onToggleExpand,
-  onError,
-  onPendingId,
-  onRefresh,
-  onDone,
-  dragHandle,
-  sortableRef,
-  sortableStyle,
-}: Props) {
+function sessionRowProps(
+  props: Props,
+): Pick<
+  Props,
+  | "expanded"
+  | "busy"
+  | "pending"
+  | "onToggleExpand"
+  | "onError"
+  | "onPendingId"
+  | "onDone"
+  | "planningMode"
+  | "dragHandle"
+  | "sortableRef"
+  | "sortableStyle"
+> {
+  const { planningMode } = props;
+  return {
+    expanded: planningMode ? false : props.expanded,
+    busy: props.busy,
+    pending: props.pending,
+    onToggleExpand: planningMode ? () => {} : props.onToggleExpand,
+    onError: props.onError,
+    onPendingId: props.onPendingId,
+    onDone: props.onDone,
+    planningMode,
+    dragHandle: props.dragHandle,
+    sortableRef: props.sortableRef,
+    sortableStyle: props.sortableStyle,
+  };
+}
+
+export function DayActivityRow(props: Props) {
+  const {
+    item,
+    date,
+    weekStart,
+    categories,
+    canReschedule,
+    isOverdue,
+    rescheduleDays,
+    onRefresh,
+    planningMode = false,
+  } = props;
+
   if (DAILY_KINDS.has(item.kind)) {
     return (
       <DayPlanDailyRow
         item={item}
         date={date}
-        expanded={expanded}
-        busy={busy}
-        pending={pending}
-        onToggleExpand={onToggleExpand}
-        onError={onError}
-        onPendingKey={(active) => onPendingId(active ? item.itemKey : null)}
-        onDone={onDone}
-        dragHandle={dragHandle}
-        sortableRef={sortableRef}
-        sortableStyle={sortableStyle}
+        expanded={planningMode ? false : props.expanded}
+        busy={props.busy}
+        pending={props.pending}
+        onToggleExpand={planningMode ? () => {} : props.onToggleExpand}
+        onError={props.onError}
+        onPendingKey={(active) =>
+          props.onPendingId(active ? item.itemKey : null)
+        }
+        onDone={props.onDone}
+        planningMode={planningMode}
+        dragHandle={props.dragHandle}
+        sortableRef={props.sortableRef}
+        sortableStyle={props.sortableStyle}
       />
     );
   }
+
+  const shared = sessionRowProps(props);
 
   switch (item.kind) {
     case "task":
@@ -90,17 +121,18 @@ export function DayActivityRow({
           canReschedule={canReschedule}
           isOverdue={isOverdue}
           rescheduleDays={rescheduleDays}
-          expanded={expanded}
-          busy={busy}
-          pending={pending}
-          onToggleExpand={onToggleExpand}
-          onError={onError}
-          onPendingId={onPendingId}
+          expanded={planningMode ? false : props.expanded}
+          busy={props.busy}
+          pending={props.pending}
+          onToggleExpand={planningMode ? () => {} : props.onToggleExpand}
+          onError={props.onError}
+          onPendingId={props.onPendingId}
           onRefresh={onRefresh}
-          onDone={onDone}
-          dragHandle={dragHandle}
-          sortableRef={sortableRef}
-          sortableStyle={sortableStyle}
+          onDone={props.onDone}
+          planningMode={planningMode}
+          dragHandle={props.dragHandle}
+          sortableRef={props.sortableRef}
+          sortableStyle={props.sortableStyle}
         />
       );
     case "gym":
@@ -108,16 +140,7 @@ export function DayActivityRow({
         <GymSessionRow
           session={item.session}
           weekStart={weekStart}
-          expanded={expanded}
-          busy={busy}
-          pending={pending}
-          onToggleExpand={onToggleExpand}
-          onError={onError}
-          onPendingId={onPendingId}
-          onDone={onDone}
-          dragHandle={dragHandle}
-          sortableRef={sortableRef}
-          sortableStyle={sortableStyle}
+          {...shared}
         />
       );
     case "cardio":
@@ -125,16 +148,7 @@ export function DayActivityRow({
         <CardioSessionRow
           session={item.session}
           weekStart={weekStart}
-          expanded={expanded}
-          busy={busy}
-          pending={pending}
-          onToggleExpand={onToggleExpand}
-          onError={onError}
-          onPendingId={onPendingId}
-          onDone={onDone}
-          dragHandle={dragHandle}
-          sortableRef={sortableRef}
-          sortableStyle={sortableStyle}
+          {...shared}
         />
       );
     case "sport":
@@ -142,16 +156,7 @@ export function DayActivityRow({
         <SportSessionRow
           session={item.session}
           weekStart={weekStart}
-          expanded={expanded}
-          busy={busy}
-          pending={pending}
-          onToggleExpand={onToggleExpand}
-          onError={onError}
-          onPendingId={onPendingId}
-          onDone={onDone}
-          dragHandle={dragHandle}
-          sortableRef={sortableRef}
-          sortableStyle={sortableStyle}
+          {...shared}
         />
       );
     case "bathing":
@@ -159,34 +164,11 @@ export function DayActivityRow({
         <BathingSessionRow
           session={item.session}
           weekStart={weekStart}
-          expanded={expanded}
-          busy={busy}
-          pending={pending}
-          onToggleExpand={onToggleExpand}
-          onError={onError}
-          onPendingId={onPendingId}
-          onDone={onDone}
-          dragHandle={dragHandle}
-          sortableRef={sortableRef}
-          sortableStyle={sortableStyle}
+          {...shared}
         />
       );
     case "weight":
-      return (
-        <WeightActivityRow
-          context={item.weight}
-          expanded={expanded}
-          busy={busy}
-          pending={pending}
-          onToggleExpand={onToggleExpand}
-          onError={onError}
-          onPendingId={onPendingId}
-          onDone={onDone}
-          dragHandle={dragHandle}
-          sortableRef={sortableRef}
-          sortableStyle={sortableStyle}
-        />
-      );
+      return <WeightActivityRow context={item.weight} {...shared} />;
     default:
       return null;
   }

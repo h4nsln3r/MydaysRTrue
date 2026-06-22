@@ -30,7 +30,7 @@ import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
 import { getCategories, getWeeklyTasksForDate } from "@/lib/tasks.server";
 import { getDailyPlanOrder } from "@/lib/day-plan.server";
-import { parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
+import { parseLocalISO, todayLocalISO, weekEndISO, weekStartISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
 import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
 import styles from "../../dashboard.module.scss";
@@ -50,7 +50,9 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
 
   const today = todayLocalISO();
   if (date === today) redirect(view === "plan" ? "/?view=plan" : "/");
-  if (date > today) notFound();
+  if (date > weekEndISO(today)) notFound();
+
+  const isUpcoming = date > today;
 
   const supabase = await createClient();
   const {
@@ -119,7 +121,15 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
         <div className={styles.headerMain}>
           <DayNav date={date} today={today} view={view} />
           <h1 className={styles.h1}>
-            Looking <span className={styles.accent}>back</span>
+            {isUpcoming ? (
+              <>
+                Planera <span className={styles.accent}>dagen</span>
+              </>
+            ) : (
+              <>
+                Looking <span className={styles.accent}>back</span>
+              </>
+            )}
           </h1>
         </div>
         <Link href={backToWeek} className={styles.badge} aria-label="Back to week">
@@ -156,14 +166,17 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               date={date}
               today={today}
               title="Dagens plan"
+              planningMode={isUpcoming}
               hideWhenEmpty
               showWeekLink={false}
-              enableQuickAdd
+              enableQuickAdd={!isUpcoming}
               bathingWeekday={bathingDay.weekday}
-              enableExtraBath
+              enableExtraBath={!isUpcoming}
             />
           </section>
 
+          {!isUpcoming ? (
+            <>
           <section className={styles.section}>
             <header className={styles.sectionHeader}>
               <h2 className={styles.h2}>Dagen</h2>
@@ -215,6 +228,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               </ul>
             )}
           </section>
+            </>
+          ) : null}
         </>
       ) : (
         <DayPlanPanel

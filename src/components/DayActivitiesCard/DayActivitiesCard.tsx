@@ -63,6 +63,8 @@ interface Props {
   enableQuickAdd?: boolean;
   bathingWeekday?: Weekday | null;
   enableExtraBath?: boolean;
+  /** Future day in the current week — reorder only, no logging. */
+  planningMode?: boolean;
 }
 
 export function DayActivitiesCard({
@@ -90,6 +92,7 @@ export function DayActivitiesCard({
   enableQuickAdd = false,
   bathingWeekday = null,
   enableExtraBath = false,
+  planningMode = false,
 }: Props) {
   const router = useRouter();
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -155,9 +158,9 @@ export function DayActivitiesCard({
     setAfterEight(new Date().getHours() >= 20);
   }, []);
 
-  const isOverdue = date != null && today != null && date < today;
+  const isOverdue = !planningMode && date != null && today != null && date < today;
   const isToday = date != null && today != null && date === today;
-  const canReschedule = isOverdue || (isToday && afterEight);
+  const canReschedule = !planningMode && (isOverdue || (isToday && afterEight));
 
   const doneCount = localItems.filter((i) => i.doneAt).length;
   const itemKeys = localItems.map((i) => i.itemKey);
@@ -274,8 +277,12 @@ export function DayActivitiesCard({
             <span className={styles.counterSlash}>/ {localItems.length}</span>
           </span>
         </div>
-        <p className={styles.planHint}>Dra ⠿ för att ändra ordning idag</p>
-        {showWeekLink ? (
+        <p className={styles.planHint}>
+          {planningMode
+            ? "Dra ⠿ för att planera ordningen inför dagen"
+            : "Dra ⠿ för att ändra ordning idag"}
+        </p>
+        {showWeekLink || planningMode ? (
           <Link
             href={`/week?start=${weekStart}&view=plan`}
             className={styles.weekLink}
@@ -322,6 +329,7 @@ export function DayActivitiesCard({
                       setExpandedKey(null);
                       router.refresh();
                     }}
+                    planningMode={planningMode}
                     {...sortable}
                   />
                 )}

@@ -141,6 +141,7 @@ interface SessionRowProps extends PlanSortableProps {
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
+  planningMode?: boolean;
 }
 
 export function GymSessionRow({
@@ -156,6 +157,7 @@ export function GymSessionRow({
   dragHandle,
   sortableRef,
   sortableStyle,
+  planningMode = false,
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
   const category = trainingCategory("gym");
@@ -236,8 +238,8 @@ export function GymSessionRow({
           .filter(Boolean)
           .join(" ")}
         aria-label={done ? "Pass klart" : "Logga pass"}
-        onClick={onToggleExpand}
-        disabled={pending}
+        onClick={planningMode ? undefined : onToggleExpand}
+        disabled={pending || planningMode}
       >
         {done ? (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -257,9 +259,9 @@ export function GymSessionRow({
       <button
         type="button"
         className={styles.sessionBody}
-        onClick={onToggleExpand}
-        aria-expanded={expanded}
-        disabled={pending}
+        onClick={planningMode ? undefined : onToggleExpand}
+        aria-expanded={planningMode ? undefined : expanded}
+        disabled={pending || planningMode}
       >
         <span
           className={styles.sessionIcon}
@@ -289,17 +291,19 @@ export function GymSessionRow({
             <span className={styles.sessionDesc}>{session.placement.note}</span>
           ) : null}
         </span>
-        <span
-          className={[styles.chevron, expanded ? styles.chevronUp : ""]
-            .filter(Boolean)
-            .join(" ")}
-          aria-hidden
-        >
-          ▾
-        </span>
+        {planningMode ? null : (
+          <span
+            className={[styles.chevron, expanded ? styles.chevronUp : ""]
+              .filter(Boolean)
+              .join(" ")}
+            aria-hidden
+          >
+            ▾
+          </span>
+        )}
       </button>
 
-      {expanded ? (
+      {expanded && !planningMode ? (
         <div className={styles.sessionActions}>
           {!done ? (
             <>

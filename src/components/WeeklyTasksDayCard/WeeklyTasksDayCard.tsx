@@ -325,6 +325,7 @@ interface TaskRowProps {
   dragHandle?: React.ReactNode;
   sortableRef?: (node: HTMLElement | null) => void;
   sortableStyle?: React.CSSProperties;
+  planningMode?: boolean;
 }
 
 export function WeeklyTaskRow({
@@ -345,6 +346,7 @@ export function WeeklyTaskRow({
   dragHandle,
   sortableRef,
   sortableStyle,
+  planningMode = false,
 }: TaskRowProps) {
   const placement = task.placement;
   const done = Boolean(placement?.doneAt);
@@ -353,7 +355,7 @@ export function WeeklyTaskRow({
   const isQuickToggle =
     task.completionKind === "simple" || task.completionKind === "note";
   const needsExpand = true;
-  const showReschedule = canReschedule && !done;
+  const showReschedule = !planningMode && canReschedule && !done;
   const [, startTransition] = useTransition();
 
   const [taskNote, setTaskNote] = useState(placement?.note ?? "");
@@ -487,8 +489,8 @@ export function WeeklyTaskRow({
             .join(" ")}
           aria-label={done ? "Markera ej klar" : "Markera klar"}
           aria-pressed={done}
-          disabled={pending}
-          onClick={toggleSimple}
+          disabled={pending || planningMode}
+          onClick={planningMode ? undefined : toggleSimple}
         >
           {done ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -511,8 +513,8 @@ export function WeeklyTaskRow({
             .filter(Boolean)
             .join(" ")}
           aria-label={done ? "Klart" : "Logga"}
-          onClick={onToggleExpand}
-          disabled={pending}
+          onClick={planningMode ? undefined : onToggleExpand}
+          disabled={pending || planningMode}
         >
           {done ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -533,9 +535,9 @@ export function WeeklyTaskRow({
       <button
         type="button"
         className={styles.taskBody}
-        onClick={needsExpand ? onToggleExpand : undefined}
-        aria-expanded={needsExpand ? expanded : undefined}
-        disabled={pending || !needsExpand}
+        onClick={planningMode ? undefined : needsExpand ? onToggleExpand : undefined}
+        aria-expanded={planningMode ? undefined : needsExpand ? expanded : undefined}
+        disabled={pending || planningMode || !needsExpand}
       >
         <span
           className={styles.taskIcon}
@@ -564,7 +566,7 @@ export function WeeklyTaskRow({
             <span className={styles.planHint}>{planNote}</span>
           ) : null}
         </span>
-        {needsExpand ? (
+        {needsExpand && !planningMode ? (
           <span
             className={[styles.chevron, expanded ? styles.chevronUp : ""]
               .filter(Boolean)
@@ -601,7 +603,7 @@ export function WeeklyTaskRow({
         </div>
       ) : null}
 
-      {expanded && needsExpand ? (
+      {expanded && needsExpand && !planningMode ? (
         <div className={styles.taskActions}>
           {task.completionKind === "journal" && planNote ? (
             <p className={styles.planReadout}>

@@ -3,10 +3,12 @@ import { Card } from "@/components/Card/Card";
 import { BathingDayCard } from "@/components/BathingDayCard/BathingDayCard";
 import { CardioDayCard } from "@/components/CardioDayCard/CardioDayCard";
 import { GymDayCard } from "@/components/GymDayCard/GymDayCard";
+import { SportDayCard } from "@/components/SportDayCard/SportDayCard";
 import { WeightDayCard } from "@/components/WeightDayCard/WeightDayCard";
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
+import type { SportSessionForWeek } from "@/lib/sport";
 import type { Weekday } from "@/lib/tasks";
 import type { WeightDayContext } from "@/lib/weight";
 import styles from "./TrainingDaySection.module.scss";
@@ -15,11 +17,13 @@ interface Props {
   weekStart: string;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
+  sportSessions?: SportSessionForWeek[];
   bathingSessions: BathingSessionForWeek[];
   weightContext: WeightDayContext;
   title?: string;
   gymTitle?: string;
   cardioTitle?: string;
+  sportTitle?: string;
   bathingTitle?: string;
   weightTitle?: string;
   /** Weekday this section represents — enables one-tap extra bath logging. */
@@ -31,11 +35,13 @@ export function TrainingDaySection({
   weekStart,
   gymSessions,
   cardioSessions,
+  sportSessions = [],
   bathingSessions,
   weightContext,
   title = "Träning & hälsa",
   gymTitle = "Gym",
   cardioTitle = "Cardio",
+  sportTitle = "Sport",
   bathingTitle = "Bad & bastu",
   weightTitle = "Vikt",
   bathingWeekday = null,
@@ -43,13 +49,14 @@ export function TrainingDaySection({
 }: Props) {
   const hasGym = gymSessions.length > 0;
   const hasCardio = cardioSessions.length > 0;
+  const hasSport = sportSessions.length > 0;
   const hasBathing = bathingSessions.length > 0;
   const hasWeight = weightContext.scheduled;
   const showExtraBath = enableExtraBath && bathingWeekday != null;
   // Keep the section visible when extra-bath logging is available, so the
   // "+ Extra bad" button stays reachable even on an otherwise empty day.
   const allEmpty =
-    !hasGym && !hasCardio && !hasBathing && !hasWeight && !showExtraBath;
+    !hasGym && !hasCardio && !hasSport && !hasBathing && !hasWeight && !showExtraBath;
 
   return (
     <section className={styles.section}>
@@ -82,6 +89,13 @@ export function TrainingDaySection({
             weekStart={weekStart}
             sessions={cardioSessions}
             title={cardioTitle}
+            hideWhenEmpty
+            showWeekLink={false}
+          />
+          <SportDayCard
+            weekStart={weekStart}
+            sessions={sportSessions}
+            title={sportTitle}
             hideWhenEmpty
             showWeekLink={false}
           />

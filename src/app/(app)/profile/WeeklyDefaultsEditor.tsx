@@ -3,11 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateCardioDefaultWeekdayAction } from "@/app/(app)/cardio-actions";
+import { updateSportDefaultWeekdayAction } from "@/app/(app)/sport-actions";
 import { updateGymDefaultWeekdayAction } from "@/app/(app)/gym-actions";
 import { updateWeeklyTaskAction } from "@/app/(app)/tasks-actions";
 import { updateWeightDefaultWeekdayAction } from "@/app/(app)/weight-actions";
 import { DefaultWeekdaySelect } from "@/components/DefaultWeekdaySelect/DefaultWeekdaySelect";
 import type { CardioSessionTemplate } from "@/lib/cardio";
+import type { SportSessionTemplate } from "@/lib/sport";
 import type { GymSessionTemplate } from "@/lib/gym";
 import { WEEKDAY_SHORT, type Weekday, type WeeklyTask } from "@/lib/tasks";
 import styles from "./profile.module.scss";
@@ -15,6 +17,7 @@ import styles from "./profile.module.scss";
 interface Props {
   gymTemplates: GymSessionTemplate[];
   cardioTemplates: CardioSessionTemplate[];
+  sportTemplates: SportSessionTemplate[];
   weeklyTasks: WeeklyTask[];
   weightDefaultWeekday: Weekday | null;
 }
@@ -22,6 +25,7 @@ interface Props {
 export function WeeklyDefaultsEditor({
   gymTemplates,
   cardioTemplates,
+  sportTemplates,
   weeklyTasks,
   weightDefaultWeekday,
 }: Props) {
@@ -55,6 +59,19 @@ export function WeeklyDefaultsEditor({
     });
   };
 
+  const saveSport = (templateId: string, defaultWeekday: Weekday | null) => {
+    if (defaultWeekday == null) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await updateSportDefaultWeekdayAction({
+        templateId,
+        defaultWeekday,
+      });
+      if (!res.ok) setError(res.error ?? "Kunde inte spara.");
+      router.refresh();
+    });
+  };
+
   const saveTask = (taskId: string, defaultWeekday: Weekday | null) => {
     setError(null);
     startTransition(async () => {
@@ -76,6 +93,7 @@ export function WeeklyDefaultsEditor({
   const hasAny =
     gymTemplates.length > 0 ||
     cardioTemplates.length > 0 ||
+    sportTemplates.length > 0 ||
     weeklyTasks.length > 0;
 
   if (!hasAny) return null;
@@ -130,6 +148,31 @@ export function WeeklyDefaultsEditor({
                   id={`cardio-default-${t.id}`}
                   value={t.defaultWeekday}
                   onChange={(d) => saveCardio(t.id, d)}
+                  disabled={pending}
+                  allowNone={false}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {sportTemplates.length > 0 ? (
+        <section className={styles.defaultsSection}>
+          <h5 className={styles.defaultsHeading}>Sport</h5>
+          <ul className={styles.defaultsList}>
+            {sportTemplates.map((t) => (
+              <li key={t.id} className={styles.defaultsRow}>
+                <span className={styles.defaultsLabel}>
+                  <span className={styles.habitIcon} aria-hidden style={{ borderColor: t.accent }}>
+                    {t.icon}
+                  </span>
+                  {t.label}
+                </span>
+                <DefaultWeekdaySelect
+                  id={`sport-default-${t.id}`}
+                  value={t.defaultWeekday}
+                  onChange={(d) => saveSport(t.id, d)}
                   disabled={pending}
                   allowNone={false}
                 />

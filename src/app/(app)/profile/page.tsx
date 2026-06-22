@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { getHabits } from "@/lib/habits.server";
 import { getCardioTemplates } from "@/lib/cardio.server";
+import { getSportTemplates } from "@/lib/sport.server";
 import { getGymTemplates } from "@/lib/gym.server";
 import {
   getCategories,
@@ -37,6 +38,7 @@ export default async function ProfilePage() {
     monthlyTasks,
     gymTemplates,
     cardioTemplates,
+    sportTemplates,
     weightDefaultWeekday,
   ] = await Promise.all([
     supabase
@@ -51,6 +53,7 @@ export default async function ProfilePage() {
     getMonthlyTasks(user.id),
     getGymTemplates(user.id),
     getCardioTemplates(user.id),
+    getSportTemplates(user.id),
     getWeightDefaultWeekday(user.id),
   ]);
 
@@ -118,6 +121,7 @@ export default async function ProfilePage() {
           <WeeklyDefaultsEditor
             gymTemplates={gymTemplates}
             cardioTemplates={cardioTemplates}
+            sportTemplates={sportTemplates}
             weeklyTasks={weeklyTasks}
             weightDefaultWeekday={weightDefaultWeekday}
           />

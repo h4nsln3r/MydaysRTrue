@@ -3,6 +3,7 @@
 
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
+import type { SportSessionForWeek } from "@/lib/sport";
 import type { GymSessionForWeek, GymWarmup } from "@/lib/gym";
 import type {
   TaskCategory,
@@ -18,6 +19,7 @@ export type WeekPlanItemKind =
   | "task"
   | "gym"
   | "cardio"
+  | "sport"
   | "bathing"
   | "weight"
   | "monthly_bill";
@@ -59,6 +61,12 @@ export interface WeekPlanCardioItem extends WeekPlanItemBase {
   session: CardioSessionForWeek;
 }
 
+export interface WeekPlanSportItem extends WeekPlanItemBase {
+  kind: "sport";
+  templateId: string;
+  session: SportSessionForWeek;
+}
+
 export interface WeekPlanBathingItem extends WeekPlanItemBase {
   kind: "bathing";
   bathingRole: BathingDragRole;
@@ -87,6 +95,7 @@ export type WeekPlanItem =
   | WeekPlanTaskItem
   | WeekPlanGymItem
   | WeekPlanCardioItem
+  | WeekPlanSportItem
   | WeekPlanBathingItem
   | WeekPlanWeightItem
   | WeekPlanMonthlyBillItem;
@@ -163,7 +172,7 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
     };
   }
 
-  const m = /^(task|gym|cardio|weight):(.+)$/.exec(dragId);
+  const m = /^(task|gym|cardio|sport|weight):(.+)$/.exec(dragId);
   if (!m) return null;
   return {
     kind: m[1] as WeekPlanItemKind,

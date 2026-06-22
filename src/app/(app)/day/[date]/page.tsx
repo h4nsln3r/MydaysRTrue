@@ -27,6 +27,7 @@ import { getWorkDailyLog } from "@/lib/work.server";
 import { getDailyMedia } from "@/lib/media.server";
 import { getBathingSessionsForDate } from "@/lib/bathing.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
+import { getSportSessionsForDate } from "@/lib/sport.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
 import { getCategories, getWeeklyTasksForDate } from "@/lib/tasks.server";
@@ -66,6 +67,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     intake,
     gymDay,
     cardioDay,
+    sportDay,
     bathingDay,
     weightDay,
     weeklyTasksDay,
@@ -83,6 +85,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getDailyIntake(user.id, date),
     getGymSessionsForDate(user.id, date),
     getCardioSessionsForDate(user.id, date),
+    getSportSessionsForDate(user.id, date),
     getBathingSessionsForDate(user.id, date),
     getWeightForDate(user.id, date),
     getWeeklyTasksForDate(user.id, date),
@@ -100,6 +103,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     localDate: date,
     gymSessions: gymDay.sessions,
     cardioSessions: cardioDay.sessions,
+    sportSessions: sportDay.sessions,
     bathingSessions: bathingDay.sessions,
     tasks: weeklyTasksDay.tasks,
     mood: mood.mood,
@@ -157,6 +161,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
                 weekStart={gymDay.weekStart}
                 gymSessions={gymDay.sessions}
                 cardioSessions={cardioDay.sessions}
+                sportSessions={sportDay.sessions}
                 bathingSessions={bathingDay.sessions}
                 weightContext={weightDay}
                 bathingWeekday={bathingDay.weekday}

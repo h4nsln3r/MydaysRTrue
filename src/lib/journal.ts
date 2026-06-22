@@ -6,6 +6,7 @@ export type JournalEntrySource =
   | "manual"
   | "gym"
   | "cardio"
+  | "sport"
   | "bathing"
   | "mood"
   | "task"
@@ -25,6 +26,7 @@ export const JOURNAL_SOURCE_LABEL: Record<JournalEntrySource, string> = {
   manual: "Anteckning",
   gym: "Gym",
   cardio: "Cardio",
+  sport: "Sport",
   bathing: "Bad & bastu",
   mood: "Dagskänsla",
   task: "Uppgift",
@@ -158,6 +160,14 @@ function phraseEntry(entry: JournalDisplayEntry): string {
         return ensureSentence(`${intro} ${lowercaseFirst(note)}`);
       }
       return ensureSentence(`${intro} cardio — ${lowercaseFirst(entry.title)}`);
+    }
+    case "sport": {
+      const note = entry.body.trim();
+      const intro = timeOfDayIntro(entry.at);
+      if (note && note !== "Pass klart.") {
+        return ensureSentence(`${intro} ${lowercaseFirst(note)}`);
+      }
+      return ensureSentence(`${intro} sport — ${lowercaseFirst(entry.title)}`);
     }
     case "task": {
       const note = entry.body.trim();

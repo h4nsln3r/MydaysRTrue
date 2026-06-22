@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import { formatWaterTemp } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
+import type { SportSessionForWeek } from "@/lib/sport";
+import { formatSportDetail } from "@/lib/sport";
 import { addDaysISO, isoWeekdayFromLocalISO } from "@/lib/date";
 import type { GymSessionForWeek } from "@/lib/gym";
 import { GYM_WARMUP_LABEL } from "@/lib/gym";
@@ -69,6 +71,7 @@ export interface JournalDayContext {
   localDate: string;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
+  sportSessions: SportSessionForWeek[];
   bathingSessions: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
   mood: MoodKey | null;
@@ -81,6 +84,7 @@ export interface WeekJournalContext {
   weekStart: string;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
+  sportSessions: SportSessionForWeek[];
   bathingSessions: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
   weightPlan: WeightWeekPlan;
@@ -248,6 +252,19 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
       icon: s.icon,
       title: s.label,
       body: s.placement.note?.trim() || "Pass klart.",
+      at: s.placement.doneAt,
+      editable: false,
+    });
+  }
+
+  for (const s of ctx.sportSessions) {
+    if (!s.placement.doneAt) continue;
+    entries.push({
+      id: `sport-${s.placement.id}`,
+      source: "sport",
+      icon: s.icon,
+      title: s.placement.actualSport?.trim() || s.label,
+      body: formatSportDetail(s.placement) ?? "Pass klart.",
       at: s.placement.doneAt,
       editable: false,
     });
@@ -475,6 +492,7 @@ export async function getWeekJournalSummary(
       localDate,
       gymSessions: sessionsForDate(context.gymSessions, localDate),
       cardioSessions: sessionsForDate(context.cardioSessions, localDate),
+      sportSessions: sessionsForDate(context.sportSessions, localDate),
       bathingSessions: sessionsForDate(context.bathingSessions, localDate),
       tasks: tasksForDate(context.tasks, localDate),
       mood: moods.get(localDate) ?? null,

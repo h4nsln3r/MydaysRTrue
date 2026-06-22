@@ -16,7 +16,7 @@ export async function nextWeekDaySortOrder(
   const monthStart = monthStartFromDate(localDate);
   const dayOfMonth = Number(localDate.slice(8, 10));
 
-  const [tasks, gym, cardio, bathing, weight, bills] = await Promise.all([
+  const [tasks, gym, cardio, sport, bathing, weight, bills] = await Promise.all([
     supabase
       .from("weekly_task_placements")
       .select("day_sort_order")
@@ -31,6 +31,12 @@ export async function nextWeekDaySortOrder(
       .eq("weekday", weekday),
     supabase
       .from("cardio_week_placements")
+      .select("day_sort_order")
+      .eq("user_id", userId)
+      .eq("week_start", weekStart)
+      .eq("weekday", weekday),
+    supabase
+      .from("sport_week_placements")
       .select("day_sort_order")
       .eq("user_id", userId)
       .eq("week_start", weekStart)
@@ -60,6 +66,7 @@ export async function nextWeekDaySortOrder(
     ...(tasks.data ?? []).map((r) => r.day_sort_order),
     ...(gym.data ?? []).map((r) => r.day_sort_order),
     ...(cardio.data ?? []).map((r) => r.day_sort_order),
+    ...(sport.data ?? []).map((r) => r.day_sort_order),
     ...(bathing.data ?? []).map((r) => r.day_sort_order),
     ...(weight.data ?? []).map((r) => r.day_sort_order),
     ...(bills.data ?? []).map((r) => r.day_sort_order),
@@ -108,6 +115,16 @@ export async function applyWeekDaySortOrder(
       case "cardio": {
         const { error } = await supabase
           .from("cardio_week_placements")
+          .update({ day_sort_order: i })
+          .eq("user_id", userId)
+          .eq("template_id", parsed.entityId)
+          .eq("week_start", weekStart);
+        if (error) return { ok: false, error: error.message };
+        break;
+      }
+      case "sport": {
+        const { error } = await supabase
+          .from("sport_week_placements")
           .update({ day_sort_order: i })
           .eq("user_id", userId)
           .eq("template_id", parsed.entityId)

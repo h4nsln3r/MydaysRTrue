@@ -2,6 +2,8 @@ import Link from "next/link";
 import { addDaysISO, formatDayShort, formatWeekdayShort, isoWeekdayFromLocalISO } from "@/lib/date";
 import { formatWaterTemp, type BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
+import type { SportSessionForWeek } from "@/lib/sport";
+import { formatSportDetail } from "@/lib/sport";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
@@ -28,6 +30,7 @@ interface Props {
   habitWeek: WeekHabitSummary;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
+  sportSessions: SportSessionForWeek[];
   bathingSessions: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
   taskCategories: TaskCategory[];
@@ -56,6 +59,7 @@ export function WeekProgressBoard({
   habitWeek,
   gymSessions,
   cardioSessions,
+  sportSessions,
   bathingSessions,
   tasks,
   taskCategories,
@@ -66,6 +70,7 @@ export function WeekProgressBoard({
 
   const gymByWeekday = groupByWeekday(gymSessions);
   const cardioByWeekday = groupByWeekday(cardioSessions);
+  const sportByWeekday = groupByWeekday(sportSessions);
   const bathingByWeekday = groupByWeekday(bathingSessions);
   const tasksByWeekday = groupTasksByWeekday(tasks);
   const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
@@ -73,6 +78,7 @@ export function WeekProgressBoard({
 
   const placedGym = gymSessions.filter((s) => s.placement.weekday != null);
   const placedCardio = cardioSessions.filter((s) => s.placement.weekday != null);
+  const placedSport = sportSessions.filter((s) => s.placement.weekday != null);
   const placedBathing = bathingSessions.filter((s) => s.placement.weekday != null);
   const placedTasks = tasks.filter((t) => t.placement);
   const taskGroups = groupByCategory(placedTasks, taskCategories).map(
@@ -86,6 +92,7 @@ export function WeekProgressBoard({
   );
   const gymDone = placedGym.filter((s) => s.placement.doneAt).length;
   const cardioDone = placedCardio.filter((s) => s.placement.doneAt).length;
+  const sportDone = placedSport.filter((s) => s.placement.doneAt).length;
   const bathingDone = placedBathing.filter((s) => s.placement.doneAt).length;
   const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
   const weightActive = weightPlan.enabled && weightPlan.weekday != null;
@@ -229,6 +236,21 @@ export function WeekProgressBoard({
                 icon: s.icon,
                 done: Boolean(s.placement.doneAt),
                 title: s.placement.note ? `${s.label}: ${s.placement.note}` : s.label,
+              })}
+            />
+
+            <TrainingRow
+              icon="⚽"
+              label="Sport"
+              days={week.days}
+              byWeekday={sportByWeekday}
+              done={sportDone}
+              total={placedSport.length}
+              chipClass={styles.sportChip}
+              renderSession={(s) => ({
+                icon: s.icon,
+                done: Boolean(s.placement.doneAt),
+                title: formatSportDetail(s.placement) ?? s.label,
               })}
             />
 
@@ -390,6 +412,7 @@ export function WeekProgressBoard({
                       habits={habitWeek.habits}
                       gym={gymByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
                       cardio={cardioByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
+                      sport={sportByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
                       bathing={bathingByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
                       tasks={tasksByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
                       weightScheduled={
@@ -411,6 +434,8 @@ export function WeekProgressBoard({
                     gymTotal: placedGym.length,
                     cardioDone,
                     cardioTotal: placedCardio.length,
+                    sportDone,
+                    sportTotal: placedSport.length,
                     bathingDone,
                     bathingTotal: placedBathing.length,
                     tasksDone,
@@ -945,6 +970,7 @@ function DayScore({
   habits,
   gym,
   cardio,
+  sport,
   bathing,
   tasks,
   weightScheduled,
@@ -955,6 +981,7 @@ function DayScore({
   habits: Habit[];
   gym: GymSessionForWeek[];
   cardio: CardioSessionForWeek[];
+  sport: SportSessionForWeek[];
   bathing: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
   weightScheduled: boolean;
@@ -971,7 +998,7 @@ function DayScore({
     if (habitDay?.statuses[h.id] === "yes") hit += 1;
   }
 
-  for (const s of [...gym, ...cardio, ...bathing]) {
+  for (const s of [...gym, ...cardio, ...sport, ...bathing]) {
     total += 1;
     if (s.placement.doneAt) hit += 1;
   }
@@ -1089,6 +1116,8 @@ function summaryScore(parts: {
   gymTotal: number;
   cardioDone: number;
   cardioTotal: number;
+  sportDone: number;
+  sportTotal: number;
   bathingDone: number;
   bathingTotal: number;
   tasksDone: number;
@@ -1103,6 +1132,7 @@ function summaryScore(parts: {
   const hit =
     parts.gymDone +
     parts.cardioDone +
+    parts.sportDone +
     parts.bathingDone +
     parts.tasksDone +
     parts.waterHit +
@@ -1111,6 +1141,7 @@ function summaryScore(parts: {
   const total =
     parts.gymTotal +
     parts.cardioTotal +
+    parts.sportTotal +
     parts.bathingTotal +
     parts.tasksTotal +
     parts.waterTotal +

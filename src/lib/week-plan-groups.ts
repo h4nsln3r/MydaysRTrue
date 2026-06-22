@@ -4,6 +4,7 @@ import type { WeekPlanItem, WeekPlanItemKind } from "@/lib/week-plan";
 export const TRAINING_KINDS = new Set<WeekPlanItemKind>([
   "gym",
   "cardio",
+  "sport",
   "bathing",
 ]);
 

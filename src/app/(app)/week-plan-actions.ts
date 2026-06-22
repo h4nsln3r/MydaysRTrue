@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { resetBathingWeekToDefaultsAction } from "@/app/(app)/bathing-actions";
 import { resetCardioWeekToDefaultsAction } from "@/app/(app)/cardio-actions";
+import { resetSportWeekToDefaultsAction } from "@/app/(app)/sport-actions";
 import { resetGymWeekToDefaultsAction } from "@/app/(app)/gym-actions";
 import {
   placeWeeklyTaskAction,
@@ -31,6 +32,10 @@ import {
   moveCardioSessionAction,
   unplaceCardioSessionAction,
 } from "./cardio-actions";
+import {
+  moveSportSessionAction,
+  unplaceSportSessionAction,
+} from "./sport-actions";
 import {
   moveGymSessionAction,
   unplaceGymSessionAction,
@@ -77,6 +82,12 @@ export async function placeWeekPlanItemAction(input: {
       });
     case "cardio":
       return moveCardioSessionAction({
+        templateId: parsed.entityId,
+        weekStart: input.weekStart,
+        weekday: input.weekday,
+      });
+    case "sport":
+      return moveSportSessionAction({
         templateId: parsed.entityId,
         weekStart: input.weekStart,
         weekday: input.weekday,
@@ -134,6 +145,11 @@ export async function unplaceWeekPlanItemAction(input: {
       });
     case "cardio":
       return unplaceCardioSessionAction({
+        templateId: parsed.entityId,
+        weekStart: input.weekStart,
+      });
+    case "sport":
+      return unplaceSportSessionAction({
         templateId: parsed.entityId,
         weekStart: input.weekStart,
       });
@@ -211,6 +227,9 @@ export async function resetWeekPlanToDefaultsAction(
 
   const cardioRes = await resetCardioWeekToDefaultsAction(weekStart);
   if (!cardioRes.ok) return cardioRes;
+
+  const sportRes = await resetSportWeekToDefaultsAction(weekStart);
+  if (!sportRes.ok) return sportRes;
 
   const bathingRes = await resetBathingWeekToDefaultsAction(weekStart);
   if (!bathingRes.ok) return bathingRes;

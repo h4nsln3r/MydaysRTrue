@@ -928,6 +928,99 @@ export interface Database {
         };
         Relationships: [];
       };
+      sport_session_templates: {
+        Row: {
+          id: string;
+          user_id: string;
+          key: string;
+          label: string;
+          description: string | null;
+          icon: string;
+          accent: string;
+          sort_order: number;
+          default_weekday: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          key: string;
+          label: string;
+          description?: string | null;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          default_weekday: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          key?: string;
+          label?: string;
+          description?: string | null;
+          icon?: string;
+          accent?: string;
+          sort_order?: number;
+          default_weekday?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      sport_week_placements: {
+        Row: {
+          id: string;
+          user_id: string;
+          template_id: string;
+          week_start: string;
+          weekday: number | null;
+          day_sort_order: number;
+          plan_sport: string | null;
+          actual_sport: string | null;
+          note: string | null;
+          companions: string | null;
+          done_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          template_id: string;
+          week_start: string;
+          weekday?: number | null;
+          day_sort_order?: number;
+          plan_sport?: string | null;
+          actual_sport?: string | null;
+          note?: string | null;
+          companions?: string | null;
+          done_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          template_id?: string;
+          week_start?: string;
+          weekday?: number | null;
+          day_sort_order?: number;
+          plan_sport?: string | null;
+          actual_sport?: string | null;
+          note?: string | null;
+          companions?: string | null;
+          done_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       bathing_session_templates: {
         Row: {
           id: string;

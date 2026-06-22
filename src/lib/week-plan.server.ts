@@ -1,6 +1,8 @@
 import "server-only";
 import { getBathingWeekSummary } from "@/lib/bathing.server";
 import { getCardioWeekSummary } from "@/lib/cardio.server";
+import { getSportWeekSummary } from "@/lib/sport.server";
+import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
 import { formatWeeklyTaskDetail, type Weekday } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
@@ -19,10 +21,11 @@ import { WEIGHT_ITEM_ID } from "@/lib/weight";
 const KIND_SORT: Record<WeekPlanItem["kind"], number> = {
   gym: 0,
   cardio: 1,
-  bathing: 2,
-  task: 3,
-  monthly_bill: 4,
-  weight: 5,
+  sport: 2,
+  bathing: 3,
+  task: 4,
+  monthly_bill: 5,
+  weight: 6,
 };
 
 function dayPlanSortOrder(
@@ -46,10 +49,11 @@ export async function getUnifiedWeekPlan(
   userId: string,
   weekStart: string,
 ): Promise<UnifiedWeekPlan> {
-  const [gymWeek, cardioWeek, bathingWeek, taskWeek, weightPlan, billsWeek] =
+  const [gymWeek, cardioWeek, sportWeek, bathingWeek, taskWeek, weightPlan, billsWeek] =
     await Promise.all([
       getGymWeekSummary(userId, weekStart),
       getCardioWeekSummary(userId, weekStart),
+      getSportWeekSummary(userId, weekStart),
       getBathingWeekSummary(userId, weekStart),
       getWeekSummary(userId, weekStart),
       getWeightWeekPlan(userId, weekStart),
@@ -87,6 +91,32 @@ export async function getUnifiedWeekPlan(
       templateId: s.id,
       label: s.label,
       subtitle: s.description,
+      icon: s.icon,
+      accent: s.accent,
+      defaultWeekday: s.defaultWeekday,
+      weekday: s.placement.weekday,
+      done: Boolean(s.placement.doneAt),
+      sortOrder: dayPlanSortOrder(
+        s.placement.weekday,
+        s.placement.daySortOrder,
+        s.sortOrder,
+      ),
+      session: s,
+    });
+  }
+
+  for (const s of sportWeek.sessions) {
+    const detail = formatSportDetail(s.placement);
+    items.push({
+      dragId: weekPlanDragId("sport", s.id),
+      kind: "sport",
+      templateId: s.id,
+      label: s.label,
+      subtitle: s.placement.doneAt
+        ? detail
+        : s.placement.planSport
+          ? `Plan: ${s.placement.planSport}`
+          : s.description,
       icon: s.icon,
       accent: s.accent,
       defaultWeekday: s.defaultWeekday,

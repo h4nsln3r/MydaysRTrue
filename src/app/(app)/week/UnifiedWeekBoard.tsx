@@ -31,6 +31,11 @@ import {
   uncompleteCardioSessionAction,
 } from "@/app/(app)/cardio-actions";
 import {
+  completeSportSessionAction,
+  uncompleteSportSessionAction,
+  updateSportPlanAction,
+} from "@/app/(app)/sport-actions";
+import {
   completeGymSessionAction,
   uncompleteGymSessionAction,
 } from "@/app/(app)/gym-actions";
@@ -848,6 +853,20 @@ function ItemRowContent({
   const [cardioNote, setCardioNote] = useState(
     item.kind === "cardio" ? (item.session.placement.note ?? "") : "",
   );
+  const [sportPlan, setSportPlan] = useState(
+    item.kind === "sport" ? (item.session.placement.planSport ?? "") : "",
+  );
+  const [sportActual, setSportActual] = useState(
+    item.kind === "sport"
+      ? (item.session.placement.actualSport ?? item.session.placement.planSport ?? "")
+      : "",
+  );
+  const [sportNote, setSportNote] = useState(
+    item.kind === "sport" ? (item.session.placement.note ?? "") : "",
+  );
+  const [sportCompanions, setSportCompanions] = useState(
+    item.kind === "sport" ? (item.session.placement.companions ?? "") : "",
+  );
   const [bathingWaterTemp, setBathingWaterTemp] = useState(
     item.kind === "bathing" && item.session.placement.waterTempC != null
       ? String(item.session.placement.waterTempC)
@@ -871,7 +890,9 @@ function ItemRowContent({
       ? "Gym"
       : item.kind === "cardio"
         ? "Cardio"
-        : item.kind === "bathing"
+        : item.kind === "sport"
+          ? "Sport"
+          : item.kind === "bathing"
           ? "Bad & bastu"
           : item.kind === "weight"
             ? "Vikt"
@@ -997,6 +1018,58 @@ function ItemRowContent({
     });
   };
 
+  const saveSportPlan = () => {
+    if (item.kind !== "sport") return;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await updateSportPlanAction({
+        templateId: item.templateId,
+        weekStart,
+        planSport: sportPlan,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara plan.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const completeSport = () => {
+    if (item.kind !== "sport") return;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await completeSportSessionAction({
+        templateId: item.templateId,
+        weekStart,
+        actualSport: sportActual,
+        note: sportNote,
+        companions: sportCompanions,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const uncompleteSport = () => {
+    if (item.kind !== "sport") return;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await uncompleteSportSessionAction({
+        templateId: item.templateId,
+        weekStart,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
+      setSportActual(item.session.placement.planSport ?? "");
+      setSportNote("");
+      setSportCompanions("");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
   const completeBathing = () => {
     if (item.kind !== "bathing" || item.bathingRole !== "placement" || !item.placementId) {
       return;
@@ -1079,6 +1152,7 @@ function ItemRowContent({
         (item.kind === "task" ||
           item.kind === "gym" ||
           item.kind === "cardio" ||
+          item.kind === "sport" ||
           (item.kind === "bathing" && item.bathingRole === "placement") ||
           item.kind === "weight" ||
           item.kind === "monthly_bill") ? (
@@ -1164,6 +1238,7 @@ function ItemRowContent({
         (taskPlanningExpand ||
           item.kind === "gym" ||
           item.kind === "cardio" ||
+          item.kind === "sport" ||
           (item.kind === "bathing" && item.bathingRole === "placement") ||
           item.kind === "weight") ? (
           <span
@@ -1293,6 +1368,73 @@ function ItemRowContent({
               type="button"
               className={styles.undoBtn}
               onClick={uncompleteCardio}
+              disabled={pending}
+            >
+              Ångra klarmarkering
+            </button>
+          ) : null}
+
+          {item.kind === "sport" && !item.done ? (
+            <>
+              <Input
+                label="Planerad sport"
+                value={sportPlan}
+                onChange={(e) => setSportPlan(e.target.value)}
+                placeholder="t.ex. frisbee golf, badminton"
+                maxLength={80}
+                disabled={pending}
+              />
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={saveSportPlan}
+                disabled={pending}
+              >
+                Spara plan
+              </button>
+              <Input
+                label="Vad blev det?"
+                value={sportActual}
+                onChange={(e) => setSportActual(e.target.value)}
+                placeholder="t.ex. frisbee golf på Berga"
+                maxLength={80}
+                disabled={pending}
+              />
+              <Input
+                label="Hur gick det?"
+                value={sportNote}
+                onChange={(e) => setSportNote(e.target.value)}
+                placeholder="Bra rundor, trött ben…"
+                maxLength={280}
+                disabled={pending}
+              />
+              <Input
+                label="Vem var med?"
+                value={sportCompanions}
+                onChange={(e) => setSportCompanions(e.target.value)}
+                placeholder="t.ex. Johan, Lisa"
+                maxLength={120}
+                disabled={pending}
+              />
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={completeSport}
+              >
+                Markera klart
+              </Button>
+            </>
+          ) : null}
+
+          {item.kind === "sport" && item.done ? (
+            <button
+              type="button"
+              className={styles.undoBtn}
+              onClick={uncompleteSport}
               disabled={pending}
             >
               Ångra klarmarkering

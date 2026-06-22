@@ -2,8 +2,13 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavPending } from "@/components/NavProgress/NavProgress";
+import {
+  PeriodBadge,
+  type PeriodBadgeKind,
+} from "@/components/PeriodBadge/PeriodBadge";
+import { todayLocalISO } from "@/lib/date";
 import styles from "./BottomNav.module.scss";
 
 type IconName = "home" | "week" | "month" | "year" | "user";
@@ -80,11 +85,28 @@ export function BottomNav() {
   );
 }
 
+function navBadgeKind(icon: IconName): PeriodBadgeKind | null {
+  switch (icon) {
+    case "home":
+      return "day";
+    case "week":
+      return "week";
+    case "month":
+      return "month";
+    case "year":
+      return "year";
+    default:
+      return null;
+  }
+}
+
 function BottomNavLinkContent({ item }: { item: NavItem }) {
   const pathname = usePathname();
   const { pending } = useLinkStatus();
   const { setPending } = useNavPending();
   const active = item.isActive(pathname);
+  const today = useMemo(() => todayLocalISO(), []);
+  const badgeKind = navBadgeKind(item.icon);
 
   useEffect(() => {
     setPending(pending);
@@ -103,7 +125,10 @@ function BottomNavLinkContent({ item }: { item: NavItem }) {
       aria-current={active ? "page" : undefined}
     >
       <Icon name={item.icon} />
-      <span>{item.label}</span>
+      <span className={styles.label}>{item.label}</span>
+      {badgeKind ? (
+        <PeriodBadge kind={badgeKind} date={today} variant="nav" />
+      ) : null}
     </span>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { addDaysISO, formatDayShort, formatWeekdayShort, weekEndISO } from "@/lib/date";
 import type { PeriodView } from "@/lib/period-view";
 import styles from "./DayNav.module.scss";
@@ -44,7 +45,11 @@ export function DayNav({ date, today, view, kicker }: Props) {
         >
           ‹
         </Link>
-        <span className={styles.title}>{title}</span>
+        <div className={styles.titleCell}>
+          <PeriodNavTitle kind="day" date={date}>
+            <span className={styles.title}>{title}</span>
+          </PeriodNavTitle>
+        </div>
         {canGoForward ? (
           <Link
             href={dayPageHref(nextDay, today, view)}

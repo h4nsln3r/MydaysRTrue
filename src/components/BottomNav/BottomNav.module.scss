@@ -53,8 +53,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 10px 4px;
+    gap: 1px;
+    padding: 8px 4px;
     border-radius: $radius-pill;
     color: $color-cream-dim;
     font-size: 0.72rem;
@@ -70,9 +70,27 @@
     }
 }
 
+.label {
+    line-height: 1.1;
+}
+
+.subtitle {
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: $color-fog;
+    line-height: 1.1;
+}
+
 .active {
     background: $color-orange;
     color: $color-ink;
+
+    .subtitle {
+        color: rgba(10, 10, 10, 0.72);
+    }
 
     &:hover { color: $color-ink; }
 }

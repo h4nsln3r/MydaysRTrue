@@ -109,3 +109,27 @@ export function formatDayLong(localDate: string): string {
     month: "long",
   });
 }
+
+/** Bottom nav badge — e.g. "22/06". */
+export function formatNavDayBadge(localDate: string = todayLocalISO()): string {
+  const [, m, d] = localDate.split("-");
+  return `${d}/${m}`;
+}
+
+/** Bottom nav badge — e.g. "v.25". */
+export function formatNavWeekBadge(localDate: string = todayLocalISO()): string {
+  return `v.${isoWeekNumber(parseLocalISO(localDate))}`;
+}
+
+/** Bottom nav badge — e.g. "Juni". */
+export function formatNavMonthBadge(localDate: string = todayLocalISO()): string {
+  const name = parseLocalISO(localDate).toLocaleDateString("sv-SE", {
+    month: "long",
+  });
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** Bottom nav badge — e.g. "2026". */
+export function formatNavYearBadge(localDate: string = todayLocalISO()): string {
+  return localDate.slice(0, 4);
+}

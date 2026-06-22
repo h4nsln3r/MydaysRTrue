@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MediaYearBoard } from "@/components/MediaYearBoard/MediaYearBoard";
 import { MediaYearProgress } from "@/components/MediaYearProgress/MediaYearProgress";
+import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getYearMedia } from "@/lib/media.server";
@@ -50,7 +51,11 @@ export default async function YearPage({ searchParams }: YearPageProps) {
           >
             ‹
           </Link>
-          <h1 className={styles.h1}>{year}</h1>
+          <h1 className={styles.h1}>
+            <PeriodNavTitle kind="year" date={`${year}-01-01`}>
+              {year}
+            </PeriodNavTitle>
+          </h1>
           {canGoForward ? (
             <Link
               href={yearNavHref(year + 1, view)}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
+import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getMonthSummary, shiftMonth } from "@/lib/habits.server";
@@ -88,7 +89,14 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
           >
             ‹
           </Link>
-          <h1 className={styles.h1}>{formatMonthLabel(year, month)}</h1>
+          <h1 className={styles.h1}>
+            <PeriodNavTitle
+              kind="month"
+              date={`${year}-${String(month).padStart(2, "0")}-01`}
+            >
+              {formatMonthLabel(year, month)}
+            </PeriodNavTitle>
+          </h1>
           {canGoForward ? (
             <Link
               href={monthNavHref(next.year, next.month, view)}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { getAuthUser } from "@/lib/auth.server";
 
 import { getWeekHabitSummary } from "@/lib/habits.server";
@@ -197,7 +198,11 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
           </Link>
 
-          <h1 className={styles.h1}>{formatWeekLabel(start)}</h1>
+          <h1 className={styles.h1}>
+            <PeriodNavTitle kind="week" date={start}>
+              {formatWeekLabel(start)}
+            </PeriodNavTitle>
+          </h1>
 
           {canGoForward ? (
 

@@ -145,6 +145,7 @@ export async function getWeightForDate(
     weekStart,
     weekday,
     scheduled,
+    daySortOrder: scheduled ? plan.daySortOrder : 0,
     log,
   };
 }

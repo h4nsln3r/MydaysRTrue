@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { HabitStatus, MealKey } from "@/lib/habits";
-import { MEAL_LABEL } from "@/lib/habits";
+import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
+import { MEAL_LABEL, mealHasCookingMeta } from "@/lib/habits";
 
 export interface LogWaterResult {
   ok: boolean;
@@ -593,11 +593,19 @@ const VALID_MEAL_KEYS: ReadonlySet<MealKey> = new Set([
  * also keeps a linked `water_logs` row in sync — creating, updating, or
  * deleting it as needed — so the same liquid only has to be typed once.
  */
+const VALID_MEAL_COOKED_BY: ReadonlySet<MealCookedBy> = new Set([
+  "self",
+  "julia",
+  "bought",
+]);
+
 export async function saveMealAction(input: {
   meal: MealKey;
   localDate: string;
   description: string;
   waterMl?: number;
+  cookedBy?: MealCookedBy | null;
+  mealBoxes?: number | null;
 }): Promise<ActionResult> {
   if (!VALID_MEAL_KEYS.has(input.meal)) {
     return { ok: false, error: "Invalid meal." };
@@ -620,6 +628,31 @@ export async function saveMealAction(input: {
   const waterMl = Math.round(waterMlRaw);
   if (waterMl > 5000) {
     return { ok: false, error: "Max 5000 ml per entry." };
+  }
+
+  const needsCookingMeta = mealHasCookingMeta(input.meal);
+  let cookedBy: MealCookedBy | null = input.cookedBy ?? null;
+  if (needsCookingMeta) {
+    if (!cookedBy || !VALID_MEAL_COOKED_BY.has(cookedBy)) {
+      return { ok: false, error: "Välj vem som lagade maten." };
+    }
+  } else {
+    cookedBy = null;
+  }
+
+  let mealBoxes: number | null = null;
+  if (needsCookingMeta && cookedBy !== "bought") {
+    const raw = input.mealBoxes;
+    if (raw != null) {
+      if (!Number.isFinite(raw) || raw < 0) {
+        return { ok: false, error: "Antal matlådor måste vara 0 eller mer." };
+      }
+      const rounded = Math.round(raw);
+      if (rounded > 30) {
+        return { ok: false, error: "Max 30 matlådor." };
+      }
+      mealBoxes = rounded > 0 ? rounded : null;
+    }
   }
 
   const supabase = await createClient();
@@ -684,6 +717,8 @@ export async function saveMealAction(input: {
       .update({
         description,
         water_log_id: waterLogId,
+        cooked_by: cookedBy,
+        meal_boxes: mealBoxes,
       })
       .eq("id", existing.id)
       .eq("user_id", user.id);
@@ -695,6 +730,8 @@ export async function saveMealAction(input: {
       meal: input.meal,
       description,
       water_log_id: waterLogId,
+      cooked_by: cookedBy,
+      meal_boxes: mealBoxes,
     });
     if (error) return { ok: false, error: error.message };
   }

@@ -42,6 +42,20 @@ export const MEAL_ICON: Record<MealKey, string> = {
   dinner: "🍽",
 };
 
+export type MealCookedBy = "self" | "julia" | "bought";
+
+export const MEAL_COOKED_BY_ORDER: MealCookedBy[] = ["self", "julia", "bought"];
+export const MEAL_COOKED_BY_LABEL: Record<MealCookedBy, string> = {
+  self: "Jag",
+  julia: "Julia",
+  bought: "Köpt",
+};
+
+/** Lunch and dinner track who cooked and optional meal-prep boxes. */
+export function mealHasCookingMeta(meal: MealKey): boolean {
+  return meal === "lunch" || meal === "dinner";
+}
+
 export interface Habit {
   id: string;
   key: string;
@@ -96,6 +110,10 @@ export interface MealEntry {
   description: string;
   waterMl: number; // 0 if no water logged with the meal
   waterLogId: string | null;
+  /** Who prepared lunch/dinner — null for breakfast or legacy rows. */
+  cookedBy: MealCookedBy | null;
+  /** Meal-prep boxes made when cooking — lunch/dinner only. */
+  mealBoxes: number | null;
 }
 
 /**

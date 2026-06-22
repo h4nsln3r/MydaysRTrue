@@ -6,13 +6,17 @@ import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import {
+  MEAL_COOKED_BY_LABEL,
+  MEAL_COOKED_BY_ORDER,
   MEAL_ICON,
   MEAL_LABEL,
   MEAL_ORDER,
   SNACK_ICON,
   SNACK_LABEL,
   SNACK_SLOTS,
+  mealHasCookingMeta,
   type DailySnacks,
+  type MealCookedBy,
   type MealEntry,
   type MealKey,
   type SnackEntry,
@@ -142,6 +146,8 @@ export function MealsCard({
                       label={MEAL_LABEL[meal]}
                       description={entry.description}
                       waterMl={entry.waterMl}
+                      cookedBy={entry.cookedBy}
+                      mealBoxes={entry.mealBoxes}
                       pending={pending}
                       onEdit={() => setEditing(editKey)}
                       onClear={() => clearMeal(meal)}
@@ -226,6 +232,8 @@ interface LoggedRowProps {
   label: string;
   description: string;
   waterMl?: number;
+  cookedBy?: MealCookedBy | null;
+  mealBoxes?: number | null;
   pending: boolean;
   onEdit: () => void;
   onClear: () => void;
@@ -241,6 +249,8 @@ function LoggedRow({
   label,
   description,
   waterMl = 0,
+  cookedBy = null,
+  mealBoxes = null,
   pending,
   onEdit,
   onClear,
@@ -279,9 +289,34 @@ function LoggedRow({
           </span>
           <span className={styles.description}>{description}</span>
         </span>
-        {waterMl > 0 ? (
-          <span className={styles.waterBadge} aria-label="Med vatten">
-            💧 {formatMl(waterMl)}
+        {cookedBy || waterMl > 0 || (mealBoxes != null && mealBoxes > 0) ? (
+          <span className={styles.metaBadges}>
+            {cookedBy ? (
+              <span
+                className={[
+                  styles.cookBadge,
+                  cookedBy === "self"
+                    ? styles.cookBadgeSelf
+                    : cookedBy === "julia"
+                      ? styles.cookBadgeJulia
+                      : styles.cookBadgeBought,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {MEAL_COOKED_BY_LABEL[cookedBy]}
+              </span>
+            ) : null}
+            {mealBoxes != null && mealBoxes > 0 ? (
+              <span className={styles.boxesBadge}>
+                {mealBoxes} matlåd{mealBoxes === 1 ? "a" : "or"}
+              </span>
+            ) : null}
+            {waterMl > 0 ? (
+              <span className={styles.waterBadge} aria-label="Med vatten">
+                💧 {formatMl(waterMl)}
+              </span>
+            ) : null}
           </span>
         ) : null}
       </button>
@@ -371,17 +406,44 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
   const [waterMl, setWaterMl] = useState<string>(
     initial?.waterMl ? String(initial.waterMl) : "",
   );
+  const [cookedBy, setCookedBy] = useState<MealCookedBy | null>(
+    initial?.cookedBy ?? null,
+  );
+  const [mealBoxes, setMealBoxes] = useState<string>(
+    initial?.mealBoxes ? String(initial.mealBoxes) : "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const showCookingMeta = mealHasCookingMeta(meal);
+  const showMealBoxes = showCookingMeta && cookedBy !== null && cookedBy !== "bought";
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    if (showCookingMeta && !cookedBy) {
+      setError("Välj vem som lagade maten.");
+      return;
+    }
+
     const parsedWater = waterMl.trim() === "" ? 0 : Number(waterMl);
     if (!Number.isFinite(parsedWater) || parsedWater < 0) {
       setError("Vattnet måste vara ett positivt tal.");
       return;
+    }
+
+    let parsedBoxes: number | null = null;
+    if (showMealBoxes && mealBoxes.trim() !== "") {
+      parsedBoxes = Number(mealBoxes);
+      if (!Number.isFinite(parsedBoxes) || parsedBoxes < 0) {
+        setError("Antal matlådor måste vara 0 eller mer.");
+        return;
+      }
+      if (parsedBoxes > 30) {
+        setError("Max 30 matlådor.");
+        return;
+      }
     }
 
     startTransition(async () => {
@@ -390,6 +452,8 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
         localDate: date,
         description,
         waterMl: Math.round(parsedWater),
+        cookedBy: showCookingMeta ? cookedBy : null,
+        mealBoxes: showMealBoxes ? parsedBoxes : null,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
@@ -428,6 +492,44 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
         autoFocus
         required
       />
+
+      {showCookingMeta ? (
+        <div className={styles.cookBlock}>
+          <span className={styles.label}>Vem lagade maten?</span>
+          <div className={styles.cookRow}>
+            {MEAL_COOKED_BY_ORDER.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={styles.cookOption}
+                aria-pressed={cookedBy === option}
+                onClick={() => {
+                  setCookedBy(option);
+                  if (option === "bought") setMealBoxes("");
+                }}
+                disabled={pending}
+              >
+                {MEAL_COOKED_BY_LABEL[option]}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {showMealBoxes ? (
+        <Input
+          label="Matlådor (valfritt)"
+          type="number"
+          min={0}
+          max={30}
+          step={1}
+          inputMode="numeric"
+          value={mealBoxes}
+          onChange={(e) => setMealBoxes(e.target.value)}
+          placeholder="0"
+          hint="Hur många matlådor blev det, om några?"
+        />
+      ) : null}
 
       <div className={styles.waterBlock}>
         <span className={styles.label}>Vatten till måltiden</span>

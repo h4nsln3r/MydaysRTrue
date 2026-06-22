@@ -40,6 +40,8 @@ export interface WeightDayContext {
   weekday: Weekday;
   /** Enabled and placed on this calendar day for the current week. */
   scheduled: boolean;
+  /** Order on this weekday in the week plan (when scheduled). */
+  daySortOrder: number;
   log: WeightLog | null;
 }
 

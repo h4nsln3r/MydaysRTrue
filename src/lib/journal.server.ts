@@ -100,7 +100,13 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
       source: "meal",
       icon: mealJournalIcon(meal.meal),
       title: mealJournalTitle(meal.meal),
-      body: mealJournalBody(meal.meal, meal.description, meal.waterMl),
+      body: mealJournalBody(
+        meal.meal,
+        meal.description,
+        meal.waterMl,
+        meal.cookedBy,
+        meal.mealBoxes,
+      ),
       at: meal.loggedAt,
       editable: false,
     });

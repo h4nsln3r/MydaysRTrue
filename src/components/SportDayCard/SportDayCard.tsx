@@ -12,6 +12,8 @@ import {
   updateSportPlanAction,
 } from "@/app/(app)/sport-actions";
 import { formatSportDetail, type SportSessionForWeek } from "@/lib/sport";
+import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
+import { trainingCategory } from "@/lib/activity-category";
 import { sortIncompleteFirst } from "@/lib/tasks";
 import styles from "./SportDayCard.module.scss";
 
@@ -95,7 +97,7 @@ export function SportDayCard({
 
       <ul className={styles.list}>
         {orderedSessions.map((s) => (
-          <SessionRow
+          <SportSessionRow
             key={s.id}
             session={s}
             weekStart={weekStart}
@@ -130,7 +132,7 @@ interface SessionRowProps {
   onDone: () => void;
 }
 
-function SessionRow({
+export function SportSessionRow({
   session,
   weekStart,
   expanded,
@@ -142,6 +144,7 @@ function SessionRow({
   onDone,
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
+  const category = trainingCategory("sport");
   const detail = formatSportDetail(session.placement);
   const [planSport, setPlanSport] = useState(session.placement.planSport ?? "");
   const [actualSport, setActualSport] = useState(
@@ -251,6 +254,12 @@ function SessionRow({
           {session.icon}
         </span>
         <span className={styles.sessionMeta}>
+          <ActivityCategoryBadge
+            icon={category.icon}
+            label={category.label}
+            accent={category.accent}
+            done={done}
+          />
           <span className={styles.sessionTitle}>{session.label}</span>
           {!done && session.placement.planSport ? (
             <span className={styles.planHint}>

@@ -405,7 +405,7 @@ export async function getDailyMeals(
 
   const { data: rows } = await supabase
     .from("meal_entries")
-    .select("id, meal, description, water_log_id")
+    .select("id, meal, description, water_log_id, cooked_by, meal_boxes")
     .eq("user_id", userId)
     .eq("local_date", localDate);
 
@@ -434,6 +434,8 @@ export async function getDailyMeals(
       description: r.description,
       waterMl: r.water_log_id ? waterMap.get(r.water_log_id) ?? 0 : 0,
       waterLogId: r.water_log_id,
+      cookedBy: (r.cooked_by as MealEntry["cookedBy"]) ?? null,
+      mealBoxes: r.meal_boxes,
     };
   }
   return out;

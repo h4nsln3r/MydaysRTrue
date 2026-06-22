@@ -177,6 +177,24 @@ export function sortIncompleteFirst<T>(
   });
 }
 
+/** Day view: week-plan order while pending; completed sink to the bottom in check-off order. */
+export function sortWeeklyDayTasks(tasks: WeeklyTaskForWeek[]): WeeklyTaskForWeek[] {
+  return [...tasks].sort((a, b) => {
+    const aDone = Boolean(a.placement?.doneAt);
+    const bDone = Boolean(b.placement?.doneAt);
+    if (aDone !== bDone) return aDone ? 1 : -1;
+    if (!aDone) {
+      return (
+        (a.placement?.daySortOrder ?? a.sortOrder) -
+        (b.placement?.daySortOrder ?? b.sortOrder)
+      );
+    }
+    const at = a.placement?.doneAt ?? "";
+    const bt = b.placement?.doneAt ?? "";
+    return at.localeCompare(bt);
+  });
+}
+
 /** Group items by category id, preserving the order of `categories` then `none`. */
 export function groupByCategory<T extends { categoryId: string | null }>(
   items: T[],

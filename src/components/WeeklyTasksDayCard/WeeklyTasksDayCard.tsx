@@ -18,15 +18,16 @@ import {
 } from "@/app/(app)/tasks-actions";
 import {
   formatWeeklyTaskDetail,
-  groupByCategory,
   isMusicRepTask,
   MUSIC_BANDS,
-  sortIncompleteFirst,
+  sortWeeklyDayTasks,
   type MusicBand,
   type TaskCategory,
   type Weekday,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
+import { taskCategory } from "@/lib/activity-category";
 import { addDaysISO, formatDayLong, isoWeekdayFromLocalISO } from "@/lib/date";
 import styles from "./WeeklyTasksDayCard.module.scss";
 
@@ -84,7 +85,7 @@ export function WeeklyTasksDayCard({
       : null;
   const quickAdd =
     quickAddWeekday != null ? (
-      <QuickAddRow
+      <WeeklyTaskQuickAdd
         weekStart={weekStart}
         weekday={quickAddWeekday}
         categories={categories}
@@ -105,14 +106,7 @@ export function WeeklyTasksDayCard({
   }, [weekStart, today, isOverdue]);
 
   const doneCount = tasks.filter((t) => t.placement?.doneAt).length;
-  const grouped = groupByCategory(tasks, categories).map(({ category, items }) => ({
-    category,
-    items: sortIncompleteFirst(
-      items,
-      (t) => Boolean(t.placement?.doneAt),
-      (a, b) => a.sortOrder - b.sortOrder,
-    ),
-  }));
+  const orderedTasks = sortWeeklyDayTasks(tasks);
 
   if (tasks.length === 0) {
     if (hideWhenEmpty) {
@@ -168,43 +162,32 @@ export function WeeklyTasksDayCard({
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
-      <div className={styles.groups}>
-        {grouped.map(({ category, items }) => (
-          <section key={category?.id ?? "none"}>
-            {category ? (
-              <p className={styles.groupLabel}>
-                {category.icon} {category.name}
-              </p>
-            ) : null}
-            <ul className={styles.list}>
-              {items.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  weekStart={weekStart}
-                  categories={categories}
-                  canReschedule={canReschedule}
-                  isOverdue={isOverdue}
-                  rescheduleDays={rescheduleDays}
-                  expanded={expandedId === task.id}
-                  busy={pendingId === task.id}
-                  pending={pending}
-                  onToggleExpand={() =>
-                    setExpandedId(expandedId === task.id ? null : task.id)
-                  }
-                  onError={setError}
-                  onPendingId={setPendingId}
-                  onRefresh={() => router.refresh()}
-                  onDone={() => {
-                    setExpandedId(null);
-                    router.refresh();
-                  }}
-                />
-              ))}
-            </ul>
-          </section>
+      <ul className={styles.list}>
+        {orderedTasks.map((task) => (
+          <WeeklyTaskRow
+            key={task.id}
+            task={task}
+            weekStart={weekStart}
+            categories={categories}
+            canReschedule={canReschedule}
+            isOverdue={isOverdue}
+            rescheduleDays={rescheduleDays}
+            expanded={expandedId === task.id}
+            busy={pendingId === task.id}
+            pending={pending}
+            onToggleExpand={() =>
+              setExpandedId(expandedId === task.id ? null : task.id)
+            }
+            onError={setError}
+            onPendingId={setPendingId}
+            onRefresh={() => router.refresh()}
+            onDone={() => {
+              setExpandedId(null);
+              router.refresh();
+            }}
+          />
         ))}
-      </div>
+      </ul>
       {quickAdd}
     </Card>
   );
@@ -217,7 +200,7 @@ interface QuickAddRowProps {
   onAdded: () => void;
 }
 
-function QuickAddRow({
+export function WeeklyTaskQuickAdd({
   weekStart,
   weekday,
   categories,
@@ -341,7 +324,7 @@ interface TaskRowProps {
   onDone: () => void;
 }
 
-function TaskRow({
+export function WeeklyTaskRow({
   task,
   weekStart,
   categories,
@@ -383,6 +366,7 @@ function TaskRow({
 
   const detail = placement ? formatWeeklyTaskDetail(placement) : null;
   const planNote = placement?.planNote?.trim() ?? "";
+  const category = taskCategory(task, categories);
 
   const toggleSimple = () => {
     onError(null);
@@ -551,6 +535,14 @@ function TaskRow({
           {task.icon}
         </span>
         <span className={styles.taskMeta}>
+          {category ? (
+            <ActivityCategoryBadge
+              icon={category.icon}
+              label={category.label}
+              accent={category.accent}
+              done={done}
+            />
+          ) : null}
           <span className={styles.taskTitle}>{task.title}</span>
           {detail ? (
             <span className={styles.taskDetail}>{detail}</span>

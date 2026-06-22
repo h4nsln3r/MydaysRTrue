@@ -275,6 +275,49 @@ button.row {
     white-space: nowrap;
 }
 
+.metaBadges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.cookBadge,
+.boxesBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: $radius-pill;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.cookBadgeSelf {
+    background: rgba(255, 122, 26, 0.12);
+    border: 1px solid rgba(255, 122, 26, 0.45);
+    color: $color-orange-bright;
+}
+
+.cookBadgeJulia {
+    background: rgba(232, 121, 249, 0.12);
+    border: 1px solid rgba(232, 121, 249, 0.45);
+    color: #e8b4ff;
+}
+
+.cookBadgeBought {
+    background: rgba(110, 231, 163, 0.1);
+    border: 1px solid rgba(110, 231, 163, 0.45);
+    color: $color-success;
+}
+
+.boxesBadge {
+    background: rgba(255, 207, 58, 0.1);
+    border: 1px solid rgba(255, 207, 58, 0.45);
+    color: $color-warning;
+}
+
 .plus {
     display: inline-flex;
     align-items: center;
@@ -421,6 +464,43 @@ button.row:hover:not(:disabled) .plus {
     display: flex;
     flex-direction: column;
     gap: $space-2;
+}
+
+.cookBlock {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.cookRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cookOption {
+    padding: 8px 14px;
+    border-radius: $radius-pill;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    font-family: $font-sans;
+    font-size: 0.82rem;
+    font-weight: 700;
+    transition:
+        background 160ms $ease-out,
+        color 160ms $ease-out,
+        border-color 160ms $ease-out;
+
+    &[aria-pressed="true"] {
+        background: rgba(255, 122, 26, 0.18);
+        border-color: rgba(255, 122, 26, 0.6);
+        color: $color-orange-bright;
+    }
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+    }
 }
 
 .label {

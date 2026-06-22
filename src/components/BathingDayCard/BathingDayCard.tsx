@@ -15,6 +15,8 @@ import {
   formatWaterTemp,
   type BathingSessionForWeek,
 } from "@/lib/bathing";
+import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
+import { trainingCategory } from "@/lib/activity-category";
 import { sortIncompleteFirst, type Weekday } from "@/lib/tasks";
 import styles from "./BathingDayCard.module.scss";
 
@@ -54,7 +56,7 @@ export function BathingDayCard({
 
   const extraBath =
     enableExtraBath && weekday != null ? (
-      <ExtraBath
+      <BathingExtraBath
         weekStart={weekStart}
         weekday={weekday}
         onAdded={() => router.refresh()}
@@ -117,7 +119,7 @@ export function BathingDayCard({
 
       <ul className={styles.list}>
         {orderedSessions.map((s) => (
-          <SessionRow
+          <BathingSessionRow
             key={s.placement.id}
             session={s}
             weekStart={weekStart}
@@ -149,7 +151,7 @@ interface ExtraBathProps {
   onAdded: () => void;
 }
 
-function ExtraBath({ weekStart, weekday, onAdded }: ExtraBathProps) {
+export function BathingExtraBath({ weekStart, weekday, onAdded }: ExtraBathProps) {
   const [open, setOpen] = useState(false);
   const [waterTemp, setWaterTemp] = useState("");
   const [note, setNote] = useState("");
@@ -259,7 +261,7 @@ interface SessionRowProps {
   onDone: () => void;
 }
 
-function SessionRow({
+export function BathingSessionRow({
   session,
   weekStart,
   expanded,
@@ -271,6 +273,7 @@ function SessionRow({
   onDone,
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
+  const category = trainingCategory("bathing");
   const needsTemp = bathingRequiresWaterTemp(session.key);
   const [waterTemp, setWaterTemp] = useState(
     session.placement.waterTempC != null
@@ -364,6 +367,12 @@ function SessionRow({
           {session.icon}
         </span>
         <span className={styles.sessionMeta}>
+          <ActivityCategoryBadge
+            icon={category.icon}
+            label={category.label}
+            accent={category.accent}
+            done={done}
+          />
           <span className={styles.sessionTitle}>{session.label}</span>
           {session.description ? (
             <span className={styles.sessionDesc}>{session.description}</span>

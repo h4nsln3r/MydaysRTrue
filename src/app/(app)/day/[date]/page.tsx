@@ -8,8 +8,7 @@ import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { WaterLogItem } from "@/components/WaterLogItem/WaterLogItem";
-import { TrainingDaySection } from "@/components/TrainingDaySection/TrainingDaySection";
-import { WeeklyTasksDayCard } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
+import { DayActivitiesCard } from "@/components/DayActivitiesCard/DayActivitiesCard";
 import { createClient } from "@/lib/supabase/server";
 import { getDailySummary } from "@/lib/water.server";
 import {
@@ -113,10 +112,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
 
   const backToWeek = `/week?start=${weekStartISO(parseLocalISO(date))}`;
 
-  const hasIncompleteWeekly = weeklyTasksDay.tasks.some(
-    (t) => !t.placement?.doneAt,
-  );
-
   return (
     <main className={styles.main}>
       <header className={styles.header}>
@@ -139,48 +134,26 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
 
       {view === "progress" ? (
         <>
-          {(() => {
-            const weeklySection = (
-              <section className={styles.section}>
-                <WeeklyTasksDayCard
-                  weekStart={weeklyTasksDay.weekStart}
-                  tasks={weeklyTasksDay.tasks}
-                  categories={weeklyTasksDay.categories}
-                  date={date}
-                  today={today}
-                  title="Veckouppgifter"
-                  hideWhenEmpty
-                  showWeekLink={false}
-                  enableQuickAdd
-                />
-              </section>
-            );
-
-            const training = (
-              <TrainingDaySection
-                weekStart={gymDay.weekStart}
-                gymSessions={gymDay.sessions}
-                cardioSessions={cardioDay.sessions}
-                sportSessions={sportDay.sessions}
-                bathingSessions={bathingDay.sessions}
-                weightContext={weightDay}
-                bathingWeekday={bathingDay.weekday}
-                enableExtraBath
-              />
-            );
-
-            return hasIncompleteWeekly ? (
-              <>
-                {weeklySection}
-                {training}
-              </>
-            ) : (
-              <>
-                {training}
-                {weeklySection}
-              </>
-            );
-          })()}
+          <section className={styles.section}>
+            <DayActivitiesCard
+              weekStart={weeklyTasksDay.weekStart}
+              tasks={weeklyTasksDay.tasks}
+              gymSessions={gymDay.sessions}
+              cardioSessions={cardioDay.sessions}
+              sportSessions={sportDay.sessions}
+              bathingSessions={bathingDay.sessions}
+              weight={weightDay}
+              categories={weeklyTasksDay.categories}
+              date={date}
+              today={today}
+              title="Veckouppgifter"
+              hideWhenEmpty
+              showWeekLink={false}
+              enableQuickAdd
+              bathingWeekday={bathingDay.weekday}
+              enableExtraBath
+            />
+          </section>
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>

@@ -666,6 +666,8 @@ export interface Database {
           meal: "breakfast" | "lunch" | "dinner";
           description: string;
           water_log_id: string | null;
+          cooked_by: "self" | "julia" | "bought" | null;
+          meal_boxes: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -676,6 +678,8 @@ export interface Database {
           meal: "breakfast" | "lunch" | "dinner";
           description: string;
           water_log_id?: string | null;
+          cooked_by?: "self" | "julia" | "bought" | null;
+          meal_boxes?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -686,6 +690,8 @@ export interface Database {
           meal?: "breakfast" | "lunch" | "dinner";
           description?: string;
           water_log_id?: string | null;
+          cooked_by?: "self" | "julia" | "bought" | null;
+          meal_boxes?: number | null;
           created_at?: string;
           updated_at?: string;
         };

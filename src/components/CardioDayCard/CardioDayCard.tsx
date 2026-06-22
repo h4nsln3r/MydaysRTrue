@@ -11,6 +11,8 @@ import {
   uncompleteCardioSessionAction,
 } from "@/app/(app)/cardio-actions";
 import type { CardioSessionForWeek } from "@/lib/cardio";
+import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
+import { trainingCategory } from "@/lib/activity-category";
 import { sortIncompleteFirst } from "@/lib/tasks";
 import styles from "./CardioDayCard.module.scss";
 
@@ -94,7 +96,7 @@ export function CardioDayCard({
 
       <ul className={styles.list}>
         {orderedSessions.map((s) => (
-          <SessionRow
+          <CardioSessionRow
             key={s.id}
             session={s}
             weekStart={weekStart}
@@ -129,7 +131,7 @@ interface SessionRowProps {
   onDone: () => void;
 }
 
-function SessionRow({
+export function CardioSessionRow({
   session,
   weekStart,
   expanded,
@@ -141,6 +143,7 @@ function SessionRow({
   onDone,
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
+  const category = trainingCategory("cardio");
   const [note, setNote] = useState(session.placement.note ?? "");
   const [, startTransition] = useTransition();
 
@@ -223,6 +226,12 @@ function SessionRow({
           {session.icon}
         </span>
         <span className={styles.sessionMeta}>
+          <ActivityCategoryBadge
+            icon={category.icon}
+            label={category.label}
+            accent={category.accent}
+            done={done}
+          />
           <span className={styles.sessionTitle}>{session.label}</span>
           {session.description ? (
             <span className={styles.sessionDesc}>{session.description}</span>

@@ -1,8 +1,13 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO } from "@/lib/date";
-import type { HabitStatus, MealKey } from "@/lib/habits";
-import { MEAL_ICON, type SnackSlot } from "@/lib/habits";
+import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
+import {
+  MEAL_COOKED_BY_LABEL,
+  MEAL_ICON,
+  mealHasCookingMeta,
+  type SnackSlot,
+} from "@/lib/habits";
 import {
   INTAKE_ICON,
   INTAKE_LABEL,
@@ -31,6 +36,8 @@ export interface JournalDailyTrackers {
     meal: MealKey;
     description: string;
     waterMl: number;
+    cookedBy: MealCookedBy | null;
+    mealBoxes: number | null;
     loggedAt: string;
   }[];
   snacks: {
@@ -121,7 +128,7 @@ export async function getJournalTrackersForWeek(
   ] = await Promise.all([
     supabase
       .from("meal_entries")
-      .select("id, local_date, meal, description, water_log_id, created_at")
+      .select("id, local_date, meal, description, water_log_id, cooked_by, meal_boxes, created_at")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
@@ -211,6 +218,8 @@ export async function getJournalTrackersForWeek(
       meal: row.meal as MealKey,
       description: row.description,
       waterMl: row.water_log_id ? waterMap.get(row.water_log_id) ?? 0 : 0,
+      cookedBy: (row.cooked_by as MealCookedBy | null) ?? null,
+      mealBoxes: row.meal_boxes,
       loggedAt: row.created_at,
     });
   }
@@ -347,8 +356,17 @@ export function mealJournalBody(
   meal: MealKey,
   description: string,
   _waterMl: number,
+  cookedBy: MealCookedBy | null = null,
+  mealBoxes: number | null = null,
 ): string {
-  return description.trim();
+  const parts = [description.trim()];
+  if (mealHasCookingMeta(meal) && cookedBy) {
+    parts.push(MEAL_COOKED_BY_LABEL[cookedBy]);
+  }
+  if (mealHasCookingMeta(meal) && mealBoxes != null && mealBoxes > 0) {
+    parts.push(`${mealBoxes} matlåd${mealBoxes === 1 ? "a" : "or"}`);
+  }
+  return parts.join(" · ");
 }
 
 export function mealJournalTitle(meal: MealKey): string {

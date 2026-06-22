@@ -3,21 +3,38 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Card } from "@/components/Card/Card";
 import { BathingExtraBath } from "@/components/BathingDayCard/BathingDayCard";
 import { WeeklyTaskQuickAdd } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
-import {
-  buildDayActivities,
-  dayActivityKey,
-} from "@/lib/day-activities";
+import { buildDayPlanItems } from "@/lib/day-plan";
 import { addDaysISO, formatDayLong, isoWeekdayFromLocalISO } from "@/lib/date";
+import type { DailyHabit, DailySnacks, MealEntry, MealKey } from "@/lib/habits";
+import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
+import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
 import type { TaskCategory, Weekday, WeeklyTaskForWeek } from "@/lib/tasks";
 import type { WeightDayContext } from "@/lib/weight";
+import type { WorkDailyLog } from "@/lib/work";
+import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
 import { DayActivityRow } from "./DayActivityRow";
+import { PlanSortableRow } from "./PlanSortableRow";
 import type { RescheduleDay } from "./types";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
 
@@ -29,6 +46,14 @@ interface Props {
   sportSessions: SportSessionForWeek[];
   bathingSessions: BathingSessionForWeek[];
   weight: WeightDayContext;
+  habits: DailyHabit[];
+  meals: Record<MealKey, MealEntry | null>;
+  snacks: DailySnacks;
+  intake: Record<IntakeKind, IntakeEntry | null>;
+  work: WorkDailyLog;
+  activityLog: DailyActivityLog;
+  goals: DailyTrackerGoals;
+  savedOrder: Map<string, number>;
   categories: TaskCategory[];
   date?: string;
   today?: string;
@@ -48,10 +73,18 @@ export function DayActivitiesCard({
   sportSessions,
   bathingSessions,
   weight,
+  habits,
+  meals,
+  snacks,
+  intake,
+  work,
+  activityLog,
+  goals,
+  savedOrder,
   categories,
   date,
   today,
-  title = "Idag",
+  title = "Dagens plan",
   hideWhenEmpty = false,
   showWeekLink = true,
   enableQuickAdd = false,
@@ -62,7 +95,60 @@ export function DayActivitiesCard({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending] = useTransition();
+  const [pending, startTransition] = useTransition();
+
+  const planDate = date ?? today ?? "";
+
+  const builtItems = useMemo(
+    () =>
+      buildDayPlanItems({
+        date: planDate,
+        tasks,
+        gymSessions,
+        cardioSessions,
+        sportSessions,
+        bathingSessions,
+        weight,
+        habits,
+        meals,
+        snacks,
+        intake,
+        work,
+        activityLog,
+        goals,
+        savedOrder,
+      }),
+    [
+      planDate,
+      tasks,
+      gymSessions,
+      cardioSessions,
+      sportSessions,
+      bathingSessions,
+      weight,
+      habits,
+      meals,
+      snacks,
+      intake,
+      work,
+      activityLog,
+      goals,
+      savedOrder,
+    ],
+  );
+
+  const [localItems, setLocalItems] = useState(builtItems);
+
+  useEffect(() => {
+    setLocalItems(builtItems);
+  }, [builtItems]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 180, tolerance: 6 },
+    }),
+  );
 
   const [afterEight, setAfterEight] = useState(false);
   useEffect(() => {
@@ -73,27 +159,8 @@ export function DayActivitiesCard({
   const isToday = date != null && today != null && date === today;
   const canReschedule = isOverdue || (isToday && afterEight);
 
-  const items = useMemo(
-    () =>
-      buildDayActivities({
-        tasks,
-        gymSessions,
-        cardioSessions,
-        sportSessions,
-        bathingSessions,
-        weight,
-      }),
-    [
-      tasks,
-      gymSessions,
-      cardioSessions,
-      sportSessions,
-      bathingSessions,
-      weight,
-    ],
-  );
-
-  const doneCount = items.filter((i) => i.doneAt).length;
+  const doneCount = localItems.filter((i) => i.doneAt).length;
+  const itemKeys = localItems.map((i) => i.itemKey);
 
   const quickAddWeekday =
     enableQuickAdd && date != null
@@ -130,7 +197,36 @@ export function DayActivitiesCard({
     />
   ) : null;
 
-  if (items.length === 0) {
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !planDate) return;
+
+    const oldIndex = localItems.findIndex((i) => i.itemKey === active.id);
+    const newIndex = localItems.findIndex((i) => i.itemKey === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const next = arrayMove(localItems, oldIndex, newIndex).map((item, index) => ({
+      ...item,
+      sortOrder: index,
+    }));
+    setLocalItems(next);
+    setError(null);
+
+    startTransition(async () => {
+      const res = await reorderDayPlanAction({
+        localDate: planDate,
+        orderedKeys: next.map((i) => i.itemKey),
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte spara ordning.");
+        setLocalItems(builtItems);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  if (localItems.length === 0) {
     if (hideWhenEmpty) {
       if (!quickAdd && !extraBath) return null;
       return (
@@ -166,8 +262,8 @@ export function DayActivitiesCard({
           <span
             className={[
               styles.counter,
-              doneCount === items.length ? styles.counterDone : "",
-              doneCount > 0 && doneCount < items.length
+              doneCount === localItems.length ? styles.counterDone : "",
+              doneCount > 0 && doneCount < localItems.length
                 ? styles.counterPartial
                 : "",
             ]
@@ -175,9 +271,10 @@ export function DayActivitiesCard({
               .join(" ")}
           >
             <span className={styles.counterBig}>{doneCount}</span>
-            <span className={styles.counterSlash}>/ {items.length}</span>
+            <span className={styles.counterSlash}>/ {localItems.length}</span>
           </span>
         </div>
+        <p className={styles.planHint}>Dra ⠿ för att ändra ordning idag</p>
         {showWeekLink ? (
           <Link
             href={`/week?start=${weekStart}&view=plan`}
@@ -190,35 +287,49 @@ export function DayActivitiesCard({
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
-      <ul className={styles.list}>
-        {items.map((item) => {
-          const key = dayActivityKey(item);
-          return (
-            <DayActivityRow
-              key={key}
-              item={item}
-              weekStart={weekStart}
-              categories={categories}
-              canReschedule={canReschedule}
-              isOverdue={isOverdue}
-              rescheduleDays={rescheduleDays}
-              expanded={expandedKey === key}
-              busy={pendingKey === key}
-              pending={pending}
-              onToggleExpand={() =>
-                setExpandedKey(expandedKey === key ? null : key)
-              }
-              onError={setError}
-              onPendingId={(id) => setPendingKey(id ? key : null)}
-              onRefresh={() => router.refresh()}
-              onDone={() => {
-                setExpandedKey(null);
-                router.refresh();
-              }}
-            />
-          );
-        })}
-      </ul>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={itemKeys} strategy={verticalListSortingStrategy}>
+          <ul className={styles.list}>
+            {localItems.map((item) => (
+              <PlanSortableRow key={item.itemKey} id={item.itemKey}>
+                {(sortable) => (
+                  <DayActivityRow
+                    item={item}
+                    date={planDate}
+                    weekStart={weekStart}
+                    categories={categories}
+                    canReschedule={canReschedule}
+                    isOverdue={isOverdue}
+                    rescheduleDays={rescheduleDays}
+                    expanded={expandedKey === item.itemKey}
+                    busy={pendingKey === item.itemKey}
+                    pending={pending}
+                    onToggleExpand={() =>
+                      setExpandedKey(
+                        expandedKey === item.itemKey ? null : item.itemKey,
+                      )
+                    }
+                    onError={setError}
+                    onPendingId={(id) =>
+                      setPendingKey(id ? item.itemKey : null)
+                    }
+                    onRefresh={() => router.refresh()}
+                    onDone={() => {
+                      setExpandedKey(null);
+                      router.refresh();
+                    }}
+                    {...sortable}
+                  />
+                )}
+              </PlanSortableRow>
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
 
       {quickAdd}
       {extraBath}

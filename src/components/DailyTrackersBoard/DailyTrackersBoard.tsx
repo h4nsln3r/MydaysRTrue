@@ -6,6 +6,7 @@ import { MediaDayCard } from "@/components/MediaDayCard/MediaDayCard";
 import { TriStateHabitRow } from "@/components/TriStateHabitRow/TriStateHabitRow";
 import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
+import { DAY_PLAN_HABIT_KINDS } from "@/lib/day-plan";
 import {
   sortOtherDailyTrackersIncompleteFirst,
   type DailyHabit,
@@ -63,13 +64,23 @@ export function DailyTrackersBoard({
     );
   }
 
-  const showMeals = habits.some((h) => h.kind === "meal");
-  const showSnacks = habits.some((h) => h.kind === "snack");
-  const showIntake = habits.some((h) => h.kind === "intake");
+  const boardHabits = habits.filter((h) => !DAY_PLAN_HABIT_KINDS.has(h.kind));
+
+  if (boardHabits.length === 0) {
+    return (
+      <p className={styles.empty}>
+        Övriga spårare (vatten m.m.) visas här när de är aktiva.
+      </p>
+    );
+  }
+
+  const showMeals = boardHabits.some((h) => h.kind === "meal");
+  const showSnacks = boardHabits.some((h) => h.kind === "snack");
+  const showIntake = boardHabits.some((h) => h.kind === "intake");
   const showNutrition = showMeals || showSnacks || showIntake;
-  const waterHabit = habits.find((h) => h.kind === "water");
+  const waterHabit = boardHabits.find((h) => h.kind === "water");
   const activityHabits = sortOtherDailyTrackersIncompleteFirst(
-    habits.filter((h) => h.kind !== "water" && !NUTRITION_KINDS.has(h.kind)),
+    boardHabits.filter((h) => h.kind !== "water" && !NUTRITION_KINDS.has(h.kind)),
   );
 
   const renderTracker = (habit: DailyHabit) => {

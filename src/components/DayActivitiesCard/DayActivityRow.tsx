@@ -1,6 +1,7 @@
 "use client";
 
-import type { DayActivityItem } from "@/lib/day-activities";
+import type { DayPlanItem } from "@/lib/day-plan";
+import { DAY_PLAN_HABIT_KINDS } from "@/lib/day-plan";
 import { BathingSessionRow } from "@/components/BathingDayCard/BathingDayCard";
 import { CardioSessionRow } from "@/components/CardioDayCard/CardioDayCard";
 import { GymSessionRow } from "@/components/GymDayCard/GymDayCard";
@@ -9,9 +10,22 @@ import { WeeklyTaskRow } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCar
 import type { TaskCategory } from "@/lib/tasks";
 import type { RescheduleDay } from "./types";
 import { WeightActivityRow } from "./WeightActivityRow";
+import { DayPlanDailyRow } from "./DayPlanDailyRow";
+import type { PlanSortableProps } from "./usePlanSortable";
 
-interface Props {
-  item: DayActivityItem;
+const DAILY_KINDS = new Set<DayPlanItem["kind"]>([
+  "meal",
+  "snack",
+  "intake",
+  "work_start",
+  "work_end",
+  "steps",
+  "activity_hours",
+]);
+
+interface Props extends PlanSortableProps {
+  item: DayPlanItem;
+  date: string;
   weekStart: string;
   categories: TaskCategory[];
   canReschedule: boolean;
@@ -29,6 +43,7 @@ interface Props {
 
 export function DayActivityRow({
   item,
+  date,
   weekStart,
   categories,
   canReschedule,
@@ -42,7 +57,29 @@ export function DayActivityRow({
   onPendingId,
   onRefresh,
   onDone,
+  dragHandle,
+  sortableRef,
+  sortableStyle,
 }: Props) {
+  if (DAILY_KINDS.has(item.kind)) {
+    return (
+      <DayPlanDailyRow
+        item={item}
+        date={date}
+        expanded={expanded}
+        busy={busy}
+        pending={pending}
+        onToggleExpand={onToggleExpand}
+        onError={onError}
+        onPendingKey={(active) => onPendingId(active ? item.itemKey : null)}
+        onDone={onDone}
+        dragHandle={dragHandle}
+        sortableRef={sortableRef}
+        sortableStyle={sortableStyle}
+      />
+    );
+  }
+
   switch (item.kind) {
     case "task":
       return (
@@ -61,6 +98,9 @@ export function DayActivityRow({
           onPendingId={onPendingId}
           onRefresh={onRefresh}
           onDone={onDone}
+          dragHandle={dragHandle}
+          sortableRef={sortableRef}
+          sortableStyle={sortableStyle}
         />
       );
     case "gym":
@@ -75,6 +115,9 @@ export function DayActivityRow({
           onError={onError}
           onPendingId={onPendingId}
           onDone={onDone}
+          dragHandle={dragHandle}
+          sortableRef={sortableRef}
+          sortableStyle={sortableStyle}
         />
       );
     case "cardio":
@@ -89,6 +132,9 @@ export function DayActivityRow({
           onError={onError}
           onPendingId={onPendingId}
           onDone={onDone}
+          dragHandle={dragHandle}
+          sortableRef={sortableRef}
+          sortableStyle={sortableStyle}
         />
       );
     case "sport":
@@ -103,6 +149,9 @@ export function DayActivityRow({
           onError={onError}
           onPendingId={onPendingId}
           onDone={onDone}
+          dragHandle={dragHandle}
+          sortableRef={sortableRef}
+          sortableStyle={sortableStyle}
         />
       );
     case "bathing":
@@ -117,6 +166,9 @@ export function DayActivityRow({
           onError={onError}
           onPendingId={onPendingId}
           onDone={onDone}
+          dragHandle={dragHandle}
+          sortableRef={sortableRef}
+          sortableStyle={sortableStyle}
         />
       );
     case "weight":
@@ -130,9 +182,14 @@ export function DayActivityRow({
           onError={onError}
           onPendingId={onPendingId}
           onDone={onDone}
+          dragHandle={dragHandle}
+          sortableRef={sortableRef}
+          sortableStyle={sortableStyle}
         />
       );
     default:
       return null;
   }
 }
+
+export { DAY_PLAN_HABIT_KINDS };

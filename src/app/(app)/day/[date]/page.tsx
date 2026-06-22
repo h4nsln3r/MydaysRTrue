@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
 import { JournalDaySection } from "@/components/JournalDaySection/JournalDaySection";
-import { WorkDayCard } from "@/components/WorkDayCard/WorkDayCard";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
@@ -30,6 +29,7 @@ import { getSportSessionsForDate } from "@/lib/sport.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
 import { getCategories, getWeeklyTasksForDate } from "@/lib/tasks.server";
+import { getDailyPlanOrder } from "@/lib/day-plan.server";
 import { parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
 import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
@@ -97,6 +97,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
   ]);
 
   const work = await getWorkDailyLog(user.id, date);
+  const savedOrder = await getDailyPlanOrder(user.id, date);
 
   const journal = await getDailyJournal(user.id, {
     localDate: date,
@@ -143,10 +144,18 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               sportSessions={sportDay.sessions}
               bathingSessions={bathingDay.sessions}
               weight={weightDay}
+              habits={habits}
+              meals={meals}
+              snacks={snacks}
+              intake={intake}
+              work={work}
+              activityLog={activityLog}
+              goals={dayPlan.goals}
+              savedOrder={savedOrder}
               categories={weeklyTasksDay.categories}
               date={date}
               today={today}
-              title="Veckouppgifter"
+              title="Dagens plan"
               hideWhenEmpty
               showWeekLink={false}
               enableQuickAdd
@@ -178,10 +187,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               mobileGames={mobileGames}
               mood={mood}
             />
-          </section>
-
-          <section className={styles.section}>
-            <WorkDayCard date={date} work={work} />
           </section>
 
           <section className={styles.section}>

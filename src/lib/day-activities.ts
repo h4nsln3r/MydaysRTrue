@@ -1,9 +1,18 @@
+// Backward-compatible re-exports for week-plan activity merging.
+export {
+  buildDayPlanItems,
+  sortDayPlanItems,
+  type DayPlanItem,
+  type DayPlanKind,
+} from "@/lib/day-plan";
+
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
 import type { WeeklyTaskForWeek } from "@/lib/tasks";
 import type { WeightDayContext } from "@/lib/weight";
+import { buildDayPlanItems, type DayPlanItem } from "@/lib/day-plan";
 
 export type DayActivityKind =
   | "task"
@@ -13,49 +22,11 @@ export type DayActivityKind =
   | "bathing"
   | "weight";
 
-export type DayActivityItem =
-  | {
-      kind: "task";
-      id: string;
-      daySortOrder: number;
-      doneAt: string | null;
-      task: WeeklyTaskForWeek;
-    }
-  | {
-      kind: "gym";
-      id: string;
-      daySortOrder: number;
-      doneAt: string | null;
-      session: GymSessionForWeek;
-    }
-  | {
-      kind: "cardio";
-      id: string;
-      daySortOrder: number;
-      doneAt: string | null;
-      session: CardioSessionForWeek;
-    }
-  | {
-      kind: "sport";
-      id: string;
-      daySortOrder: number;
-      doneAt: string | null;
-      session: SportSessionForWeek;
-    }
-  | {
-      kind: "bathing";
-      id: string;
-      daySortOrder: number;
-      doneAt: string | null;
-      session: BathingSessionForWeek;
-    }
-  | {
-      kind: "weight";
-      id: string;
-      daySortOrder: number;
-      doneAt: string | null;
-      weight: WeightDayContext;
-    };
+export type DayActivityItem = Extract<DayPlanItem, { kind: DayActivityKind }>;
+
+export function dayActivityKey(item: Pick<DayActivityItem, "kind" | "id">): string {
+  return `${item.kind}:${item.id}`;
+}
 
 export interface DayActivitiesInput {
   tasks: WeeklyTaskForWeek[];
@@ -66,84 +37,40 @@ export interface DayActivitiesInput {
   weight: WeightDayContext;
 }
 
-/** Merge weekly tasks + training for one day, sorted like the week plan. */
+/** @deprecated Use buildDayPlanItems with full DayPlanInput. */
 export function buildDayActivities(input: DayActivitiesInput): DayActivityItem[] {
-  const items: DayActivityItem[] = [];
-
-  for (const task of input.tasks) {
-    items.push({
-      kind: "task",
-      id: task.id,
-      daySortOrder: task.placement?.daySortOrder ?? task.sortOrder,
-      doneAt: task.placement?.doneAt ?? null,
-      task,
-    });
-  }
-
-  for (const session of input.gymSessions) {
-    items.push({
-      kind: "gym",
-      id: session.id,
-      daySortOrder: session.placement.daySortOrder,
-      doneAt: session.placement.doneAt,
-      session,
-    });
-  }
-
-  for (const session of input.cardioSessions) {
-    items.push({
-      kind: "cardio",
-      id: session.id,
-      daySortOrder: session.placement.daySortOrder,
-      doneAt: session.placement.doneAt,
-      session,
-    });
-  }
-
-  for (const session of input.sportSessions) {
-    items.push({
-      kind: "sport",
-      id: session.id,
-      daySortOrder: session.placement.daySortOrder,
-      doneAt: session.placement.doneAt,
-      session,
-    });
-  }
-
-  for (const session of input.bathingSessions) {
-    items.push({
-      kind: "bathing",
-      id: session.placement.id,
-      daySortOrder: session.placement.daySortOrder,
-      doneAt: session.placement.doneAt,
-      session,
-    });
-  }
-
-  if (input.weight.scheduled) {
-    items.push({
-      kind: "weight",
-      id: "weight",
-      daySortOrder: input.weight.daySortOrder,
-      doneAt: input.weight.log?.loggedAt ?? null,
-      weight: input.weight,
-    });
-  }
-
-  return sortDayActivities(items);
+  return buildDayPlanItems({
+    date: "",
+    habits: [],
+    meals: { breakfast: null, lunch: null, dinner: null },
+    snacks: { 1: null, 2: null },
+    intake: { fruit: null, creatine: null, vitamin: null, shake: null },
+    work: {
+      localDate: "",
+      startedAt: null,
+      startNote: null,
+      endedAt: null,
+      endNote: null,
+    },
+    activityLog: { localDate: "", steps: null, activityHours: null },
+    goals: { waterGoalMl: 2500, stepsGoal: 8000, activityHoursGoal: 12 },
+    ...input,
+  }).filter((item): item is DayActivityItem =>
+    item.kind === "task" ||
+    item.kind === "gym" ||
+    item.kind === "cardio" ||
+    item.kind === "sport" ||
+    item.kind === "bathing" ||
+    item.kind === "weight",
+  );
 }
 
-/** Week-plan order while pending; completed sink to bottom in check-off order. */
 export function sortDayActivities(items: DayActivityItem[]): DayActivityItem[] {
   return [...items].sort((a, b) => {
     const aDone = Boolean(a.doneAt);
     const bDone = Boolean(b.doneAt);
     if (aDone !== bDone) return aDone ? 1 : -1;
-    if (!aDone) return a.daySortOrder - b.daySortOrder;
+    if (!aDone) return a.sortOrder - b.sortOrder;
     return (a.doneAt ?? "").localeCompare(b.doneAt ?? "");
   });
-}
-
-export function dayActivityKey(item: DayActivityItem): string {
-  return `${item.kind}:${item.id}`;
 }

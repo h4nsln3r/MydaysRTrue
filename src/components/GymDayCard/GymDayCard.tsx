@@ -129,7 +129,9 @@ export function GymDayCard({
   );
 }
 
-interface SessionRowProps {
+import type { PlanSortableProps } from "@/components/DayActivitiesCard/usePlanSortable";
+
+interface SessionRowProps extends PlanSortableProps {
   session: GymSessionForWeek;
   weekStart: string;
   expanded: boolean;
@@ -151,6 +153,9 @@ export function GymSessionRow({
   onError,
   onPendingId,
   onDone,
+  dragHandle,
+  sortableRef,
+  sortableStyle,
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
   const category = trainingCategory("gym");
@@ -213,14 +218,18 @@ export function GymSessionRow({
 
   return (
     <li
+      ref={sortableRef}
+      style={sortableStyle}
       className={[
         styles.session,
+        dragHandle ? styles.sessionDraggable : "",
         done ? styles.sessionDone : "",
         busy ? styles.sessionBusy : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
+      {dragHandle}
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]

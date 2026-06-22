@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { JournalDaySection } from "@/components/JournalDaySection/JournalDaySection";
-import { WorkDayCard } from "@/components/WorkDayCard/WorkDayCard";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { DayActivitiesCard } from "@/components/DayActivitiesCard/DayActivitiesCard";
 import { getAuthUser } from "@/lib/auth.server";
+import { getDailyPlanOrder } from "@/lib/day-plan.server";
 import { getDailySummary } from "@/lib/water.server";
 import {
   getDailyActivityLog,
@@ -82,6 +82,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
   ]);
 
   const work = await getWorkDailyLog(user.id, today);
+  const savedOrder = await getDailyPlanOrder(user.id, today);
 
   const journal = await getDailyJournal(user.id, {
     localDate: today,
@@ -143,10 +144,18 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               sportSessions={sportDay.sessions}
               bathingSessions={bathingDay.sessions}
               weight={weightDay}
+              habits={habits}
+              meals={meals}
+              snacks={snacks}
+              intake={intake}
+              work={work}
+              activityLog={activityLog}
+              goals={dayPlan.goals}
+              savedOrder={savedOrder}
               categories={weeklyTasksDay.categories}
               date={today}
               today={today}
-              title="Veckouppgifter idag"
+              title="Dagens plan"
               hideWhenEmpty
               showWeekLink={false}
               enableQuickAdd
@@ -177,10 +186,6 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               waterPlusHref="/water"
               waterPlusLabel="Open water page"
             />
-          </section>
-
-          <section className={styles.section}>
-            <WorkDayCard date={today} work={work} />
           </section>
 
           <section className={styles.section}>

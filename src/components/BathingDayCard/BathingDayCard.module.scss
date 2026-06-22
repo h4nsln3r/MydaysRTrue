@@ -123,6 +123,13 @@
     opacity: 0.6;
 }
 
+.sessionDraggable {
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+        "drag check body"
+        "drag actions actions";
+}
+
 .checkBtn {
     grid-area: check;
     width: 34px;

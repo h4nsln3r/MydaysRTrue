@@ -322,6 +322,9 @@ interface TaskRowProps {
   onPendingId: (id: string | null) => void;
   onRefresh: () => void;
   onDone: () => void;
+  dragHandle?: React.ReactNode;
+  sortableRef?: (node: HTMLElement | null) => void;
+  sortableStyle?: React.CSSProperties;
 }
 
 export function WeeklyTaskRow({
@@ -339,6 +342,9 @@ export function WeeklyTaskRow({
   onPendingId,
   onRefresh,
   onDone,
+  dragHandle,
+  sortableRef,
+  sortableStyle,
 }: TaskRowProps) {
   const placement = task.placement;
   const done = Boolean(placement?.doneAt);
@@ -460,8 +466,11 @@ export function WeeklyTaskRow({
 
   return (
     <li
+      ref={sortableRef}
+      style={sortableStyle}
       className={[
         styles.task,
+        dragHandle ? styles.taskDraggable : "",
         done ? styles.taskDone : "",
         showReschedule && isOverdue ? styles.taskOverdue : "",
         busy ? styles.taskBusy : "",
@@ -469,6 +478,7 @@ export function WeeklyTaskRow({
         .filter(Boolean)
         .join(" ")}
     >
+      {dragHandle}
       {isQuickToggle ? (
         <button
           type="button"

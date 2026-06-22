@@ -19,7 +19,9 @@ import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/Activi
 import { trainingCategory } from "@/lib/activity-category";
 import styles from "@/components/GymDayCard/GymDayCard.module.scss";
 
-interface Props {
+import type { PlanSortableProps } from "@/components/DayActivitiesCard/usePlanSortable";
+
+interface Props extends PlanSortableProps {
   context: WeightDayContext;
   expanded: boolean;
   busy: boolean;
@@ -39,6 +41,9 @@ export function WeightActivityRow({
   onError,
   onPendingId,
   onDone,
+  dragHandle,
+  sortableRef,
+  sortableStyle,
 }: Props) {
   const router = useRouter();
   const logged = Boolean(context.log);
@@ -98,14 +103,18 @@ export function WeightActivityRow({
 
   return (
     <li
+      ref={sortableRef}
+      style={sortableStyle}
       className={[
         styles.session,
+        dragHandle ? styles.sessionDraggable : "",
         done ? styles.sessionDone : "",
         busy ? styles.sessionBusy : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
+      {dragHandle}
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]

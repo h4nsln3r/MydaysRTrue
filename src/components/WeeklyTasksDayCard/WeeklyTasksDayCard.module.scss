@@ -128,6 +128,48 @@
     border-radius: $radius-md;
 }
 
+.taskDraggable {
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+        "drag check body"
+        "drag reschedule reschedule"
+        "drag actions actions";
+}
+
+.dragHandle {
+    grid-area: drag;
+    width: 28px;
+    height: 36px;
+    margin-top: -2px;
+    border-radius: $radius-sm;
+    border: 1px solid transparent;
+    background: transparent;
+    color: $color-fog;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: grab;
+    touch-action: none;
+    align-self: center;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-line;
+        background: $color-ink-elevated;
+    }
+
+    &:active:not(:disabled) {
+        cursor: grabbing;
+    }
+}
+
+.planHint {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.78rem;
+}
+
 .taskDone {
     border-left-color: $color-success;
     background:

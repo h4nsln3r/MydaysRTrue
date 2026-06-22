@@ -388,6 +388,27 @@ export interface Database {
         };
         Relationships: [];
       };
+      daily_plan_orders: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          item_key: string;
+          sort_order: number;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          item_key: string;
+          sort_order?: number;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          item_key?: string;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
       task_categories: {
         Row: {
           id: string;

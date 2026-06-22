@@ -249,7 +249,9 @@ export function BathingExtraBath({ weekStart, weekday, onAdded }: ExtraBathProps
   );
 }
 
-interface SessionRowProps {
+import type { PlanSortableProps } from "@/components/DayActivitiesCard/usePlanSortable";
+
+interface SessionRowProps extends PlanSortableProps {
   session: BathingSessionForWeek;
   weekStart: string;
   expanded: boolean;
@@ -271,6 +273,9 @@ export function BathingSessionRow({
   onError,
   onPendingId,
   onDone,
+  dragHandle,
+  sortableRef,
+  sortableStyle,
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
   const category = trainingCategory("bathing");
@@ -320,14 +325,18 @@ export function BathingSessionRow({
 
   return (
     <li
+      ref={sortableRef}
+      style={sortableStyle}
       className={[
         styles.session,
+        dragHandle ? styles.sessionDraggable : "",
         done ? styles.sessionDone : "",
         busy ? styles.sessionBusy : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
+      {dragHandle}
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]

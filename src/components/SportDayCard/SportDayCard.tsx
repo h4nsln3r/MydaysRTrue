@@ -120,7 +120,9 @@ export function SportDayCard({
   );
 }
 
-interface SessionRowProps {
+import type { PlanSortableProps } from "@/components/DayActivitiesCard/usePlanSortable";
+
+interface SessionRowProps extends PlanSortableProps {
   session: SportSessionForWeek;
   weekStart: string;
   expanded: boolean;
@@ -142,6 +144,9 @@ export function SportSessionRow({
   onError,
   onPendingId,
   onDone,
+  dragHandle,
+  sortableRef,
+  sortableStyle,
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
   const category = trainingCategory("sport");
@@ -207,14 +212,18 @@ export function SportSessionRow({
 
   return (
     <li
+      ref={sortableRef}
+      style={sortableStyle}
       className={[
         styles.session,
+        dragHandle ? styles.sessionDraggable : "",
         done ? styles.sessionDone : "",
         busy ? styles.sessionBusy : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
+      {dragHandle}
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]

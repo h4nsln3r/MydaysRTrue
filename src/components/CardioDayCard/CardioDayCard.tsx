@@ -119,7 +119,9 @@ export function CardioDayCard({
   );
 }
 
-interface SessionRowProps {
+import type { PlanSortableProps } from "@/components/DayActivitiesCard/usePlanSortable";
+
+interface SessionRowProps extends PlanSortableProps {
   session: CardioSessionForWeek;
   weekStart: string;
   expanded: boolean;
@@ -141,6 +143,9 @@ export function CardioSessionRow({
   onError,
   onPendingId,
   onDone,
+  dragHandle,
+  sortableRef,
+  sortableStyle,
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
   const category = trainingCategory("cardio");
@@ -179,14 +184,18 @@ export function CardioSessionRow({
 
   return (
     <li
+      ref={sortableRef}
+      style={sortableStyle}
       className={[
         styles.session,
+        dragHandle ? styles.sessionDraggable : "",
         done ? styles.sessionDone : "",
         busy ? styles.sessionBusy : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
+      {dragHandle}
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]

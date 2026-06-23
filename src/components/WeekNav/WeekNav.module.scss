@@ -1,0 +1,75 @@
+@use "abstracts" as *;
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.kicker {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    margin: 0;
+}
+
+.weekNav {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: $space-3;
+}
+
+.h1 {
+    font-family: $font-display;
+    font-size: clamp(1.25rem, 5vw, 1.6rem);
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: $color-cream;
+    margin: 0;
+    min-width: 0;
+}
+
+.navBtn {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    color: $color-cream;
+    font-size: 1.4rem;
+    line-height: 1;
+    user-select: none;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition:
+        border-color 160ms $ease-out,
+        color 160ms $ease-out,
+        background 160ms $ease-out,
+        transform 160ms $ease-bounce,
+        opacity 160ms $ease-out;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+        transform: translateY(-1px);
+    }
+
+    &:disabled {
+        opacity: 0.45;
+        cursor: wait;
+    }
+}
+
+.navBtnDisabled {
+    opacity: 0.3;
+    pointer-events: none;
+    cursor: default;
+}

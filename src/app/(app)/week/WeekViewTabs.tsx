@@ -1,4 +1,5 @@
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
+import { weekNavHref } from "@/lib/week-nav";
 import type { PeriodView } from "@/lib/period-view";
 
 export type WeekView = PeriodView;
@@ -8,9 +9,7 @@ interface Props {
   view: WeekView;
 }
 
-export function weekNavHref(weekStart: string, view: WeekView): string {
-  return `/week?start=${weekStart}&view=${view}`;
-}
+export { weekNavHref };
 
 export function WeekViewTabs({ weekStart, view }: Props) {
   return (

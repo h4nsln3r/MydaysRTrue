@@ -1,7 +1,7 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { useNavPending } from "@/components/NavProgress/NavProgress";
 import {
@@ -9,6 +9,7 @@ import {
   type PeriodBadgeKind,
 } from "@/components/PeriodBadge/PeriodBadge";
 import { todayLocalISO } from "@/lib/date";
+import { weekTabHref } from "@/lib/week-nav";
 import styles from "./BottomNav.module.scss";
 
 type IconName = "home" | "week" | "month" | "year" | "user";
@@ -71,13 +72,7 @@ export function BottomNav() {
       <ul className={styles.list}>
         {items.map((item) => (
           <li key={item.href} className={styles.item}>
-            <Link
-              href={item.href}
-              prefetch
-              className={styles.linkWrap}
-            >
-              <BottomNavLinkContent item={item} />
-            </Link>
+            <BottomNavLink item={item} />
           </li>
         ))}
       </ul>
@@ -98,6 +93,21 @@ function navBadgeKind(icon: IconName): PeriodBadgeKind | null {
     default:
       return null;
   }
+}
+
+function BottomNavLink({ item }: { item: NavItem }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const href =
+    item.href === "/week"
+      ? weekTabHref(pathname, searchParams)
+      : item.href;
+
+  return (
+    <Link href={href} prefetch className={styles.linkWrap}>
+      <BottomNavLinkContent item={item} />
+    </Link>
+  );
 }
 
 function BottomNavLinkContent({ item }: { item: NavItem }) {

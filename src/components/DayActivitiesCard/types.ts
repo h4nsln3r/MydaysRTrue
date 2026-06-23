@@ -1,6 +1,1 @@
-import type { Weekday } from "@/lib/tasks";
-
-export interface RescheduleDay {
-  weekday: Weekday;
-  label: string;
-}
+export type { RescheduleDay } from "@/lib/use-day-reschedule";

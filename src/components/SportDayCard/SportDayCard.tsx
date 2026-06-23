@@ -8,13 +8,17 @@ import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import {
   completeSportSessionAction,
+  moveSportSessionAction,
   uncompleteSportSessionAction,
+  unplaceSportSessionAction,
   updateSportPlanAction,
 } from "@/app/(app)/sport-actions";
 import { formatSportDetail, type SportSessionForWeek } from "@/lib/sport";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { trainingCategory } from "@/lib/activity-category";
-import { sortIncompleteFirst } from "@/lib/tasks";
+import { sortIncompleteFirst, type Weekday } from "@/lib/tasks";
+import type { RescheduleDay } from "@/components/DayActivitiesCard/types";
+import { TrainingRescheduleSelect } from "@/components/DayActivitiesCard/TrainingRescheduleSelect";
 import styles from "./SportDayCard.module.scss";
 
 interface Props {
@@ -133,6 +137,9 @@ interface SessionRowProps extends PlanSortableProps {
   onPendingId: (id: string | null) => void;
   onDone: () => void;
   planningMode?: boolean;
+  canReschedule?: boolean;
+  isOverdue?: boolean;
+  rescheduleDays?: RescheduleDay[];
 }
 
 export function SportSessionRow({
@@ -149,8 +156,12 @@ export function SportSessionRow({
   sortableRef,
   sortableStyle,
   planningMode = false,
+  canReschedule = false,
+  isOverdue = false,
+  rescheduleDays = [],
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
+  const showReschedule = canReschedule && !done && !planningMode;
   const category = trainingCategory("sport");
   const detail = formatSportDetail(session.placement);
   const [planSport, setPlanSport] = useState(session.placement.planSport ?? "");
@@ -207,6 +218,28 @@ export function SportSessionRow({
       setActualSport(session.placement.planSport ?? "");
       setNote("");
       setCompanions("");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const reschedule = (value: string) => {
+    if (!value) return;
+    onError(null);
+    onPendingId(session.id);
+    startTransition(async () => {
+      const res =
+        value === "remove"
+          ? await unplaceSportSessionAction({
+              templateId: session.id,
+              weekStart,
+            })
+          : await moveSportSessionAction({
+              templateId: session.id,
+              weekStart,
+              weekday: Number(value) as Weekday,
+            });
+      if (!res.ok) onError(res.error ?? "Kunde inte planera om.");
       onPendingId(null);
       onDone();
     });
@@ -292,6 +325,15 @@ export function SportSessionRow({
           </span>
         )}
       </button>
+
+      {showReschedule ? (
+        <TrainingRescheduleSelect
+          isOverdue={isOverdue}
+          days={rescheduleDays}
+          pending={pending}
+          onSelect={reschedule}
+        />
+      ) : null}
 
       {expanded && !planningMode ? (
         <div className={styles.sessionActions}>

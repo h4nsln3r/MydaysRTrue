@@ -8,7 +8,7 @@ import { GymSessionRow } from "@/components/GymDayCard/GymDayCard";
 import { SportSessionRow } from "@/components/SportDayCard/SportDayCard";
 import { WeeklyTaskRow } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
 import type { TaskCategory } from "@/lib/tasks";
-import type { RescheduleDay } from "./types";
+import type { RescheduleDay } from "@/lib/use-day-reschedule";
 import { WeightActivityRow } from "./WeightActivityRow";
 import { DayPlanDailyRow } from "./DayPlanDailyRow";
 import type { PlanSortableProps } from "./usePlanSortable";
@@ -140,6 +140,9 @@ export function DayActivityRow(props: Props) {
         <GymSessionRow
           session={item.session}
           weekStart={weekStart}
+          canReschedule={canReschedule}
+          isOverdue={isOverdue}
+          rescheduleDays={rescheduleDays}
           {...shared}
         />
       );
@@ -148,6 +151,9 @@ export function DayActivityRow(props: Props) {
         <CardioSessionRow
           session={item.session}
           weekStart={weekStart}
+          canReschedule={canReschedule}
+          isOverdue={isOverdue}
+          rescheduleDays={rescheduleDays}
           {...shared}
         />
       );
@@ -156,6 +162,9 @@ export function DayActivityRow(props: Props) {
         <SportSessionRow
           session={item.session}
           weekStart={weekStart}
+          canReschedule={canReschedule}
+          isOverdue={isOverdue}
+          rescheduleDays={rescheduleDays}
           {...shared}
         />
       );
@@ -164,11 +173,22 @@ export function DayActivityRow(props: Props) {
         <BathingSessionRow
           session={item.session}
           weekStart={weekStart}
+          canReschedule={canReschedule}
+          isOverdue={isOverdue}
+          rescheduleDays={rescheduleDays}
           {...shared}
         />
       );
     case "weight":
-      return <WeightActivityRow context={item.weight} {...shared} />;
+      return (
+        <WeightActivityRow
+          context={item.weight}
+          canReschedule={canReschedule}
+          isOverdue={isOverdue}
+          rescheduleDays={rescheduleDays}
+          {...shared}
+        />
+      );
     default:
       return null;
   }

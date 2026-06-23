@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+import { useDayReschedule } from "@/lib/use-day-reschedule";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
@@ -28,13 +29,10 @@ import {
 } from "@/lib/tasks";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { taskCategory } from "@/lib/activity-category";
-import { addDaysISO, formatDayLong, isoWeekdayFromLocalISO } from "@/lib/date";
+import { isoWeekdayFromLocalISO } from "@/lib/date";
+import type { RescheduleDay } from "@/lib/use-day-reschedule";
+import { TrainingRescheduleSelect } from "@/components/DayActivitiesCard/TrainingRescheduleSelect";
 import styles from "./WeeklyTasksDayCard.module.scss";
-
-interface RescheduleDay {
-  weekday: Weekday;
-  label: string;
-}
 
 interface Props {
   weekStart: string;
@@ -68,16 +66,11 @@ export function WeeklyTasksDayCard({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // After 20:00 we let the user reschedule a still-undone task. Evaluated only
-  // on the client (after mount) to avoid an SSR/hydration time mismatch.
-  const [afterEight, setAfterEight] = useState(false);
-  useEffect(() => {
-    setAfterEight(new Date().getHours() >= 20);
-  }, []);
-
-  const isOverdue = date != null && today != null && date < today;
-  const isToday = date != null && today != null && date === today;
-  const canReschedule = isOverdue || (isToday && afterEight);
+  const { isOverdue, canReschedule, rescheduleDays } = useDayReschedule({
+    date,
+    today,
+    weekStart,
+  });
 
   const quickAddWeekday =
     enableQuickAdd && date != null
@@ -92,18 +85,6 @@ export function WeeklyTasksDayCard({
         onAdded={() => router.refresh()}
       />
     ) : null;
-
-  // Remaining days of this week the task can move to. Always tomorrow … Sunday;
-  // for an overdue task we also offer today (catch it up to the current day).
-  const rescheduleDays = useMemo<RescheduleDay[]>(() => {
-    if (!today) return [];
-    return Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i))
-      .filter((iso) => iso > today || (isOverdue && iso === today))
-      .map((iso) => ({
-        weekday: isoWeekdayFromLocalISO(iso) as Weekday,
-        label: iso === today ? "Idag" : formatDayLong(iso),
-      }));
-  }, [weekStart, today, isOverdue]);
 
   const doneCount = tasks.filter((t) => t.placement?.doneAt).length;
   const orderedTasks = sortWeeklyDayTasks(tasks);
@@ -579,28 +560,12 @@ export function WeeklyTaskRow({
       </button>
 
       {showReschedule ? (
-        <div className={styles.reschedule}>
-          <span className={styles.rescheduleLabel}>
-            {isOverdue ? "Försenad" : "Hinner du inte? Planera om"}
-          </span>
-          <select
-            className={styles.rescheduleSelect}
-            value=""
-            disabled={pending}
-            onChange={(e) => reschedule(e.target.value)}
-            aria-label="Planera om uppgift"
-          >
-            <option value="" disabled>
-              Planera om…
-            </option>
-            {rescheduleDays.map((d) => (
-              <option key={d.weekday} value={String(d.weekday)}>
-                {d.label}
-              </option>
-            ))}
-            <option value="remove">Ta bort från veckoplanen</option>
-          </select>
-        </div>
+        <TrainingRescheduleSelect
+          isOverdue={isOverdue}
+          days={rescheduleDays}
+          pending={pending}
+          onSelect={reschedule}
+        />
       ) : null}
 
       {expanded && needsExpand && !planningMode ? (

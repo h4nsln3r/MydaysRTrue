@@ -7,7 +7,9 @@ import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
 import {
   completeBathingSessionAction,
+  deleteBathingPlacementAction,
   logExtraBathAction,
+  moveBathingPlacementAction,
   uncompleteBathingSessionAction,
 } from "@/app/(app)/bathing-actions";
 import {
@@ -18,6 +20,8 @@ import {
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { trainingCategory } from "@/lib/activity-category";
 import { sortIncompleteFirst, type Weekday } from "@/lib/tasks";
+import type { RescheduleDay } from "@/lib/use-day-reschedule";
+import { TrainingRescheduleSelect } from "@/components/DayActivitiesCard/TrainingRescheduleSelect";
 import styles from "./BathingDayCard.module.scss";
 
 interface Props {
@@ -262,6 +266,9 @@ interface SessionRowProps extends PlanSortableProps {
   onPendingId: (id: string | null) => void;
   onDone: () => void;
   planningMode?: boolean;
+  canReschedule?: boolean;
+  isOverdue?: boolean;
+  rescheduleDays?: RescheduleDay[];
 }
 
 export function BathingSessionRow({
@@ -278,8 +285,12 @@ export function BathingSessionRow({
   sortableRef,
   sortableStyle,
   planningMode = false,
+  canReschedule = false,
+  isOverdue = false,
+  rescheduleDays = [],
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
+  const showReschedule = canReschedule && !done && !planningMode;
   const category = trainingCategory("bathing");
   const needsTemp = bathingRequiresWaterTemp(session.key);
   const [waterTemp, setWaterTemp] = useState(
@@ -320,6 +331,28 @@ export function BathingSessionRow({
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
       setWaterTemp("");
       setNote("");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const reschedule = (value: string) => {
+    if (!value) return;
+    onError(null);
+    onPendingId(session.placement.id);
+    startTransition(async () => {
+      const res =
+        value === "remove"
+          ? await deleteBathingPlacementAction({
+              placementId: session.placement.id,
+              weekStart,
+            })
+          : await moveBathingPlacementAction({
+              placementId: session.placement.id,
+              weekStart,
+              weekday: Number(value) as Weekday,
+            });
+      if (!res.ok) onError(res.error ?? "Kunde inte planera om.");
       onPendingId(null);
       onDone();
     });
@@ -408,6 +441,15 @@ export function BathingSessionRow({
           </span>
         )}
       </button>
+
+      {showReschedule ? (
+        <TrainingRescheduleSelect
+          isOverdue={isOverdue}
+          days={rescheduleDays}
+          pending={pending}
+          onSelect={reschedule}
+        />
+      ) : null}
 
       {expanded && !planningMode ? (
         <div className={styles.sessionActions}>

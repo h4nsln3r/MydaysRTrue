@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useDayReschedule } from "@/lib/use-day-reschedule";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -23,7 +24,7 @@ import { WeeklyTaskQuickAdd } from "@/components/WeeklyTasksDayCard/WeeklyTasksD
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import { buildDayPlanItems } from "@/lib/day-plan";
-import { addDaysISO, formatDayLong, isoWeekdayFromLocalISO } from "@/lib/date";
+import { isoWeekdayFromLocalISO } from "@/lib/date";
 import type { DailyHabit, DailySnacks, MealEntry, MealKey } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
@@ -35,7 +36,6 @@ import type { WorkDailyLog } from "@/lib/work";
 import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
 import { DayActivityRow } from "./DayActivityRow";
 import { PlanSortableRow } from "./PlanSortableRow";
-import type { RescheduleDay } from "./types";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
 
 interface Props {
@@ -153,14 +153,12 @@ export function DayActivitiesCard({
     }),
   );
 
-  const [afterEight, setAfterEight] = useState(false);
-  useEffect(() => {
-    setAfterEight(new Date().getHours() >= 20);
-  }, []);
-
-  const isOverdue = !planningMode && date != null && today != null && date < today;
-  const isToday = date != null && today != null && date === today;
-  const canReschedule = !planningMode && (isOverdue || (isToday && afterEight));
+  const { isOverdue, canReschedule, rescheduleDays } = useDayReschedule({
+    date,
+    today,
+    weekStart,
+    planningMode,
+  });
 
   const doneCount = localItems.filter((i) => i.doneAt).length;
   const itemKeys = localItems.map((i) => i.itemKey);
@@ -171,16 +169,6 @@ export function DayActivitiesCard({
       : null;
 
   const showExtraBath = enableExtraBath && bathingWeekday != null;
-
-  const rescheduleDays = useMemo<RescheduleDay[]>(() => {
-    if (!today) return [];
-    return Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i))
-      .filter((iso) => iso > today || (isOverdue && iso === today))
-      .map((iso) => ({
-        weekday: isoWeekdayFromLocalISO(iso) as Weekday,
-        label: iso === today ? "Idag" : formatDayLong(iso),
-      }));
-  }, [weekStart, today, isOverdue]);
 
   const quickAdd =
     quickAddWeekday != null ? (

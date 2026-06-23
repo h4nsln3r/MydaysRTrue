@@ -4,7 +4,9 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   clearWeightLogAction,
+  placeWeightWeekAction,
   saveWeightLogAction,
+  unplaceWeightWeekAction,
 } from "@/app/(app)/weight-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
@@ -17,6 +19,9 @@ import {
 } from "@/lib/weight";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { trainingCategory } from "@/lib/activity-category";
+import type { RescheduleDay } from "@/lib/use-day-reschedule";
+import { TrainingRescheduleSelect } from "@/components/DayActivitiesCard/TrainingRescheduleSelect";
+import type { Weekday } from "@/lib/tasks";
 import styles from "@/components/GymDayCard/GymDayCard.module.scss";
 
 import type { PlanSortableProps } from "@/components/DayActivitiesCard/usePlanSortable";
@@ -31,6 +36,9 @@ interface Props extends PlanSortableProps {
   onPendingId: (id: string | null) => void;
   onDone: () => void;
   planningMode?: boolean;
+  canReschedule?: boolean;
+  isOverdue?: boolean;
+  rescheduleDays?: RescheduleDay[];
 }
 
 export function WeightActivityRow({
@@ -46,10 +54,14 @@ export function WeightActivityRow({
   sortableRef,
   sortableStyle,
   planningMode = false,
+  canReschedule = false,
+  isOverdue = false,
+  rescheduleDays = [],
 }: Props) {
   const router = useRouter();
   const logged = Boolean(context.log);
   const done = logged;
+  const showReschedule = canReschedule && !done && !planningMode;
   const category = trainingCategory("weight");
   const [timeOfDay, setTimeOfDay] = useState<WeightTimeOfDay | null>(
     context.log?.timeOfDay ?? null,
@@ -97,6 +109,25 @@ export function WeightActivityRow({
       if (!res.ok) onError(res.error ?? "Kunde inte ta bort.");
       setTimeOfDay(null);
       setWeightKg("");
+      onPendingId(null);
+      onDone();
+      router.refresh();
+    });
+  };
+
+  const reschedule = (value: string) => {
+    if (!value) return;
+    onError(null);
+    onPendingId("weight");
+    startTransition(async () => {
+      const res =
+        value === "remove"
+          ? await unplaceWeightWeekAction(context.weekStart)
+          : await placeWeightWeekAction({
+              weekStart: context.weekStart,
+              weekday: Number(value) as Weekday,
+            });
+      if (!res.ok) onError(res.error ?? "Kunde inte planera om.");
       onPendingId(null);
       onDone();
       router.refresh();
@@ -179,6 +210,15 @@ export function WeightActivityRow({
           </span>
         )}
       </button>
+
+      {showReschedule ? (
+        <TrainingRescheduleSelect
+          isOverdue={isOverdue}
+          days={rescheduleDays}
+          pending={pending}
+          onSelect={reschedule}
+        />
+      ) : null}
 
       {expanded && !planningMode ? (
         <div className={styles.sessionActions}>

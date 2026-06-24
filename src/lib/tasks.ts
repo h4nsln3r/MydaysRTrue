@@ -69,6 +69,8 @@ export interface WeeklyTask {
   defaultWeekday: Weekday | null;
 }
 
+export type MonthlyTaskCompletionKind = "simple" | "amount" | "finance";
+
 export interface MonthlyTask {
   id: string;
   categoryId: string | null;
@@ -80,6 +82,9 @@ export interface MonthlyTask {
   icon: string;
   accent: string;
   sortOrder: number;
+  completionKind: MonthlyTaskCompletionKind;
+  /** One-off task — only shown for this month (YYYY-MM-01). */
+  singleMonthStart: string | null;
 }
 
 export interface WeeklyPlacement {
@@ -116,6 +121,8 @@ export interface MonthlyCompletion {
   monthStart: string; // YYYY-MM-01
   doneAt: string | null;
   note: string | null;
+  /** Transfer amount (kr) for `amount` completion kind. */
+  amount: number | null;
   /** Per-month placement override (1–31). */
   scheduledDayOfMonth: number | null;
   /** User moved this bill back to backlog for the month. */
@@ -152,6 +159,19 @@ export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | nul
 export interface MonthlyTaskForMonth extends MonthlyTask {
   /** null = not yet touched this month. */
   completion: MonthlyCompletion | null;
+}
+
+export function formatMonthlyTaskDetail(
+  task: Pick<MonthlyTask, "completionKind">,
+  completion: MonthlyCompletion | null,
+): string | null {
+  if (!completion) return null;
+  if (task.completionKind === "amount" && completion.amount != null) {
+    const base = `${Math.round(completion.amount).toLocaleString("sv-SE")} kr`;
+    const note = completion.note?.trim();
+    return note ? `${base} · ${note}` : base;
+  }
+  return completion.note?.trim() || null;
 }
 
 // ----------------------------------------------------------------------------
@@ -193,6 +213,35 @@ export function sortWeeklyDayTasks(tasks: WeeklyTaskForWeek[]): WeeklyTaskForWee
     const bt = b.placement?.doneAt ?? "";
     return at.localeCompare(bt);
   });
+}
+
+/** Prefer seeded / categorized / permanent templates when titles collide. */
+export function monthlyTaskKeeperScore(
+  task: Pick<MonthlyTask, "key" | "categoryId" | "singleMonthStart" | "sortOrder">,
+): number {
+  let score = 0;
+  if (task.key) score += 1000;
+  if (task.key === "bill_hyra") score += 500;
+  if (task.categoryId) score += 100;
+  if (!task.singleMonthStart) score += 50;
+  return score * 1000 - task.sortOrder;
+}
+
+export function pickMonthlyTaskKeeper<
+  T extends Pick<MonthlyTask, "key" | "categoryId" | "singleMonthStart" | "sortOrder">,
+>(a: T, b: T): T {
+  return monthlyTaskKeeperScore(a) >= monthlyTaskKeeperScore(b) ? a : b;
+}
+
+/** One visible row per title (case-insensitive). */
+export function dedupeMonthlyTasksByTitle<T extends MonthlyTask>(tasks: T[]): T[] {
+  const byTitle = new Map<string, T>();
+  for (const task of tasks) {
+    const norm = task.title.trim().toLowerCase();
+    const existing = byTitle.get(norm);
+    byTitle.set(norm, existing ? pickMonthlyTaskKeeper(existing, task) : task);
+  }
+  return [...byTitle.values()].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 /** Group items by category id, preserving the order of `categories` then `none`. */

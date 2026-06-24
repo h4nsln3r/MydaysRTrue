@@ -1,19 +1,27 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, isoWeekdayFromLocalISO, parseLocalISO, weekStartISO } from "@/lib/date";
-import type {
-  MonthlyCompletion,
-  MonthlyTask,
-  MonthlyTaskForMonth,
-  TaskCategory,
-  TaskScope,
-  Weekday,
-  WeeklyPlacement,
-  WeeklyTask,
-  WeeklyTaskChecklistItem,
-  WeeklyTaskForWeek,
-  MusicBand,
+import {
+  dedupeMonthlyTasksByTitle,
+  monthlyTaskKeeperScore,
+  type MonthlyCompletion,
+  type MonthlyTask,
+  type MonthlyTaskCompletionKind,
+  type MonthlyTaskForMonth,
+  type TaskCategory,
+  type TaskScope,
+  type Weekday,
+  type WeeklyPlacement,
+  type WeeklyTask,
+  type WeeklyTaskChecklistItem,
+  type WeeklyTaskForWeek,
+  type MusicBand,
 } from "@/lib/tasks";
+import {
+  balancesFromSnapshotRow,
+  type MonthlyFinanceBalances,
+  type MonthlyFinanceSnapshot,
+} from "@/lib/monthly-finance";
 
 // ----------------------------------------------------------------------------
 // Categories
@@ -310,6 +318,8 @@ interface MonthlyTaskRow {
   icon: string;
   accent: string;
   sort_order: number;
+  completion_kind: string;
+  single_month_start: string | null;
 }
 
 function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
@@ -323,6 +333,8 @@ function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
     icon: r.icon,
     accent: r.accent,
     sortOrder: r.sort_order,
+    completionKind: r.completion_kind as MonthlyTaskCompletionKind,
+    singleMonthStart: r.single_month_start,
   };
 }
 
@@ -332,6 +344,7 @@ interface MonthlyCompletionRow {
   month_start: string;
   done_at: string | null;
   note: string | null;
+  amount: number | null;
   scheduled_day_of_month: number | null;
   is_unscheduled: boolean;
   day_sort_order: number;
@@ -344,6 +357,7 @@ function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
     monthStart: r.month_start,
     doneAt: r.done_at,
     note: r.note,
+    amount: r.amount != null ? Number(r.amount) : null,
     scheduledDayOfMonth: r.scheduled_day_of_month,
     isUnscheduled: r.is_unscheduled,
     daySortOrder: r.day_sort_order ?? 0,
@@ -351,18 +365,82 @@ function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
 }
 
 const MONTHLY_TASK_SELECT =
-  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order";
+  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start";
 
 const MONTHLY_COMPLETION_SELECT =
-  "id, task_id, month_start, done_at, note, scheduled_day_of_month, is_unscheduled, day_sort_order";
+  "id, task_id, month_start, done_at, note, amount, scheduled_day_of_month, is_unscheduled, day_sort_order";
+
+interface MonthlyTaskDedupeRow {
+  id: string;
+  title: string;
+  key: string | null;
+  category_id: string | null;
+  single_month_start: string | null;
+  sort_order: number;
+}
+
+/** Archive duplicate monthly tasks that share the same title (keeps seeded/categorized). */
+async function repairDuplicateMonthlyTasks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from("monthly_tasks")
+    .select("id, title, key, category_id, single_month_start, sort_order")
+    .eq("user_id", userId)
+    .is("archived_at", null);
+
+  if (!data?.length) return;
+
+  const groups = new Map<string, MonthlyTaskDedupeRow[]>();
+  for (const row of data) {
+    const norm = row.title.trim().toLowerCase();
+    const list = groups.get(norm) ?? [];
+    list.push(row);
+    groups.set(norm, list);
+  }
+
+  const toArchive: string[] = [];
+  for (const list of groups.values()) {
+    if (list.length <= 1) continue;
+    const sorted = [...list].sort((a, b) => {
+      const scoreA = monthlyTaskKeeperScore({
+        key: a.key,
+        categoryId: a.category_id,
+        singleMonthStart: a.single_month_start,
+        sortOrder: a.sort_order,
+      });
+      const scoreB = monthlyTaskKeeperScore({
+        key: b.key,
+        categoryId: b.category_id,
+        singleMonthStart: b.single_month_start,
+        sortOrder: b.sort_order,
+      });
+      return scoreB - scoreA;
+    });
+    for (const loser of sorted.slice(1)) {
+      toArchive.push(loser.id);
+    }
+  }
+
+  if (toArchive.length === 0) return;
+
+  await supabase
+    .from("monthly_tasks")
+    .update({ archived_at: new Date().toISOString() })
+    .in("id", toArchive)
+    .eq("user_id", userId);
+}
 
 export async function getMonthlyTasks(userId: string): Promise<MonthlyTask[]> {
   const supabase = await createClient();
+  await repairDuplicateMonthlyTasks(supabase, userId);
   const { data } = await supabase
     .from("monthly_tasks")
     .select(MONTHLY_TASK_SELECT)
     .eq("user_id", userId)
     .is("archived_at", null)
+    .is("single_month_start", null)
     .order("sort_order", { ascending: true });
   return (data ?? []).map(rowToMonthly);
 }
@@ -371,6 +449,46 @@ export interface MonthSummaryTasks {
   monthStart: string;
   tasks: MonthlyTaskForMonth[];
   categories: TaskCategory[];
+  financeSnapshot: MonthlyFinanceSnapshot | null;
+}
+
+interface FinanceSnapshotRow {
+  month_start: string;
+  langforsakringar: number | null;
+  kort: number | null;
+  spar: number | null;
+  isk: number | null;
+  sbab_spar: number | null;
+  avanza: number | null;
+  krypto: number | null;
+  cash: number | null;
+  note: string | null;
+  done_at: string | null;
+}
+
+function rowToFinanceSnapshot(r: FinanceSnapshotRow): MonthlyFinanceSnapshot {
+  return {
+    monthStart: r.month_start,
+    balances: balancesFromSnapshotRow(r),
+    note: r.note,
+    doneAt: r.done_at,
+  };
+}
+
+export async function getMonthFinanceSnapshot(
+  userId: string,
+  monthStart: string,
+): Promise<MonthlyFinanceSnapshot | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("monthly_finance_snapshots")
+    .select(
+      "month_start, langforsakringar, kort, spar, isk, sbab_spar, avanza, krypto, cash, note, done_at",
+    )
+    .eq("user_id", userId)
+    .eq("month_start", monthStart)
+    .maybeSingle();
+  return data ? rowToFinanceSnapshot(data) : null;
 }
 
 /**
@@ -382,12 +500,14 @@ export async function getMonthTaskSummary(
   monthStart: string,
 ): Promise<MonthSummaryTasks> {
   const supabase = await createClient();
-  const [tasksRes, completionsRes, catsRes] = await Promise.all([
+  await repairDuplicateMonthlyTasks(supabase, userId);
+  const [tasksRes, completionsRes, catsRes, financeRes] = await Promise.all([
     supabase
       .from("monthly_tasks")
       .select(MONTHLY_TASK_SELECT)
       .eq("user_id", userId)
       .is("archived_at", null)
+      .or(`single_month_start.is.null,single_month_start.eq.${monthStart}`)
       .order("sort_order", { ascending: true }),
     supabase
       .from("monthly_task_completions")
@@ -401,6 +521,14 @@ export async function getMonthTaskSummary(
       .eq("scope", "task")
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("monthly_finance_snapshots")
+      .select(
+        "month_start, langforsakringar, kort, spar, isk, sbab_spar, avanza, krypto, cash, note, done_at",
+      )
+      .eq("user_id", userId)
+      .eq("month_start", monthStart)
+      .maybeSingle(),
   ]);
 
   const compMap = new Map<string, MonthlyCompletion>();
@@ -408,13 +536,18 @@ export async function getMonthTaskSummary(
     compMap.set(row.task_id, rowToCompletion(row));
   }
 
-  const tasks: MonthlyTaskForMonth[] = (tasksRes.data ?? []).map((row) => ({
-    ...rowToMonthly(row),
-    completion: compMap.get(row.id) ?? null,
-  }));
+  const tasks: MonthlyTaskForMonth[] = dedupeMonthlyTasksByTitle(
+    (tasksRes.data ?? []).map((row) => ({
+      ...rowToMonthly(row),
+      completion: compMap.get(row.id) ?? null,
+    })),
+  );
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
-  return { monthStart, tasks, categories };
+  const financeSnapshot = financeRes.data
+    ? rowToFinanceSnapshot(financeRes.data)
+    : null;
+  return { monthStart, tasks, categories, financeSnapshot };
 }
 
 export interface MonthlyBillsWeekContext {
@@ -431,6 +564,10 @@ export async function getMonthlyBillsForWeek(
   const supabase = await createClient();
   const weekDates = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const monthStarts = [...new Set(weekDates.map((d) => `${d.slice(0, 7)}-01`))];
+  const oneOffFilter = monthStarts.map((m) => `single_month_start.eq.${m}`).join(",");
+  const taskOrFilter = oneOffFilter
+    ? `single_month_start.is.null,${oneOffFilter}`
+    : "single_month_start.is.null";
 
   const [tasksRes, catsRes, completionsRes] = await Promise.all([
     supabase
@@ -438,6 +575,7 @@ export async function getMonthlyBillsForWeek(
       .select(MONTHLY_TASK_SELECT)
       .eq("user_id", userId)
       .is("archived_at", null)
+      .or(taskOrFilter)
       .order("sort_order", { ascending: true }),
     supabase
       .from("task_categories")
@@ -459,14 +597,20 @@ export async function getMonthlyBillsForWeek(
     completionsByTaskMonth.set(`${c.taskId}|${c.monthStart}`, c);
   }
 
-  const tasks: MonthlyTaskForMonth[] = (tasksRes.data ?? []).map((row) => ({
-    ...rowToMonthly(row),
+  const categories = (catsRes.data ?? []).map(rowToCategory);
+  const billsCategoryId = categories.find((c) => c.name === "Räkningar")?.id;
+  const billTasks = (tasksRes.data ?? [])
+    .map(rowToMonthly)
+    .filter((t) => t.categoryId === billsCategoryId);
+
+  const tasks: MonthlyTaskForMonth[] = billTasks.map((row) => ({
+    ...row,
     completion: null,
   }));
 
   return {
     tasks,
-    categories: (catsRes.data ?? []).map(rowToCategory),
+    categories,
     completionsByTaskMonth,
   };
 }

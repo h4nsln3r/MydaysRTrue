@@ -5,11 +5,18 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import {
-  toggleMonthlyTaskDoneAction,
+  archiveMonthlyTaskAction,
   scheduleMonthlyBillDayAction,
-  setMonthlyTaskCategoryAction,
+  toggleMonthlyTaskDoneAction,
+  updateMonthlyTaskAction,
 } from "@/app/(app)/tasks-actions";
 import {
+  MonthlyTaskEditForm,
+  type MonthlyTaskEditValues,
+} from "@/components/MonthlyTaskEditForm/MonthlyTaskEditForm";
+import { parseKrInput } from "@/lib/monthly-finance";
+import {
+  formatMonthlyTaskDetail,
   groupByCategory,
   type MonthlyTaskForMonth,
   type TaskCategory,
@@ -23,11 +30,16 @@ interface Props {
   categories: TaskCategory[];
 }
 
-export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
+export function MonthlyTasksBoard({
+  monthStart,
+  tasks,
+  categories,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const run = (taskId: string, fn: () => Promise<{ ok: boolean; error?: string }>) => {
@@ -35,13 +47,22 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
     setPendingId(taskId);
     startTransition(async () => {
       const res = await fn();
-      if (!res.ok) setError(res.error ?? "Could not update task.");
+      if (!res.ok) setError(res.error ?? "Kunde inte uppdatera uppgiften.");
       setPendingId(null);
       router.refresh();
     });
   };
 
-  const toggleQuick = (task: MonthlyTaskForMonth) =>
+  const toggleQuick = (task: MonthlyTaskForMonth) => {
+    if (task.completionKind === "finance") {
+      document.getElementById("ekonomi")?.scrollIntoView({ behavior: "smooth" });
+      setExpandedId(task.id);
+      return;
+    }
+    if (task.completionKind === "amount") {
+      setExpandedId(task.id);
+      return;
+    }
     run(task.id, () =>
       toggleMonthlyTaskDoneAction({
         taskId: task.id,
@@ -49,8 +70,9 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
         done: !task.completion?.doneAt,
       }),
     );
+  };
 
-  const complete = (task: MonthlyTaskForMonth, note: string) =>
+  const completeSimple = (task: MonthlyTaskForMonth, note: string) =>
     run(task.id, async () => {
       const res = await toggleMonthlyTaskDoneAction({
         taskId: task.id,
@@ -61,6 +83,29 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
       if (res.ok) setExpandedId(null);
       return res;
     });
+
+  const completeAmount = (
+    task: MonthlyTaskForMonth,
+    amountRaw: string,
+    note: string,
+  ) => {
+    const amount = parseKrInput(amountRaw);
+    if (amount == null) {
+      setError("Ange ett belopp.");
+      return;
+    }
+    run(task.id, async () => {
+      const res = await toggleMonthlyTaskDoneAction({
+        taskId: task.id,
+        monthStart,
+        done: true,
+        note,
+        amount,
+      });
+      if (res.ok) setExpandedId(null);
+      return res;
+    });
+  };
 
   const uncomplete = (task: MonthlyTaskForMonth) =>
     run(task.id, () =>
@@ -85,18 +130,46 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
 
   const changeCategory = (task: MonthlyTaskForMonth, raw: string) =>
     run(task.id, () =>
-      setMonthlyTaskCategoryAction({
-        taskId: task.id,
+      updateMonthlyTaskAction({
+        id: task.id,
         categoryId: raw || null,
       }),
     );
 
+  const saveEdit = (taskId: string, values: MonthlyTaskEditValues) =>
+    run(taskId, async () => {
+      const res = await updateMonthlyTaskAction({
+        id: taskId,
+        title: values.title,
+        categoryId: values.categoryId,
+        dayOfMonth: values.dayOfMonth,
+        notes: values.notes,
+        icon: values.icon,
+        accent: values.accent,
+      });
+      if (res.ok) {
+        setEditingId(null);
+        setExpandedId(null);
+      }
+      return res;
+    });
+
+  const removeTask = (taskId: string) =>
+    run(taskId, async () => {
+      const res = await archiveMonthlyTaskAction(taskId);
+      if (res.ok) {
+        setEditingId(null);
+        setExpandedId(null);
+      }
+      return res;
+    });
+
   if (tasks.length === 0) {
     return (
       <p className={styles.empty}>
-        No monthly tasks yet. Add some from your{" "}
+        Inga månadsuppgifter ännu. Lägg till under{" "}
         <a href="/profile" className={styles.link}>
-          profile
+          profil
         </a>
         .
       </p>
@@ -112,7 +185,7 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
         <span className={styles.progressText}>
           <strong>{doneCount}</strong>
           <span className={styles.progressSlash}>/ {tasks.length}</span>
-          <span className={styles.progressLabel}>done this month</span>
+          <span className={styles.progressLabel}>klara den här månaden</span>
         </span>
         <div className={styles.progressBar} aria-hidden>
           <div
@@ -143,7 +216,7 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
                 {category?.icon ?? "•"}
               </span>
               <span className={styles.groupName}>
-                {category?.name ?? "No category"}
+                {category?.name ?? "Ingen kategori"}
               </span>
             </span>
             <span className={styles.groupCount}>
@@ -160,11 +233,21 @@ export function MonthlyTasksBoard({ monthStart, tasks, categories }: Props) {
                 pending={pending}
                 busy={pendingId === t.id}
                 expanded={expandedId === t.id}
-                onToggleExpand={() =>
-                  setExpandedId(expandedId === t.id ? null : t.id)
-                }
+                editing={editingId === t.id}
+                onToggleExpand={() => {
+                  if (editingId === t.id) return;
+                  setExpandedId(expandedId === t.id ? null : t.id);
+                }}
+                onStartEdit={() => {
+                  setEditingId(t.id);
+                  setExpandedId(t.id);
+                }}
+                onCancelEdit={() => setEditingId(null)}
+                onSaveEdit={(values) => saveEdit(t.id, values)}
+                onDelete={() => removeTask(t.id)}
                 onToggleQuick={toggleQuick}
-                onComplete={complete}
+                onCompleteSimple={completeSimple}
+                onCompleteAmount={completeAmount}
                 onUncomplete={uncomplete}
                 onSchedule={scheduleDay}
                 onChangeCategory={changeCategory}
@@ -183,9 +266,19 @@ interface MonthlyTaskRowProps {
   pending: boolean;
   busy: boolean;
   expanded: boolean;
+  editing: boolean;
   onToggleExpand: () => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (values: MonthlyTaskEditValues) => void;
+  onDelete: () => void;
   onToggleQuick: (task: MonthlyTaskForMonth) => void;
-  onComplete: (task: MonthlyTaskForMonth, note: string) => void;
+  onCompleteSimple: (task: MonthlyTaskForMonth, note: string) => void;
+  onCompleteAmount: (
+    task: MonthlyTaskForMonth,
+    amountRaw: string,
+    note: string,
+  ) => void;
   onUncomplete: (task: MonthlyTaskForMonth) => void;
   onSchedule: (task: MonthlyTaskForMonth, raw: string) => void;
   onChangeCategory: (task: MonthlyTaskForMonth, raw: string) => void;
@@ -197,17 +290,34 @@ function MonthlyTaskRow({
   pending,
   busy,
   expanded,
+  editing,
   onToggleExpand,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onDelete,
   onToggleQuick,
-  onComplete,
+  onCompleteSimple,
+  onCompleteAmount,
   onUncomplete,
   onSchedule,
   onChangeCategory,
 }: MonthlyTaskRowProps) {
   const done = Boolean(task.completion?.doneAt);
   const scheduledDay = effectiveScheduledDay(task, task.completion);
-  const savedNote = task.completion?.note?.trim() ?? "";
+  const detail = formatMonthlyTaskDetail(task, task.completion);
+  const savedNote =
+    task.completionKind === "amount" && task.completion?.note
+      ? task.completion.note
+      : task.completionKind === "simple"
+        ? (task.completion?.note?.trim() ?? "")
+        : "";
   const [note, setNote] = useState(savedNote);
+  const [amount, setAmount] = useState(
+    task.completion?.amount != null ? String(task.completion.amount) : "",
+  );
+
+  const showDayPicker = task.completionKind === "simple";
 
   return (
     <li
@@ -215,6 +325,7 @@ function MonthlyTaskRow({
         styles.task,
         done ? styles.taskDone : "",
         busy ? styles.taskBusy : "",
+        task.singleMonthStart ? styles.taskOneOff : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -224,7 +335,7 @@ function MonthlyTaskRow({
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
           .filter(Boolean)
           .join(" ")}
-        aria-label={done ? "Mark as not done" : "Mark as done"}
+        aria-label={done ? "Markera som ej klar" : "Markera som klar"}
         aria-pressed={done}
         disabled={pending}
         onClick={() => onToggleQuick(task)}
@@ -254,10 +365,13 @@ function MonthlyTaskRow({
           aria-expanded={expanded}
           disabled={pending}
         >
-          <span className={styles.taskTitle}>{task.title}</span>
-          {savedNote ? (
-            <span className={styles.taskNoteHint}>{savedNote}</span>
-          ) : null}
+          <span className={styles.taskTitle}>
+            {task.title}
+            {task.singleMonthStart ? (
+              <span className={styles.oneOffBadge}>Engång</span>
+            ) : null}
+          </span>
+          {detail ? <span className={styles.taskNoteHint}>{detail}</span> : null}
           <span
             className={[styles.chevron, expanded ? styles.chevronUp : ""]
               .filter(Boolean)
@@ -267,27 +381,40 @@ function MonthlyTaskRow({
             ▾
           </span>
         </button>
-        <label className={styles.taskDay}>
-          <span className={styles.taskDayLabel}>Dag</span>
-          <select
-            className={styles.taskDaySelect}
-            value={scheduledDay ?? ""}
-            disabled={pending}
-            onChange={(e) => onSchedule(task, e.target.value)}
-            aria-label={`Placera ${task.title} på dag i månaden`}
-          >
-            <option value="">Ej placerad</option>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </label>
+        {showDayPicker ? (
+          <label className={styles.taskDay}>
+            <span className={styles.taskDayLabel}>Dag</span>
+            <select
+              className={styles.taskDaySelect}
+              value={scheduledDay ?? ""}
+              disabled={pending}
+              onChange={(e) => onSchedule(task, e.target.value)}
+              aria-label={`Placera ${task.title} på dag i månaden`}
+            >
+              <option value="">Ej placerad</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
 
       {expanded ? (
         <div className={styles.expand}>
+          {editing ? (
+            <MonthlyTaskEditForm
+              task={task}
+              categories={categories}
+              pending={pending}
+              onSave={onSaveEdit}
+              onDelete={onDelete}
+              onCancel={onCancelEdit}
+            />
+          ) : (
+            <>
           {categories.length > 0 ? (
             <label className={styles.taskDay}>
               <span className={styles.taskDayLabel}>Kategori</span>
@@ -307,8 +434,36 @@ function MonthlyTaskRow({
               </select>
             </label>
           ) : null}
-          {!done ? (
+
+          {task.completionKind === "finance" ? (
+            <div className={styles.financeLinkBlock}>
+              <p className={styles.financeLinkText}>
+                Fyll i alla konton i ekonomitabellen ovan. LF-total och summa
+                räknas ut automatiskt.
+              </p>
+              <a href="#ekonomi" className={styles.financeLink}>
+                Gå till ekonomitabellen ↓
+              </a>
+              {done && detail ? (
+                <p className={styles.noteReadout}>
+                  <span className={styles.noteReadoutLabel}>Status</span>
+                  {detail}
+                </p>
+              ) : null}
+            </div>
+          ) : !done ? (
             <>
+              {task.completionKind === "amount" ? (
+                <Input
+                  label="Belopp (kr)"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="t.ex. 1500"
+                  inputMode="decimal"
+                  required
+                  disabled={pending}
+                />
+              ) : null}
               <Input
                 label="Kommentar (valfritt)"
                 value={note}
@@ -324,17 +479,21 @@ function MonthlyTaskRow({
                 fullWidth
                 loading={pending && busy}
                 disabled={pending}
-                onClick={() => onComplete(task, note)}
+                onClick={() =>
+                  task.completionKind === "amount"
+                    ? onCompleteAmount(task, amount, note)
+                    : onCompleteSimple(task, note)
+                }
               >
                 Markera klart
               </Button>
             </>
           ) : (
             <>
-              {savedNote ? (
+              {detail ? (
                 <p className={styles.noteReadout}>
-                  <span className={styles.noteReadoutLabel}>Kommentar</span>
-                  {savedNote}
+                  <span className={styles.noteReadoutLabel}>Detaljer</span>
+                  {detail}
                 </p>
               ) : (
                 <p className={styles.noteEmpty}>Ingen kommentar.</p>
@@ -346,6 +505,17 @@ function MonthlyTaskRow({
                 disabled={pending}
               >
                 Ångra klarmarkering
+              </button>
+            </>
+          )}
+
+              <button
+                type="button"
+                className={styles.editTaskBtn}
+                onClick={onStartEdit}
+                disabled={pending}
+              >
+                Redigera uppgift
               </button>
             </>
           )}

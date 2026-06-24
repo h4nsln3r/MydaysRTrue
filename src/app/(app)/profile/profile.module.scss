@@ -152,13 +152,42 @@
 
 .habitItem {
     display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
     gap: $space-3;
     padding: $space-3;
     background: $color-ink-soft;
     border: 1px solid $color-line;
     border-radius: $radius-md;
+}
+
+.habitItemEditing {
+    padding: $space-3;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.habitEdit {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition:
+        color 160ms $ease-out,
+        border-color 160ms $ease-out;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-orange;
+    }
 }
 
 .habitCategorySelect {

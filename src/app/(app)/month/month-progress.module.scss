@@ -534,6 +534,15 @@
     font-weight: 700;
 }
 
+.monthlyCardCategory {
+    margin: 2px 0 0;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-fog;
+}
+
 .monthlyCardDetail {
     margin: 0;
     color: $color-cream-dim;

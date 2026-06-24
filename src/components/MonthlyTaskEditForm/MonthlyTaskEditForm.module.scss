@@ -1,0 +1,128 @@
+@use "abstracts" as *;
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.kicker {
+    margin: 0;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $color-fog;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.label {
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $color-fog;
+}
+
+.select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-sans;
+    font-size: 0.92rem;
+}
+
+.iconRow,
+.accentRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.iconBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    font-size: 1.1rem;
+    cursor: pointer;
+
+    &[aria-pressed="true"] {
+        border-color: $color-orange;
+        box-shadow: 0 0 0 2px rgba(255, 122, 26, 0.35);
+    }
+}
+
+.accentBtn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $space-2;
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.88rem;
+}
+
+.deleteZone {
+    margin-top: $space-2;
+    padding-top: $space-3;
+    border-top: 1px dashed $color-line;
+}
+
+.deleteLink {
+    background: none;
+    border: none;
+    padding: 0;
+    color: $color-danger;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+
+    &:hover:not(:disabled) {
+        color: #ff7a70;
+    }
+}
+
+.deleteConfirm {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.deleteWarn {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+}
+
+.deleteActions {
+    display: flex;
+    gap: $space-2;
+    justify-content: flex-end;
+}
+
+.deleteBtn {
+    background: $color-danger !important;
+    border-color: $color-danger !important;
+}

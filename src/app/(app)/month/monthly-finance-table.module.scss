@@ -1,0 +1,236 @@
+@use "abstracts" as *;
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+    padding: $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-lg;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.title {
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $color-cream;
+    margin: 0;
+}
+
+.sub {
+    margin: 4px 0 0;
+    color: $color-cream-dim;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.doneBadge {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: $radius-pill;
+    background: rgba(110, 231, 163, 0.12);
+    border: 1px solid rgba(110, 231, 163, 0.4);
+    color: $color-success;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.tableWrap {
+    overflow-x: auto;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+
+    th {
+        padding: 10px 14px;
+        text-align: left;
+        font-family: $font-mono;
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: $color-fog;
+        background: rgba(0, 0, 0, 0.2);
+        border-bottom: 1px solid $color-line;
+    }
+
+    td {
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+}
+
+.amountCol {
+    text-align: right;
+    width: 42%;
+    min-width: 120px;
+}
+
+.amountCell {
+    text-align: right;
+}
+
+.rowLabel {
+    display: block;
+    color: $color-cream;
+    font-weight: 600;
+}
+
+.rowHint {
+    display: block;
+    margin-top: 2px;
+    color: $color-fog;
+    font-size: 0.72rem;
+    font-style: italic;
+}
+
+.indentRow td:first-child {
+    padding-left: 28px;
+
+    .rowLabel {
+        font-weight: 500;
+        color: $color-cream-dim;
+    }
+
+    .rowLabel::before {
+        content: "↳ ";
+        color: $color-fog;
+        font-family: $font-mono;
+    }
+}
+
+.lfTotalRow {
+    background: rgba(255, 122, 26, 0.06);
+
+    td {
+        border-bottom: 1px solid rgba(255, 122, 26, 0.2);
+    }
+
+    .rowLabel {
+        color: $color-orange-bright;
+        font-weight: 800;
+    }
+
+    .computedValue {
+        font-family: $font-display;
+        font-size: 1.1rem;
+        color: $color-orange-bright;
+    }
+}
+
+.grandTotalRow {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 122, 26, 0.12),
+        rgba(255, 122, 26, 0.04)
+    );
+
+    .rowLabel {
+        font-family: $font-display;
+        font-size: 1rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: $color-cream;
+    }
+
+    .grandValue {
+        font-family: $font-display;
+        font-size: 1.35rem;
+        color: $color-orange-bright;
+        text-shadow: 0 0 24px rgba(255, 122, 26, 0.35);
+    }
+}
+
+.amountInput {
+    width: 100%;
+    max-width: 140px;
+    margin-left: auto;
+    display: block;
+    text-align: right;
+    padding: 8px 10px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+    color: $color-cream;
+    font-family: $font-mono;
+    font-size: 0.88rem;
+    transition: border-color 160ms $ease-out;
+
+    &::placeholder {
+        color: $color-fog;
+    }
+
+    &:focus-visible {
+        outline: 2px solid $color-orange;
+        outline-offset: 1px;
+        border-color: $color-orange;
+    }
+}
+
+.readValue {
+    font-family: $font-mono;
+    color: $color-cream-dim;
+}
+
+.footer {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+    justify-content: flex-end;
+}
+
+.error {
+    color: $color-danger;
+    font-size: 0.88rem;
+    margin: 0;
+}
+
+.readNote {
+    margin: 0;
+    padding: $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-elevated;
+    border: 1px dashed $color-line;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+}
+
+.readNoteLabel {
+    display: block;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $color-fog;
+    margin-bottom: 4px;
+}

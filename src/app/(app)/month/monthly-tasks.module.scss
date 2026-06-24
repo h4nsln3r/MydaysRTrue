@@ -358,3 +358,108 @@
         outline-offset: 1px;
     }
 }
+
+.editTaskBtn {
+    align-self: flex-start;
+    margin-top: $space-2;
+    padding: 8px 14px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-orange;
+    }
+}
+
+.financeLinkBlock {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.financeLinkText {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.financeLink {
+    align-self: flex-start;
+    color: $color-orange-bright;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.financeGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-2;
+
+    @media (min-width: 480px) {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
+
+.financeTotal {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-elevated;
+    border: 1px solid rgba(255, 122, 26, 0.35);
+}
+
+.financeTotalLabel {
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $color-fog;
+}
+
+.financeTotalValue {
+    font-family: $font-display;
+    font-size: 1.25rem;
+    color: $color-orange-bright;
+}
+
+.financeActions {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.oneOffBadge {
+    margin-left: 6px;
+    padding: 2px 6px;
+    border-radius: $radius-pill;
+    background: rgba(95, 182, 255, 0.15);
+    border: 1px solid rgba(95, 182, 255, 0.35);
+    color: #5fb6ff;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    vertical-align: middle;
+}
+
+.taskOneOff {
+    border-style: dashed;
+}

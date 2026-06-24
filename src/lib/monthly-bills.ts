@@ -65,6 +65,7 @@ export function resolveMonthlyBillsForWeek(
 
   for (const task of tasks) {
     for (const monthStart of monthStarts) {
+      if (task.singleMonthStart && task.singleMonthStart !== monthStart) continue;
       const compKey = `${task.id}|${monthStart}`;
       const completion = completionsByTaskMonth.get(compKey) ?? null;
       const day = effectiveScheduledDay(task, completion);
@@ -84,6 +85,7 @@ export function resolveMonthlyBillsForWeek(
     }
 
     for (const monthStart of monthStarts) {
+      if (task.singleMonthStart && task.singleMonthStart !== monthStart) continue;
       const compKey = `${task.id}|${monthStart}`;
       if (placedTaskMonths.has(compKey)) continue;
 

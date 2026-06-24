@@ -4,6 +4,17 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO } from "@/lib/date";
 import { monthStartFromDate } from "@/lib/monthly-bills";
+import {
+  applyTransferDelta,
+  balancesFromSnapshotRow,
+  EDITABLE_FINANCE_KEYS,
+  EMPTY_FINANCE_BALANCES,
+  financeTotal,
+  lfTotal,
+  TRANSFER_TASK_ACCOUNT,
+  type EditableFinanceKey,
+  type MonthlyFinanceBalances,
+} from "@/lib/monthly-finance";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   isHexColor,
@@ -19,6 +30,8 @@ import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
 type CategoryUpdate = Database["public"]["Tables"]["task_categories"]["Update"];
 type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
 type MonthlyTaskUpdate = Database["public"]["Tables"]["monthly_tasks"]["Update"];
+type MonthlyFinanceSnapshotInsert =
+  Database["public"]["Tables"]["monthly_finance_snapshots"]["Insert"];
 
 export interface ActionResult {
   ok: boolean;
@@ -963,6 +976,73 @@ export async function createMonthlyTaskAction(input: {
   return { ok: true };
 }
 
+export async function createOneOffMonthlyTaskAction(input: {
+  title: string;
+  monthStart: string;
+  categoryId?: string | null;
+  dayOfMonth?: number | null;
+  notes?: string;
+  icon?: string;
+  accent?: string;
+}): Promise<ActionResult> {
+  const title = cleanTitle(input.title, 80);
+  if (!title) return { ok: false, error: "Title is required." };
+  if (!MONTH_START_RE.test(input.monthStart)) {
+    return { ok: false, error: "Invalid month." };
+  }
+
+  let dayOfMonth: number | null = null;
+  if (input.dayOfMonth !== null && input.dayOfMonth !== undefined) {
+    const n = Math.round(Number(input.dayOfMonth));
+    if (!Number.isFinite(n) || n < 1 || n > 31) {
+      return { ok: false, error: "Day of month must be 1–31." };
+    }
+    dayOfMonth = n;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  if (input.categoryId) {
+    const err = await validateCategoryScope(
+      supabase,
+      user.id,
+      input.categoryId,
+      "task",
+    );
+    if (err) return { ok: false, error: err };
+  }
+
+  const { data: maxRow } = await supabase
+    .from("monthly_tasks")
+    .select("sort_order")
+    .eq("user_id", user.id)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase.from("monthly_tasks").insert({
+    user_id: user.id,
+    category_id: input.categoryId ?? null,
+    title,
+    notes: input.notes?.trim() || null,
+    day_of_month: dayOfMonth,
+    icon: cleanIcon(input.icon),
+    accent: cleanAccent(input.accent),
+    sort_order: nextOrder,
+    single_month_start: input.monthStart,
+    completion_kind: "simple",
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function updateMonthlyTaskAction(input: {
   id: string;
   title?: string;
@@ -1198,6 +1278,41 @@ export async function unplaceMonthlyBillFromWeekAction(input: {
   );
 }
 
+async function syncTransferToFinanceSnapshot(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  monthStart: string,
+  account: EditableFinanceKey,
+  delta: number,
+): Promise<ActionResult> {
+  const { data: snap } = await supabase
+    .from("monthly_finance_snapshots")
+    .select("kort, spar, isk, sbab_spar, avanza, krypto, cash")
+    .eq("user_id", userId)
+    .eq("month_start", monthStart)
+    .maybeSingle();
+
+  const balances = snap
+    ? balancesFromSnapshotRow(snap)
+    : { ...EMPTY_FINANCE_BALANCES };
+  const next = applyTransferDelta(balances, account, delta);
+
+  const payload: MonthlyFinanceSnapshotInsert = {
+    user_id: userId,
+    month_start: monthStart,
+    langforsakringar: lfTotal(next),
+  };
+  for (const key of EDITABLE_FINANCE_KEYS) {
+    payload[key] = next[key];
+  }
+
+  const { error } = await supabase
+    .from("monthly_finance_snapshots")
+    .upsert(payload, { onConflict: "user_id,month_start" });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 /**
  * Toggle the done state for a monthly task on a given month. Optionally stores
  * a free-text comment. When `note` is omitted on completion any existing
@@ -1208,6 +1323,7 @@ export async function toggleMonthlyTaskDoneAction(input: {
   monthStart: string;
   done: boolean;
   note?: string;
+  amount?: number;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Missing task id." };
   if (!MONTH_START_RE.test(input.monthStart)) {
@@ -1220,13 +1336,34 @@ export async function toggleMonthlyTaskDoneAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
+  const { data: task } = await supabase
+    .from("monthly_tasks")
+    .select("completion_kind, key")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Task not found." };
+
+  let amountValue: number | null = null;
+  if (task.completion_kind === "amount" && input.done) {
+    if (input.amount == null || !Number.isFinite(input.amount)) {
+      return { ok: false, error: "Ange ett belopp." };
+    }
+    amountValue = Math.round(input.amount * 100) / 100;
+  }
+
   const { data: existing } = await supabase
     .from("monthly_task_completions")
-    .select("id")
+    .select("id, amount")
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
     .eq("month_start", input.monthStart)
     .maybeSingle();
+
+  const previousAmount =
+    existing?.amount != null ? Number(existing.amount) : null;
+  const transferAccount =
+    task.key != null ? TRANSFER_TASK_ACCOUNT[task.key] : undefined;
 
   const doneAt = input.done ? new Date().toISOString() : null;
   const trimmedNote = (input.note ?? "").trim();
@@ -1234,10 +1371,17 @@ export async function toggleMonthlyTaskDoneAction(input: {
   const setNote = input.done ? input.note !== undefined : true;
 
   if (existing) {
-    const patch: { done_at: string | null; note?: string | null } = {
+    const patch: {
+      done_at: string | null;
+      note?: string | null;
+      amount?: number | null;
+    } = {
       done_at: doneAt,
     };
     if (setNote) patch.note = noteValue;
+    if (task.completion_kind === "amount") {
+      patch.amount = input.done ? amountValue : null;
+    }
     const { error } = await supabase
       .from("monthly_task_completions")
       .update(patch)
@@ -1251,8 +1395,89 @@ export async function toggleMonthlyTaskDoneAction(input: {
       month_start: input.monthStart,
       done_at: doneAt,
       note: noteValue,
+      amount: task.completion_kind === "amount" ? amountValue : null,
     });
     if (error) return { ok: false, error: error.message };
+  }
+
+  if (
+    task.completion_kind === "amount" &&
+    transferAccount &&
+    (input.done ? amountValue != null : previousAmount != null)
+  ) {
+    const delta = input.done
+      ? (amountValue ?? 0)
+      : -(previousAmount ?? 0);
+    const syncRes = await syncTransferToFinanceSnapshot(
+      supabase,
+      user.id,
+      input.monthStart,
+      transferAccount,
+      delta,
+    );
+    if (!syncRes.ok) return syncRes;
+  }
+
+  revalidatePath("/month", "page");
+  return { ok: true };
+}
+
+export async function saveMonthlyFinanceAction(input: {
+  taskId: string;
+  monthStart: string;
+  balances: MonthlyFinanceBalances;
+  note?: string;
+  done: boolean;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+  if (!MONTH_START_RE.test(input.monthStart)) {
+    return { ok: false, error: "Invalid month." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: task } = await supabase
+    .from("monthly_tasks")
+    .select("completion_kind")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task || task.completion_kind !== "finance") {
+    return { ok: false, error: "Invalid finance task." };
+  }
+
+  const snapshotPayload: MonthlyFinanceSnapshotInsert = {
+    user_id: user.id,
+    month_start: input.monthStart,
+    note: input.note?.trim().slice(0, 500) || null,
+    done_at: input.done ? new Date().toISOString() : null,
+    langforsakringar: lfTotal(input.balances),
+  };
+
+  for (const key of EDITABLE_FINANCE_KEYS) {
+    const raw = input.balances[key];
+    snapshotPayload[key] =
+      raw != null && Number.isFinite(raw) ? Math.round(raw * 100) / 100 : null;
+  }
+
+  const { error: snapError } = await supabase
+    .from("monthly_finance_snapshots")
+    .upsert(snapshotPayload, { onConflict: "user_id,month_start" });
+  if (snapError) return { ok: false, error: snapError.message };
+
+  if (input.done) {
+    const total = financeTotal(input.balances);
+    const toggleRes = await toggleMonthlyTaskDoneAction({
+      taskId: input.taskId,
+      monthStart: input.monthStart,
+      done: true,
+      note: `Totalt ${total.toLocaleString("sv-SE")} kr`,
+    });
+    if (!toggleRes.ok) return toggleRes;
   }
 
   revalidatePath("/month", "page");

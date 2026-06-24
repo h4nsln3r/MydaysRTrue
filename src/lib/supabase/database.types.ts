@@ -601,6 +601,8 @@ export interface Database {
           icon: string;
           accent: string;
           sort_order: number;
+          completion_kind: "simple" | "amount" | "finance";
+          single_month_start: string | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -616,6 +618,8 @@ export interface Database {
           icon?: string;
           accent?: string;
           sort_order?: number;
+          completion_kind?: "simple" | "amount" | "finance";
+          single_month_start?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -631,6 +635,8 @@ export interface Database {
           icon?: string;
           accent?: string;
           sort_order?: number;
+          completion_kind?: "simple" | "amount" | "finance";
+          single_month_start?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -645,6 +651,7 @@ export interface Database {
           month_start: string;
           done_at: string | null;
           note: string | null;
+          amount: number | null;
           scheduled_day_of_month: number | null;
           is_unscheduled: boolean;
           day_sort_order: number;
@@ -658,6 +665,7 @@ export interface Database {
           month_start: string;
           done_at?: string | null;
           note?: string | null;
+          amount?: number | null;
           scheduled_day_of_month?: number | null;
           is_unscheduled?: boolean;
           day_sort_order?: number;
@@ -671,9 +679,64 @@ export interface Database {
           month_start?: string;
           done_at?: string | null;
           note?: string | null;
+          amount?: number | null;
           scheduled_day_of_month?: number | null;
           is_unscheduled?: boolean;
           day_sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      monthly_finance_snapshots: {
+        Row: {
+          id: string;
+          user_id: string;
+          month_start: string;
+          langforsakringar: number | null;
+          kort: number | null;
+          spar: number | null;
+          isk: number | null;
+          sbab_spar: number | null;
+          avanza: number | null;
+          krypto: number | null;
+          cash: number | null;
+          note: string | null;
+          done_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          month_start: string;
+          langforsakringar?: number | null;
+          kort?: number | null;
+          spar?: number | null;
+          isk?: number | null;
+          sbab_spar?: number | null;
+          avanza?: number | null;
+          krypto?: number | null;
+          cash?: number | null;
+          note?: string | null;
+          done_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          month_start?: string;
+          langforsakringar?: number | null;
+          kort?: number | null;
+          spar?: number | null;
+          isk?: number | null;
+          sbab_spar?: number | null;
+          avanza?: number | null;
+          krypto?: number | null;
+          cash?: number | null;
+          note?: string | null;
+          done_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

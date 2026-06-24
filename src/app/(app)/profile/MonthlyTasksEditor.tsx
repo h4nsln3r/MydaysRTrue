@@ -4,11 +4,15 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
+import {
+  MonthlyTaskEditForm,
+  type MonthlyTaskEditValues,
+} from "@/components/MonthlyTaskEditForm/MonthlyTaskEditForm";
 import type { MonthlyTask, TaskCategory } from "@/lib/tasks";
 import {
   archiveMonthlyTaskAction,
   createMonthlyTaskAction,
-  setMonthlyTaskCategoryAction,
+  updateMonthlyTaskAction,
 } from "@/app/(app)/tasks-actions";
 import styles from "./profile.module.scss";
 
@@ -31,15 +35,15 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [dayOfMonth, setDayOfMonth] = useState<string>("");
   const [icon, setIcon] = useState<string>(PRESET_ICONS[0]);
   const [accent, setAccent] = useState<string>(PRESET_ACCENTS[0]);
   const [error, setError] = useState<string | null>(null);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
-  const reset = () => {
+  const resetAdd = () => {
     setAdding(false);
     setTitle("");
     setCategoryId("");
@@ -49,14 +53,14 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
     setError(null);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submitAdd = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     let dom: number | null = null;
     if (dayOfMonth.trim()) {
       const n = Number(dayOfMonth);
       if (!Number.isFinite(n) || n < 1 || n > 31) {
-        setError("Day of month must be 1–31, or leave it blank.");
+        setError("Dagen måste vara 1–31, eller lämna tom.");
         return;
       }
       dom = Math.round(n);
@@ -70,35 +74,44 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
         accent,
       });
       if (!res.ok) {
-        setError(res.error ?? "Could not add task.");
+        setError(res.error ?? "Kunde inte lägga till uppgiften.");
         return;
       }
-      reset();
+      resetAdd();
       router.refresh();
     });
   };
 
-  const archive = (id: string) => {
+  const saveEdit = (id: string, values: MonthlyTaskEditValues) => {
+    setError(null);
+    startTransition(async () => {
+      const res = await updateMonthlyTaskAction({
+        id,
+        title: values.title,
+        categoryId: values.categoryId,
+        dayOfMonth: values.dayOfMonth,
+        notes: values.notes,
+        icon: values.icon,
+        accent: values.accent,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte spara.");
+        return;
+      }
+      setEditingId(null);
+      router.refresh();
+    });
+  };
+
+  const remove = (id: string) => {
     setError(null);
     startTransition(async () => {
       const res = await archiveMonthlyTaskAction(id);
       if (!res.ok) {
-        setError(res.error ?? "Could not remove task.");
+        setError(res.error ?? "Kunde inte ta bort uppgiften.");
         return;
       }
-      setConfirmingId(null);
-      router.refresh();
-    });
-  };
-
-  const changeCategory = (taskId: string, nextCategoryId: string) => {
-    setError(null);
-    startTransition(async () => {
-      const res = await setMonthlyTaskCategoryAction({
-        taskId,
-        categoryId: nextCategoryId || null,
-      });
-      if (!res.ok) setError(res.error ?? "Could not update category.");
+      setEditingId(null);
       router.refresh();
     });
   };
@@ -108,21 +121,41 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
   return (
     <div className={styles.subBlock}>
       <header className={styles.subHeader}>
-        <h4 className={styles.h4}>Tasks</h4>
+        <h4 className={styles.h4}>Månadsuppgifter</h4>
         <span className={styles.muted}>
-          {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
+          {tasks.length} {tasks.length === 1 ? "uppgift" : "uppgifter"}
         </span>
       </header>
 
       {tasks.length > 0 ? (
         <ul className={styles.habitList}>
           {tasks.map((t) => {
-            const isConfirming = confirmingId === t.id;
+            const isEditing = editingId === t.id;
             const category = t.categoryId ? catById.get(t.categoryId) : null;
             const meta = [
-              t.dayOfMonth ? `Day ${t.dayOfMonth}` : "Anytime",
-              category ? `${category.icon} ${category.name}` : "No category",
+              t.dayOfMonth ? `Dag ${t.dayOfMonth}` : "När som helst",
+              category ? `${category.icon} ${category.name}` : "Ingen kategori",
             ].join(" · ");
+
+            if (isEditing) {
+              return (
+                <li key={t.id} className={styles.habitItemEditing}>
+                  <MonthlyTaskEditForm
+                    task={t}
+                    categories={categories}
+                    pending={pending}
+                    onSave={(values) => saveEdit(t.id, values)}
+                    onDelete={() => remove(t.id)}
+                    onCancel={() => {
+                      setEditingId(null);
+                      setError(null);
+                    }}
+                  />
+                  {error ? <p className={styles.error}>{error}</p> : null}
+                </li>
+              );
+            }
+
             return (
               <li key={t.id} className={styles.habitItem}>
                 <span
@@ -136,90 +169,56 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
                   <span className={styles.habitLabel}>{t.title}</span>
                   <span className={styles.habitKind}>{meta}</span>
                 </div>
-                {categories.length > 0 ? (
-                  <select
-                    className={styles.habitCategorySelect}
-                    value={t.categoryId ?? ""}
-                    onChange={(e) => changeCategory(t.id, e.target.value)}
-                    disabled={pending}
-                    aria-label={`Category for ${t.title}`}
-                  >
-                    <option value="">—</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.icon} {c.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
-                {isConfirming ? (
-                  <span className={styles.habitConfirm}>
-                    <button
-                      type="button"
-                      className={styles.habitConfirmYes}
-                      onClick={() => archive(t.id)}
-                      disabled={pending}
-                    >
-                      Remove
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.habitConfirmNo}
-                      onClick={() => setConfirmingId(null)}
-                      disabled={pending}
-                    >
-                      Cancel
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className={styles.habitRemove}
-                    onClick={() => setConfirmingId(t.id)}
-                    aria-label={`Remove ${t.title}`}
-                    disabled={pending}
-                  >
-                    ×
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className={styles.habitEdit}
+                  onClick={() => {
+                    setEditingId(t.id);
+                    setAdding(false);
+                    setError(null);
+                  }}
+                  disabled={pending}
+                  aria-label={`Redigera ${t.title}`}
+                >
+                  Redigera
+                </button>
               </li>
             );
           })}
         </ul>
       ) : (
         <p className={styles.emptyNote}>
-          No monthly tasks yet. Add things you do every month — rent, dentist,
-          car payment.
+          Inga månadsuppgifter ännu. Lägg till hyra, räkningar, sparande m.m.
         </p>
       )}
 
       {adding ? (
-        <form className={styles.habitForm} onSubmit={submit}>
+        <form className={styles.habitForm} onSubmit={submitAdd}>
           <Input
-            label="Task name"
+            label="Namn"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Räkningar"
+            placeholder="t.ex. Hyra"
             maxLength={80}
             autoFocus
             required
           />
 
           <Input
-            label="Day of month"
+            label="Standarddag i månaden (valfritt)"
             type="number"
             min={1}
             max={31}
             value={dayOfMonth}
             onChange={(e) => setDayOfMonth(e.target.value)}
-            placeholder="optional, 1–31"
-            hint="Leave blank if you can do it anytime in the month."
+            placeholder="t.ex. 1"
+            hint="Lämna tom om uppgiften kan göras när som helst."
           />
 
           {categories.length > 0 ? (
             <div className={styles.habitFormBlock}>
               <label className={styles.label} htmlFor="monthly-task-category">
-                Category
+                Kategori
               </label>
               <select
                 id="monthly-task-category"
@@ -227,7 +226,7 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
               >
-                <option value="">— No category —</option>
+                <option value="">— Ingen kategori —</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.icon} {c.name}
@@ -238,7 +237,7 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
           ) : null}
 
           <div className={styles.habitFormBlock}>
-            <span className={styles.label}>Icon</span>
+            <span className={styles.label}>Ikon</span>
             <div className={styles.habitIconRow}>
               {PRESET_ICONS.map((p) => (
                 <button
@@ -255,7 +254,7 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
           </div>
 
           <div className={styles.habitFormBlock}>
-            <span className={styles.label}>Accent</span>
+            <span className={styles.label}>Färg</span>
             <div className={styles.habitAccentRow}>
               {PRESET_ACCENTS.map((c) => (
                 <button
@@ -263,7 +262,7 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
                   type="button"
                   onClick={() => setAccent(c)}
                   aria-pressed={accent === c}
-                  aria-label={`Use color ${c}`}
+                  aria-label={`Färg ${c}`}
                   className={styles.habitAccentBtn}
                   style={{
                     background: c,
@@ -281,28 +280,33 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
               type="button"
               variant="ghost"
               size="md"
-              onClick={reset}
+              onClick={resetAdd}
               disabled={pending}
             >
-              Cancel
+              Avbryt
             </Button>
             <Button type="submit" variant="primary" size="md" loading={pending}>
-              Add task
+              Lägg till
             </Button>
           </div>
         </form>
-      ) : (
+      ) : editingId === null ? (
         <Button
           type="button"
           variant="outline"
           size="md"
-          onClick={() => setAdding(true)}
+          onClick={() => {
+            setAdding(true);
+            setError(null);
+          }}
           fullWidth
         >
-          + Add monthly task
+          + Lägg till månadsuppgift
         </Button>
-      )}
-      {!adding && error ? <p className={styles.error}>{error}</p> : null}
+      ) : null}
+      {!adding && editingId === null && error ? (
+        <p className={styles.error}>{error}</p>
+      ) : null}
     </div>
   );
 }

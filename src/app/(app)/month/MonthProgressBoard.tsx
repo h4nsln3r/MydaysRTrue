@@ -1,9 +1,15 @@
 import Link from "next/link";
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { MonthDay, MonthSummary } from "@/lib/habits.server";
-import type { MonthlyTaskForMonth } from "@/lib/tasks";
+import {
+  formatMonthlyTaskDetail,
+  type MonthlyTaskForMonth,
+} from "@/lib/tasks";
 import { dateInMonth, effectiveScheduledDay } from "@/lib/monthly-bills";
 import { formatDayShort } from "@/lib/date";
+import type { MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
+import type { TaskCategory } from "@/lib/tasks";
+import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import styles from "./month-progress.module.scss";
 
 interface Props {
@@ -13,6 +19,9 @@ interface Props {
   monthlyDone: number;
   monthlyTotal: number;
   today: string;
+  financeSnapshot: MonthlyFinanceSnapshot | null;
+  financeTaskId: string | null;
+  categories: TaskCategory[];
 }
 
 const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
@@ -31,6 +40,9 @@ export function MonthProgressBoard({
   monthlyDone,
   monthlyTotal,
   today,
+  financeSnapshot,
+  financeTaskId,
+  categories,
 }: Props) {
   const pastDays = summary.days.filter((d) => !d.isFuture).length;
   const colSpan = summary.days.length + 2;
@@ -160,9 +172,17 @@ export function MonthProgressBoard({
         </table>
       </div>
 
+      <MonthlyFinanceTable
+        monthStart={monthStart}
+        financeTaskId={financeTaskId}
+        snapshot={financeSnapshot}
+        readOnly
+      />
+
       {hasTasks ? (
         <MonthlyTasksSummary
           tasks={monthlyTasks}
+          categories={categories}
           monthStart={monthStart}
           today={today}
         />
@@ -203,13 +223,17 @@ function DayHeader({ day, today }: { day: MonthDay; today: string }) {
 
 function MonthlyTasksSummary({
   tasks,
+  categories,
   monthStart,
   today,
 }: {
   tasks: MonthlyTaskForMonth[];
+  categories: TaskCategory[];
   monthStart: string;
   today: string;
 }) {
+  const catById = new Map(categories.map((c) => [c.id, c]));
+
   return (
     <aside className={styles.monthlyAside} aria-label="Månadsuppgifter">
       <p className={styles.monthlyAsideTitle}>Månadsuppgifter</p>
@@ -218,6 +242,7 @@ function MonthlyTasksSummary({
           <MonthlyTaskCard
             key={task.id}
             task={task}
+            category={task.categoryId ? catById.get(task.categoryId) ?? null : null}
             monthStart={monthStart}
             today={today}
           />
@@ -229,10 +254,12 @@ function MonthlyTasksSummary({
 
 function MonthlyTaskCard({
   task,
+  category,
   monthStart,
   today,
 }: {
   task: MonthlyTaskForMonth;
+  category: TaskCategory | null;
   monthStart: string;
   today: string;
 }) {
@@ -273,6 +300,11 @@ function MonthlyTaskCard({
         </span>
         <div className={styles.monthlyCardBody}>
           <p className={styles.monthlyCardKicker}>{task.title}</p>
+          {category ? (
+            <p className={styles.monthlyCardCategory}>
+              {category.icon} {category.name}
+            </p>
+          ) : null}
           {status === "unplaced" ? (
             <p className={styles.monthlyCardDetail}>Ej placerad den här månaden</p>
           ) : (
@@ -286,7 +318,11 @@ function MonthlyTaskCard({
               ) : null}
             </p>
           )}
-          {done && task.completion?.note ? (
+          {done && formatMonthlyTaskDetail(task, task.completion) ? (
+            <p className={styles.monthlyCardHint}>
+              {formatMonthlyTaskDetail(task, task.completion)}
+            </p>
+          ) : done && task.completion?.note ? (
             <p className={styles.monthlyCardHint}>{task.completion.note}</p>
           ) : status === "planned" ? (
             <p className={styles.monthlyCardHint}>Planerad uppgift</p>

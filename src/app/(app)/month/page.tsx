@@ -8,6 +8,7 @@ import { getCategories, getMonthTaskSummary } from "@/lib/tasks.server";
 import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView, type PeriodView } from "@/lib/period-view";
 import { MonthProgressBoard } from "./MonthProgressBoard";
+import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyTasksBoard } from "./MonthlyTasksBoard";
 import styles from "./month.module.scss";
 
@@ -74,6 +75,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     next.year < todayYM.year ||
     (next.year === todayYM.year && next.month <= todayYM.month);
   const isCurrent = year === todayYM.year && month === todayYM.month;
+  const financeTask = monthlyTasks.tasks.find((t) => t.key === "finance_ekonomi");
 
   return (
     <main className={styles.main}>
@@ -130,10 +132,24 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
           monthlyDone={monthlyDone}
           monthlyTotal={monthlyTasks.tasks.length}
           today={today}
+          financeSnapshot={monthlyTasks.financeSnapshot}
+          financeTaskId={financeTask?.id ?? null}
+          categories={monthlyTasks.categories}
         />
       ) : (
         <>
-          <AddTaskPanel categories={allCategories} defaultScope="monthly" />
+          <AddTaskPanel
+            categories={allCategories}
+            defaultScope="monthly"
+            monthStart={monthStart}
+            allowOneOff
+          />
+
+          <MonthlyFinanceTable
+            monthStart={monthStart}
+            financeTaskId={financeTask?.id ?? null}
+            snapshot={monthlyTasks.financeSnapshot}
+          />
 
           <section className={styles.section}>
             <header className={styles.sectionHeader}>

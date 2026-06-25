@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import type { MonthlyTask, TaskCategory } from "@/lib/tasks";
+import { parseKrInput } from "@/lib/monthly-finance";
+import { billsCategoryId } from "@/lib/monthly-bills";
 import styles from "./MonthlyTaskEditForm.module.scss";
 
 const PRESET_ICONS = ["✓", "💸", "🧾", "🚗", "🏠", "📞", "📅", "🛠", "🩺", "🎁", "⚡", "🌐", "💰", "📊"];
@@ -23,12 +25,20 @@ export interface MonthlyTaskEditValues {
   notes: string | null;
   icon: string;
   accent: string;
+  defaultAmountKr: number | null;
 }
 
 interface Props {
   task: Pick<
     MonthlyTask,
-    "title" | "categoryId" | "dayOfMonth" | "notes" | "icon" | "accent" | "singleMonthStart"
+    | "title"
+    | "categoryId"
+    | "dayOfMonth"
+    | "notes"
+    | "icon"
+    | "accent"
+    | "singleMonthStart"
+    | "defaultAmountKr"
   >;
   categories: TaskCategory[];
   pending: boolean;
@@ -53,8 +63,16 @@ export function MonthlyTaskEditForm({
   const [notes, setNotes] = useState(task.notes ?? "");
   const [icon, setIcon] = useState(task.icon);
   const [accent, setAccent] = useState(task.accent);
+  const [defaultAmountKr, setDefaultAmountKr] = useState(
+    task.defaultAmountKr != null ? String(task.defaultAmountKr) : "",
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const billsCatId = billsCategoryId(categories);
+  const showBillCost =
+    billsCatId != null &&
+    (categoryId === billsCatId || task.categoryId === billsCatId);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +98,7 @@ export function MonthlyTaskEditForm({
       notes: notes.trim() || null,
       icon,
       accent,
+      defaultAmountKr: showBillCost ? parseKrInput(defaultAmountKr) : null,
     });
   };
 
@@ -139,6 +158,18 @@ export function MonthlyTaskEditForm({
         maxLength={500}
         disabled={pending}
       />
+
+      {showBillCost ? (
+        <Input
+          label="Månadskostnad (kr)"
+          value={defaultAmountKr}
+          onChange={(e) => setDefaultAmountKr(e.target.value)}
+          placeholder="t.ex. 8500"
+          inputMode="decimal"
+          disabled={pending}
+          hint="Standardbelopp varje månad — kan justeras per månad på uppgiften."
+        />
+      ) : null}
 
       <div className={styles.field}>
         <span className={styles.label}>Ikon</span>

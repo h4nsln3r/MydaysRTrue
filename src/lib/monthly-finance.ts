@@ -80,6 +80,9 @@ export const TRANSFER_TASK_ACCOUNT: Record<string, EditableFinanceKey> = {
   save_transfer_spar: "spar",
 };
 
+export const SALARY_TASK_KEY = "finance_lon";
+export const FINANCE_EKONOMI_TASK_KEY = "finance_ekonomi";
+
 export interface MonthlyFinanceSnapshot {
   monthStart: string;
   balances: MonthlyFinanceBalances;

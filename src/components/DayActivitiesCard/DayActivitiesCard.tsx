@@ -30,7 +30,7 @@ import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
-import type { TaskCategory, Weekday, WeeklyTaskForWeek } from "@/lib/tasks";
+import type { MonthlyTaskForMonth, TaskCategory, Weekday, WeeklyTaskForWeek } from "@/lib/tasks";
 import type { WeightDayContext } from "@/lib/weight";
 import type { WorkDailyLog } from "@/lib/work";
 import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
@@ -41,6 +41,8 @@ import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.sc
 interface Props {
   weekStart: string;
   tasks: WeeklyTaskForWeek[];
+  monthlyTasks?: MonthlyTaskForMonth[];
+  monthStart?: string;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
   sportSessions: SportSessionForWeek[];
@@ -70,6 +72,8 @@ interface Props {
 export function DayActivitiesCard({
   weekStart,
   tasks,
+  monthlyTasks = [],
+  monthStart,
   gymSessions,
   cardioSessions,
   sportSessions,
@@ -107,6 +111,8 @@ export function DayActivitiesCard({
       buildDayPlanItems({
         date: planDate,
         tasks,
+        monthlyTasks,
+        monthStart,
         gymSessions,
         cardioSessions,
         sportSessions,
@@ -124,6 +130,8 @@ export function DayActivitiesCard({
     [
       planDate,
       tasks,
+      monthlyTasks,
+      monthStart,
       gymSessions,
       cardioSessions,
       sportSessions,

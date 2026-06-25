@@ -28,7 +28,7 @@ import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getSportSessionsForDate } from "@/lib/sport.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
-import { getCategories, getWeeklyTasksForDate } from "@/lib/tasks.server";
+import { getCategories, getMonthlyTasksForDate, getWeeklyTasksForDate } from "@/lib/tasks.server";
 import { getDailyPlanOrder } from "@/lib/day-plan.server";
 import { parseLocalISO, todayLocalISO, weekEndISO, weekStartISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
@@ -72,6 +72,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     bathingDay,
     weightDay,
     weeklyTasksDay,
+    monthlyTasksDay,
     allCategories,
     dayPlan,
     activityLog,
@@ -90,6 +91,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getBathingSessionsForDate(user.id, date),
     getWeightForDate(user.id, date),
     getWeeklyTasksForDate(user.id, date),
+    getMonthlyTasksForDate(user.id, date),
     getCategories(user.id),
     getDayPlanSettings(user.id),
     getDailyActivityLog(user.id, date),
@@ -149,6 +151,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
             <DayActivitiesCard
               weekStart={weeklyTasksDay.weekStart}
               tasks={weeklyTasksDay.tasks}
+              monthlyTasks={monthlyTasksDay.tasks}
+              monthStart={monthlyTasksDay.monthStart}
               gymSessions={gymDay.sessions}
               cardioSessions={cardioDay.sessions}
               sportSessions={sportDay.sessions}

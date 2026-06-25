@@ -7,6 +7,7 @@ import { CardioSessionRow } from "@/components/CardioDayCard/CardioDayCard";
 import { GymSessionRow } from "@/components/GymDayCard/GymDayCard";
 import { SportSessionRow } from "@/components/SportDayCard/SportDayCard";
 import { WeeklyTaskRow } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
+import { MonthlyTaskDayRow } from "@/components/MonthlyTasksDayCard/MonthlyTaskDayRow";
 import type { TaskCategory } from "@/lib/tasks";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
 import { WeightActivityRow } from "./WeightActivityRow";
@@ -128,6 +129,25 @@ export function DayActivityRow(props: Props) {
           onError={props.onError}
           onPendingId={props.onPendingId}
           onRefresh={onRefresh}
+          onDone={props.onDone}
+          planningMode={planningMode}
+          dragHandle={props.dragHandle}
+          sortableRef={props.sortableRef}
+          sortableStyle={props.sortableStyle}
+        />
+      );
+    case "monthly_task":
+      return (
+        <MonthlyTaskDayRow
+          task={item.task}
+          monthStart={item.monthStart}
+          categories={categories}
+          expanded={planningMode ? false : props.expanded}
+          busy={props.busy}
+          pending={props.pending}
+          onToggleExpand={planningMode ? () => {} : props.onToggleExpand}
+          onError={props.onError}
+          onPendingId={props.onPendingId}
           onDone={props.onDone}
           planningMode={planningMode}
           dragHandle={props.dragHandle}

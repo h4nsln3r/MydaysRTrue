@@ -22,12 +22,13 @@ import {
 } from "@/lib/intake";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
-import type { WeeklyTaskForWeek } from "@/lib/tasks";
+import type { MonthlyTaskForMonth, WeeklyTaskForWeek } from "@/lib/tasks";
 import { isWorkday, type WorkDailyLog } from "@/lib/work";
 import type { WeightDayContext } from "@/lib/weight";
 
 export type DayPlanKind =
   | "task"
+  | "monthly_task"
   | "gym"
   | "cardio"
   | "sport"
@@ -79,6 +80,15 @@ export type DayPlanItem =
       sortOrder: number;
       doneAt: string | null;
       task: WeeklyTaskForWeek;
+    }
+  | {
+      kind: "monthly_task";
+      id: string;
+      itemKey: string;
+      sortOrder: number;
+      doneAt: string | null;
+      monthStart: string;
+      task: MonthlyTaskForMonth;
     }
   | {
       kind: "gym";
@@ -185,6 +195,8 @@ export type DayPlanItem =
 export interface DayPlanInput {
   date: string;
   tasks: WeeklyTaskForWeek[];
+  monthlyTasks?: MonthlyTaskForMonth[];
+  monthStart?: string;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
   sportSessions: SportSessionForWeek[];
@@ -266,6 +278,11 @@ function assignDefaultSortOrders(items: DayPlanItem[], slots: HabitSortSlots): v
           item.task.placement?.daySortOrder ?? item.task.sortOrder,
         );
         break;
+      case "monthly_task":
+        item.sortOrder = weekDefaultRank(
+          item.task.completion?.daySortOrder ?? item.task.sortOrder,
+        );
+        break;
       case "gym":
         item.sortOrder = weekDefaultRank(item.session.placement.daySortOrder);
         break;
@@ -331,6 +348,19 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
       itemKey: `task:${task.id}`,
       sortOrder: 0,
       doneAt: task.placement?.doneAt ?? null,
+      task,
+    });
+  }
+
+  const monthStart = input.monthStart ?? `${input.date.slice(0, 7)}-01`;
+  for (const task of input.monthlyTasks ?? []) {
+    items.push({
+      kind: "monthly_task",
+      id: task.id,
+      itemKey: `monthly_task:${task.id}`,
+      sortOrder: 0,
+      doneAt: task.completion?.doneAt ?? null,
+      monthStart,
       task,
     });
   }
@@ -511,6 +541,8 @@ export function dayPlanItemLabel(item: DayPlanItem): string {
   switch (item.kind) {
     case "task":
       return item.task.title;
+    case "monthly_task":
+      return item.task.title;
     case "gym":
       return item.session.label;
     case "cardio":
@@ -542,6 +574,8 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
   switch (item.kind) {
     case "task":
       return item.task.icon;
+    case "monthly_task":
+      return item.task.icon;
     case "gym":
       return item.session.icon;
     case "cardio":
@@ -571,6 +605,8 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
 export function dayPlanItemAccent(item: DayPlanItem): string {
   switch (item.kind) {
     case "task":
+      return item.task.accent;
+    case "monthly_task":
       return item.task.accent;
     case "gym":
       return item.session.accent;

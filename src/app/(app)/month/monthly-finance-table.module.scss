@@ -234,3 +234,40 @@
     color: $color-fog;
     margin-bottom: 4px;
 }
+
+.salaryRow {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+}
+
+.salaryLabel {
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $color-fog;
+}
+
+.salaryValue {
+    font-family: $font-mono;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: $color-success;
+}
+
+.salaryInputRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+    align-items: center;
+}
+
+.salaryInputRow .amountInput {
+    flex: 1 1 140px;
+    min-width: 120px;
+}

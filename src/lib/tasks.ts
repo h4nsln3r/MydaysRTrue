@@ -85,6 +85,8 @@ export interface MonthlyTask {
   completionKind: MonthlyTaskCompletionKind;
   /** One-off task — only shown for this month (YYYY-MM-01). */
   singleMonthStart: string | null;
+  /** Typical monthly cost (kr) — used for Räkningar. */
+  defaultAmountKr: number | null;
 }
 
 export interface WeeklyPlacement {

@@ -5,11 +5,12 @@ import {
   formatMonthlyTaskDetail,
   type MonthlyTaskForMonth,
 } from "@/lib/tasks";
-import { dateInMonth, effectiveScheduledDay } from "@/lib/monthly-bills";
+import { dateInMonth, effectiveScheduledDay, formatBillAmountKr, isMonthlyBill } from "@/lib/monthly-bills";
 import { formatDayShort } from "@/lib/date";
 import type { MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
 import type { TaskCategory } from "@/lib/tasks";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
+import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
 import styles from "./month-progress.module.scss";
 
 interface Props {
@@ -21,6 +22,8 @@ interface Props {
   today: string;
   financeSnapshot: MonthlyFinanceSnapshot | null;
   financeTaskId: string | null;
+  salaryTaskId?: string | null;
+  salaryAmount?: number | null;
   categories: TaskCategory[];
 }
 
@@ -42,6 +45,8 @@ export function MonthProgressBoard({
   today,
   financeSnapshot,
   financeTaskId,
+  salaryTaskId = null,
+  salaryAmount = null,
   categories,
 }: Props) {
   const pastDays = summary.days.filter((d) => !d.isFuture).length;
@@ -176,8 +181,12 @@ export function MonthProgressBoard({
         monthStart={monthStart}
         financeTaskId={financeTaskId}
         snapshot={financeSnapshot}
+        salaryTaskId={salaryTaskId}
+        salaryAmount={salaryAmount}
         readOnly
       />
+
+      <MonthlyBillsSummary tasks={monthlyTasks} categories={categories} />
 
       {hasTasks ? (
         <MonthlyTasksSummary
@@ -243,6 +252,7 @@ function MonthlyTasksSummary({
             key={task.id}
             task={task}
             category={task.categoryId ? catById.get(task.categoryId) ?? null : null}
+            categories={categories}
             monthStart={monthStart}
             today={today}
           />
@@ -255,11 +265,13 @@ function MonthlyTasksSummary({
 function MonthlyTaskCard({
   task,
   category,
+  categories,
   monthStart,
   today,
 }: {
   task: MonthlyTaskForMonth;
   category: TaskCategory | null;
+  categories: TaskCategory[];
   monthStart: string;
   today: string;
 }) {
@@ -267,6 +279,8 @@ function MonthlyTaskCard({
   const scheduledDay = effectiveScheduledDay(task, task.completion);
   const scheduledDate =
     scheduledDay != null ? dateInMonth(monthStart, scheduledDay) : null;
+  const billAmountLabel = formatBillAmountKr(task);
+  const isBill = isMonthlyBill(task, categories);
   const isFuture = scheduledDate ? scheduledDate > today : false;
   const isToday = scheduledDate === today;
   const planHref = `/month?m=${monthStart.slice(0, 7)}&view=plan`;
@@ -304,6 +318,9 @@ function MonthlyTaskCard({
             <p className={styles.monthlyCardCategory}>
               {category.icon} {category.name}
             </p>
+          ) : null}
+          {isBill && billAmountLabel ? (
+            <p className={styles.monthlyCardDetail}>{billAmountLabel}</p>
           ) : null}
           {status === "unplaced" ? (
             <p className={styles.monthlyCardDetail}>Ej placerad den här månaden</p>

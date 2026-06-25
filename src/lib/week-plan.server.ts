@@ -7,7 +7,8 @@ import { getGymWeekSummary } from "@/lib/gym.server";
 import { formatWeeklyTaskDetail, type Weekday } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
-import { resolveMonthlyBillsForWeek } from "@/lib/monthly-bills";
+import { formatBillAmountKr, resolveMonthlyBillsForWeek } from "@/lib/monthly-bills";
+import { formatMonthlyTaskDetail } from "@/lib/tasks";
 import {
   weekPlanBathingPlacementDragId,
   weekPlanBathingSourceDragId,
@@ -250,13 +251,19 @@ export async function getUnifiedWeekPlan(
       dragId: weekPlanMonthlyBillDragId(slot.task.id, slot.monthStart),
       kind: "monthly_bill",
       taskId: slot.task.id,
+      taskKey: slot.task.key,
       categoryId: slot.task.categoryId,
       monthStart: slot.monthStart,
       scheduledDayOfMonth:
         completion?.scheduledDayOfMonth ?? slot.task.dayOfMonth,
+      completionKind: slot.task.completionKind,
       completion,
       label: slot.task.title,
-      subtitle: slot.task.notes,
+      subtitle:
+        slot.task.completionKind === "amount"
+          ? formatMonthlyTaskDetail(slot.task, completion) ??
+            formatBillAmountKr({ ...slot.task, completion })
+          : formatBillAmountKr({ ...slot.task, completion }) ?? slot.task.notes,
       icon: slot.task.icon,
       accent: slot.task.accent,
       defaultWeekday: null,
@@ -279,12 +286,20 @@ export async function getUnifiedWeekPlan(
       dragId: weekPlanMonthlyBillDragId(entry.task.id, entry.monthStart),
       kind: "monthly_bill",
       taskId: entry.task.id,
+      taskKey: entry.task.key,
       categoryId: entry.task.categoryId,
       monthStart: entry.monthStart,
       scheduledDayOfMonth: null,
+      completionKind: entry.task.completionKind,
       completion,
       label: entry.task.title,
-      subtitle: entry.task.notes ?? "Placera på en dag den här månaden",
+      subtitle:
+        entry.task.completionKind === "amount"
+          ? formatMonthlyTaskDetail(entry.task, completion) ??
+            formatBillAmountKr({ ...entry.task, completion })
+          : formatBillAmountKr({ ...entry.task, completion }) ??
+            entry.task.notes ??
+            "Placera på en dag den här månaden",
       icon: entry.task.icon,
       accent: entry.task.accent,
       defaultWeekday: null,

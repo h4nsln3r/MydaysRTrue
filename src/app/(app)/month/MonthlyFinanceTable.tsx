@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveMonthlyFinanceAction } from "@/app/(app)/tasks-actions";
+import { saveMonthlyFinanceAction, setMonthlyBillAmountAction } from "@/app/(app)/tasks-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import {
@@ -21,6 +21,8 @@ interface Props {
   monthStart: string;
   financeTaskId: string | null;
   snapshot: MonthlyFinanceSnapshot | null;
+  salaryTaskId?: string | null;
+  salaryAmount?: number | null;
   readOnly?: boolean;
 }
 
@@ -28,6 +30,8 @@ export function MonthlyFinanceTable({
   monthStart,
   financeTaskId,
   snapshot,
+  salaryTaskId = null,
+  salaryAmount = null,
   readOnly = false,
 }: Props) {
   const router = useRouter();
@@ -47,12 +51,16 @@ export function MonthlyFinanceTable({
   const [balances, setBalances] =
     useState<MonthlyFinanceBalances>(initialBalances);
   const [note, setNote] = useState(snapshot?.note ?? "");
+  const [salary, setSalary] = useState(
+    salaryAmount != null ? String(salaryAmount) : "",
+  );
   const done = Boolean(snapshot?.doneAt);
 
   useEffect(() => {
     setBalances(initialBalances);
     setNote(snapshot?.note ?? "");
-  }, [initialBalances, snapshot?.note]);
+    setSalary(salaryAmount != null ? String(salaryAmount) : "");
+  }, [initialBalances, snapshot?.note, salaryAmount]);
 
   const lfSum = lfTotal(balances);
   const grand = financeTotal(balances);
@@ -76,6 +84,21 @@ export function MonthlyFinanceTable({
     });
   };
 
+  const saveSalary = () => {
+    if (!salaryTaskId) return;
+    const parsed = parseKrInput(salary);
+    setError(null);
+    startTransition(async () => {
+      const res = await setMonthlyBillAmountAction({
+        taskId: salaryTaskId,
+        monthStart,
+        amountKr: parsed,
+      });
+      if (!res.ok) setError(res.error ?? "Kunde inte spara lön.");
+      router.refresh();
+    });
+  };
+
   if (!financeTaskId) return null;
 
   return (
@@ -93,6 +116,43 @@ export function MonthlyFinanceTable({
           </span>
         ) : null}
       </header>
+
+      {salaryTaskId ? (
+        <div className={styles.salaryRow}>
+          <label className={styles.salaryLabel} htmlFor="salary-amount">
+            Lön den här månaden
+          </label>
+          {readOnly ? (
+            <span className={styles.salaryValue}>
+              {salaryAmount != null ? formatKr(salaryAmount) : "—"}
+            </span>
+          ) : (
+            <div className={styles.salaryInputRow}>
+              <input
+                id="salary-amount"
+                type="text"
+                inputMode="decimal"
+                className={styles.amountInput}
+                value={salary}
+                onChange={(e) => setSalary(e.target.value)}
+                placeholder="t.ex. 32000"
+                aria-label="Lön den här månaden"
+                disabled={pending}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                loading={pending}
+                disabled={pending}
+                onClick={saveSalary}
+              >
+                Spara lön
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>

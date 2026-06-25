@@ -7,6 +7,7 @@ import { Button } from "@/components/Button/Button";
 import {
   archiveMonthlyTaskAction,
   scheduleMonthlyBillDayAction,
+  setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
   updateMonthlyTaskAction,
 } from "@/app/(app)/tasks-actions";
@@ -21,7 +22,7 @@ import {
   type MonthlyTaskForMonth,
   type TaskCategory,
 } from "@/lib/tasks";
-import { effectiveScheduledDay } from "@/lib/monthly-bills";
+import { effectiveScheduledDay, formatBillAmountKr, effectiveBillAmountKr, isMonthlyBill } from "@/lib/monthly-bills";
 import styles from "./monthly-tasks.module.scss";
 
 interface Props {
@@ -68,6 +69,9 @@ export function MonthlyTasksBoard({
         taskId: task.id,
         monthStart,
         done: !task.completion?.doneAt,
+        amount: isMonthlyBill(task, categories)
+          ? effectiveBillAmountKr(task) ?? undefined
+          : undefined,
       }),
     );
   };
@@ -79,6 +83,9 @@ export function MonthlyTasksBoard({
         monthStart,
         done: true,
         note,
+        amount: isMonthlyBill(task, categories)
+          ? effectiveBillAmountKr(task) ?? undefined
+          : undefined,
       });
       if (res.ok) setExpandedId(null);
       return res;
@@ -136,7 +143,7 @@ export function MonthlyTasksBoard({
       }),
     );
 
-  const saveEdit = (taskId: string, values: MonthlyTaskEditValues) =>
+  const saveEdit = (taskId: string, values: MonthlyTaskEditValues, task: MonthlyTaskForMonth) =>
     run(taskId, async () => {
       const res = await updateMonthlyTaskAction({
         id: taskId,
@@ -146,6 +153,9 @@ export function MonthlyTasksBoard({
         notes: values.notes,
         icon: values.icon,
         accent: values.accent,
+        ...(isMonthlyBill(task, categories) || isMonthlyBill({ categoryId: values.categoryId }, categories)
+          ? { defaultAmountKr: values.defaultAmountKr }
+          : {}),
       });
       if (res.ok) {
         setEditingId(null);
@@ -153,6 +163,17 @@ export function MonthlyTasksBoard({
       }
       return res;
     });
+
+  const saveBillAmount = (task: MonthlyTaskForMonth, amountRaw: string) => {
+    const amount = parseKrInput(amountRaw);
+    run(task.id, () =>
+      setMonthlyBillAmountAction({
+        taskId: task.id,
+        monthStart,
+        amountKr: amount,
+      }),
+    );
+  };
 
   const removeTask = (taskId: string) =>
     run(taskId, async () => {
@@ -229,6 +250,7 @@ export function MonthlyTasksBoard({
               <MonthlyTaskRow
                 key={t.id}
                 task={t}
+                monthStart={monthStart}
                 categories={categories}
                 pending={pending}
                 busy={pendingId === t.id}
@@ -243,7 +265,7 @@ export function MonthlyTasksBoard({
                   setExpandedId(t.id);
                 }}
                 onCancelEdit={() => setEditingId(null)}
-                onSaveEdit={(values) => saveEdit(t.id, values)}
+                onSaveEdit={(values) => saveEdit(t.id, values, t)}
                 onDelete={() => removeTask(t.id)}
                 onToggleQuick={toggleQuick}
                 onCompleteSimple={completeSimple}
@@ -251,6 +273,7 @@ export function MonthlyTasksBoard({
                 onUncomplete={uncomplete}
                 onSchedule={scheduleDay}
                 onChangeCategory={changeCategory}
+                onSaveBillAmount={saveBillAmount}
               />
             ))}
           </ul>
@@ -262,6 +285,7 @@ export function MonthlyTasksBoard({
 
 interface MonthlyTaskRowProps {
   task: MonthlyTaskForMonth;
+  monthStart: string;
   categories: TaskCategory[];
   pending: boolean;
   busy: boolean;
@@ -282,10 +306,12 @@ interface MonthlyTaskRowProps {
   onUncomplete: (task: MonthlyTaskForMonth) => void;
   onSchedule: (task: MonthlyTaskForMonth, raw: string) => void;
   onChangeCategory: (task: MonthlyTaskForMonth, raw: string) => void;
+  onSaveBillAmount: (task: MonthlyTaskForMonth, amountRaw: string) => void;
 }
 
 function MonthlyTaskRow({
   task,
+  monthStart,
   categories,
   pending,
   busy,
@@ -302,10 +328,13 @@ function MonthlyTaskRow({
   onUncomplete,
   onSchedule,
   onChangeCategory,
+  onSaveBillAmount,
 }: MonthlyTaskRowProps) {
   const done = Boolean(task.completion?.doneAt);
   const scheduledDay = effectiveScheduledDay(task, task.completion);
   const detail = formatMonthlyTaskDetail(task, task.completion);
+  const billAmountLabel = formatBillAmountKr(task);
+  const isBill = isMonthlyBill(task, categories);
   const savedNote =
     task.completionKind === "amount" && task.completion?.note
       ? task.completion.note
@@ -314,7 +343,18 @@ function MonthlyTaskRow({
         : "";
   const [note, setNote] = useState(savedNote);
   const [amount, setAmount] = useState(
-    task.completion?.amount != null ? String(task.completion.amount) : "",
+    task.completion?.amount != null
+      ? String(task.completion.amount)
+      : task.defaultAmountKr != null
+        ? String(task.defaultAmountKr)
+        : "",
+  );
+  const [billAmount, setBillAmount] = useState(
+    task.completion?.amount != null
+      ? String(task.completion.amount)
+      : task.defaultAmountKr != null
+        ? String(task.defaultAmountKr)
+        : "",
   );
 
   const showDayPicker = task.completionKind === "simple";
@@ -370,8 +410,14 @@ function MonthlyTaskRow({
             {task.singleMonthStart ? (
               <span className={styles.oneOffBadge}>Engång</span>
             ) : null}
+            {isBill && billAmountLabel ? (
+              <span className={styles.billAmountBadge}>{billAmountLabel}</span>
+            ) : null}
           </span>
-          {detail ? <span className={styles.taskNoteHint}>{detail}</span> : null}
+          {detail && !isBill ? <span className={styles.taskNoteHint}>{detail}</span> : null}
+          {isBill && done && detail ? (
+            <span className={styles.taskNoteHint}>{detail}</span>
+          ) : null}
           <span
             className={[styles.chevron, expanded ? styles.chevronUp : ""]
               .filter(Boolean)
@@ -433,6 +479,34 @@ function MonthlyTaskRow({
                 ))}
               </select>
             </label>
+          ) : null}
+
+          {isBill ? (
+            <>
+              <Input
+                label="Kostnad den här månaden (kr)"
+                value={billAmount}
+                onChange={(e) => setBillAmount(e.target.value)}
+                placeholder={
+                  task.defaultAmountKr != null
+                    ? String(task.defaultAmountKr)
+                    : "t.ex. 850"
+                }
+                inputMode="decimal"
+                disabled={pending}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={() => onSaveBillAmount(task, billAmount)}
+              >
+                Spara kostnad
+              </Button>
+            </>
           ) : null}
 
           {task.completionKind === "finance" ? (

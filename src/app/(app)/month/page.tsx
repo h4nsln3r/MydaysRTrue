@@ -5,10 +5,12 @@ import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs
 import { getAuthUser } from "@/lib/auth.server";
 import { getMonthSummary, shiftMonth } from "@/lib/habits.server";
 import { getCategories, getMonthTaskSummary } from "@/lib/tasks.server";
+import { SALARY_TASK_KEY } from "@/lib/monthly-finance";
 import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView, type PeriodView } from "@/lib/period-view";
 import { MonthProgressBoard } from "./MonthProgressBoard";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
+import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
 import { MonthlyTasksBoard } from "./MonthlyTasksBoard";
 import styles from "./month.module.scss";
 
@@ -76,6 +78,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     (next.year === todayYM.year && next.month <= todayYM.month);
   const isCurrent = year === todayYM.year && month === todayYM.month;
   const financeTask = monthlyTasks.tasks.find((t) => t.key === "finance_ekonomi");
+  const salaryTask = monthlyTasks.tasks.find((t) => t.key === SALARY_TASK_KEY);
 
   return (
     <main className={styles.main}>
@@ -126,15 +129,17 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
 
       {view === "progress" ? (
         <MonthProgressBoard
-          summary={summary}
-          monthStart={monthStart}
-          monthlyTasks={monthlyTasks.tasks}
-          monthlyDone={monthlyDone}
-          monthlyTotal={monthlyTasks.tasks.length}
-          today={today}
-          financeSnapshot={monthlyTasks.financeSnapshot}
-          financeTaskId={financeTask?.id ?? null}
-          categories={monthlyTasks.categories}
+            summary={summary}
+            monthStart={monthStart}
+            monthlyTasks={monthlyTasks.tasks}
+            monthlyDone={monthlyDone}
+            monthlyTotal={monthlyTasks.tasks.length}
+            today={today}
+            financeSnapshot={monthlyTasks.financeSnapshot}
+            financeTaskId={financeTask?.id ?? null}
+            salaryTaskId={salaryTask?.id ?? null}
+            salaryAmount={salaryTask?.completion?.amount ?? null}
+            categories={monthlyTasks.categories}
         />
       ) : (
         <>
@@ -149,6 +154,13 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             monthStart={monthStart}
             financeTaskId={financeTask?.id ?? null}
             snapshot={monthlyTasks.financeSnapshot}
+            salaryTaskId={salaryTask?.id ?? null}
+            salaryAmount={salaryTask?.completion?.amount ?? null}
+          />
+
+          <MonthlyBillsSummary
+            tasks={monthlyTasks.tasks}
+            categories={monthlyTasks.categories}
           />
 
           <section className={styles.section}>

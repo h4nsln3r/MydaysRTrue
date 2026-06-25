@@ -27,6 +27,7 @@ export function groupWeekPlanDayItems(
   categories: TaskCategory[],
 ): WeekPlanItemGroup[] {
   const billsId = categoryIdByName(categories, "Räkningar");
+  const financeId = categoryIdByName(categories, "Ekonomi");
 
   const training = items.filter(
     (i) =>
@@ -35,14 +36,20 @@ export function groupWeekPlanDayItems(
   );
   const bills = items.filter(
     (i) =>
-      i.kind === "monthly_bill" ||
+      (i.kind === "monthly_bill" && i.categoryId === billsId) ||
       (i.kind === "task" && i.categoryId === billsId),
+  );
+  const financeMonthly = items.filter(
+    (i) => i.kind === "monthly_bill" && i.categoryId === financeId,
   );
   const weight = items.filter((i) => i.kind === "weight");
 
   const groups: WeekPlanItemGroup[] = [];
   if (training.length > 0) {
     groups.push({ id: "training", label: "Träning & bad", items: training });
+  }
+  if (financeMonthly.length > 0) {
+    groups.push({ id: "finance", label: "Ekonomi", items: financeMonthly });
   }
   if (bills.length > 0) {
     groups.push({ id: "bills", label: "Räkningar", items: bills });
@@ -68,6 +75,7 @@ export function groupWeekPlanBacklogItems(
   const musicId = categoryIdByName(categories, "MUSIC");
   const lifeId = categoryIdByName(categories, "Livet");
   const billsId = categoryIdByName(categories, "Räkningar");
+  const financeId = categoryIdByName(categories, "Ekonomi");
 
   const training = items.filter((i) => isBacklogTrainingItem(i));
   const weight = items.filter((i) => i.kind === "weight");
@@ -83,8 +91,11 @@ export function groupWeekPlanBacklogItems(
   );
   const bills = items.filter(
     (i) =>
-      i.kind === "monthly_bill" ||
+      (i.kind === "monthly_bill" && i.categoryId === billsId) ||
       (i.kind === "task" && i.categoryId === billsId),
+  );
+  const financeMonthly = items.filter(
+    (i) => i.kind === "monthly_bill" && i.categoryId === financeId,
   );
   const otherTasks = items.filter(
     (i) =>
@@ -110,6 +121,9 @@ export function groupWeekPlanBacklogItems(
   }
   if (life.length > 0) {
     groups.push({ id: "life", label: "Livet", items: life });
+  }
+  if (financeMonthly.length > 0) {
+    groups.push({ id: "finance", label: "Ekonomi", items: financeMonthly });
   }
   if (bills.length > 0) {
     groups.push({ id: "bills", label: "Räkningar", items: bills });

@@ -11,6 +11,7 @@ import type {
   WeeklyPlacement,
   WeeklyTaskChecklistItem,
   WeeklyTaskCompletionKind,
+  MonthlyTaskCompletionKind,
 } from "@/lib/tasks";
 import type { WeightLog, WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_ITEM_ID } from "@/lib/weight";
@@ -85,9 +86,11 @@ export interface WeekPlanWeightItem extends WeekPlanItemBase {
 export interface WeekPlanMonthlyBillItem extends WeekPlanItemBase {
   kind: "monthly_bill";
   taskId: string;
+  taskKey: string | null;
   categoryId: string | null;
   monthStart: string;
   scheduledDayOfMonth: number | null;
+  completionKind: MonthlyTaskCompletionKind;
   completion: import("@/lib/tasks").MonthlyCompletion | null;
 }
 

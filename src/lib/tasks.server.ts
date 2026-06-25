@@ -22,6 +22,12 @@ import {
   type MonthlyFinanceBalances,
   type MonthlyFinanceSnapshot,
 } from "@/lib/monthly-finance";
+import {
+  billsCategoryId,
+  effectiveScheduledDay,
+  financeCategoryId,
+  monthStartFromDate,
+} from "@/lib/monthly-bills";
 
 // ----------------------------------------------------------------------------
 // Categories
@@ -304,6 +310,33 @@ export async function getWeeklyTasksForDate(
   return { localDate, weekStart, weekday, tasks: forDay, categories };
 }
 
+export interface MonthlyTasksDaySummary {
+  localDate: string;
+  monthStart: string;
+  tasks: MonthlyTaskForMonth[];
+  categories: TaskCategory[];
+}
+
+/** Monthly tasks scheduled on the calendar day of `localDate`. */
+export async function getMonthlyTasksForDate(
+  userId: string,
+  localDate: string,
+): Promise<MonthlyTasksDaySummary> {
+  const monthStart = monthStartFromDate(localDate);
+  const dayOfMonth = Number(localDate.slice(8, 10));
+  const { tasks, categories } = await getMonthTaskSummary(userId, monthStart);
+  const forDay = tasks
+    .filter(
+      (task) => effectiveScheduledDay(task, task.completion) === dayOfMonth,
+    )
+    .sort((a, b) => {
+      const ao = a.completion?.daySortOrder ?? a.sortOrder;
+      const bo = b.completion?.daySortOrder ?? b.sortOrder;
+      return ao - bo;
+    });
+  return { localDate, monthStart, tasks: forDay, categories };
+}
+
 // ----------------------------------------------------------------------------
 // Monthly tasks
 // ----------------------------------------------------------------------------
@@ -320,6 +353,7 @@ interface MonthlyTaskRow {
   sort_order: number;
   completion_kind: string;
   single_month_start: string | null;
+  default_amount_kr: number | null;
 }
 
 function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
@@ -335,6 +369,8 @@ function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
     sortOrder: r.sort_order,
     completionKind: r.completion_kind as MonthlyTaskCompletionKind,
     singleMonthStart: r.single_month_start,
+    defaultAmountKr:
+      r.default_amount_kr != null ? Number(r.default_amount_kr) : null,
   };
 }
 
@@ -365,7 +401,7 @@ function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
 }
 
 const MONTHLY_TASK_SELECT =
-  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start";
+  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start, default_amount_kr";
 
 const MONTHLY_COMPLETION_SELECT =
   "id, task_id, month_start, done_at, note, amount, scheduled_day_of_month, is_unscheduled, day_sort_order";
@@ -598,12 +634,19 @@ export async function getMonthlyBillsForWeek(
   }
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
-  const billsCategoryId = categories.find((c) => c.name === "Räkningar")?.id;
-  const billTasks = (tasksRes.data ?? [])
+  const billsCatId = billsCategoryId(categories);
+  const ekonomiCatId = financeCategoryId(categories);
+  const weekTasks = (tasksRes.data ?? [])
     .map(rowToMonthly)
-    .filter((t) => t.categoryId === billsCategoryId);
+    .filter(
+      (t) =>
+        t.categoryId === billsCatId ||
+        (t.categoryId === ekonomiCatId &&
+          t.completionKind === "amount" &&
+          t.key !== "finance_ekonomi"),
+    );
 
-  const tasks: MonthlyTaskForMonth[] = billTasks.map((row) => ({
+  const tasks: MonthlyTaskForMonth[] = weekTasks.map((row) => ({
     ...row,
     completion: null,
   }));

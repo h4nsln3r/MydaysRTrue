@@ -1051,6 +1051,7 @@ export async function updateMonthlyTaskAction(input: {
   notes?: string | null;
   icon?: string;
   accent?: string;
+  defaultAmountKr?: number | null;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Missing task id." };
 
@@ -1077,6 +1078,15 @@ export async function updateMonthlyTaskAction(input: {
   }
   if (input.icon !== undefined) patch.icon = cleanIcon(input.icon);
   if (input.accent !== undefined) patch.accent = cleanAccent(input.accent);
+  if (input.defaultAmountKr !== undefined) {
+    if (input.defaultAmountKr === null) {
+      patch.default_amount_kr = null;
+    } else if (!Number.isFinite(input.defaultAmountKr) || input.defaultAmountKr < 0) {
+      return { ok: false, error: "Kostnaden måste vara 0 eller mer." };
+    } else {
+      patch.default_amount_kr = Math.round(input.defaultAmountKr * 100) / 100;
+    }
+  }
 
   if (Object.keys(patch).length === 0) return { ok: true };
 
@@ -1151,6 +1161,62 @@ async function upsertMonthlyBillSchedule(
       month_start: monthStart,
       done_at: null,
       ...payload,
+    });
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Set this month's cost for a bill without marking it done. */
+export async function setMonthlyBillAmountAction(input: {
+  taskId: string;
+  monthStart: string;
+  amountKr: number | null;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+  if (!MONTH_START_RE.test(input.monthStart)) {
+    return { ok: false, error: "Invalid month." };
+  }
+  if (
+    input.amountKr != null &&
+    (!Number.isFinite(input.amountKr) || input.amountKr < 0)
+  ) {
+    return { ok: false, error: "Kostnaden måste vara 0 eller mer." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const amount =
+    input.amountKr != null ? Math.round(input.amountKr * 100) / 100 : null;
+
+  const { data: existing } = await supabase
+    .from("monthly_task_completions")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("task_id", input.taskId)
+    .eq("month_start", input.monthStart)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("monthly_task_completions")
+      .update({ amount })
+      .eq("id", existing.id)
+      .eq("user_id", user.id);
+    if (error) return { ok: false, error: error.message };
+  } else if (amount != null) {
+    const { error } = await supabase.from("monthly_task_completions").insert({
+      user_id: user.id,
+      task_id: input.taskId,
+      month_start: input.monthStart,
+      done_at: null,
+      amount,
     });
     if (error) return { ok: false, error: error.message };
   }
@@ -1350,6 +1416,12 @@ export async function toggleMonthlyTaskDoneAction(input: {
       return { ok: false, error: "Ange ett belopp." };
     }
     amountValue = Math.round(input.amount * 100) / 100;
+  } else if (
+    input.done &&
+    input.amount != null &&
+    Number.isFinite(input.amount)
+  ) {
+    amountValue = Math.round(input.amount * 100) / 100;
   }
 
   const { data: existing } = await supabase
@@ -1381,6 +1453,8 @@ export async function toggleMonthlyTaskDoneAction(input: {
     if (setNote) patch.note = noteValue;
     if (task.completion_kind === "amount") {
       patch.amount = input.done ? amountValue : null;
+    } else if (amountValue != null) {
+      patch.amount = amountValue;
     }
     const { error } = await supabase
       .from("monthly_task_completions")
@@ -1395,7 +1469,10 @@ export async function toggleMonthlyTaskDoneAction(input: {
       month_start: input.monthStart,
       done_at: doneAt,
       note: noteValue,
-      amount: task.completion_kind === "amount" ? amountValue : null,
+      amount:
+        task.completion_kind === "amount"
+          ? amountValue
+          : amountValue ?? null,
     });
     if (error) return { ok: false, error: error.message };
   }

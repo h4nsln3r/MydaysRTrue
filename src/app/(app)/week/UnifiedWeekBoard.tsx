@@ -41,6 +41,7 @@ import {
 } from "@/app/(app)/gym-actions";
 import {
   updateWeeklyTaskPlanAction,
+  setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
   toggleWeeklyTaskDoneAction,
 } from "@/app/(app)/tasks-actions";
@@ -61,6 +62,7 @@ import {
   bathingRequiresWaterTemp,
   formatWaterTemp,
 } from "@/lib/bathing";
+import { parseKrInput } from "@/lib/monthly-finance";
 import {
   GYM_WARMUP_ICON,
   GYM_WARMUP_LABEL,
@@ -878,6 +880,13 @@ function ItemRowContent({
   const [taskPlanNote, setTaskPlanNote] = useState(
     item.kind === "task" ? (item.placement?.planNote ?? "") : "",
   );
+  const [monthlyAmount, setMonthlyAmount] = useState(
+    item.kind === "monthly_bill" && item.completion?.amount != null
+      ? String(item.completion.amount)
+      : "",
+  );
+  const isMonthlyAmount =
+    item.kind === "monthly_bill" && item.completionKind === "amount";
   const taskPlanningExpand =
     item.kind === "task" &&
     (item.completionKind === "journal" ||
@@ -897,11 +906,17 @@ function ItemRowContent({
           : item.kind === "weight"
             ? "Vikt"
             : item.kind === "monthly_bill"
-              ? "Räkning"
+              ? isMonthlyAmount
+                ? "Lön"
+                : "Räkning"
               : null);
 
   const toggleMonthlyBill = () => {
     if (item.kind !== "monthly_bill") return;
+    if (isMonthlyAmount && !item.done) {
+      onToggleExpand();
+      return;
+    }
     onError(null);
     onPendingId(item.dragId);
     startTransition(async () => {
@@ -911,6 +926,34 @@ function ItemRowContent({
         done: !item.done,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const saveMonthlyAmount = (markDone: boolean) => {
+    if (item.kind !== "monthly_bill" || !isMonthlyAmount) return;
+    const parsed = parseKrInput(monthlyAmount);
+    if (parsed == null) {
+      onError("Ange ett belopp.");
+      return;
+    }
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = markDone
+        ? await toggleMonthlyTaskDoneAction({
+            taskId: item.taskId,
+            monthStart: item.monthStart,
+            done: true,
+            amount: parsed,
+          })
+        : await setMonthlyBillAmountAction({
+            taskId: item.taskId,
+            monthStart: item.monthStart,
+            amountKr: parsed,
+          });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
       onDone();
     });
@@ -1240,7 +1283,8 @@ function ItemRowContent({
           item.kind === "cardio" ||
           item.kind === "sport" ||
           (item.kind === "bathing" && item.bathingRole === "placement") ||
-          item.kind === "weight") ? (
+          item.kind === "weight" ||
+          isMonthlyAmount) ? (
           <span
             className={[styles.chevron, expanded ? styles.chevronUp : ""]
               .filter(Boolean)
@@ -1497,6 +1541,52 @@ function ItemRowContent({
               type="button"
               className={styles.undoBtn}
               onClick={uncompleteBathing}
+              disabled={pending}
+            >
+              Ångra klarmarkering
+            </button>
+          ) : null}
+
+          {isMonthlyAmount && !item.done ? (
+            <>
+              <Input
+                label="Lön (kr)"
+                value={monthlyAmount}
+                onChange={(e) => setMonthlyAmount(e.target.value)}
+                placeholder="t.ex. 32000"
+                inputMode="decimal"
+                disabled={pending}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={() => saveMonthlyAmount(false)}
+              >
+                Spara lön
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={() => saveMonthlyAmount(true)}
+              >
+                Markera klart
+              </Button>
+            </>
+          ) : null}
+
+          {isMonthlyAmount && item.done ? (
+            <button
+              type="button"
+              className={styles.undoBtn}
+              onClick={toggleMonthlyBill}
               disabled={pending}
             >
               Ångra klarmarkering

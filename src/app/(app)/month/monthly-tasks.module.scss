@@ -460,6 +460,15 @@
     vertical-align: middle;
 }
 
+.billAmountBadge {
+    margin-left: 8px;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: $color-orange;
+    vertical-align: middle;
+}
+
 .taskOneOff {
     border-style: dashed;
 }

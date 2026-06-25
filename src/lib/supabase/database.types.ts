@@ -603,6 +603,7 @@ export interface Database {
           sort_order: number;
           completion_kind: "simple" | "amount" | "finance";
           single_month_start: string | null;
+          default_amount_kr: number | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -620,6 +621,7 @@ export interface Database {
           sort_order?: number;
           completion_kind?: "simple" | "amount" | "finance";
           single_month_start?: string | null;
+          default_amount_kr?: number | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -637,6 +639,7 @@ export interface Database {
           sort_order?: number;
           completion_kind?: "simple" | "amount" | "finance";
           single_month_start?: string | null;
+          default_amount_kr?: number | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;

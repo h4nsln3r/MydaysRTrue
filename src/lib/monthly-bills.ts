@@ -1,5 +1,90 @@
 import { addDaysISO, parseLocalISO } from "@/lib/date";
-import type { MonthlyCompletion, MonthlyTask, MonthlyTaskForMonth } from "@/lib/tasks";
+import { formatKr } from "@/lib/monthly-finance";
+import type {
+  MonthlyCompletion,
+  MonthlyTask,
+  MonthlyTaskForMonth,
+  TaskCategory,
+} from "@/lib/tasks";
+
+export const BILLS_CATEGORY_NAME = "Räkningar";
+export const FINANCE_CATEGORY_NAME = "Ekonomi";
+
+export function billsCategoryId(categories: TaskCategory[]): string | null {
+  return categories.find((c) => c.name === BILLS_CATEGORY_NAME)?.id ?? null;
+}
+
+export function financeCategoryId(categories: TaskCategory[]): string | null {
+  return categories.find((c) => c.name === FINANCE_CATEGORY_NAME)?.id ?? null;
+}
+
+export function isMonthlyBill(
+  task: Pick<MonthlyTask, "categoryId">,
+  categories: TaskCategory[],
+): boolean {
+  const id = billsCategoryId(categories);
+  return id != null && task.categoryId === id;
+}
+
+/** Monthly tasks that can be placed on days in the week plan (bills + e.g. lön). */
+export function isWeekPlannableMonthlyTask(
+  task: Pick<MonthlyTask, "categoryId" | "completionKind" | "key">,
+  categories: TaskCategory[],
+): boolean {
+  if (isMonthlyBill(task, categories)) return true;
+  const financeId = financeCategoryId(categories);
+  return (
+    financeId != null &&
+    task.categoryId === financeId &&
+    task.completionKind === "amount" &&
+    task.key !== "finance_ekonomi"
+  );
+}
+
+export function effectiveBillAmountKr(task: MonthlyTaskForMonth): number | null {
+  const actual = task.completion?.amount;
+  if (actual != null && Number.isFinite(actual)) return actual;
+  if (task.defaultAmountKr != null && Number.isFinite(task.defaultAmountKr)) {
+    return task.defaultAmountKr;
+  }
+  return null;
+}
+
+export function formatBillAmountKr(task: MonthlyTaskForMonth): string | null {
+  const amount = effectiveBillAmountKr(task);
+  return amount != null ? formatKr(amount) : null;
+}
+
+export interface MonthlyBillsTotal {
+  billCount: number;
+  withAmount: number;
+  missingAmount: number;
+  totalKr: number;
+  perPersonKr: number;
+}
+
+export function sumMonthlyBills(
+  tasks: MonthlyTaskForMonth[],
+  categories: TaskCategory[],
+): MonthlyBillsTotal {
+  const bills = tasks.filter((t) => isMonthlyBill(t, categories));
+  let totalKr = 0;
+  let withAmount = 0;
+  for (const bill of bills) {
+    const amount = effectiveBillAmountKr(bill);
+    if (amount != null) {
+      totalKr += amount;
+      withAmount += 1;
+    }
+  }
+  return {
+    billCount: bills.length,
+    withAmount,
+    missingAmount: bills.length - withAmount,
+    totalKr,
+    perPersonKr: totalKr / 2,
+  };
+}
 
 /** Effective due day for a bill in a given month (per-month override wins). */
 export function effectiveScheduledDay(

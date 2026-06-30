@@ -8,7 +8,7 @@ import { GymSessionRow } from "@/components/GymDayCard/GymDayCard";
 import { SportSessionRow } from "@/components/SportDayCard/SportDayCard";
 import { WeeklyTaskRow } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
 import { MonthlyTaskDayRow } from "@/components/MonthlyTasksDayCard/MonthlyTaskDayRow";
-import type { MealRestaurant } from "@/lib/habits";
+import type { MealBoxStockItem, MealRestaurant } from "@/lib/habits";
 import type { TaskCategory } from "@/lib/tasks";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
 import { WeightActivityRow } from "./WeightActivityRow";
@@ -31,6 +31,7 @@ interface Props extends PlanSortableProps {
   weekStart: string;
   categories: TaskCategory[];
   savedRestaurants?: MealRestaurant[];
+  mealBoxStock?: MealBoxStockItem[];
   canReschedule: boolean;
   isOverdue: boolean;
   rescheduleDays: RescheduleDay[];
@@ -89,6 +90,7 @@ export function DayActivityRow(props: Props) {
     onRefresh,
     planningMode = false,
     savedRestaurants = [],
+    mealBoxStock = [],
   } = props;
 
   if (DAILY_KINDS.has(item.kind)) {
@@ -97,6 +99,7 @@ export function DayActivityRow(props: Props) {
         item={item}
         date={date}
         savedRestaurants={savedRestaurants}
+        mealBoxStock={mealBoxStock}
         expanded={planningMode ? false : props.expanded}
         busy={props.busy}
         pending={props.pending}

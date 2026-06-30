@@ -25,7 +25,7 @@ import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import { buildDayPlanItems } from "@/lib/day-plan";
 import { isoWeekdayFromLocalISO } from "@/lib/date";
-import type { DailyHabit, DailySnacks, MealEntry, MealKey, MealRestaurant } from "@/lib/habits";
+import type { DailyHabit, DailySnacks, MealBoxStockItem, MealEntry, MealKey, MealRestaurant } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { GymSessionForWeek } from "@/lib/gym";
@@ -52,6 +52,7 @@ interface Props {
   meals: Record<MealKey, MealEntry | null>;
   snacks: DailySnacks;
   savedRestaurants?: MealRestaurant[];
+  mealBoxStock?: MealBoxStockItem[];
   intake: Record<IntakeKind, IntakeEntry | null>;
   work: WorkDailyLog;
   activityLog: DailyActivityLog;
@@ -84,6 +85,7 @@ export function DayActivitiesCard({
   meals,
   snacks,
   savedRestaurants = [],
+  mealBoxStock = [],
   intake,
   work,
   activityLog,
@@ -308,6 +310,7 @@ export function DayActivitiesCard({
                     weekStart={weekStart}
                     categories={categories}
                     savedRestaurants={savedRestaurants}
+                    mealBoxStock={mealBoxStock}
                     canReschedule={canReschedule}
                     isOverdue={isOverdue}
                     rescheduleDays={rescheduleDays}

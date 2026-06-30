@@ -4,16 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, todayLocalISO } from "@/lib/date";
 import type { Database } from "@/lib/supabase/database.types";
-import type { MealEntry, MealKey } from "@/lib/habits";
+import type { MealBoxStockItem, MealEntry, MealKey } from "@/lib/habits";
 import { MEAL_ORDER } from "@/lib/habits";
 
 type DbClient = SupabaseClient<Database>;
 
-export interface MealBoxStockItem {
-  id: string;
-  description: string;
-  remaining: number;
-}
+export type { MealBoxStockItem };
 
 export interface WeekMealDay {
   date: string;
@@ -203,6 +199,54 @@ export async function getMealBoxStock(userId: string): Promise<MealBoxStockItem[
     description: row.description,
     remaining: row.remaining,
   }));
+}
+
+/** Restore or apply matlåda consumption when a meal entry changes. */
+export async function syncMealBoxConsumptionOnSave(
+  supabase: DbClient,
+  userId: string,
+  previous: {
+    fromMealBox: boolean;
+    mealBoxStockId: string | null;
+    description: string;
+  } | null,
+  next: {
+    fromMealBox: boolean;
+    mealBoxStockId: string | null;
+    stockDescription: string;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const prevConsumed = previous?.fromMealBox ?? false;
+  const nextConsumed = next.fromMealBox;
+  const prevId = previous?.mealBoxStockId ?? null;
+  const nextId = next.mealBoxStockId;
+
+  if (prevConsumed && (!nextConsumed || prevId !== nextId)) {
+    let description = previous!.description;
+    if (prevId) {
+      const { data: stock } = await supabase
+        .from("meal_box_stock")
+        .select("description")
+        .eq("id", prevId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (stock) description = stock.description;
+    }
+    const res = await adjustMealBoxStock(supabase, userId, description, 1);
+    if (!res.ok) return res;
+  }
+
+  if (nextConsumed && (!prevConsumed || prevId !== nextId)) {
+    const res = await adjustMealBoxStock(
+      supabase,
+      userId,
+      next.stockDescription,
+      -1,
+    );
+    if (!res.ok) return res;
+  }
+
+  return { ok: true };
 }
 
 export async function getWeekMealsSummary(

@@ -24,6 +24,7 @@ import {
   mealHasCookingMeta,
   type MealKey,
   type MealRestaurant,
+  type MealBoxStockItem,
   type SnackSlot,
 } from "@/lib/habits";
 import {
@@ -62,6 +63,7 @@ interface DailyRowProps extends PlanSortableProps {
   item: DayPlanItem;
   date: string;
   savedRestaurants?: MealRestaurant[];
+  mealBoxStock?: MealBoxStockItem[];
   expanded: boolean;
   busy: boolean;
   pending: boolean;
@@ -200,6 +202,7 @@ function MealPlanRow(
     item,
     date,
     savedRestaurants = [],
+    mealBoxStock = [],
     expanded,
     busy,
     pending,
@@ -227,6 +230,7 @@ function MealPlanRow(
   }, [entry]);
 
   const showCookingMeta = mealHasCookingMeta(item.meal);
+  const eatingMealBox = showCookingMeta && cookingMeta.cookedBy === "meal_box";
 
   const detail = entry
     ? [
@@ -244,13 +248,6 @@ function MealPlanRow(
 
   const save = () => {
     onError(null);
-    if (showCookingMeta) {
-      const cookingResult = validateMealCookingMeta(cookingMeta);
-      if (!cookingResult.ok) {
-        setError(cookingResult.error);
-        return;
-      }
-    }
     const parsedWater = waterMl.trim() === "" ? 0 : Number(waterMl);
     if (!Number.isFinite(parsedWater) || parsedWater < 0) {
       setError("Vattnet måste vara ett positivt tal.");
@@ -258,21 +255,36 @@ function MealPlanRow(
     }
     const cookingResult = showCookingMeta
       ? validateMealCookingMeta(cookingMeta)
-      : { ok: true as const, mealBoxes: null };
+      : {
+          ok: true as const,
+          mealBoxes: null,
+          mealBoxStockId: null,
+          descriptionFromStock: null,
+        };
     if (!cookingResult.ok) {
       setError(cookingResult.error);
       return;
     }
+    if (!eatingMealBox && !description.trim()) {
+      setError("Skriv vad du åt.");
+      return;
+    }
+
+    const stockItem =
+      eatingMealBox && cookingResult.mealBoxStockId
+        ? mealBoxStock.find((s) => s.id === cookingResult.mealBoxStockId)
+        : null;
 
     onPendingKey(true);
     startTransition(async () => {
       const res = await saveMealAction({
         meal: item.meal,
         localDate: date,
-        description,
+        description: stockItem?.description ?? description,
         waterMl: Math.round(parsedWater),
         cookedBy: showCookingMeta ? cookingMeta.cookedBy : null,
         mealBoxes: cookingResult.mealBoxes,
+        mealBoxStockId: cookingResult.mealBoxStockId,
         restaurantId:
           showCookingMeta && cookingMeta.cookedBy === "restaurant"
             ? cookingMeta.restaurantId
@@ -327,16 +339,23 @@ function MealPlanRow(
             onChange={(e) => setDescription(e.target.value)}
             placeholder="t.ex. yoghurt, banan, två skivor bröd"
             maxLength={280}
-            autoFocus
-            disabled={pending}
+            autoFocus={!eatingMealBox}
+            disabled={pending || eatingMealBox}
+            hint={
+              eatingMealBox
+                ? "Fylls i automatiskt när du väljer matlåda nedan."
+                : undefined
+            }
           />
           {showCookingMeta ? (
             <MealCookingMetaFields
               layout="plan"
               meta={cookingMeta}
               savedRestaurants={savedRestaurants}
+              mealBoxStock={mealBoxStock}
               pending={pending}
               onChange={setCookingMeta}
+              onPickMealBox={setDescription}
             />
           ) : null}
           <Input

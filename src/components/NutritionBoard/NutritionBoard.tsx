@@ -1,6 +1,6 @@
 import { IntakeCard } from "@/components/IntakeCard/IntakeCard";
 import { MealsCard } from "@/components/MealsCard/MealsCard";
-import type { DailySnacks, MealEntry, MealKey, MealRestaurant } from "@/lib/habits";
+import type { DailySnacks, MealBoxStockItem, MealEntry, MealKey, MealRestaurant } from "@/lib/habits";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import styles from "./NutritionBoard.module.scss";
 
@@ -12,6 +12,7 @@ interface Props {
   meals: Record<MealKey, MealEntry | null>;
   snacks: DailySnacks;
   savedRestaurants?: MealRestaurant[];
+  mealBoxStock?: MealBoxStockItem[];
   intake: Record<IntakeKind, IntakeEntry | null>;
 }
 
@@ -23,6 +24,7 @@ export function NutritionBoard({
   meals,
   snacks,
   savedRestaurants = [],
+  mealBoxStock = [],
   intake,
 }: Props) {
   if (!showMeals && !showSnacks && !showIntake) return null;
@@ -35,6 +37,7 @@ export function NutritionBoard({
           meals={meals}
           snacks={snacks}
           savedRestaurants={savedRestaurants}
+          mealBoxStock={mealBoxStock}
           showMeals={showMeals}
           showSnacks={showSnacks}
         />

@@ -762,7 +762,14 @@ export interface Database {
           meal: "breakfast" | "lunch" | "dinner";
           description: string;
           water_log_id: string | null;
-          cooked_by: "self" | "julia" | "bought" | "restaurant" | "other" | null;
+          cooked_by:
+            | "self"
+            | "julia"
+            | "bought"
+            | "restaurant"
+            | "other"
+            | "meal_box"
+            | null;
           meal_boxes: number | null;
           restaurant_id: string | null;
           cooked_by_name: string | null;
@@ -778,7 +785,14 @@ export interface Database {
           meal: "breakfast" | "lunch" | "dinner";
           description: string;
           water_log_id?: string | null;
-          cooked_by?: "self" | "julia" | "bought" | "restaurant" | "other" | null;
+          cooked_by?:
+            | "self"
+            | "julia"
+            | "bought"
+            | "restaurant"
+            | "other"
+            | "meal_box"
+            | null;
           meal_boxes?: number | null;
           restaurant_id?: string | null;
           cooked_by_name?: string | null;
@@ -794,7 +808,14 @@ export interface Database {
           meal?: "breakfast" | "lunch" | "dinner";
           description?: string;
           water_log_id?: string | null;
-          cooked_by?: "self" | "julia" | "bought" | "restaurant" | "other" | null;
+          cooked_by?:
+            | "self"
+            | "julia"
+            | "bought"
+            | "restaurant"
+            | "other"
+            | "meal_box"
+            | null;
           meal_boxes?: number | null;
           restaurant_id?: string | null;
           cooked_by_name?: string | null;

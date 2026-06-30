@@ -8,6 +8,7 @@ import {
   type MealCookedBy,
   type MealRestaurant,
 } from "@/lib/habits";
+import type { MealBoxStockItem } from "@/lib/habits";
 import cardStyles from "@/components/MealsCard/MealsCard.module.scss";
 import planStyles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
 
@@ -17,6 +18,7 @@ export interface MealCookingMetaState {
   restaurantName: string;
   cookedByName: string;
   mealBoxes: string;
+  mealBoxStockId: string | null;
 }
 
 export function initialMealCookingMeta(
@@ -26,22 +28,44 @@ export function initialMealCookingMeta(
     restaurantName?: string | null;
     cookedByName?: string | null;
     mealBoxes?: number | null;
+    fromMealBox?: boolean;
+    mealBoxStockId?: string | null;
   } | null,
 ): MealCookingMetaState {
   return {
-    cookedBy: entry?.cookedBy ?? null,
+    cookedBy: entry?.fromMealBox
+      ? "meal_box"
+      : (entry?.cookedBy ?? null),
     restaurantId: entry?.restaurantId ?? null,
     restaurantName: entry?.restaurantName ?? "",
     cookedByName: entry?.cookedByName ?? "",
     mealBoxes: entry?.mealBoxes ? String(entry.mealBoxes) : "",
+    mealBoxStockId: entry?.fromMealBox ? (entry.mealBoxStockId ?? null) : null,
   };
 }
 
 export function validateMealCookingMeta(
   meta: MealCookingMetaState,
-): { ok: true; mealBoxes: number | null } | { ok: false; error: string } {
+): {
+  ok: true;
+  mealBoxes: number | null;
+  mealBoxStockId: string | null;
+  descriptionFromStock: string | null;
+} | { ok: false; error: string } {
   if (!meta.cookedBy) {
     return { ok: false, error: "Välj vem som lagade maten." };
+  }
+
+  if (meta.cookedBy === "meal_box") {
+    if (!meta.mealBoxStockId) {
+      return { ok: false, error: "Välj vilken matlåda du åt." };
+    }
+    return {
+      ok: true,
+      mealBoxes: null,
+      mealBoxStockId: meta.mealBoxStockId,
+      descriptionFromStock: null,
+    };
   }
 
   if (meta.cookedBy === "restaurant") {
@@ -64,29 +88,44 @@ export function validateMealCookingMeta(
     if (parsedBoxes > 30) {
       return { ok: false, error: "Max 30 matlådor." };
     }
-    return { ok: true, mealBoxes: parsedBoxes > 0 ? parsedBoxes : null };
+    return {
+      ok: true,
+      mealBoxes: parsedBoxes > 0 ? parsedBoxes : null,
+      mealBoxStockId: null,
+      descriptionFromStock: null,
+    };
   }
 
-  return { ok: true, mealBoxes: null };
+  return {
+    ok: true,
+    mealBoxes: null,
+    mealBoxStockId: null,
+    descriptionFromStock: null,
+  };
 }
 
 interface Props {
   layout: "card" | "plan";
   meta: MealCookingMetaState;
   savedRestaurants: MealRestaurant[];
+  mealBoxStock?: MealBoxStockItem[];
   pending?: boolean;
   onChange: (next: MealCookingMetaState) => void;
+  onPickMealBox?: (description: string) => void;
 }
 
 export function MealCookingMetaFields({
   layout,
   meta,
   savedRestaurants,
+  mealBoxStock = [],
   pending = false,
   onChange,
+  onPickMealBox,
 }: Props) {
   const styles = layout === "card" ? cardStyles : planStyles;
   const showMealBoxes = mealShowsMealBoxes(meta.cookedBy);
+  const showMealBoxPicker = meta.cookedBy === "meal_box";
   const showRestaurant = meta.cookedBy === "restaurant";
   const showOtherName = meta.cookedBy === "other";
   const restaurantListId = "meal-restaurant-suggestions";
@@ -99,7 +138,16 @@ export function MealCookingMetaFields({
       restaurantName: option === "restaurant" ? meta.restaurantName : "",
       cookedByName: option === "other" ? meta.cookedByName : "",
       mealBoxes: mealShowsMealBoxes(option) ? meta.mealBoxes : "",
+      mealBoxStockId: option === "meal_box" ? meta.mealBoxStockId : null,
     });
+  };
+
+  const pickMealBox = (item: MealBoxStockItem) => {
+    onChange({
+      ...meta,
+      mealBoxStockId: item.id,
+    });
+    onPickMealBox?.(item.description);
   };
 
   const pickRestaurant = (restaurant: MealRestaurant) => {
@@ -140,6 +188,47 @@ export function MealCookingMetaFields({
           ))}
         </div>
       </div>
+
+      {showMealBoxPicker ? (
+        <div className={layout === "card" ? styles.mealBoxPicker : styles.bandPicker}>
+          <span className={layout === "card" ? styles.label : styles.bandLabel}>
+            Vilken matlåda?
+          </span>
+          {mealBoxStock.length > 0 ? (
+            <div className={layout === "card" ? styles.cookRow : styles.bandBtns}>
+              {mealBoxStock.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={
+                    layout === "card"
+                      ? styles.cookOption
+                      : [
+                          styles.bandBtn,
+                          meta.mealBoxStockId === item.id
+                            ? styles.bandBtnActive
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                  }
+                  aria-pressed={meta.mealBoxStockId === item.id}
+                  onClick={() => pickMealBox(item)}
+                  disabled={pending}
+                >
+                  {item.description}
+                  <span className={styles.mealBoxCount}>{item.remaining} kvar</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className={layout === "card" ? styles.mealBoxEmpty : styles.error}>
+              Inga matlådor i kylen just nu. Logga matlagning med antal matlådor
+              först.
+            </p>
+          )}
+        </div>
+      ) : null}
 
       {showRestaurant ? (
         <div className={layout === "card" ? styles.restaurantBlock : undefined}>

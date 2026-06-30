@@ -12,6 +12,7 @@ import {
   type DailyHabit,
   type DailySnacks,
   type HabitKind,
+  type MealBoxStockItem,
   type MealEntry,
   type MealKey,
   type MealRestaurant,
@@ -33,6 +34,7 @@ interface Props {
   meals: Record<MealKey, MealEntry | null>;
   snacks: DailySnacks;
   savedRestaurants?: MealRestaurant[];
+  mealBoxStock?: MealBoxStockItem[];
   intake: Record<IntakeKind, IntakeEntry | null>;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
@@ -50,6 +52,7 @@ export function DailyTrackersBoard({
   meals,
   snacks,
   savedRestaurants = [],
+  mealBoxStock = [],
   intake,
   activityLog,
   goals,
@@ -174,6 +177,7 @@ export function DailyTrackersBoard({
           meals={meals}
           snacks={snacks}
           savedRestaurants={savedRestaurants}
+          mealBoxStock={mealBoxStock}
           intake={intake}
         />
       ) : null}

@@ -19,6 +19,7 @@ import {
   type MealEntry,
   type MealKey,
   type MealRestaurant,
+  type MealBoxStockItem,
   type SnackEntry,
   type SnackSlot,
 } from "@/lib/habits";
@@ -41,6 +42,7 @@ interface Props {
   meals: Record<MealKey, MealEntry | null>;
   snacks: DailySnacks;
   savedRestaurants?: MealRestaurant[];
+  mealBoxStock?: MealBoxStockItem[];
   showMeals?: boolean;
   showSnacks?: boolean;
 }
@@ -54,6 +56,7 @@ export function MealsCard({
   meals,
   snacks,
   savedRestaurants = [],
+  mealBoxStock = [],
   showMeals = true,
   showSnacks = true,
 }: Props) {
@@ -145,6 +148,7 @@ export function MealsCard({
                       date={date}
                       initial={entry}
                       savedRestaurants={savedRestaurants}
+                      mealBoxStock={mealBoxStock}
                       onCancel={close}
                       onSaved={onSaved}
                     />
@@ -422,6 +426,7 @@ interface MealFormProps {
   date: string;
   initial: MealEntry | null;
   savedRestaurants: MealRestaurant[];
+  mealBoxStock: MealBoxStockItem[];
   onCancel: () => void;
   onSaved: () => void;
 }
@@ -431,6 +436,7 @@ function MealForm({
   date,
   initial,
   savedRestaurants,
+  mealBoxStock,
   onCancel,
   onSaved,
 }: MealFormProps) {
@@ -445,18 +451,11 @@ function MealForm({
   const [pending, startTransition] = useTransition();
 
   const showCookingMeta = mealHasCookingMeta(meal);
+  const eatingMealBox = showCookingMeta && cookingMeta.cookedBy === "meal_box";
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (showCookingMeta) {
-      const cookingResult = validateMealCookingMeta(cookingMeta);
-      if (!cookingResult.ok) {
-        setError(cookingResult.error);
-        return;
-      }
-    }
 
     const parsedWater = waterMl.trim() === "" ? 0 : Number(waterMl);
     if (!Number.isFinite(parsedWater) || parsedWater < 0) {
@@ -466,21 +465,36 @@ function MealForm({
 
     const cookingResult = showCookingMeta
       ? validateMealCookingMeta(cookingMeta)
-      : { ok: true as const, mealBoxes: null };
+      : {
+          ok: true as const,
+          mealBoxes: null,
+          mealBoxStockId: null,
+          descriptionFromStock: null,
+        };
     if (!cookingResult.ok) {
       setError(cookingResult.error);
       return;
     }
-    const parsedBoxes = cookingResult.mealBoxes;
+
+    if (!eatingMealBox && !description.trim()) {
+      setError("Skriv vad du åt.");
+      return;
+    }
+
+    const stockItem =
+      eatingMealBox && cookingResult.mealBoxStockId
+        ? mealBoxStock.find((item) => item.id === cookingResult.mealBoxStockId)
+        : null;
 
     startTransition(async () => {
       const res = await saveMealAction({
         meal,
         localDate: date,
-        description,
+        description: stockItem?.description ?? description,
         waterMl: Math.round(parsedWater),
         cookedBy: showCookingMeta ? cookingMeta.cookedBy : null,
-        mealBoxes: parsedBoxes,
+        mealBoxes: cookingResult.mealBoxes,
+        mealBoxStockId: cookingResult.mealBoxStockId,
         restaurantId:
           showCookingMeta && cookingMeta.cookedBy === "restaurant"
             ? cookingMeta.restaurantId
@@ -528,8 +542,14 @@ function MealForm({
         onChange={(e) => setDescription(e.target.value)}
         placeholder="t.ex. yoghurt, banan, två skivor bröd"
         maxLength={280}
-        autoFocus
-        required
+        autoFocus={!eatingMealBox}
+        required={!eatingMealBox}
+        disabled={pending || eatingMealBox}
+        hint={
+          eatingMealBox
+            ? "Fylls i automatiskt när du väljer matlåda nedan."
+            : undefined
+        }
       />
 
       {showCookingMeta ? (
@@ -537,8 +557,10 @@ function MealForm({
           layout="card"
           meta={cookingMeta}
           savedRestaurants={savedRestaurants}
+          mealBoxStock={mealBoxStock}
           pending={pending}
           onChange={setCookingMeta}
+          onPickMealBox={setDescription}
         />
       ) : null}
 

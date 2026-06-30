@@ -527,6 +527,31 @@ button.row:hover:not(:disabled) .plus {
     }
 }
 
+.mealBoxPicker {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.mealBoxCount {
+    display: block;
+    margin-top: 2px;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: $color-orange-bright;
+    letter-spacing: 0.04em;
+}
+
+.mealBoxEmpty {
+    margin: 0;
+    padding: $space-3;
+    border-radius: $radius-md;
+    border: 1px dashed $color-line;
+    color: $color-cream-dim;
+    font-size: 0.82rem;
+}
+
 .label {
     color: $color-cream-dim;
     font-size: 0.78rem;

@@ -31,6 +31,7 @@ import { getWeightForDate } from "@/lib/weight.server";
 import { getCategories, getMonthlyTasksForDate, getWeeklyTasksForDate } from "@/lib/tasks.server";
 import { getDailyPlanOrder } from "@/lib/day-plan.server";
 import { getMealRestaurants } from "@/lib/meals.server";
+import { getMealBoxStock } from "@/lib/meal-box.server";
 import { parseLocalISO, todayLocalISO, weekEndISO, weekStartISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
 import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
@@ -104,6 +105,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
   const work = await getWorkDailyLog(user.id, date);
   const savedOrder = await getDailyPlanOrder(user.id, date);
   const savedRestaurants = await getMealRestaurants(user.id);
+  const mealBoxStock = await getMealBoxStock(user.id);
 
   const journal = await getDailyJournal(user.id, {
     localDate: date,
@@ -164,6 +166,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               meals={meals}
               snacks={snacks}
               savedRestaurants={savedRestaurants}
+              mealBoxStock={mealBoxStock}
               intake={intake}
               work={work}
               activityLog={activityLog}
@@ -201,6 +204,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               meals={meals}
               snacks={snacks}
               savedRestaurants={savedRestaurants}
+              mealBoxStock={mealBoxStock}
               intake={intake}
               activityLog={activityLog}
               goals={dayPlan.goals}

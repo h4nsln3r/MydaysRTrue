@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, isoWeekdayFromLocalISO, parseLocalISO, weekStartISO } from "@/lib/date";
 import {
-  dedupeMonthlyTasksByTitle,
+  dedupeMonthlyTasks,
   monthlyTaskKeeperScore,
   type MonthlyCompletion,
   type MonthlyTask,
@@ -25,7 +25,7 @@ import {
 import {
   effectiveScheduledDay,
   monthStartFromDate,
-  resolveMonthlyTaskSchedule,
+  monthlyTasksOnLocalDate,
 } from "@/lib/monthly-bills";
 
 // ----------------------------------------------------------------------------
@@ -333,23 +333,33 @@ export async function getMonthlyTasksForDate(
   localDate: string,
 ): Promise<MonthlyTasksDaySummary> {
   const monthStart = monthStartFromDate(localDate);
-  const dayOfMonth = Number(localDate.slice(8, 10));
-  const { tasks, categories } = await getMonthTaskSummary(userId, monthStart);
-  const forDay = tasks
-    .filter((task) => {
-      const schedule = resolveMonthlyTaskSchedule(
-        task,
-        task.completion,
-        monthStart,
-      );
-      return schedule.isPlanned && schedule.dayOfMonth === dayOfMonth;
-    })
-    .sort((a, b) => {
-      const ao = a.completion?.daySortOrder ?? a.sortOrder;
-      const bo = b.completion?.daySortOrder ?? b.sortOrder;
-      return ao - bo;
-    });
-  return { localDate, monthStart, tasks: forDay, categories };
+  const weekStart = weekStartISO(parseLocalISO(localDate));
+  const [monthSummary, billsWeek] = await Promise.all([
+    getMonthTaskSummary(userId, monthStart),
+    getMonthlyBillsForWeek(userId, weekStart),
+  ]);
+
+  const tasksById = new Map(monthSummary.tasks.map((t) => [t.id, t]));
+  for (const task of billsWeek.tasks) {
+    if (!tasksById.has(task.id)) tasksById.set(task.id, task);
+  }
+
+  const mergedTasks = [...tasksById.values()].map((task) => ({
+    ...task,
+    completion:
+      billsWeek.completionsByTaskMonth.get(`${task.id}|${monthStart}`) ??
+      task.completion ??
+      null,
+  }));
+
+  const forDay = monthlyTasksOnLocalDate(
+    mergedTasks,
+    localDate,
+    billsWeek.completionsByTaskMonth,
+    { includeWhenDone: true },
+  );
+
+  return { localDate, monthStart, tasks: forDay, categories: monthSummary.categories };
 }
 
 // ----------------------------------------------------------------------------
@@ -451,15 +461,46 @@ async function repairDuplicateMonthlyTasks(
 
   if (!data?.length) return;
 
+  const toArchive = new Set<string>();
+
+  const byKey = new Map<string, MonthlyTaskDedupeRow[]>();
+  for (const row of data) {
+    if (!row.key) continue;
+    const list = byKey.get(row.key) ?? [];
+    list.push(row);
+    byKey.set(row.key, list);
+  }
+  for (const list of byKey.values()) {
+    if (list.length <= 1) continue;
+    const sorted = [...list].sort((a, b) => {
+      const scoreA = monthlyTaskKeeperScore({
+        key: a.key,
+        categoryId: a.category_id,
+        singleMonthStart: a.single_month_start,
+        sortOrder: a.sort_order,
+      });
+      const scoreB = monthlyTaskKeeperScore({
+        key: b.key,
+        categoryId: b.category_id,
+        singleMonthStart: b.single_month_start,
+        sortOrder: b.sort_order,
+      });
+      return scoreB - scoreA;
+    });
+    for (const loser of sorted.slice(1)) {
+      toArchive.add(loser.id);
+    }
+  }
+
   const groups = new Map<string, MonthlyTaskDedupeRow[]>();
   for (const row of data) {
+    if (row.key && toArchive.has(row.id)) continue;
     const norm = row.title.trim().toLowerCase();
     const list = groups.get(norm) ?? [];
     list.push(row);
     groups.set(norm, list);
   }
 
-  const toArchive: string[] = [];
   for (const list of groups.values()) {
     if (list.length <= 1) continue;
     const sorted = [...list].sort((a, b) => {
@@ -478,16 +519,16 @@ async function repairDuplicateMonthlyTasks(
       return scoreB - scoreA;
     });
     for (const loser of sorted.slice(1)) {
-      toArchive.push(loser.id);
+      toArchive.add(loser.id);
     }
   }
 
-  if (toArchive.length === 0) return;
+  if (toArchive.size === 0) return;
 
   await supabase
     .from("monthly_tasks")
     .update({ archived_at: new Date().toISOString() })
-    .in("id", toArchive)
+    .in("id", [...toArchive])
     .eq("user_id", userId);
 }
 
@@ -595,7 +636,7 @@ export async function getMonthTaskSummary(
     compMap.set(row.task_id, rowToCompletion(row));
   }
 
-  const tasks: MonthlyTaskForMonth[] = dedupeMonthlyTasksByTitle(
+  const tasks: MonthlyTaskForMonth[] = dedupeMonthlyTasks(
     (tasksRes.data ?? [])
       .filter(isActiveMonthlyRow)
       .map((row) => ({
@@ -623,6 +664,7 @@ export async function getMonthlyBillsForWeek(
   weekStart: string,
 ): Promise<MonthlyBillsWeekContext> {
   const supabase = await createClient();
+  await repairDuplicateMonthlyTasks(supabase, userId);
   const weekDates = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const monthStarts = [...new Set(weekDates.map((d) => `${d.slice(0, 7)}-01`))];
   const oneOffFilter = monthStarts.map((m) => `single_month_start.eq.${m}`).join(",");
@@ -659,12 +701,14 @@ export async function getMonthlyBillsForWeek(
   }
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
-  const tasks: MonthlyTaskForMonth[] = (tasksRes.data ?? [])
-    .filter(isActiveMonthlyRow)
-    .map((row) => ({
-      ...rowToMonthly(row),
-      completion: null,
-    }));
+  const tasks: MonthlyTaskForMonth[] = dedupeMonthlyTasks(
+    (tasksRes.data ?? [])
+      .filter(isActiveMonthlyRow)
+      .map((row) => ({
+        ...rowToMonthly(row),
+        completion: null,
+      })),
+  );
 
   return {
     tasks,

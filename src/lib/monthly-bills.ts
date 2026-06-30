@@ -157,6 +157,11 @@ export function effectiveScheduledDay(
     .dayOfMonth;
 }
 
+export interface MonthlyTaskScheduleOptions {
+  /** Keep schedule visible after completion (day view matches weekly tasks). */
+  includeWhenDone?: boolean;
+}
+
 /**
  * Resolve how a monthly task is planned for a month.
  * Uses explicit completion row, else `day_of_month` default unless marked unscheduled.
@@ -175,6 +180,7 @@ export function resolveMonthlyTaskSchedule(
       >
     | null,
   monthStart: string,
+  options?: MonthlyTaskScheduleOptions,
 ): MonthlyTaskSchedule {
   const none = (): MonthlyTaskSchedule => ({
     monthStart,
@@ -184,7 +190,7 @@ export function resolveMonthlyTaskSchedule(
     source: "none",
   });
 
-  if (completion?.doneAt) return none();
+  if (completion?.doneAt && !options?.includeWhenDone) return none();
   if (completion?.isUnscheduled) return none();
 
   if (completion) {
@@ -224,6 +230,60 @@ export function resolveMonthlyTaskSchedule(
   }
 
   return none();
+}
+
+/** Monthly tasks for a calendar day (day view / week parity). */
+export function monthlyTasksOnLocalDate(
+  tasks: MonthlyTaskForMonth[],
+  localDate: string,
+  completionsByTaskMonth?: Map<string, MonthlyCompletion>,
+  options?: MonthlyTaskScheduleOptions,
+): MonthlyTaskForMonth[] {
+  const monthStart = monthStartFromDate(localDate);
+  const results: MonthlyTaskForMonth[] = [];
+  const seen = new Set<string>();
+
+  const add = (task: MonthlyTaskForMonth) => {
+    if (seen.has(task.id)) return;
+    seen.add(task.id);
+    results.push(task);
+  };
+
+  for (const task of tasks) {
+    if (task.singleMonthStart && task.singleMonthStart !== monthStart) continue;
+
+    const completion =
+      completionsByTaskMonth?.get(`${task.id}|${monthStart}`) ??
+      task.completion ??
+      null;
+
+    const taskWithCompletion = { ...task, completion };
+
+    const schedule = resolveMonthlyTaskSchedule(
+      task,
+      completion,
+      monthStart,
+      options,
+    );
+    if (
+      schedule.isPlanned &&
+      schedule.dayOfMonth != null &&
+      dateInMonth(monthStart, schedule.dayOfMonth) === localDate
+    ) {
+      add(taskWithCompletion);
+      continue;
+    }
+
+    if (completion?.doneAt && completion.doneAt.slice(0, 10) === localDate) {
+      add(taskWithCompletion);
+    }
+  }
+
+  return results.sort((a, b) => {
+    const ao = a.completion?.daySortOrder ?? a.sortOrder;
+    const bo = b.completion?.daySortOrder ?? b.sortOrder;
+    return ao - bo;
+  });
 }
 
 /** True when the task still needs week/day planning on the month board. */
@@ -281,42 +341,97 @@ export interface MonthlyBillForWeekBacklog {
 
 /**
  * Resolve which monthly tasks appear in an ISO week.
- * - Unplanned tasks are hidden.
- * - Done tasks are hidden.
- * - Planned week/day: visible only that week (or later weeks if overdue).
+ * - Unplanned plannable tasks sit in the backlog (Att placera).
+ * - Planned week/day: visible that week (or backlog if day missing / overdue).
+ * - Done tasks appear on their scheduled or completion day.
  */
 export function resolveMonthlyBillsForWeek(
   tasks: MonthlyTaskForMonth[],
   weekStart: string,
   completionsByTaskMonth: Map<string, MonthlyCompletion>,
+  categories: TaskCategory[],
 ): { placed: MonthlyBillWeekSlot[]; backlog: MonthlyBillForWeekBacklog[] } {
   const weekDates = new Set(weekDayDates(weekStart));
   const monthStarts = [...new Set([...weekDates].map(monthStartFromDate))];
+  const primaryMonthStart = monthStartFromDate(weekStart);
   const placed: MonthlyBillWeekSlot[] = [];
   const backlog: MonthlyBillForWeekBacklog[] = [];
   const inBacklog = new Set<string>();
+  const unplannedRecurringBacklog = new Set<string>();
+  const placedTaskIds = new Set<string>();
+
+  const markPlaced = (slot: MonthlyBillWeekSlot) => {
+    placed.push(slot);
+    if (!slot.task.singleMonthStart) {
+      placedTaskIds.add(slot.task.id);
+    }
+  };
+
+  const skipRecurringBacklog = (task: MonthlyTaskForMonth): boolean =>
+    !task.singleMonthStart && placedTaskIds.has(task.id);
 
   for (const task of tasks) {
     for (const monthStart of monthStarts) {
       if (task.singleMonthStart && task.singleMonthStart !== monthStart) continue;
+      if (!isWeekPlannableMonthlyTask(task, categories)) continue;
 
       const compKey = `${task.id}|${monthStart}`;
       const completion = completionsByTaskMonth.get(compKey) ?? null;
-      if (completion?.doneAt) continue;
-
-      const schedule = resolveMonthlyTaskSchedule(task, completion, monthStart);
-      if (!schedule.isPlanned || !schedule.weekStart) continue;
-      if (weekStart < schedule.weekStart) continue;
-
       const taskWithCompletion: MonthlyTaskForMonth = {
         ...task,
         completion,
       };
 
+      if (completion?.doneAt) {
+        const schedule = resolveMonthlyTaskSchedule(
+          task,
+          completion,
+          monthStart,
+          { includeWhenDone: true },
+        );
+        const showDate =
+          schedule.isPlanned && schedule.dayOfMonth != null
+            ? dateInMonth(monthStart, schedule.dayOfMonth)
+            : completion.doneAt.slice(0, 10);
+        if (weekDates.has(showDate)) {
+          markPlaced({
+            task: taskWithCompletion,
+            monthStart,
+            scheduledDate: showDate,
+            weekday: isoWeekdayFromDate(showDate),
+          });
+        }
+        continue;
+      }
+
+      const schedule = resolveMonthlyTaskSchedule(task, completion, monthStart);
+      if (!schedule.isPlanned || !schedule.weekStart) {
+        if (skipRecurringBacklog(task)) continue;
+        if (!task.singleMonthStart) {
+          if (!unplannedRecurringBacklog.has(task.id)) {
+            unplannedRecurringBacklog.add(task.id);
+            const primaryCompletion =
+              completionsByTaskMonth.get(`${task.id}|${primaryMonthStart}`) ??
+              null;
+            backlog.push({
+              task: { ...task, completion: primaryCompletion },
+              monthStart: primaryMonthStart,
+            });
+          }
+          continue;
+        }
+        if (!inBacklog.has(compKey)) {
+          backlog.push({ task: taskWithCompletion, monthStart });
+          inBacklog.add(compKey);
+        }
+        continue;
+      }
+      if (weekStart < schedule.weekStart) continue;
+
       if (schedule.dayOfMonth != null) {
         const scheduledDate = dateInMonth(monthStart, schedule.dayOfMonth);
         if (weekDates.has(scheduledDate)) {
-          placed.push({
+          markPlaced({
             task: taskWithCompletion,
             monthStart,
             scheduledDate,
@@ -324,23 +439,36 @@ export function resolveMonthlyBillsForWeek(
           });
           continue;
         }
-        if (weekStart > schedule.weekStart && !inBacklog.has(compKey)) {
+        if (skipRecurringBacklog(task)) continue;
+        if (weekStart >= schedule.weekStart && !inBacklog.has(compKey)) {
           backlog.push({ task: taskWithCompletion, monthStart });
           inBacklog.add(compKey);
         }
         continue;
       }
 
-      // Week-only plan: hidden until a day is chosen (month board). If the week
-      // passed without a day, surface in backlog so it can be rescheduled.
-      if (weekStart > schedule.weekStart && !inBacklog.has(compKey)) {
+      if (skipRecurringBacklog(task)) continue;
+      if (weekStart >= schedule.weekStart && !inBacklog.has(compKey)) {
         backlog.push({ task: taskWithCompletion, monthStart });
         inBacklog.add(compKey);
       }
     }
   }
 
-  return { placed, backlog };
+  const dedupedBacklog: MonthlyBillForWeekBacklog[] = [];
+  const seenRecurringBacklog = new Set<string>();
+  for (const entry of backlog) {
+    if (entry.task.singleMonthStart) {
+      dedupedBacklog.push(entry);
+      continue;
+    }
+    if (seenRecurringBacklog.has(entry.task.id)) continue;
+    if (placedTaskIds.has(entry.task.id)) continue;
+    seenRecurringBacklog.add(entry.task.id);
+    dedupedBacklog.push(entry);
+  }
+
+  return { placed, backlog: dedupedBacklog };
 }
 
 function isoWeekdayFromDate(localDate: string): number {

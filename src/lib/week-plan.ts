@@ -93,6 +93,8 @@ export interface WeekPlanMonthlyBillItem extends WeekPlanItemBase {
   scheduledDayOfMonth: number | null;
   completionKind: MonthlyTaskCompletionKind;
   completion: import("@/lib/tasks").MonthlyCompletion | null;
+  notes: string | null;
+  defaultAmountKr: number | null;
   singleMonthStart: string | null;
 }
 

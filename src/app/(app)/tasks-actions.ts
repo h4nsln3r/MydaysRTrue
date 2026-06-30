@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { addDaysISO, parseLocalISO, weekStartISO } from "@/lib/date";
+import { addDaysISO, parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
 import { dateInMonth, monthStartFromDate } from "@/lib/monthly-bills";
 import {
   applyTransferDelta,
@@ -1551,11 +1551,44 @@ export async function toggleMonthlyTaskDoneAction(input: {
 
   const { data: task } = await supabase
     .from("monthly_tasks")
-    .select("completion_kind, key")
+    .select("completion_kind, key, day_of_month")
     .eq("id", input.taskId)
     .eq("user_id", user.id)
     .maybeSingle();
   if (!task) return { ok: false, error: "Task not found." };
+
+  const { data: existing } = await supabase
+    .from("monthly_task_completions")
+    .select(
+      "id, amount, scheduled_day_of_month, scheduled_week_start, is_unscheduled",
+    )
+    .eq("user_id", user.id)
+    .eq("task_id", input.taskId)
+    .eq("month_start", input.monthStart)
+    .maybeSingle();
+
+  const autoScheduleOnDone = (): {
+    scheduled_day_of_month: number;
+    scheduled_week_start: string;
+    is_unscheduled: boolean;
+  } | null => {
+    if (!input.done) return null;
+    if (task.day_of_month != null) return null;
+    if (existing?.scheduled_day_of_month != null) return null;
+    if (existing?.is_unscheduled) return null;
+
+    const today = todayLocalISO();
+    if (monthStartFromDate(today) !== input.monthStart) return null;
+
+    const dayOfMonth = Number(today.slice(8, 10));
+    return {
+      scheduled_day_of_month: dayOfMonth,
+      scheduled_week_start: weekStartISO(parseLocalISO(today)),
+      is_unscheduled: false,
+    };
+  };
+
+  const schedulePatch = autoScheduleOnDone();
 
   let amountValue: number | null = null;
   if (task.completion_kind === "amount" && input.done) {
@@ -1570,14 +1603,6 @@ export async function toggleMonthlyTaskDoneAction(input: {
   ) {
     amountValue = Math.round(input.amount * 100) / 100;
   }
-
-  const { data: existing } = await supabase
-    .from("monthly_task_completions")
-    .select("id, amount")
-    .eq("user_id", user.id)
-    .eq("task_id", input.taskId)
-    .eq("month_start", input.monthStart)
-    .maybeSingle();
 
   const previousAmount =
     existing?.amount != null ? Number(existing.amount) : null;
@@ -1594,6 +1619,9 @@ export async function toggleMonthlyTaskDoneAction(input: {
       done_at: string | null;
       note?: string | null;
       amount?: number | null;
+      scheduled_day_of_month?: number;
+      scheduled_week_start?: string;
+      is_unscheduled?: boolean;
     } = {
       done_at: doneAt,
     };
@@ -1602,6 +1630,11 @@ export async function toggleMonthlyTaskDoneAction(input: {
       patch.amount = input.done ? amountValue : null;
     } else if (amountValue != null) {
       patch.amount = amountValue;
+    }
+    if (schedulePatch) {
+      patch.scheduled_day_of_month = schedulePatch.scheduled_day_of_month;
+      patch.scheduled_week_start = schedulePatch.scheduled_week_start;
+      patch.is_unscheduled = schedulePatch.is_unscheduled;
     }
     const { error } = await supabase
       .from("monthly_task_completions")
@@ -1620,6 +1653,7 @@ export async function toggleMonthlyTaskDoneAction(input: {
         task.completion_kind === "amount"
           ? amountValue
           : amountValue ?? null,
+      ...(schedulePatch ?? {}),
     });
     if (error) return { ok: false, error: error.message };
   }
@@ -1642,7 +1676,7 @@ export async function toggleMonthlyTaskDoneAction(input: {
     if (!syncRes.ok) return syncRes;
   }
 
-  revalidatePath("/month", "page");
+  revalidatePath("/", "layout");
   return { ok: true };
 }
 

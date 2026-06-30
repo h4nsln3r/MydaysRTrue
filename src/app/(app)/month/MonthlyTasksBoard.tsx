@@ -676,12 +676,19 @@ function MonthlyTaskRow({
             </div>
           ) : !done ? (
             <>
+              {task.completionKind === "amount" && task.notes ? (
+                <p className={styles.financeLinkText}>{task.notes}</p>
+              ) : null}
               {task.completionKind === "amount" ? (
                 <Input
                   label="Belopp (kr)"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="t.ex. 1500"
+                  placeholder={
+                    task.defaultAmountKr != null
+                      ? String(task.defaultAmountKr)
+                      : "t.ex. 1500"
+                  }
                   inputMode="decimal"
                   required
                   disabled={pending}

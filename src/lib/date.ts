@@ -23,10 +23,26 @@ export function todayLocalISO(now: Date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Keeps SSR (UTC server) and browser display in sync for Swedish local time. */
+export const DISPLAY_TIMEZONE = "Europe/Stockholm";
+
 export function formatTime(iso: string): string {
-  const d = new Date(iso);
-  // Fixed 24h format — avoids SSR/client locale mismatch (e.g. "06:17" vs "06:17 AM").
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return new Date(iso).toLocaleTimeString("sv-SE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: DISPLAY_TIMEZONE,
+  });
+}
+
+/** Hour (0–23) in DISPLAY_TIMEZONE for a stored ISO timestamp. */
+export function localHourFromISO(iso: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    hour: "numeric",
+    hour12: false,
+    timeZone: DISPLAY_TIMEZONE,
+  }).formatToParts(new Date(iso));
+  return Number(parts.find((p) => p.type === "hour")?.value ?? 0);
 }
 
 export function formatDateLong(date: Date = new Date()): string {

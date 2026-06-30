@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
-import { MEAL_LABEL, mealHasCookingMeta } from "@/lib/habits";
+import { MEAL_LABEL, mealHasCookingMeta, mealShowsMealBoxes } from "@/lib/habits";
+import { resolveMealRestaurant } from "@/lib/meals.server";
 
 export interface LogWaterResult {
   ok: boolean;
@@ -597,6 +598,8 @@ const VALID_MEAL_COOKED_BY: ReadonlySet<MealCookedBy> = new Set([
   "self",
   "julia",
   "bought",
+  "restaurant",
+  "other",
 ]);
 
 export async function saveMealAction(input: {
@@ -606,6 +609,9 @@ export async function saveMealAction(input: {
   waterMl?: number;
   cookedBy?: MealCookedBy | null;
   mealBoxes?: number | null;
+  restaurantId?: string | null;
+  restaurantName?: string | null;
+  cookedByName?: string | null;
 }): Promise<ActionResult> {
   if (!VALID_MEAL_KEYS.has(input.meal)) {
     return { ok: false, error: "Invalid meal." };
@@ -641,7 +647,7 @@ export async function saveMealAction(input: {
   }
 
   let mealBoxes: number | null = null;
-  if (needsCookingMeta && cookedBy !== "bought") {
+  if (needsCookingMeta && mealShowsMealBoxes(cookedBy)) {
     const raw = input.mealBoxes;
     if (raw != null) {
       if (!Number.isFinite(raw) || raw < 0) {
@@ -660,6 +666,38 @@ export async function saveMealAction(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
+
+  let restaurantId: string | null = null;
+  let cookedByName: string | null = null;
+
+  if (needsCookingMeta && cookedBy === "restaurant") {
+    if (input.restaurantId) {
+      const { data: restaurant } = await supabase
+        .from("meal_restaurants")
+        .select("id")
+        .eq("id", input.restaurantId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!restaurant) {
+        return { ok: false, error: "Ogiltig restaurang." };
+      }
+      restaurantId = restaurant.id;
+    } else {
+      const name = (input.restaurantName ?? "").trim();
+      const resolved = await resolveMealRestaurant(user.id, name);
+      if (!resolved.ok) return { ok: false, error: resolved.error };
+      restaurantId = resolved.id;
+    }
+  } else if (needsCookingMeta && cookedBy === "other") {
+    const name = (input.cookedByName ?? "").trim();
+    if (!name) {
+      return { ok: false, error: "Skriv vem som lagade maten." };
+    }
+    if (name.length > 80) {
+      return { ok: false, error: "Namnet får vara max 80 tecken." };
+    }
+    cookedByName = name;
+  }
 
   // Find existing meal (if any) so we can update its linked water_log in place.
   const { data: existing, error: lookupErr } = await supabase
@@ -719,6 +757,8 @@ export async function saveMealAction(input: {
         water_log_id: waterLogId,
         cooked_by: cookedBy,
         meal_boxes: mealBoxes,
+        restaurant_id: restaurantId,
+        cooked_by_name: cookedByName,
       })
       .eq("id", existing.id)
       .eq("user_id", user.id);
@@ -732,6 +772,8 @@ export async function saveMealAction(input: {
       water_log_id: waterLogId,
       cooked_by: cookedBy,
       meal_boxes: mealBoxes,
+      restaurant_id: restaurantId,
+      cooked_by_name: cookedByName,
     });
     if (error) return { ok: false, error: error.message };
   }

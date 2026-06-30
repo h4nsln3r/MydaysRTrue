@@ -1,6 +1,6 @@
 // Client-safe journal types and helpers.
 
-import { formatTime } from "@/lib/date";
+import { formatTime, localHourFromISO } from "@/lib/date";
 
 export type JournalEntrySource =
   | "manual"
@@ -94,7 +94,7 @@ function ensureSentence(text: string): string {
 }
 
 function timeOfDayIntro(at: string): string {
-  const h = new Date(at).getHours();
+  const h = localHourFromISO(at);
   if (h < 10) return "På morgonen";
   if (h < 14) return "På förmiddagen";
   if (h < 18) return "På eftermiddagen";

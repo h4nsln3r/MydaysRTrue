@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { addDaysISO } from "@/lib/date";
 import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
 import {
-  MEAL_COOKED_BY_LABEL,
   MEAL_ICON,
+  mealCookedByDisplay,
   mealHasCookingMeta,
   type SnackSlot,
 } from "@/lib/habits";
@@ -37,6 +37,8 @@ export interface JournalDailyTrackers {
     description: string;
     waterMl: number;
     cookedBy: MealCookedBy | null;
+    restaurantName: string | null;
+    cookedByName: string | null;
     mealBoxes: number | null;
     loggedAt: string;
   }[];
@@ -128,7 +130,7 @@ export async function getJournalTrackersForWeek(
   ] = await Promise.all([
     supabase
       .from("meal_entries")
-      .select("id, local_date, meal, description, water_log_id, cooked_by, meal_boxes, created_at")
+      .select("id, local_date, meal, description, water_log_id, cooked_by, meal_boxes, cooked_by_name, restaurant_id, meal_restaurants(name), created_at")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
@@ -213,12 +215,15 @@ export async function getJournalTrackersForWeek(
   for (const row of mealsRes.data ?? []) {
     const day = result.get(row.local_date);
     if (!day) continue;
+    const restaurant = row.meal_restaurants as { name: string } | null;
     day.meals.push({
       id: row.id,
       meal: row.meal as MealKey,
       description: row.description,
       waterMl: row.water_log_id ? waterMap.get(row.water_log_id) ?? 0 : 0,
       cookedBy: (row.cooked_by as MealCookedBy | null) ?? null,
+      restaurantName: restaurant?.name ?? null,
+      cookedByName: row.cooked_by_name,
       mealBoxes: row.meal_boxes,
       loggedAt: row.created_at,
     });
@@ -358,10 +363,13 @@ export function mealJournalBody(
   _waterMl: number,
   cookedBy: MealCookedBy | null = null,
   mealBoxes: number | null = null,
+  restaurantName: string | null = null,
+  cookedByName: string | null = null,
 ): string {
   const parts = [description.trim()];
-  if (mealHasCookingMeta(meal) && cookedBy) {
-    parts.push(MEAL_COOKED_BY_LABEL[cookedBy]);
+  const cookLabel = mealCookedByDisplay(cookedBy, restaurantName, cookedByName);
+  if (mealHasCookingMeta(meal) && cookLabel) {
+    parts.push(cookLabel);
   }
   if (mealHasCookingMeta(meal) && mealBoxes != null && mealBoxes > 0) {
     parts.push(`${mealBoxes} matlåd${mealBoxes === 1 ? "a" : "or"}`);

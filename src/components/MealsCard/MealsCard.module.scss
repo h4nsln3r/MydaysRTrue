@@ -312,6 +312,30 @@ button.row {
     color: $color-success;
 }
 
+.cookBadgeRestaurant {
+    background: rgba(96, 165, 250, 0.12);
+    border: 1px solid rgba(96, 165, 250, 0.45);
+    color: #93c5fd;
+}
+
+.cookBadgeOther {
+    background: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    color: #fcd34d;
+}
+
+.restaurantBlock {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.savedRestaurants {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
 .boxesBadge {
     background: rgba(255, 207, 58, 0.1);
     border: 1px solid rgba(255, 207, 58, 0.45);

@@ -14,6 +14,7 @@ import {
   type HabitKind,
   type MealEntry,
   type MealKey,
+  type MealRestaurant,
 } from "@/lib/habits";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { DailyMobileGamesContext } from "@/lib/mobile-games";
@@ -31,6 +32,7 @@ interface Props {
   summary: WaterSummary;
   meals: Record<MealKey, MealEntry | null>;
   snacks: DailySnacks;
+  savedRestaurants?: MealRestaurant[];
   intake: Record<IntakeKind, IntakeEntry | null>;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
@@ -47,6 +49,7 @@ export function DailyTrackersBoard({
   summary,
   meals,
   snacks,
+  savedRestaurants = [],
   intake,
   activityLog,
   goals,
@@ -170,6 +173,7 @@ export function DailyTrackersBoard({
           showIntake={showIntake}
           meals={meals}
           snacks={snacks}
+          savedRestaurants={savedRestaurants}
           intake={intake}
         />
       ) : null}

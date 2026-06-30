@@ -106,6 +106,8 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
         meal.waterMl,
         meal.cookedBy,
         meal.mealBoxes,
+        meal.restaurantName,
+        meal.cookedByName,
       ),
       at: meal.loggedAt,
       editable: false,

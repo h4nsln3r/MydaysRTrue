@@ -20,13 +20,17 @@ import {
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import {
-  MEAL_COOKED_BY_LABEL,
-  MEAL_COOKED_BY_ORDER,
+  mealCookedByDisplay,
   mealHasCookingMeta,
-  type MealCookedBy,
   type MealKey,
+  type MealRestaurant,
   type SnackSlot,
 } from "@/lib/habits";
+import {
+  MealCookingMetaFields,
+  initialMealCookingMeta,
+  validateMealCookingMeta,
+} from "@/components/MealCookingMeta/MealCookingMetaFields";
 import { formatInteger } from "@/lib/format";
 import type { DayPlanItem } from "@/lib/day-plan";
 import {
@@ -57,6 +61,7 @@ function sortableShellProps(props: PlanSortableProps) {
 interface DailyRowProps extends PlanSortableProps {
   item: DayPlanItem;
   date: string;
+  savedRestaurants?: MealRestaurant[];
   expanded: boolean;
   busy: boolean;
   pending: boolean;
@@ -194,6 +199,7 @@ function MealPlanRow(
   const {
     item,
     date,
+    savedRestaurants = [],
     expanded,
     busy,
     pending,
@@ -208,11 +214,8 @@ function MealPlanRow(
   const [waterMl, setWaterMl] = useState(
     entry?.waterMl ? String(entry.waterMl) : "",
   );
-  const [cookedBy, setCookedBy] = useState<MealCookedBy | null>(
-    entry?.cookedBy ?? null,
-  );
-  const [mealBoxes, setMealBoxes] = useState(
-    entry?.mealBoxes ? String(entry.mealBoxes) : "",
+  const [cookingMeta, setCookingMeta] = useState(() =>
+    initialMealCookingMeta(entry),
   );
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -220,18 +223,19 @@ function MealPlanRow(
   useEffect(() => {
     setDescription(entry?.description ?? "");
     setWaterMl(entry?.waterMl ? String(entry.waterMl) : "");
-    setCookedBy(entry?.cookedBy ?? null);
-    setMealBoxes(entry?.mealBoxes ? String(entry.mealBoxes) : "");
+    setCookingMeta(initialMealCookingMeta(entry));
   }, [entry]);
 
   const showCookingMeta = mealHasCookingMeta(item.meal);
-  const showMealBoxes =
-    showCookingMeta && cookedBy !== null && cookedBy !== "bought";
 
   const detail = entry
     ? [
         entry.description,
-        entry.cookedBy ? MEAL_COOKED_BY_LABEL[entry.cookedBy] : null,
+        mealCookedByDisplay(
+          entry.cookedBy,
+          entry.restaurantName,
+          entry.cookedByName,
+        ),
         entry.waterMl > 0 ? formatMl(entry.waterMl) : null,
       ]
         .filter(Boolean)
@@ -240,22 +244,24 @@ function MealPlanRow(
 
   const save = () => {
     onError(null);
-    if (showCookingMeta && !cookedBy) {
-      setError("Välj vem som lagade maten.");
-      return;
+    if (showCookingMeta) {
+      const cookingResult = validateMealCookingMeta(cookingMeta);
+      if (!cookingResult.ok) {
+        setError(cookingResult.error);
+        return;
+      }
     }
     const parsedWater = waterMl.trim() === "" ? 0 : Number(waterMl);
     if (!Number.isFinite(parsedWater) || parsedWater < 0) {
       setError("Vattnet måste vara ett positivt tal.");
       return;
     }
-    let parsedBoxes: number | null = null;
-    if (showMealBoxes && mealBoxes.trim() !== "") {
-      parsedBoxes = Number(mealBoxes);
-      if (!Number.isFinite(parsedBoxes) || parsedBoxes < 0 || parsedBoxes > 30) {
-        setError("Antal matlådor måste vara 0–30.");
-        return;
-      }
+    const cookingResult = showCookingMeta
+      ? validateMealCookingMeta(cookingMeta)
+      : { ok: true as const, mealBoxes: null };
+    if (!cookingResult.ok) {
+      setError(cookingResult.error);
+      return;
     }
 
     onPendingKey(true);
@@ -265,8 +271,20 @@ function MealPlanRow(
         localDate: date,
         description,
         waterMl: Math.round(parsedWater),
-        cookedBy: showCookingMeta ? cookedBy : null,
-        mealBoxes: showMealBoxes ? parsedBoxes : null,
+        cookedBy: showCookingMeta ? cookingMeta.cookedBy : null,
+        mealBoxes: cookingResult.mealBoxes,
+        restaurantId:
+          showCookingMeta && cookingMeta.cookedBy === "restaurant"
+            ? cookingMeta.restaurantId
+            : null,
+        restaurantName:
+          showCookingMeta && cookingMeta.cookedBy === "restaurant"
+            ? cookingMeta.restaurantName
+            : null,
+        cookedByName:
+          showCookingMeta && cookingMeta.cookedBy === "other"
+            ? cookingMeta.cookedByName
+            : null,
       });
       if (!res.ok) {
         onError(res.error ?? "Kunde inte spara.");
@@ -313,42 +331,12 @@ function MealPlanRow(
             disabled={pending}
           />
           {showCookingMeta ? (
-            <div className={styles.bandPicker}>
-              <span className={styles.bandLabel}>Vem lagade maten?</span>
-              <div className={styles.bandBtns}>
-                {MEAL_COOKED_BY_ORDER.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className={[
-                      styles.bandBtn,
-                      cookedBy === option ? styles.bandBtnActive : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    aria-pressed={cookedBy === option}
-                    disabled={pending}
-                    onClick={() => {
-                      setCookedBy(option);
-                      if (option === "bought") setMealBoxes("");
-                    }}
-                  >
-                    {MEAL_COOKED_BY_LABEL[option]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {showMealBoxes ? (
-            <Input
-              label="Matlådor (valfritt)"
-              type="number"
-              min={0}
-              max={30}
-              value={mealBoxes}
-              onChange={(e) => setMealBoxes(e.target.value)}
-              placeholder="0"
-              disabled={pending}
+            <MealCookingMetaFields
+              layout="plan"
+              meta={cookingMeta}
+              savedRestaurants={savedRestaurants}
+              pending={pending}
+              onChange={setCookingMeta}
             />
           ) : null}
           <Input

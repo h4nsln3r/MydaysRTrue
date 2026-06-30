@@ -6,22 +6,27 @@ import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import {
-  MEAL_COOKED_BY_LABEL,
-  MEAL_COOKED_BY_ORDER,
   MEAL_ICON,
   MEAL_LABEL,
   MEAL_ORDER,
   SNACK_ICON,
   SNACK_LABEL,
   SNACK_SLOTS,
+  mealCookedByDisplay,
   mealHasCookingMeta,
   type DailySnacks,
   type MealCookedBy,
   type MealEntry,
   type MealKey,
+  type MealRestaurant,
   type SnackEntry,
   type SnackSlot,
 } from "@/lib/habits";
+import {
+  MealCookingMetaFields,
+  initialMealCookingMeta,
+  validateMealCookingMeta,
+} from "@/components/MealCookingMeta/MealCookingMetaFields";
 import { formatMl } from "@/lib/water";
 import {
   clearMealAction,
@@ -35,6 +40,7 @@ interface Props {
   date: string;
   meals: Record<MealKey, MealEntry | null>;
   snacks: DailySnacks;
+  savedRestaurants?: MealRestaurant[];
   showMeals?: boolean;
   showSnacks?: boolean;
 }
@@ -47,6 +53,7 @@ export function MealsCard({
   date,
   meals,
   snacks,
+  savedRestaurants = [],
   showMeals = true,
   showSnacks = true,
 }: Props) {
@@ -137,6 +144,7 @@ export function MealsCard({
                       meal={meal}
                       date={date}
                       initial={entry}
+                      savedRestaurants={savedRestaurants}
                       onCancel={close}
                       onSaved={onSaved}
                     />
@@ -147,6 +155,8 @@ export function MealsCard({
                       description={entry.description}
                       waterMl={entry.waterMl}
                       cookedBy={entry.cookedBy}
+                      restaurantName={entry.restaurantName}
+                      cookedByName={entry.cookedByName}
                       mealBoxes={entry.mealBoxes}
                       pending={pending}
                       onEdit={() => setEditing(editKey)}
@@ -233,6 +243,8 @@ interface LoggedRowProps {
   description: string;
   waterMl?: number;
   cookedBy?: MealCookedBy | null;
+  restaurantName?: string | null;
+  cookedByName?: string | null;
   mealBoxes?: number | null;
   pending: boolean;
   onEdit: () => void;
@@ -250,6 +262,8 @@ function LoggedRow({
   description,
   waterMl = 0,
   cookedBy = null,
+  restaurantName = null,
+  cookedByName = null,
   mealBoxes = null,
   pending,
   onEdit,
@@ -299,12 +313,16 @@ function LoggedRow({
                     ? styles.cookBadgeSelf
                     : cookedBy === "julia"
                       ? styles.cookBadgeJulia
-                      : styles.cookBadgeBought,
+                      : cookedBy === "restaurant"
+                        ? styles.cookBadgeRestaurant
+                        : cookedBy === "other"
+                          ? styles.cookBadgeOther
+                          : styles.cookBadgeBought,
                 ]
                   .filter(Boolean)
                   .join(" ")}
               >
-                {MEAL_COOKED_BY_LABEL[cookedBy]}
+                {mealCookedByDisplay(cookedBy, restaurantName, cookedByName)}
               </span>
             ) : null}
             {mealBoxes != null && mealBoxes > 0 ? (
@@ -397,34 +415,41 @@ interface MealFormProps {
   meal: MealKey;
   date: string;
   initial: MealEntry | null;
+  savedRestaurants: MealRestaurant[];
   onCancel: () => void;
   onSaved: () => void;
 }
 
-function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
+function MealForm({
+  meal,
+  date,
+  initial,
+  savedRestaurants,
+  onCancel,
+  onSaved,
+}: MealFormProps) {
   const [description, setDescription] = useState(initial?.description ?? "");
   const [waterMl, setWaterMl] = useState<string>(
     initial?.waterMl ? String(initial.waterMl) : "",
   );
-  const [cookedBy, setCookedBy] = useState<MealCookedBy | null>(
-    initial?.cookedBy ?? null,
-  );
-  const [mealBoxes, setMealBoxes] = useState<string>(
-    initial?.mealBoxes ? String(initial.mealBoxes) : "",
+  const [cookingMeta, setCookingMeta] = useState(() =>
+    initialMealCookingMeta(initial),
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const showCookingMeta = mealHasCookingMeta(meal);
-  const showMealBoxes = showCookingMeta && cookedBy !== null && cookedBy !== "bought";
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (showCookingMeta && !cookedBy) {
-      setError("Välj vem som lagade maten.");
-      return;
+    if (showCookingMeta) {
+      const cookingResult = validateMealCookingMeta(cookingMeta);
+      if (!cookingResult.ok) {
+        setError(cookingResult.error);
+        return;
+      }
     }
 
     const parsedWater = waterMl.trim() === "" ? 0 : Number(waterMl);
@@ -433,18 +458,14 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
       return;
     }
 
-    let parsedBoxes: number | null = null;
-    if (showMealBoxes && mealBoxes.trim() !== "") {
-      parsedBoxes = Number(mealBoxes);
-      if (!Number.isFinite(parsedBoxes) || parsedBoxes < 0) {
-        setError("Antal matlådor måste vara 0 eller mer.");
-        return;
-      }
-      if (parsedBoxes > 30) {
-        setError("Max 30 matlådor.");
-        return;
-      }
+    const cookingResult = showCookingMeta
+      ? validateMealCookingMeta(cookingMeta)
+      : { ok: true as const, mealBoxes: null };
+    if (!cookingResult.ok) {
+      setError(cookingResult.error);
+      return;
     }
+    const parsedBoxes = cookingResult.mealBoxes;
 
     startTransition(async () => {
       const res = await saveMealAction({
@@ -452,8 +473,20 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
         localDate: date,
         description,
         waterMl: Math.round(parsedWater),
-        cookedBy: showCookingMeta ? cookedBy : null,
-        mealBoxes: showMealBoxes ? parsedBoxes : null,
+        cookedBy: showCookingMeta ? cookingMeta.cookedBy : null,
+        mealBoxes: parsedBoxes,
+        restaurantId:
+          showCookingMeta && cookingMeta.cookedBy === "restaurant"
+            ? cookingMeta.restaurantId
+            : null,
+        restaurantName:
+          showCookingMeta && cookingMeta.cookedBy === "restaurant"
+            ? cookingMeta.restaurantName
+            : null,
+        cookedByName:
+          showCookingMeta && cookingMeta.cookedBy === "other"
+            ? cookingMeta.cookedByName
+            : null,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
@@ -494,40 +527,12 @@ function MealForm({ meal, date, initial, onCancel, onSaved }: MealFormProps) {
       />
 
       {showCookingMeta ? (
-        <div className={styles.cookBlock}>
-          <span className={styles.label}>Vem lagade maten?</span>
-          <div className={styles.cookRow}>
-            {MEAL_COOKED_BY_ORDER.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={styles.cookOption}
-                aria-pressed={cookedBy === option}
-                onClick={() => {
-                  setCookedBy(option);
-                  if (option === "bought") setMealBoxes("");
-                }}
-                disabled={pending}
-              >
-                {MEAL_COOKED_BY_LABEL[option]}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {showMealBoxes ? (
-        <Input
-          label="Matlådor (valfritt)"
-          type="number"
-          min={0}
-          max={30}
-          step={1}
-          inputMode="numeric"
-          value={mealBoxes}
-          onChange={(e) => setMealBoxes(e.target.value)}
-          placeholder="0"
-          hint="Hur många matlådor blev det, om några?"
+        <MealCookingMetaFields
+          layout="card"
+          meta={cookingMeta}
+          savedRestaurants={savedRestaurants}
+          pending={pending}
+          onChange={setCookingMeta}
         />
       ) : null}
 

@@ -753,8 +753,10 @@ export interface Database {
           meal: "breakfast" | "lunch" | "dinner";
           description: string;
           water_log_id: string | null;
-          cooked_by: "self" | "julia" | "bought" | null;
+          cooked_by: "self" | "julia" | "bought" | "restaurant" | "other" | null;
           meal_boxes: number | null;
+          restaurant_id: string | null;
+          cooked_by_name: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -765,8 +767,10 @@ export interface Database {
           meal: "breakfast" | "lunch" | "dinner";
           description: string;
           water_log_id?: string | null;
-          cooked_by?: "self" | "julia" | "bought" | null;
+          cooked_by?: "self" | "julia" | "bought" | "restaurant" | "other" | null;
           meal_boxes?: number | null;
+          restaurant_id?: string | null;
+          cooked_by_name?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -777,10 +781,41 @@ export interface Database {
           meal?: "breakfast" | "lunch" | "dinner";
           description?: string;
           water_log_id?: string | null;
-          cooked_by?: "self" | "julia" | "bought" | null;
+          cooked_by?: "self" | "julia" | "bought" | "restaurant" | "other" | null;
           meal_boxes?: number | null;
+          restaurant_id?: string | null;
+          cooked_by_name?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "meal_entries_restaurant_id_fkey";
+            columns: ["restaurant_id"];
+            isOneToOne: false;
+            referencedRelation: "meal_restaurants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      meal_restaurants: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          created_at?: string;
         };
         Relationships: [];
       };

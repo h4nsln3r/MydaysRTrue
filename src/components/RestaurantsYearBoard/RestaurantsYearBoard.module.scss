@@ -1,0 +1,148 @@
+@use "abstracts" as *;
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.hint,
+.empty {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.85rem;
+}
+
+.summary {
+    margin: 0;
+    font-family: $font-mono;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    color: $color-fog;
+}
+
+.summaryCount {
+    color: $color-cream;
+    font-weight: 700;
+}
+
+.summaryDot {
+    margin: 0 6px;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    overflow: hidden;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+    width: 100%;
+    padding: $space-3 $space-4;
+    background: transparent;
+    border: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background 180ms $ease-out,
+        border-color 180ms $ease-out;
+
+    &:hover {
+        background: $color-ink-elevated;
+    }
+}
+
+.cardHeaderOpen {
+    border-bottom: 1px solid $color-line;
+}
+
+.headerMain {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-3;
+    min-width: 0;
+}
+
+.name {
+    font-family: $font-display;
+    font-size: 1rem;
+    color: $color-cream;
+}
+
+.count {
+    font-family: $font-mono;
+    font-size: 0.75rem;
+    color: $color-fog;
+    white-space: nowrap;
+}
+
+.chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-size: 1.2rem;
+    line-height: 1;
+    color: $color-fog;
+    transform: rotate(90deg);
+    transition: transform 180ms $ease-out;
+}
+
+.chevronUp {
+    transform: rotate(-90deg);
+}
+
+.visits {
+    list-style: none;
+    margin: 0;
+    padding: $space-3 $space-4 $space-4;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.visit {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: $space-2;
+    border-top: 1px solid $color-line;
+
+    &:first-child {
+        padding-top: 0;
+        border-top: none;
+    }
+}
+
+.visitMeta {
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: $color-fog;
+    text-transform: uppercase;
+}
+
+.visitFood {
+    color: $color-cream-dim;
+    font-size: 0.9rem;
+}

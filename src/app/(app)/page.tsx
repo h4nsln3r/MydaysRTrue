@@ -26,6 +26,7 @@ import { getSportSessionsForDate } from "@/lib/sport.server";
 import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
 import { getCategories, getMonthlyTasksForDate, getWeeklyTasksForDate } from "@/lib/tasks.server";
+import { getMealRestaurants } from "@/lib/meals.server";
 import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
 import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
@@ -85,6 +86,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
 
   const work = await getWorkDailyLog(user.id, today);
   const savedOrder = await getDailyPlanOrder(user.id, today);
+  const savedRestaurants = await getMealRestaurants(user.id);
 
   const journal = await getDailyJournal(user.id, {
     localDate: today,
@@ -151,6 +153,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               habits={habits}
               meals={meals}
               snacks={snacks}
+              savedRestaurants={savedRestaurants}
               intake={intake}
               work={work}
               activityLog={activityLog}
@@ -181,6 +184,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               summary={summary}
               meals={meals}
               snacks={snacks}
+              savedRestaurants={savedRestaurants}
               intake={intake}
               activityLog={activityLog}
               goals={dayPlan.goals}

@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { RestaurantsYearBoard } from "@/components/RestaurantsYearBoard/RestaurantsYearBoard";
 import { MediaYearBoard } from "@/components/MediaYearBoard/MediaYearBoard";
 import { MediaYearProgress } from "@/components/MediaYearProgress/MediaYearProgress";
 import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getYearMedia } from "@/lib/media.server";
+import { getYearRestaurantMeals } from "@/lib/meals.server";
 import { parsePeriodView } from "@/lib/period-view";
 import styles from "./year.module.scss";
 
@@ -34,6 +36,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
   if (year > currentYear) year = currentYear;
 
   const yearMedia = await getYearMedia(user.id, year);
+  const yearRestaurants = await getYearRestaurantMeals(user.id, year);
   const isCurrent = year === currentYear;
   const canGoForward = year < currentYear;
 
@@ -95,6 +98,15 @@ export default async function YearPage({ searchParams }: YearPageProps) {
         ) : (
           <MediaYearBoard yearMedia={yearMedia} />
         )}
+      </section>
+
+      <section className={styles.section}>
+        <header className={styles.sectionHeader}>
+          <h2 className={styles.h2}>Restauranger</h2>
+          <span className={styles.muted}>lunch & middag ute</span>
+        </header>
+
+        <RestaurantsYearBoard year={year} restaurants={yearRestaurants} />
       </section>
     </main>
   );

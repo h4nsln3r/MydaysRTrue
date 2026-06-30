@@ -42,14 +42,48 @@ export const MEAL_ICON: Record<MealKey, string> = {
   dinner: "🍽",
 };
 
-export type MealCookedBy = "self" | "julia" | "bought";
+export type MealCookedBy = "self" | "julia" | "restaurant" | "other" | "bought";
 
-export const MEAL_COOKED_BY_ORDER: MealCookedBy[] = ["self", "julia", "bought"];
+export const MEAL_COOKED_BY_ORDER: MealCookedBy[] = [
+  "self",
+  "julia",
+  "restaurant",
+  "other",
+  "bought",
+];
 export const MEAL_COOKED_BY_LABEL: Record<MealCookedBy, string> = {
   self: "Jag",
   julia: "Julia",
-  bought: "Köpt",
+  restaurant: "Restaurang",
+  other: "Annan",
+  bought: "Köpt hem",
 };
+
+export interface MealRestaurant {
+  id: string;
+  name: string;
+}
+
+/** Human-readable label for who prepared lunch/dinner. */
+export function mealCookedByDisplay(
+  cookedBy: MealCookedBy | null,
+  restaurantName: string | null = null,
+  cookedByName: string | null = null,
+): string | null {
+  if (!cookedBy) return null;
+  if (cookedBy === "restaurant" && restaurantName?.trim()) {
+    return restaurantName.trim();
+  }
+  if (cookedBy === "other" && cookedByName?.trim()) {
+    return cookedByName.trim();
+  }
+  return MEAL_COOKED_BY_LABEL[cookedBy];
+}
+
+/** Meal-prep boxes — optional for any logged cooking source. */
+export function mealShowsMealBoxes(cookedBy: MealCookedBy | null): boolean {
+  return cookedBy !== null;
+}
 
 /** Lunch and dinner track who cooked and optional meal-prep boxes. */
 export function mealHasCookingMeta(meal: MealKey): boolean {
@@ -112,6 +146,11 @@ export interface MealEntry {
   waterLogId: string | null;
   /** Who prepared lunch/dinner — null for breakfast or legacy rows. */
   cookedBy: MealCookedBy | null;
+  /** Saved restaurant when cooked_by is restaurant. */
+  restaurantId: string | null;
+  restaurantName: string | null;
+  /** Free-text name when cooked_by is other. */
+  cookedByName: string | null;
   /** Meal-prep boxes made when cooking — lunch/dinner only. */
   mealBoxes: number | null;
 }

@@ -8,7 +8,7 @@ import {
 } from "@/app/(app)/tasks-actions";
 import type { MonthlyTask, TaskCategory, WeeklyTask, Weekday } from "@/lib/tasks";
 import { WEEKDAY_LONG } from "@/lib/tasks";
-import styles from "./profile.module.scss";
+import styles from "../profile.module.scss";
 
 interface Props {
   categories: TaskCategory[];

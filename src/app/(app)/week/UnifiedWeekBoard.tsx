@@ -62,7 +62,7 @@ import {
   bathingRequiresWaterTemp,
   formatWaterTemp,
 } from "@/lib/bathing";
-import { parseKrInput } from "@/lib/monthly-finance";
+import { monthPlanEkonomiHref, parseKrInput, SALARY_TASK_KEY } from "@/lib/monthly-finance";
 import {
   GYM_WARMUP_ICON,
   GYM_WARMUP_LABEL,
@@ -845,6 +845,7 @@ function ItemRowContent({
   onPendingId,
   onDone,
 }: ItemRowContentProps) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
   const [warmup, setWarmup] = useState<GymWarmup | null>(
     item.kind === "gym" ? item.warmup : null,
@@ -887,6 +888,10 @@ function ItemRowContent({
   );
   const isMonthlyAmount =
     item.kind === "monthly_bill" && item.completionKind === "amount";
+  const isMonthlyFinance =
+    item.kind === "monthly_bill" && item.completionKind === "finance";
+  const isSalaryTask =
+    item.kind === "monthly_bill" && item.taskKey === SALARY_TASK_KEY;
   const taskPlanningExpand =
     item.kind === "task" &&
     (item.completionKind === "journal" ||
@@ -906,13 +911,21 @@ function ItemRowContent({
           : item.kind === "weight"
             ? "Vikt"
             : item.kind === "monthly_bill"
-              ? isMonthlyAmount
-                ? "Lön"
-                : "Räkning"
+              ? isMonthlyFinance
+                ? "Ekonomi"
+                : isMonthlyAmount
+                  ? isSalaryTask
+                    ? "Lön"
+                    : "Sparande"
+                  : "Räkning"
               : null);
 
   const toggleMonthlyBill = () => {
     if (item.kind !== "monthly_bill") return;
+    if (isMonthlyFinance) {
+      router.push(monthPlanEkonomiHref(item.monthStart));
+      return;
+    }
     if (isMonthlyAmount && !item.done) {
       onToggleExpand();
       return;
@@ -1255,7 +1268,7 @@ function ItemRowContent({
       <button
         type="button"
         className={styles.taskBody}
-        onClick={preview ? undefined : onToggleExpand}
+        onClick={preview ? undefined : isMonthlyFinance ? () => router.push(monthPlanEkonomiHref(item.monthStart)) : onToggleExpand}
         aria-expanded={expanded}
         disabled={pending || preview}
       >
@@ -1284,7 +1297,8 @@ function ItemRowContent({
           item.kind === "sport" ||
           (item.kind === "bathing" && item.bathingRole === "placement") ||
           item.kind === "weight" ||
-          isMonthlyAmount) ? (
+          isMonthlyAmount ||
+          isMonthlyFinance) ? (
           <span
             className={[styles.chevron, expanded ? styles.chevronUp : ""]
               .filter(Boolean)
@@ -1550,10 +1564,10 @@ function ItemRowContent({
           {isMonthlyAmount && !item.done ? (
             <>
               <Input
-                label="Lön (kr)"
+                label={isSalaryTask ? "Lön (kr)" : "Belopp (kr)"}
                 value={monthlyAmount}
                 onChange={(e) => setMonthlyAmount(e.target.value)}
-                placeholder="t.ex. 32000"
+                placeholder={isSalaryTask ? "t.ex. 32000" : "t.ex. 1500"}
                 inputMode="decimal"
                 disabled={pending}
               />
@@ -1566,7 +1580,7 @@ function ItemRowContent({
                 disabled={pending}
                 onClick={() => saveMonthlyAmount(false)}
               >
-                Spara lön
+                {isSalaryTask ? "Spara lön" : "Spara belopp"}
               </Button>
               <Button
                 type="button"
@@ -1591,6 +1605,28 @@ function ItemRowContent({
             >
               Ångra klarmarkering
             </button>
+          ) : null}
+
+          {isMonthlyFinance ? (
+            <>
+              <p className={styles.actionsLabel}>
+                Fyll i saldo på alla konton i ekonomitabellen.
+              </p>
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={() => router.push(monthPlanEkonomiHref(item.monthStart))}
+              >
+                Öppna ekonomitabellen
+              </Button>
+              {item.done && item.subtitle ? (
+                <p className={styles.taskNotes}>{item.subtitle}</p>
+              ) : null}
+            </>
           ) : null}
 
           {item.kind === "weight" ? (

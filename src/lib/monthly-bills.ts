@@ -1,5 +1,5 @@
 import { addDaysISO, parseLocalISO } from "@/lib/date";
-import { formatKr } from "@/lib/monthly-finance";
+import { FINANCE_EKONOMI_TASK_KEY, formatKr, monthPlanEkonomiHref } from "@/lib/monthly-finance";
 import type {
   MonthlyCompletion,
   MonthlyTask,
@@ -9,6 +9,7 @@ import type {
 
 export const BILLS_CATEGORY_NAME = "Räkningar";
 export const FINANCE_CATEGORY_NAME = "Ekonomi";
+export const SAVINGS_CATEGORY_NAME = "Sparande";
 
 export function billsCategoryId(categories: TaskCategory[]): string | null {
   return categories.find((c) => c.name === BILLS_CATEGORY_NAME)?.id ?? null;
@@ -16,6 +17,10 @@ export function billsCategoryId(categories: TaskCategory[]): string | null {
 
 export function financeCategoryId(categories: TaskCategory[]): string | null {
   return categories.find((c) => c.name === FINANCE_CATEGORY_NAME)?.id ?? null;
+}
+
+export function savingsCategoryId(categories: TaskCategory[]): string | null {
+  return categories.find((c) => c.name === SAVINGS_CATEGORY_NAME)?.id ?? null;
 }
 
 export function isMonthlyBill(
@@ -26,18 +31,39 @@ export function isMonthlyBill(
   return id != null && task.categoryId === id;
 }
 
-/** Monthly tasks that can be placed on days in the week plan (bills + e.g. lön). */
+/** Monthly tasks that can be placed on a day (bills, savings, salary, ekonomi). */
 export function isWeekPlannableMonthlyTask(
   task: Pick<MonthlyTask, "categoryId" | "completionKind" | "key">,
   categories: TaskCategory[],
 ): boolean {
   if (isMonthlyBill(task, categories)) return true;
+  const savingsId = savingsCategoryId(categories);
+  if (
+    savingsId != null &&
+    task.categoryId === savingsId &&
+    task.completionKind === "amount"
+  ) {
+    return true;
+  }
   const financeId = financeCategoryId(categories);
+  if (financeId != null && task.categoryId === financeId) {
+    if (task.completionKind === "finance") return true;
+    if (
+      task.completionKind === "amount" &&
+      task.key !== FINANCE_EKONOMI_TASK_KEY
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isMonthlyFinanceTask(
+  task: Pick<MonthlyTask, "completionKind" | "key">,
+): boolean {
   return (
-    financeId != null &&
-    task.categoryId === financeId &&
-    task.completionKind === "amount" &&
-    task.key !== "finance_ekonomi"
+    task.completionKind === "finance" ||
+    task.key === FINANCE_EKONOMI_TASK_KEY
   );
 }
 
@@ -175,6 +201,7 @@ export function resolveMonthlyBillsForWeek(
       if (placedTaskMonths.has(compKey)) continue;
 
       const completion = completionsByTaskMonth.get(compKey) ?? null;
+      if (completion?.doneAt) continue;
       const day = effectiveScheduledDay(task, completion);
       if (day == null) {
         backlog.push({ task: { ...task, completion }, monthStart });

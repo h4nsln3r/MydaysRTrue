@@ -22,7 +22,14 @@ import {
   type MonthlyTaskForMonth,
   type TaskCategory,
 } from "@/lib/tasks";
-import { effectiveScheduledDay, formatBillAmountKr, effectiveBillAmountKr, isMonthlyBill } from "@/lib/monthly-bills";
+import {
+  effectiveScheduledDay,
+  formatBillAmountKr,
+  effectiveBillAmountKr,
+  isMonthlyBill,
+  isMonthlyFinanceTask,
+  isWeekPlannableMonthlyTask,
+} from "@/lib/monthly-bills";
 import styles from "./monthly-tasks.module.scss";
 
 interface Props {
@@ -55,7 +62,7 @@ export function MonthlyTasksBoard({
   };
 
   const toggleQuick = (task: MonthlyTaskForMonth) => {
-    if (task.completionKind === "finance") {
+    if (isMonthlyFinanceTask(task)) {
       document.getElementById("ekonomi")?.scrollIntoView({ behavior: "smooth" });
       setExpandedId(task.id);
       return;
@@ -357,7 +364,7 @@ function MonthlyTaskRow({
         : "",
   );
 
-  const showDayPicker = task.completionKind === "simple";
+  const showDayPicker = isWeekPlannableMonthlyTask(task, categories);
 
   return (
     <li

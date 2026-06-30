@@ -23,9 +23,8 @@ import {
   type MonthlyFinanceSnapshot,
 } from "@/lib/monthly-finance";
 import {
-  billsCategoryId,
   effectiveScheduledDay,
-  financeCategoryId,
+  isWeekPlannableMonthlyTask,
   monthStartFromDate,
 } from "@/lib/monthly-bills";
 
@@ -634,17 +633,9 @@ export async function getMonthlyBillsForWeek(
   }
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
-  const billsCatId = billsCategoryId(categories);
-  const ekonomiCatId = financeCategoryId(categories);
   const weekTasks = (tasksRes.data ?? [])
     .map(rowToMonthly)
-    .filter(
-      (t) =>
-        t.categoryId === billsCatId ||
-        (t.categoryId === ekonomiCatId &&
-          t.completionKind === "amount" &&
-          t.key !== "finance_ekonomi"),
-    );
+    .filter((t) => isWeekPlannableMonthlyTask(t, categories));
 
   const tasks: MonthlyTaskForMonth[] = weekTasks.map((row) => ({
     ...row,

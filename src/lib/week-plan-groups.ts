@@ -28,6 +28,7 @@ export function groupWeekPlanDayItems(
 ): WeekPlanItemGroup[] {
   const billsId = categoryIdByName(categories, "Räkningar");
   const financeId = categoryIdByName(categories, "Ekonomi");
+  const savingsId = categoryIdByName(categories, "Sparande");
 
   const training = items.filter(
     (i) =>
@@ -42,6 +43,9 @@ export function groupWeekPlanDayItems(
   const financeMonthly = items.filter(
     (i) => i.kind === "monthly_bill" && i.categoryId === financeId,
   );
+  const savings = items.filter(
+    (i) => i.kind === "monthly_bill" && i.categoryId === savingsId,
+  );
   const weight = items.filter((i) => i.kind === "weight");
 
   const groups: WeekPlanItemGroup[] = [];
@@ -50,6 +54,9 @@ export function groupWeekPlanDayItems(
   }
   if (financeMonthly.length > 0) {
     groups.push({ id: "finance", label: "Ekonomi", items: financeMonthly });
+  }
+  if (savings.length > 0) {
+    groups.push({ id: "savings", label: "Sparande", items: savings });
   }
   if (bills.length > 0) {
     groups.push({ id: "bills", label: "Räkningar", items: bills });
@@ -76,6 +83,7 @@ export function groupWeekPlanBacklogItems(
   const lifeId = categoryIdByName(categories, "Livet");
   const billsId = categoryIdByName(categories, "Räkningar");
   const financeId = categoryIdByName(categories, "Ekonomi");
+  const savingsId = categoryIdByName(categories, "Sparande");
 
   const training = items.filter((i) => isBacklogTrainingItem(i));
   const weight = items.filter((i) => i.kind === "weight");
@@ -97,6 +105,9 @@ export function groupWeekPlanBacklogItems(
   const financeMonthly = items.filter(
     (i) => i.kind === "monthly_bill" && i.categoryId === financeId,
   );
+  const savings = items.filter(
+    (i) => i.kind === "monthly_bill" && i.categoryId === savingsId,
+  );
   const otherTasks = items.filter(
     (i) =>
       i.kind === "task" &&
@@ -104,7 +115,8 @@ export function groupWeekPlanBacklogItems(
       i.categoryId !== devId &&
       i.categoryId !== musicId &&
       i.categoryId !== lifeId &&
-      i.categoryId !== billsId,
+      i.categoryId !== billsId &&
+      i.categoryId !== savingsId,
   );
 
   const groups: WeekPlanItemGroup[] = [];
@@ -124,6 +136,9 @@ export function groupWeekPlanBacklogItems(
   }
   if (financeMonthly.length > 0) {
     groups.push({ id: "finance", label: "Ekonomi", items: financeMonthly });
+  }
+  if (savings.length > 0) {
+    groups.push({ id: "savings", label: "Sparande", items: savings });
   }
   if (bills.length > 0) {
     groups.push({ id: "bills", label: "Räkningar", items: bills });

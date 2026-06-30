@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
@@ -9,11 +10,12 @@ import {
   setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
 } from "@/app/(app)/tasks-actions";
-import { parseKrInput } from "@/lib/monthly-finance";
+import { monthPlanEkonomiHref, parseKrInput } from "@/lib/monthly-finance";
 import {
   effectiveBillAmountKr,
   formatBillAmountKr,
   isMonthlyBill,
+  isMonthlyFinanceTask,
 } from "@/lib/monthly-bills";
 import {
   formatMonthlyTaskDetail,
@@ -53,7 +55,9 @@ export function MonthlyTaskDayRow({
   sortableStyle,
   planningMode = false,
 }: Props) {
+  const router = useRouter();
   const done = Boolean(task.completion?.doneAt);
+  const isFinance = isMonthlyFinanceTask(task);
   const detail = formatMonthlyTaskDetail(task, task.completion);
   const billAmountLabel = formatBillAmountKr(task);
   const isBill = isMonthlyBill(task, categories);
@@ -61,8 +65,9 @@ export function MonthlyTaskDayRow({
     ? categories.find((c) => c.id === task.categoryId) ?? null
     : null;
   const needsExpand =
-    isBill || task.completionKind === "amount" || task.completionKind === "finance";
+    !isFinance && (isBill || task.completionKind === "amount");
   const monthHref = `/month?m=${monthStart.slice(0, 7)}&view=plan`;
+  const ekonomiHref = monthPlanEkonomiHref(monthStart);
   const [, startTransition] = useTransition();
 
   const savedNote =
@@ -94,9 +99,14 @@ export function MonthlyTaskDayRow({
     });
   };
 
+  const openEkonomi = () => {
+    if (planningMode) return;
+    router.push(ekonomiHref);
+  };
+
   const toggleSimple = () => {
-    if (task.completionKind === "finance") {
-      onToggleExpand();
+    if (isFinance) {
+      openEkonomi();
       return;
     }
     if (task.completionKind === "amount") {
@@ -213,8 +223,14 @@ export function MonthlyTaskDayRow({
       <button
         type="button"
         className={styles.taskBody}
-        onClick={planningMode ? undefined : onToggleExpand}
-        aria-expanded={planningMode ? undefined : expanded}
+        onClick={
+          planningMode
+            ? undefined
+            : isFinance
+              ? openEkonomi
+              : onToggleExpand
+        }
+        aria-expanded={planningMode || isFinance ? undefined : expanded}
         disabled={pending || planningMode}
       >
         <span
@@ -245,8 +261,8 @@ export function MonthlyTaskDayRow({
             <span className={styles.taskDetail}>{billAmountLabel}</span>
           ) : detail ? (
             <span className={styles.taskDetail}>{detail}</span>
-          ) : !done && task.completionKind === "finance" ? (
-            <span className={styles.planHint}>Öppna månadsplanen för ekonomi</span>
+          ) : !done && isFinance ? (
+            <span className={styles.planHint}>Öppna ekonomitabellen</span>
           ) : null}
         </span>
         {!planningMode && needsExpand ? (

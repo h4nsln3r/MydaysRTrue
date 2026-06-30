@@ -260,10 +260,14 @@ export async function getUnifiedWeekPlan(
       completion,
       label: slot.task.title,
       subtitle:
-        slot.task.completionKind === "amount"
+        slot.task.completionKind === "finance"
           ? formatMonthlyTaskDetail(slot.task, completion) ??
-            formatBillAmountKr({ ...slot.task, completion })
-          : formatBillAmountKr({ ...slot.task, completion }) ?? slot.task.notes,
+            slot.task.notes ??
+            "Fyll i ekonomitabellen"
+          : slot.task.completionKind === "amount"
+            ? formatMonthlyTaskDetail(slot.task, completion) ??
+              formatBillAmountKr({ ...slot.task, completion })
+            : formatBillAmountKr({ ...slot.task, completion }) ?? slot.task.notes,
       icon: slot.task.icon,
       accent: slot.task.accent,
       defaultWeekday: null,
@@ -294,12 +298,16 @@ export async function getUnifiedWeekPlan(
       completion,
       label: entry.task.title,
       subtitle:
-        entry.task.completionKind === "amount"
+        entry.task.completionKind === "finance"
           ? formatMonthlyTaskDetail(entry.task, completion) ??
-            formatBillAmountKr({ ...entry.task, completion })
-          : formatBillAmountKr({ ...entry.task, completion }) ??
             entry.task.notes ??
-            "Placera på en dag den här månaden",
+            "Placera på en dag — fyll i ekonomitabellen"
+          : entry.task.completionKind === "amount"
+            ? formatMonthlyTaskDetail(entry.task, completion) ??
+              formatBillAmountKr({ ...entry.task, completion })
+            : formatBillAmountKr({ ...entry.task, completion }) ??
+              entry.task.notes ??
+              "Placera på en dag den här månaden",
       icon: entry.task.icon,
       accent: entry.task.accent,
       defaultWeekday: null,

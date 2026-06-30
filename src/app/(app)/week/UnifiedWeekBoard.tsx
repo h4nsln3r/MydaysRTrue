@@ -77,6 +77,7 @@ import {
   type Weekday,
 } from "@/lib/tasks";
 import { WEIGHT_TIME_LABEL } from "@/lib/weight";
+import { addDaysISO } from "@/lib/date";
 import {
   groupWeekPlanBacklogItems,
   type WeekPlanItemGroup,
@@ -122,10 +123,14 @@ export function UnifiedWeekBoard({
   );
 
   const catById = new Map(plan.categories.map((c) => [c.id, c]));
-  const sidebarBacklog = localItems.filter(
-    (i) =>
-      i.weekday == null ||
-      (i.kind === "bathing" && i.bathingRole === "source"),
+  const weeklyBacklog = localItems.filter((i) => {
+    if (i.kind === "monthly_bill") return false;
+    if (i.weekday != null) return false;
+    if (i.kind === "bathing" && i.bathingRole === "source") return true;
+    return true;
+  });
+  const monthlyBacklog = localItems.filter(
+    (i) => i.kind === "monthly_bill" && i.weekday == null && !i.done,
   );
   const byDay = new Map<Weekday, WeekPlanItem[]>(
     WEEKDAYS.map((d) => [d, [] as WeekPlanItem[]]),
@@ -204,6 +209,13 @@ export function UnifiedWeekBoard({
                 weekday,
                 daySortOrder: nextOrder,
               },
+            };
+          }
+          if (i.kind === "monthly_bill") {
+            const localDate = addDaysISO(weekStart, weekday - 1);
+            return {
+              ...next,
+              scheduledDayOfMonth: Number(localDate.slice(8, 10)),
             };
           }
           return next;
@@ -496,20 +508,45 @@ export function UnifiedWeekBoard({
 
       <div className={styles.layout}>
         <aside className={styles.backlogPanel}>
-          <BacklogDropZone count={sidebarBacklog.length}>
-            <p className={styles.dragHint}>
-              Dra till en veckodag →
-            </p>
-            {sidebarBacklog.length === 0 ? (
-              <p className={styles.dayEmpty}>Alla placerade den här veckan.</p>
-            ) : (
-              <div className={styles.dayGroups}>
-                {renderGroupedLists(
-                  groupWeekPlanBacklogItems(sidebarBacklog, plan.categories),
-                  false,
-                )}
-              </div>
-            )}
+          <BacklogDropZone
+            count={weeklyBacklog.length + monthlyBacklog.length}
+          >
+            <section className={styles.backlogSubsection}>
+              <header className={styles.backlogSubheader}>
+                <h4 className={styles.backlogSubtitle}>Veckoaktiviteter</h4>
+                <span className={styles.backlogSubcount}>
+                  {weeklyBacklog.length}
+                </span>
+              </header>
+              {weeklyBacklog.length === 0 ? (
+                <p className={styles.dayEmpty}>Alla veckoaktiviteter placerade.</p>
+              ) : (
+                <div className={styles.dayGroups}>
+                  {renderGroupedLists(
+                    groupWeekPlanBacklogItems(weeklyBacklog, plan.categories),
+                    false,
+                  )}
+                </div>
+              )}
+            </section>
+
+            {monthlyBacklog.length > 0 ? (
+              <section className={styles.backlogSubsection}>
+                <header className={styles.backlogSubheader}>
+                  <h4 className={styles.backlogSubtitle}>Försenade månadsuppgifter</h4>
+                  <span className={styles.backlogSubcount}>
+                    {monthlyBacklog.length}
+                  </span>
+                </header>
+                <p className={styles.dragHint}>Dra till en veckodag →</p>
+                <div className={styles.dayGroups}>
+                  {renderGroupedLists(
+                    groupWeekPlanBacklogItems(monthlyBacklog, plan.categories),
+                    false,
+                  )}
+                </div>
+              </section>
+            ) : null}
           </BacklogDropZone>
         </aside>
 

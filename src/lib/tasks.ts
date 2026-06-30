@@ -127,7 +127,9 @@ export interface MonthlyCompletion {
   amount: number | null;
   /** Per-month placement override (1–31). */
   scheduledDayOfMonth: number | null;
-  /** User moved this bill back to backlog for the month. */
+  /** ISO week (Monday) for week-only or day placement this month. */
+  scheduledWeekStart: string | null;
+  /** User cleared planning for this month (overrides default day). */
   isUnscheduled: boolean;
   /** Order on the weekday when shown in the week plan. */
   daySortOrder: number;

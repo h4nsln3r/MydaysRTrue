@@ -1,4 +1,8 @@
-import { addDaysISO, parseLocalISO } from "@/lib/date";
+import {
+  addDaysISO,
+  parseLocalISO,
+  weekStartISO,
+} from "@/lib/date";
 import { FINANCE_EKONOMI_TASK_KEY, formatKr, monthPlanEkonomiHref } from "@/lib/monthly-finance";
 import type {
   MonthlyCompletion,
@@ -112,17 +116,130 @@ export function sumMonthlyBills(
   };
 }
 
+export type MonthlyScheduleSource = "explicit" | "default" | "none";
+
+export interface MonthlyTaskSchedule {
+  monthStart: string;
+  weekStart: string | null;
+  dayOfMonth: number | null;
+  isPlanned: boolean;
+  source: MonthlyScheduleSource;
+}
+
+/** All ISO week starts (Mondays) that overlap a calendar month. */
+export function weeksInMonth(monthStart: string): string[] {
+  const [y, m] = monthStart.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const monthEnd = `${monthStart.slice(0, 7)}-${String(lastDay).padStart(2, "0")}`;
+
+  const weeks = new Set<string>();
+  let cursor = monthStart;
+  while (cursor <= monthEnd) {
+    weeks.add(weekStartISO(parseLocalISO(cursor)));
+    cursor = addDaysISO(cursor, 1);
+  }
+  return [...weeks].sort();
+}
+
 /** Effective due day for a bill in a given month (per-month override wins). */
 export function effectiveScheduledDay(
   task: Pick<MonthlyTask, "dayOfMonth">,
   completion:
-    | Pick<MonthlyCompletion, "scheduledDayOfMonth" | "isUnscheduled">
+    | Pick<
+        MonthlyCompletion,
+        "scheduledDayOfMonth" | "scheduledWeekStart" | "isUnscheduled"
+      >
     | null
     | undefined,
+  monthStart?: string,
 ): number | null {
-  if (completion?.isUnscheduled) return null;
-  if (completion?.scheduledDayOfMonth != null) return completion.scheduledDayOfMonth;
-  return task.dayOfMonth ?? null;
+  return resolveMonthlyTaskSchedule(task, completion ?? null, monthStart ?? "")
+    .dayOfMonth;
+}
+
+/**
+ * Resolve how a monthly task is planned for a month.
+ * Uses explicit completion row, else `day_of_month` default unless marked unscheduled.
+ */
+export function resolveMonthlyTaskSchedule(
+  task: Pick<MonthlyTask, "dayOfMonth">,
+  completion:
+    | Partial<
+        Pick<
+          MonthlyCompletion,
+          | "doneAt"
+          | "scheduledDayOfMonth"
+          | "scheduledWeekStart"
+          | "isUnscheduled"
+        >
+      >
+    | null,
+  monthStart: string,
+): MonthlyTaskSchedule {
+  const none = (): MonthlyTaskSchedule => ({
+    monthStart,
+    weekStart: null,
+    dayOfMonth: null,
+    isPlanned: false,
+    source: "none",
+  });
+
+  if (completion?.doneAt) return none();
+  if (completion?.isUnscheduled) return none();
+
+  if (completion) {
+    const day = completion.scheduledDayOfMonth;
+    if (day != null) {
+      const weekStart = weekStartISO(
+        parseLocalISO(dateInMonth(monthStart, day)),
+      );
+      return {
+        monthStart,
+        weekStart: completion.scheduledWeekStart ?? weekStart,
+        dayOfMonth: day,
+        isPlanned: true,
+        source: "explicit",
+      };
+    }
+    if (completion.scheduledWeekStart) {
+      return {
+        monthStart,
+        weekStart: completion.scheduledWeekStart,
+        dayOfMonth: null,
+        isPlanned: true,
+        source: "explicit",
+      };
+    }
+  }
+
+  if (task.dayOfMonth != null) {
+    const day = task.dayOfMonth;
+    return {
+      monthStart,
+      weekStart: weekStartISO(parseLocalISO(dateInMonth(monthStart, day))),
+      dayOfMonth: day,
+      isPlanned: true,
+      source: "default",
+    };
+  }
+
+  return none();
+}
+
+/** True when the task still needs week/day planning on the month board. */
+export function needsMonthPlacement(
+  task: Pick<MonthlyTask, "dayOfMonth">,
+  completion: MonthlyCompletion | null,
+  monthStart: string,
+): boolean {
+  if (completion?.doneAt) return false;
+  if (
+    completion?.scheduledWeekStart != null ||
+    completion?.scheduledDayOfMonth != null
+  ) {
+    return false;
+  }
+  return !resolveMonthlyTaskSchedule(task, completion, monthStart).isPlanned;
 }
 
 /** YYYY-MM-DD for a day in month, clamped to last day if needed. */
@@ -146,10 +263,8 @@ export function effectiveDayForMonth(
   task: MonthlyTaskForMonth,
   monthStart: string,
 ): number | null {
-  if (task.completion?.monthStart === monthStart) {
-    return effectiveScheduledDay(task, task.completion);
-  }
-  return task.dayOfMonth;
+  return resolveMonthlyTaskSchedule(task, task.completion, monthStart)
+    .dayOfMonth;
 }
 
 export interface MonthlyBillWeekSlot {
@@ -159,9 +274,16 @@ export interface MonthlyBillWeekSlot {
   weekday: number;
 }
 
+export interface MonthlyBillForWeekBacklog {
+  task: MonthlyTaskForMonth;
+  monthStart: string;
+}
+
 /**
- * Resolve which monthly bills appear on which days in a given ISO week.
- * Unplaced bills for overlapping months go to the backlog list.
+ * Resolve which monthly tasks appear in an ISO week.
+ * - Unplanned tasks are hidden.
+ * - Done tasks are hidden.
+ * - Planned week/day: visible only that week (or later weeks if overdue).
  */
 export function resolveMonthlyBillsForWeek(
   tasks: MonthlyTaskForMonth[],
@@ -172,39 +294,48 @@ export function resolveMonthlyBillsForWeek(
   const monthStarts = [...new Set([...weekDates].map(monthStartFromDate))];
   const placed: MonthlyBillWeekSlot[] = [];
   const backlog: MonthlyBillForWeekBacklog[] = [];
-  const placedTaskMonths = new Set<string>();
+  const inBacklog = new Set<string>();
 
   for (const task of tasks) {
     for (const monthStart of monthStarts) {
       if (task.singleMonthStart && task.singleMonthStart !== monthStart) continue;
+
       const compKey = `${task.id}|${monthStart}`;
       const completion = completionsByTaskMonth.get(compKey) ?? null;
-      const day = effectiveScheduledDay(task, completion);
+      if (completion?.doneAt) continue;
 
-      if (day != null) {
-        const scheduledDate = dateInMonth(monthStart, day);
+      const schedule = resolveMonthlyTaskSchedule(task, completion, monthStart);
+      if (!schedule.isPlanned || !schedule.weekStart) continue;
+      if (weekStart < schedule.weekStart) continue;
+
+      const taskWithCompletion: MonthlyTaskForMonth = {
+        ...task,
+        completion,
+      };
+
+      if (schedule.dayOfMonth != null) {
+        const scheduledDate = dateInMonth(monthStart, schedule.dayOfMonth);
         if (weekDates.has(scheduledDate)) {
           placed.push({
-            task: { ...task, completion },
+            task: taskWithCompletion,
             monthStart,
             scheduledDate,
             weekday: isoWeekdayFromDate(scheduledDate),
           });
-          placedTaskMonths.add(compKey);
+          continue;
         }
+        if (weekStart > schedule.weekStart && !inBacklog.has(compKey)) {
+          backlog.push({ task: taskWithCompletion, monthStart });
+          inBacklog.add(compKey);
+        }
+        continue;
       }
-    }
 
-    for (const monthStart of monthStarts) {
-      if (task.singleMonthStart && task.singleMonthStart !== monthStart) continue;
-      const compKey = `${task.id}|${monthStart}`;
-      if (placedTaskMonths.has(compKey)) continue;
-
-      const completion = completionsByTaskMonth.get(compKey) ?? null;
-      if (completion?.doneAt) continue;
-      const day = effectiveScheduledDay(task, completion);
-      if (day == null) {
-        backlog.push({ task: { ...task, completion }, monthStart });
+      // Week-only plan: hidden until a day is chosen (month board). If the week
+      // passed without a day, surface in backlog so it can be rescheduled.
+      if (weekStart > schedule.weekStart && !inBacklog.has(compKey)) {
+        backlog.push({ task: taskWithCompletion, monthStart });
+        inBacklog.add(compKey);
       }
     }
   }
@@ -212,13 +343,10 @@ export function resolveMonthlyBillsForWeek(
   return { placed, backlog };
 }
 
-export interface MonthlyBillForWeekBacklog {
-  task: MonthlyTaskForMonth;
-  monthStart: string;
-}
-
 function isoWeekdayFromDate(localDate: string): number {
   const dt = parseLocalISO(localDate);
   const jsDow = dt.getDay();
   return ((jsDow + 6) % 7) + 1;
 }
+
+export { monthPlanEkonomiHref };

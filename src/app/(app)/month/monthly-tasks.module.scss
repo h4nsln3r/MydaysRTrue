@@ -338,6 +338,61 @@
     color: $color-fog;
 }
 
+.planSection {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.planSectionHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-2;
+}
+
+.planSectionTitle {
+    margin: 0;
+    font-family: $font-display;
+    font-size: 1rem;
+    font-weight: 700;
+    color: $color-cream;
+}
+
+.planSectionCount {
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    color: $color-fog;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.planSectionDone {
+    margin: 0;
+    padding: $space-3 $space-4;
+    background: $color-ink-soft;
+    border: 1px dashed $color-line;
+    border-radius: $radius-md;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+    text-align: center;
+}
+
+.taskPlanSummary {
+    margin: 2px 0 0;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    color: $color-cream-dim;
+    letter-spacing: 0.02em;
+}
+
+.taskPlanRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+    margin-top: 4px;
+}
+
 .taskDayLabel {
     flex-shrink: 0;
 }

@@ -166,7 +166,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
           <section className={styles.section}>
             <header className={styles.sectionHeader}>
               <h2 className={styles.h2}>Månadsuppgifter</h2>
-              <span className={styles.muted}>placera & klarmarkera</span>
+              <span className={styles.muted}>att placera · klarmarkera</span>
             </header>
             <MonthlyTasksBoard
               monthStart={monthStart}

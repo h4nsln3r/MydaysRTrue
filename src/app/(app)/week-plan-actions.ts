@@ -170,6 +170,7 @@ export async function unplaceWeekPlanItemAction(input: {
       return unplaceMonthlyBillFromWeekAction({
         taskId: parsed.entityId,
         monthStart: parsed.monthStart,
+        weekStart: input.weekStart,
       });
     default:
       return { ok: false, error: "Okänd aktivitetstyp." };

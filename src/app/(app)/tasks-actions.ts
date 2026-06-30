@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { addDaysISO } from "@/lib/date";
-import { monthStartFromDate } from "@/lib/monthly-bills";
+import { addDaysISO, parseLocalISO, weekStartISO } from "@/lib/date";
+import { dateInMonth, monthStartFromDate } from "@/lib/monthly-bills";
 import {
   applyTransferDelta,
   balancesFromSnapshotRow,
@@ -1132,6 +1132,7 @@ async function upsertMonthlyBillSchedule(
   taskId: string,
   monthStart: string,
   scheduledDayOfMonth: number | null,
+  scheduledWeekStart: string | null,
   isUnscheduled: boolean,
 ): Promise<ActionResult> {
   const { data: existing } = await supabase
@@ -1144,6 +1145,7 @@ async function upsertMonthlyBillSchedule(
 
   const payload = {
     scheduled_day_of_month: scheduledDayOfMonth,
+    scheduled_week_start: scheduledWeekStart,
     is_unscheduled: isUnscheduled,
   };
 
@@ -1255,7 +1257,77 @@ export async function scheduleMonthlyBillDayAction(input: {
       input.taskId,
       input.monthStart,
       null,
+      null,
       true,
+    );
+  }
+
+  const weekStart = weekStartISO(
+    parseLocalISO(dateInMonth(input.monthStart, input.dayOfMonth)),
+  );
+
+  return upsertMonthlyBillSchedule(
+    supabase,
+    user.id,
+    input.taskId,
+    input.monthStart,
+    input.dayOfMonth,
+    weekStart,
+    false,
+  );
+}
+
+/** Plan a monthly task on a week and/or day from the month board. */
+export async function scheduleMonthlyTaskPlanAction(input: {
+  taskId: string;
+  monthStart: string;
+  weekStart: string | null;
+  dayOfMonth: number | null;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+  if (!MONTH_START_RE.test(input.monthStart)) {
+    return { ok: false, error: "Invalid month." };
+  }
+  if (
+    input.dayOfMonth != null &&
+    (input.dayOfMonth < 1 || input.dayOfMonth > 31)
+  ) {
+    return { ok: false, error: "Ogiltig dag." };
+  }
+  if (input.weekStart != null && !ISO_DATE_RE.test(input.weekStart)) {
+    return { ok: false, error: "Ogiltig vecka." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  if (input.weekStart == null && input.dayOfMonth == null) {
+    return upsertMonthlyBillSchedule(
+      supabase,
+      user.id,
+      input.taskId,
+      input.monthStart,
+      null,
+      null,
+      true,
+    );
+  }
+
+  if (input.dayOfMonth != null) {
+    const weekStart = weekStartISO(
+      parseLocalISO(dateInMonth(input.monthStart, input.dayOfMonth)),
+    );
+    return upsertMonthlyBillSchedule(
+      supabase,
+      user.id,
+      input.taskId,
+      input.monthStart,
+      input.dayOfMonth,
+      weekStart,
+      false,
     );
   }
 
@@ -1264,7 +1336,8 @@ export async function scheduleMonthlyBillDayAction(input: {
     user.id,
     input.taskId,
     input.monthStart,
-    input.dayOfMonth,
+    null,
+    input.weekStart,
     false,
   );
 }
@@ -1302,6 +1375,7 @@ export async function placeMonthlyBillFromWeekAction(input: {
     input.taskId,
     monthStart,
     dayOfMonth,
+    input.weekStart,
     false,
   );
   if (!scheduleRes.ok) return scheduleRes;
@@ -1318,14 +1392,18 @@ export async function placeMonthlyBillFromWeekAction(input: {
   return { ok: true };
 }
 
-/** Move a monthly bill back to the backlog for a month. */
+/** Move a monthly task from a weekday back to the week backlog. */
 export async function unplaceMonthlyBillFromWeekAction(input: {
   taskId: string;
   monthStart: string;
+  weekStart: string;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Missing task id." };
   if (!MONTH_START_RE.test(input.monthStart)) {
     return { ok: false, error: "Invalid month." };
+  }
+  if (!ISO_DATE_RE.test(input.weekStart)) {
+    return { ok: false, error: "Invalid week." };
   }
 
   const supabase = await createClient();
@@ -1340,7 +1418,8 @@ export async function unplaceMonthlyBillFromWeekAction(input: {
     input.taskId,
     input.monthStart,
     null,
-    true,
+    input.weekStart,
+    false,
   );
 }
 

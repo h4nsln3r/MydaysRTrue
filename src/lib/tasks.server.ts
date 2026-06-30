@@ -24,8 +24,8 @@ import {
 } from "@/lib/monthly-finance";
 import {
   effectiveScheduledDay,
-  isWeekPlannableMonthlyTask,
   monthStartFromDate,
+  resolveMonthlyTaskSchedule,
 } from "@/lib/monthly-bills";
 
 // ----------------------------------------------------------------------------
@@ -325,9 +325,14 @@ export async function getMonthlyTasksForDate(
   const dayOfMonth = Number(localDate.slice(8, 10));
   const { tasks, categories } = await getMonthTaskSummary(userId, monthStart);
   const forDay = tasks
-    .filter(
-      (task) => effectiveScheduledDay(task, task.completion) === dayOfMonth,
-    )
+    .filter((task) => {
+      const schedule = resolveMonthlyTaskSchedule(
+        task,
+        task.completion,
+        monthStart,
+      );
+      return schedule.isPlanned && schedule.dayOfMonth === dayOfMonth;
+    })
     .sort((a, b) => {
       const ao = a.completion?.daySortOrder ?? a.sortOrder;
       const bo = b.completion?.daySortOrder ?? b.sortOrder;
@@ -381,6 +386,7 @@ interface MonthlyCompletionRow {
   note: string | null;
   amount: number | null;
   scheduled_day_of_month: number | null;
+  scheduled_week_start: string | null;
   is_unscheduled: boolean;
   day_sort_order: number;
 }
@@ -394,6 +400,7 @@ function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
     note: r.note,
     amount: r.amount != null ? Number(r.amount) : null,
     scheduledDayOfMonth: r.scheduled_day_of_month,
+    scheduledWeekStart: r.scheduled_week_start,
     isUnscheduled: r.is_unscheduled,
     daySortOrder: r.day_sort_order ?? 0,
   };
@@ -403,7 +410,7 @@ const MONTHLY_TASK_SELECT =
   "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start, default_amount_kr";
 
 const MONTHLY_COMPLETION_SELECT =
-  "id, task_id, month_start, done_at, note, amount, scheduled_day_of_month, is_unscheduled, day_sort_order";
+  "id, task_id, month_start, done_at, note, amount, scheduled_day_of_month, scheduled_week_start, is_unscheduled, day_sort_order";
 
 interface MonthlyTaskDedupeRow {
   id: string;
@@ -633,12 +640,8 @@ export async function getMonthlyBillsForWeek(
   }
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
-  const weekTasks = (tasksRes.data ?? [])
-    .map(rowToMonthly)
-    .filter((t) => isWeekPlannableMonthlyTask(t, categories));
-
-  const tasks: MonthlyTaskForMonth[] = weekTasks.map((row) => ({
-    ...row,
+  const tasks: MonthlyTaskForMonth[] = (tasksRes.data ?? []).map((row) => ({
+    ...rowToMonthly(row),
     completion: null,
   }));
 

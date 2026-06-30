@@ -5,7 +5,7 @@ import {
   formatMonthlyTaskDetail,
   type MonthlyTaskForMonth,
 } from "@/lib/tasks";
-import { dateInMonth, effectiveScheduledDay, formatBillAmountKr, isMonthlyBill } from "@/lib/monthly-bills";
+import { dateInMonth, formatBillAmountKr, isMonthlyBill, monthStartFromDate, resolveMonthlyTaskSchedule } from "@/lib/monthly-bills";
 import { formatDayShort } from "@/lib/date";
 import type { MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
 import type { TaskCategory } from "@/lib/tasks";
@@ -276,7 +276,8 @@ function MonthlyTaskCard({
   today: string;
 }) {
   const done = Boolean(task.completion?.doneAt);
-  const scheduledDay = effectiveScheduledDay(task, task.completion);
+  const schedule = resolveMonthlyTaskSchedule(task, task.completion, monthStart);
+  const scheduledDay = schedule.dayOfMonth;
   const scheduledDate =
     scheduledDay != null ? dateInMonth(monthStart, scheduledDay) : null;
   const billAmountLabel = formatBillAmountKr(task);
@@ -292,10 +293,11 @@ function MonthlyTaskCard({
         : `/day/${scheduledDate}`;
 
   let status: "done" | "planned" | "missed" | "unplaced" = "unplaced";
-  if (scheduledDay != null) {
+  if (schedule.isPlanned) {
     if (done) status = "done";
-    else if (isFuture || isToday) status = "planned";
-    else status = "missed";
+    else if (scheduledDate && (isFuture || isToday)) status = "planned";
+    else if (scheduledDate) status = "missed";
+    else status = "planned";
   }
 
   return (
@@ -323,8 +325,8 @@ function MonthlyTaskCard({
             <p className={styles.monthlyCardDetail}>{billAmountLabel}</p>
           ) : null}
           {status === "unplaced" ? (
-            <p className={styles.monthlyCardDetail}>Ej placerad den här månaden</p>
-          ) : (
+            <p className={styles.monthlyCardDetail}>Ej planerad den här månaden</p>
+          ) : scheduledDay != null ? (
             <p className={styles.monthlyCardDetail}>
               Dag {scheduledDay}
               {scheduledDate ? (
@@ -334,6 +336,8 @@ function MonthlyTaskCard({
                 </span>
               ) : null}
             </p>
+          ) : (
+            <p className={styles.monthlyCardDetail}>Planerad vecka (ingen specifik dag)</p>
           )}
           {done && formatMonthlyTaskDetail(task, task.completion) ? (
             <p className={styles.monthlyCardHint}>
@@ -458,8 +462,13 @@ function DayScore({
   }
 
   for (const task of monthlyTasks) {
-    const scheduledDay = effectiveScheduledDay(task, task.completion);
-    if (scheduledDay === day.dayOfMonth) {
+    const monthStart = monthStartFromDate(day.date);
+    const schedule = resolveMonthlyTaskSchedule(
+      task,
+      task.completion,
+      monthStart,
+    );
+    if (schedule.dayOfMonth === day.dayOfMonth) {
       total += 1;
       if (task.completion?.doneAt) hit += 1;
     }

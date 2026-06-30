@@ -656,6 +656,7 @@ export interface Database {
           note: string | null;
           amount: number | null;
           scheduled_day_of_month: number | null;
+          scheduled_week_start: string | null;
           is_unscheduled: boolean;
           day_sort_order: number;
           created_at: string;
@@ -670,6 +671,7 @@ export interface Database {
           note?: string | null;
           amount?: number | null;
           scheduled_day_of_month?: number | null;
+          scheduled_week_start?: string | null;
           is_unscheduled?: boolean;
           day_sort_order?: number;
           created_at?: string;
@@ -684,6 +686,7 @@ export interface Database {
           note?: string | null;
           amount?: number | null;
           scheduled_day_of_month?: number | null;
+          scheduled_week_start?: string | null;
           is_unscheduled?: boolean;
           day_sort_order?: number;
           created_at?: string;

@@ -46,6 +46,13 @@ export function groupWeekPlanDayItems(
   const savings = items.filter(
     (i) => i.kind === "monthly_bill" && i.categoryId === savingsId,
   );
+  const monthlyOther = items.filter(
+    (i) =>
+      i.kind === "monthly_bill" &&
+      i.categoryId !== billsId &&
+      i.categoryId !== financeId &&
+      i.categoryId !== savingsId,
+  );
   const weight = items.filter((i) => i.kind === "weight");
 
   const groups: WeekPlanItemGroup[] = [];
@@ -57,6 +64,9 @@ export function groupWeekPlanDayItems(
   }
   if (savings.length > 0) {
     groups.push({ id: "savings", label: "Sparande", items: savings });
+  }
+  if (monthlyOther.length > 0) {
+    groups.push({ id: "monthly", label: "Månadsuppgifter", items: monthlyOther });
   }
   if (bills.length > 0) {
     groups.push({ id: "bills", label: "Räkningar", items: bills });
@@ -108,6 +118,13 @@ export function groupWeekPlanBacklogItems(
   const savings = items.filter(
     (i) => i.kind === "monthly_bill" && i.categoryId === savingsId,
   );
+  const monthlyOther = items.filter(
+    (i) =>
+      i.kind === "monthly_bill" &&
+      i.categoryId !== billsId &&
+      i.categoryId !== financeId &&
+      i.categoryId !== savingsId,
+  );
   const otherTasks = items.filter(
     (i) =>
       i.kind === "task" &&
@@ -139,6 +156,9 @@ export function groupWeekPlanBacklogItems(
   }
   if (savings.length > 0) {
     groups.push({ id: "savings", label: "Sparande", items: savings });
+  }
+  if (monthlyOther.length > 0) {
+    groups.push({ id: "monthly", label: "Månadsuppgifter", items: monthlyOther });
   }
   if (bills.length > 0) {
     groups.push({ id: "bills", label: "Räkningar", items: bills });

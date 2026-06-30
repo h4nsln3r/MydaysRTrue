@@ -6,7 +6,7 @@ import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import {
   archiveMonthlyTaskAction,
-  scheduleMonthlyBillDayAction,
+  scheduleMonthlyTaskPlanAction,
   setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
   updateMonthlyTaskAction,
@@ -22,13 +22,16 @@ import {
   type MonthlyTaskForMonth,
   type TaskCategory,
 } from "@/lib/tasks";
+import { formatWeekLabel, parseLocalISO, weekStartISO } from "@/lib/date";
 import {
-  effectiveScheduledDay,
+  dateInMonth,
   formatBillAmountKr,
   effectiveBillAmountKr,
   isMonthlyBill,
   isMonthlyFinanceTask,
-  isWeekPlannableMonthlyTask,
+  needsMonthPlacement,
+  resolveMonthlyTaskSchedule,
+  weeksInMonth,
 } from "@/lib/monthly-bills";
 import styles from "./monthly-tasks.module.scss";
 
@@ -130,13 +133,17 @@ export function MonthlyTasksBoard({
       }),
     );
 
-  const scheduleDay = (task: MonthlyTaskForMonth, raw: string) => {
-    const dayOfMonth = raw === "" ? null : Number(raw);
+  const schedulePlan = (
+    task: MonthlyTaskForMonth,
+    weekStart: string | null,
+    dayOfMonth: number | null,
+  ) => {
     if (dayOfMonth != null && (dayOfMonth < 1 || dayOfMonth > 31)) return;
     run(task.id, () =>
-      scheduleMonthlyBillDayAction({
+      scheduleMonthlyTaskPlanAction({
         taskId: task.id,
         monthStart,
+        weekStart,
         dayOfMonth,
       }),
     );
@@ -204,8 +211,86 @@ export function MonthlyTasksBoard({
     );
   }
 
-  const grouped = groupByCategory(tasks, categories);
+  const toPlaceTasks = tasks.filter((t) =>
+    needsMonthPlacement(t, t.completion, monthStart),
+  );
+  const plannedTasks = tasks.filter(
+    (t) => !needsMonthPlacement(t, t.completion, monthStart),
+  );
+  const groupedToPlace = groupByCategory(toPlaceTasks, categories);
+  const groupedPlanned = groupByCategory(plannedTasks, categories);
   const doneCount = tasks.filter((t) => t.completion?.doneAt).length;
+
+  const renderTaskList = (
+    items: MonthlyTaskForMonth[],
+    showPlanPicker: boolean,
+  ) => (
+    <ul className={styles.taskList}>
+      {items.map((t) => (
+        <MonthlyTaskRow
+          key={t.id}
+          task={t}
+          monthStart={monthStart}
+          categories={categories}
+          pending={pending}
+          busy={pendingId === t.id}
+          expanded={expandedId === t.id}
+          editing={editingId === t.id}
+          showPlanPicker={showPlanPicker}
+          onToggleExpand={() => {
+            if (editingId === t.id) return;
+            setExpandedId(expandedId === t.id ? null : t.id);
+          }}
+          onStartEdit={() => {
+            setEditingId(t.id);
+            setExpandedId(t.id);
+          }}
+          onCancelEdit={() => setEditingId(null)}
+          onSaveEdit={(values) => saveEdit(t.id, values, t)}
+          onDelete={() => removeTask(t.id)}
+          onToggleQuick={toggleQuick}
+          onCompleteSimple={completeSimple}
+          onCompleteAmount={completeAmount}
+          onUncomplete={uncomplete}
+          onSchedulePlan={schedulePlan}
+          onChangeCategory={changeCategory}
+          onSaveBillAmount={saveBillAmount}
+        />
+      ))}
+    </ul>
+  );
+
+  const renderGroupedSection = (
+    grouped: { category: TaskCategory | null; items: MonthlyTaskForMonth[] }[],
+    showPlanPicker: boolean,
+  ) =>
+    grouped.map(({ category, items }) => (
+      <section
+        key={category?.id ?? "uncategorized"}
+        className={styles.group}
+      >
+        <header className={styles.groupHeader}>
+          <span
+            className={styles.groupChip}
+            style={{
+              borderColor: category?.accent ?? "transparent",
+              color: category?.accent ?? undefined,
+            }}
+          >
+            <span className={styles.groupIcon} aria-hidden>
+              {category?.icon ?? "•"}
+            </span>
+            <span className={styles.groupName}>
+              {category?.name ?? "Ingen kategori"}
+            </span>
+          </span>
+          <span className={styles.groupCount}>
+            {items.filter((t) => t.completion?.doneAt).length}/{items.length}
+          </span>
+        </header>
+        {renderTaskList(items, showPlanPicker)}
+      </section>
+    ));
 
   return (
     <div className={styles.board}>
@@ -227,65 +312,34 @@ export function MonthlyTasksBoard({
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
-      {grouped.map(({ category, items }) => (
-        <section
-          key={category?.id ?? "uncategorized"}
-          className={styles.group}
-        >
-          <header className={styles.groupHeader}>
-            <span
-              className={styles.groupChip}
-              style={{
-                borderColor: category?.accent ?? "transparent",
-                color: category?.accent ?? undefined,
-              }}
-            >
-              <span className={styles.groupIcon} aria-hidden>
-                {category?.icon ?? "•"}
-              </span>
-              <span className={styles.groupName}>
-                {category?.name ?? "Ingen kategori"}
-              </span>
-            </span>
-            <span className={styles.groupCount}>
-              {items.filter((t) => t.completion?.doneAt).length}/{items.length}
+      {toPlaceTasks.length > 0 ? (
+        <section className={styles.planSection}>
+          <header className={styles.planSectionHeader}>
+            <h3 className={styles.planSectionTitle}>Att placera</h3>
+            <span className={styles.planSectionCount}>{toPlaceTasks.length}</span>
+          </header>
+          {groupedToPlace.length > 0 ? (
+            renderGroupedSection(groupedToPlace, true)
+          ) : null}
+        </section>
+      ) : (
+        <p className={styles.planSectionDone}>
+          Alla uppgifter är planerade — klarmarkera eller gå till veckovyn.
+        </p>
+      )}
+
+      {plannedTasks.length > 0 ? (
+        <section className={styles.planSection}>
+          <header className={styles.planSectionHeader}>
+            <h3 className={styles.planSectionTitle}>Planerade</h3>
+            <span className={styles.planSectionCount}>
+              {plannedTasks.filter((t) => t.completion?.doneAt).length}/
+              {plannedTasks.length} klara
             </span>
           </header>
-
-          <ul className={styles.taskList}>
-            {items.map((t) => (
-              <MonthlyTaskRow
-                key={t.id}
-                task={t}
-                monthStart={monthStart}
-                categories={categories}
-                pending={pending}
-                busy={pendingId === t.id}
-                expanded={expandedId === t.id}
-                editing={editingId === t.id}
-                onToggleExpand={() => {
-                  if (editingId === t.id) return;
-                  setExpandedId(expandedId === t.id ? null : t.id);
-                }}
-                onStartEdit={() => {
-                  setEditingId(t.id);
-                  setExpandedId(t.id);
-                }}
-                onCancelEdit={() => setEditingId(null)}
-                onSaveEdit={(values) => saveEdit(t.id, values, t)}
-                onDelete={() => removeTask(t.id)}
-                onToggleQuick={toggleQuick}
-                onCompleteSimple={completeSimple}
-                onCompleteAmount={completeAmount}
-                onUncomplete={uncomplete}
-                onSchedule={scheduleDay}
-                onChangeCategory={changeCategory}
-                onSaveBillAmount={saveBillAmount}
-              />
-            ))}
-          </ul>
+          {renderGroupedSection(groupedPlanned, false)}
         </section>
-      ))}
+      ) : null}
     </div>
   );
 }
@@ -298,6 +352,7 @@ interface MonthlyTaskRowProps {
   busy: boolean;
   expanded: boolean;
   editing: boolean;
+  showPlanPicker: boolean;
   onToggleExpand: () => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -311,7 +366,11 @@ interface MonthlyTaskRowProps {
     note: string,
   ) => void;
   onUncomplete: (task: MonthlyTaskForMonth) => void;
-  onSchedule: (task: MonthlyTaskForMonth, raw: string) => void;
+  onSchedulePlan: (
+    task: MonthlyTaskForMonth,
+    weekStart: string | null,
+    dayOfMonth: number | null,
+  ) => void;
   onChangeCategory: (task: MonthlyTaskForMonth, raw: string) => void;
   onSaveBillAmount: (task: MonthlyTaskForMonth, amountRaw: string) => void;
 }
@@ -324,6 +383,7 @@ function MonthlyTaskRow({
   busy,
   expanded,
   editing,
+  showPlanPicker,
   onToggleExpand,
   onStartEdit,
   onCancelEdit,
@@ -333,12 +393,13 @@ function MonthlyTaskRow({
   onCompleteSimple,
   onCompleteAmount,
   onUncomplete,
-  onSchedule,
+  onSchedulePlan,
   onChangeCategory,
   onSaveBillAmount,
 }: MonthlyTaskRowProps) {
   const done = Boolean(task.completion?.doneAt);
-  const scheduledDay = effectiveScheduledDay(task, task.completion);
+  const schedule = resolveMonthlyTaskSchedule(task, task.completion, monthStart);
+  const monthWeeks = weeksInMonth(monthStart);
   const detail = formatMonthlyTaskDetail(task, task.completion);
   const billAmountLabel = formatBillAmountKr(task);
   const isBill = isMonthlyBill(task, categories);
@@ -364,7 +425,40 @@ function MonthlyTaskRow({
         : "",
   );
 
-  const showDayPicker = isWeekPlannableMonthlyTask(task, categories);
+  const showDayPicker = showPlanPicker && !done;
+
+  const planSummary =
+    !showPlanPicker && schedule.isPlanned && schedule.weekStart
+      ? schedule.dayOfMonth != null
+        ? `${formatWeekLabel(schedule.weekStart)} · dag ${schedule.dayOfMonth}`
+        : formatWeekLabel(schedule.weekStart)
+      : null;
+
+  const onWeekChange = (raw: string) => {
+    const weekStart = raw === "" ? null : raw;
+    if (weekStart == null) {
+      onSchedulePlan(task, null, null);
+      return;
+    }
+    let day: number | null = null;
+    if (schedule.dayOfMonth != null) {
+      const dayWeek = weekStartISO(
+        parseLocalISO(dateInMonth(monthStart, schedule.dayOfMonth)),
+      );
+      if (dayWeek === weekStart) day = schedule.dayOfMonth;
+    }
+    onSchedulePlan(task, weekStart, day);
+  };
+
+  const onDayChange = (raw: string) => {
+    const dayOfMonth = raw === "" ? null : Number(raw);
+    if (dayOfMonth != null && (dayOfMonth < 1 || dayOfMonth > 31)) return;
+    onSchedulePlan(
+      task,
+      dayOfMonth != null ? null : schedule.weekStart,
+      dayOfMonth,
+    );
+  };
 
   return (
     <li
@@ -435,23 +529,44 @@ function MonthlyTaskRow({
           </span>
         </button>
         {showDayPicker ? (
-          <label className={styles.taskDay}>
-            <span className={styles.taskDayLabel}>Dag</span>
-            <select
-              className={styles.taskDaySelect}
-              value={scheduledDay ?? ""}
-              disabled={pending}
-              onChange={(e) => onSchedule(task, e.target.value)}
-              aria-label={`Placera ${task.title} på dag i månaden`}
-            >
-              <option value="">Ej placerad</option>
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className={styles.taskPlanRow}>
+            <label className={styles.taskDay}>
+              <span className={styles.taskDayLabel}>Vecka</span>
+              <select
+                className={styles.taskDaySelect}
+                value={schedule.weekStart ?? ""}
+                disabled={pending}
+                onChange={(e) => onWeekChange(e.target.value)}
+                aria-label={`Planera ${task.title} i vecka`}
+              >
+                <option value="">Ej planerad</option>
+                {monthWeeks.map((w) => (
+                  <option key={w} value={w}>
+                    {formatWeekLabel(w)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.taskDay}>
+              <span className={styles.taskDayLabel}>Dag</span>
+              <select
+                className={styles.taskDaySelect}
+                value={schedule.dayOfMonth ?? ""}
+                disabled={pending || schedule.weekStart == null}
+                onChange={(e) => onDayChange(e.target.value)}
+                aria-label={`Placera ${task.title} på dag i månaden`}
+              >
+                <option value="">Ingen specifik dag</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : planSummary ? (
+          <p className={styles.taskPlanSummary}>{planSummary}</p>
         ) : null}
       </div>
 
@@ -486,6 +601,20 @@ function MonthlyTaskRow({
                 ))}
               </select>
             </label>
+          ) : null}
+
+          {!showPlanPicker && !done ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              fullWidth
+              loading={pending && busy}
+              disabled={pending}
+              onClick={() => onSchedulePlan(task, null, null)}
+            >
+              Planera om
+            </Button>
           ) : null}
 
           {isBill ? (

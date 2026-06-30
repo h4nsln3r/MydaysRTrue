@@ -158,6 +158,40 @@
     background: transparent;
 }
 
+.backlogSubsection {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+
+    & + & {
+        margin-top: $space-3;
+        padding-top: $space-3;
+        border-top: 1px dashed $color-line;
+    }
+}
+
+.backlogSubheader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-2;
+}
+
+.backlogSubtitle {
+    margin: 0;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: $color-fog;
+}
+
+.backlogSubcount {
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    color: $color-cream-dim;
+}
+
 .dropZoneOver {
     border-color: $color-orange;
     background: rgba(255, 122, 26, 0.06);

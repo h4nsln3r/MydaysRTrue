@@ -201,6 +201,111 @@ export async function getMealBoxStock(userId: string): Promise<MealBoxStockItem[
   }));
 }
 
+/** All matlådor in inventory — for the management page. */
+export async function getAllMealBoxStock(
+  userId: string,
+): Promise<MealBoxStockItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("meal_box_stock")
+    .select("id, description, remaining")
+    .eq("user_id", userId)
+    .order("description", { ascending: true });
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    description: row.description,
+    remaining: row.remaining,
+  }));
+}
+
+export async function setMealBoxStockRemaining(
+  userId: string,
+  stockId: string,
+  remaining: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!stockId) return { ok: false, error: "Ogiltig matlåda." };
+  if (!Number.isFinite(remaining) || remaining < 0) {
+    return { ok: false, error: "Antal måste vara 0 eller mer." };
+  }
+  if (remaining > 99) {
+    return { ok: false, error: "Max 99 matlådor per rätt." };
+  }
+
+  const rounded = Math.round(remaining);
+  const supabase = await createClient();
+
+  if (rounded === 0) {
+    const { error } = await supabase
+      .from("meal_box_stock")
+      .delete()
+      .eq("id", stockId)
+      .eq("user_id", userId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+
+  const { error } = await supabase
+    .from("meal_box_stock")
+    .update({ remaining: rounded, updated_at: new Date().toISOString() })
+    .eq("id", stockId)
+    .eq("user_id", userId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function addMealBoxStockEntry(
+  userId: string,
+  description: string,
+  remaining: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const trimmed = description.trim();
+  if (!trimmed) return { ok: false, error: "Skriv vad matlådorna innehåller." };
+  if (trimmed.length > 280) {
+    return { ok: false, error: "Namnet får vara max 280 tecken." };
+  }
+  if (!Number.isFinite(remaining) || remaining < 1) {
+    return { ok: false, error: "Antal måste vara minst 1." };
+  }
+  const rounded = Math.round(remaining);
+  if (rounded > 99) {
+    return { ok: false, error: "Max 99 matlådor per rätt." };
+  }
+
+  const supabase = await createClient();
+  const existing = await findStockByDescription(supabase, userId, trimmed);
+  if (existing) {
+    return {
+      ok: false,
+      error: `«${existing.description}» finns redan (${existing.remaining} kvar). Justera antalet i listan.`,
+    };
+  }
+
+  const { error } = await supabase.from("meal_box_stock").insert({
+    user_id: userId,
+    description: trimmed,
+    remaining: rounded,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function deleteMealBoxStockEntry(
+  userId: string,
+  stockId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!stockId) return { ok: false, error: "Ogiltig matlåda." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("meal_box_stock")
+    .delete()
+    .eq("id", stockId)
+    .eq("user_id", userId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 /** Restore or apply matlåda consumption when a meal entry changes. */
 export async function syncMealBoxConsumptionOnSave(
   supabase: DbClient,

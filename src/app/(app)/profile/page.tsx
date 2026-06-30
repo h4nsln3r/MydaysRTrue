@@ -94,6 +94,33 @@ export default async function ProfilePage() {
       <Card>
         <header className={styles.cardHeader}>
           <div>
+            <p className={styles.cardEyebrow}>Mat</p>
+            <h3 className={styles.h3}>Matlådor</h3>
+            <p className={styles.muted}>
+              Justera vad som finns kvar i kylen eller lägg till nya rätter.
+            </p>
+          </div>
+        </header>
+        <div className={styles.stack}>
+          <Link href="/profile/meal-boxes" className={styles.tasksOverviewLink}>
+            <span className={styles.tasksOverviewText}>
+              <span className={styles.tasksOverviewTitle}>
+                Hantera matlådor i kylen
+              </span>
+              <span className={styles.muted}>
+                Sätt antal kvar, ta bort gamla eller lägg till manuellt.
+              </span>
+            </span>
+            <span className={styles.tasksOverviewArrow} aria-hidden>
+              →
+            </span>
+          </Link>
+        </div>
+      </Card>
+
+      <Card>
+        <header className={styles.cardHeader}>
+          <div>
             <p className={styles.cardEyebrow}>Vecka & månad</p>
             <h3 className={styles.h3}>Kategorier</h3>
             <p className={styles.muted}>

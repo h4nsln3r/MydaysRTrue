@@ -725,3 +725,110 @@
         background-color: $color-ink-elevated;
     }
 }
+
+// --- Meal box stock manager --------------------------------------------------
+
+.mealBoxStockList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.mealBoxStockItem {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-4;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+}
+
+.mealBoxStockMain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.mealBoxStockName {
+    font-weight: 700;
+    font-size: 1rem;
+    color: $color-cream;
+}
+
+.mealBoxStockControls {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+}
+
+.mealBoxStockCountLabel {
+    display: flex;
+    align-items: center;
+}
+
+.mealBoxStockInput {
+    width: 72px;
+    padding: 8px 10px;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-mono;
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: center;
+
+    &:focus {
+        outline: none;
+        border-color: $color-orange;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+    }
+}
+
+.mealBoxStockActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $space-2;
+}
+
+.mealBoxStockRemove {
+    padding: 0;
+    background: none;
+    border: none;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover:not(:disabled) {
+        color: $color-danger;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.mealBoxAddForm {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+    padding: $space-4;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+}

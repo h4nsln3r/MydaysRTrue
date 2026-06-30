@@ -68,6 +68,9 @@ export function WeekMealsBoard({ summary }: Props) {
             <strong>{stockTotal}</strong>
             <span>kvar totalt</span>
           </span>
+          <Link href="/profile/meal-boxes" className={styles.manageStockLink}>
+            Hantera matlådor →
+          </Link>
         </div>
       </header>
 
@@ -82,7 +85,9 @@ export function WeekMealsBoard({ summary }: Props) {
         </div>
       ) : (
         <p className={styles.stockEmpty}>
-          Inga matlådor just nu. Logga matlagning med antal matlådor under{" "}
+          Inga matlådor just nu.{" "}
+          <Link href="/profile/meal-boxes">Lägg till manuellt</Link>
+          {" "}eller logga matlagning med antal matlådor under{" "}
           <Link href={`/day/${summary.days.find((d) => !d.isFuture)?.date ?? summary.days[0]?.date}`}>
             dagens plan
           </Link>

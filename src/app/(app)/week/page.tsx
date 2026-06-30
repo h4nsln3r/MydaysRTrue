@@ -21,6 +21,7 @@ import { getWeekJournalSummary } from "@/lib/journal.server";
 import { getWorkLogsForWeek } from "@/lib/work.server";
 
 import { getUnifiedWeekPlan } from "@/lib/week-plan.server";
+import { getWeekMealsSummary } from "@/lib/meal-box.server";
 
 import {
   addDaysISO,
@@ -33,6 +34,8 @@ import {
 import { UnifiedWeekBoard } from "./UnifiedWeekBoard";
 
 import { WeekProgressBoard } from "./WeekProgressBoard";
+
+import { WeekMealsBoard } from "./WeekMealsBoard";
 
 import { WeekViewTabs } from "./WeekViewTabs";
 
@@ -77,6 +80,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     bathingWeek,
     weightPlan,
     unifiedPlan,
+    mealsWeek,
   ] = await Promise.all([
     getWeeklySummary(user.id, start),
     getWeekHabitSummary(user.id, start),
@@ -87,6 +91,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getBathingWeekSummary(user.id, start),
     getWeightWeekPlan(user.id, start),
     getUnifiedWeekPlan(user.id, start),
+    getWeekMealsSummary(user.id, start),
   ]);
 
   const journalWeek = await getWeekJournalSummary(user.id, {
@@ -112,7 +117,9 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
       <WeekViewTabs weekStart={start} view={view} />
 
       {view === "progress" ? (
-        <WeekProgressBoard
+        <>
+          <WeekMealsBoard summary={mealsWeek} />
+          <WeekProgressBoard
           key={start}
           week={week}
           habitWeek={habitWeek}
@@ -125,6 +132,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           weightPlan={weightPlan}
           journalWeek={journalWeek}
         />
+        </>
       ) : (
         <section className={styles.section} key={`plan-${start}`}>
           <header className={styles.sectionHeader}>

@@ -406,7 +406,7 @@ export async function getDailyMeals(
   const { data: rows } = await supabase
     .from("meal_entries")
     .select(
-      "id, meal, description, water_log_id, cooked_by, meal_boxes, restaurant_id, cooked_by_name, meal_restaurants(name)",
+      "id, meal, description, water_log_id, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
     )
     .eq("user_id", userId)
     .eq("local_date", localDate);
@@ -442,6 +442,8 @@ export async function getDailyMeals(
       restaurantName: restaurant?.name ?? null,
       cookedByName: r.cooked_by_name,
       mealBoxes: r.meal_boxes,
+      fromMealBox: r.from_meal_box ?? false,
+      mealBoxStockId: r.meal_box_stock_id,
     };
   }
   return out;

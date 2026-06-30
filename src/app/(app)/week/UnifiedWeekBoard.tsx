@@ -44,6 +44,8 @@ import {
   setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
   toggleWeeklyTaskDoneAction,
+  archiveMonthlyTaskAction,
+  archiveWeeklyTaskAction,
 } from "@/app/(app)/tasks-actions";
 import { setWeightWeekEnabledAction } from "@/app/(app)/weight-actions";
 import {
@@ -935,6 +937,34 @@ function ItemRowContent({
       item.completionKind === "laundry" ||
       item.completionKind === "music");
 
+  const isOneOff =
+    (item.kind === "task" && item.singleWeekStart != null) ||
+    (item.kind === "monthly_bill" && item.singleMonthStart != null);
+
+  const removeOneOff = () => {
+    if (item.kind === "task") {
+      onError(null);
+      onPendingId(item.dragId);
+      startTransition(async () => {
+        const res = await archiveWeeklyTaskAction(item.taskId);
+        if (!res.ok) onError(res.error ?? "Kunde inte ta bort.");
+        onPendingId(null);
+        onDone();
+      });
+      return;
+    }
+    if (item.kind === "monthly_bill") {
+      onError(null);
+      onPendingId(item.dragId);
+      startTransition(async () => {
+        const res = await archiveMonthlyTaskAction(item.taskId);
+        if (!res.ok) onError(res.error ?? "Kunde inte ta bort.");
+        onPendingId(null);
+        onDone();
+      });
+    }
+  };
+
   const kindLabel =
     showCategory &&
     (item.kind === "gym"
@@ -1317,7 +1347,12 @@ function ItemRowContent({
           {item.icon}
         </span>
         <span className={styles.taskMeta}>
-          <span className={styles.taskTitle}>{item.label}</span>
+          <span className={styles.taskTitle}>
+            {item.label}
+            {isOneOff ? (
+              <span className={styles.oneOffBadge}>Engång</span>
+            ) : null}
+          </span>
           {kindLabel ? (
             <span className={styles.taskKind}>{kindLabel}</span>
           ) : showCategory && category ? (
@@ -1728,6 +1763,20 @@ function ItemRowContent({
                 Spara plan
               </Button>
             </>
+          ) : null}
+
+          {isOneOff ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              fullWidth
+              loading={pending && busy}
+              disabled={pending}
+              onClick={removeOneOff}
+            >
+              Ta bort engångsuppgift
+            </Button>
           ) : null}
         </div>
       ) : null}

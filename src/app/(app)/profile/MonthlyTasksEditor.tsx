@@ -10,7 +10,6 @@ import {
 } from "@/components/MonthlyTaskEditForm/MonthlyTaskEditForm";
 import type { MonthlyTask, TaskCategory } from "@/lib/tasks";
 import {
-  archiveMonthlyTaskAction,
   createMonthlyTaskAction,
   updateMonthlyTaskAction,
 } from "@/app/(app)/tasks-actions";
@@ -103,19 +102,6 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
     });
   };
 
-  const remove = (id: string) => {
-    setError(null);
-    startTransition(async () => {
-      const res = await archiveMonthlyTaskAction(id);
-      if (!res.ok) {
-        setError(res.error ?? "Kunde inte ta bort uppgiften.");
-        return;
-      }
-      setEditingId(null);
-      router.refresh();
-    });
-  };
-
   const catById = new Map(categories.map((c) => [c.id, c]));
 
   return (
@@ -123,7 +109,11 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
       <header className={styles.subHeader}>
         <h4 className={styles.h4}>Månadsuppgifter</h4>
         <span className={styles.muted}>
-          {tasks.length} {tasks.length === 1 ? "uppgift" : "uppgifter"}
+          {tasks.length} {tasks.length === 1 ? "uppgift" : "uppgifter"} · slå
+          av/på under{" "}
+          <a href="/profile/tasks" className={styles.inlineLink}>
+            uppgifter per kategori
+          </a>
         </span>
       </header>
 
@@ -145,7 +135,6 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
                     categories={categories}
                     pending={pending}
                     onSave={(values) => saveEdit(t.id, values)}
-                    onDelete={() => remove(t.id)}
                     onCancel={() => {
                       setEditingId(null);
                       setError(null);

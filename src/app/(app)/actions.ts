@@ -702,12 +702,19 @@ export async function saveMealAction(input: {
   // Find existing meal (if any) so we can update its linked water_log in place.
   const { data: existing, error: lookupErr } = await supabase
     .from("meal_entries")
-    .select("id, water_log_id")
+    .select("id, water_log_id, description, meal_boxes, from_meal_box, meal_box_stock_id")
     .eq("user_id", user.id)
     .eq("local_date", input.localDate)
     .eq("meal", input.meal)
     .maybeSingle();
   if (lookupErr) return { ok: false, error: lookupErr.message };
+
+  if (existing?.from_meal_box && (mealBoxes ?? 0) > 0) {
+    return {
+      ok: false,
+      error: "Matlådor läggs bara till när du lagar mat — inte när du äter en matlåda.",
+    };
+  }
 
   // Resolve the water_log row.
   let waterLogId: string | null = existing?.water_log_id ?? null;
@@ -756,7 +763,7 @@ export async function saveMealAction(input: {
         description,
         water_log_id: waterLogId,
         cooked_by: cookedBy,
-        meal_boxes: mealBoxes,
+        meal_boxes: existing.from_meal_box ? null : mealBoxes,
         restaurant_id: restaurantId,
         cooked_by_name: cookedByName,
       })
@@ -774,8 +781,33 @@ export async function saveMealAction(input: {
       meal_boxes: mealBoxes,
       restaurant_id: restaurantId,
       cooked_by_name: cookedByName,
+      from_meal_box: false,
+      meal_box_stock_id: null,
     });
     if (error) return { ok: false, error: error.message };
+  }
+
+  if (!existing?.from_meal_box) {
+    const { syncMealBoxStockOnMealSave } = await import("@/lib/meal-box.server");
+    const stockRes = await syncMealBoxStockOnMealSave(
+      supabase,
+      user.id,
+      existing
+        ? {
+            description: existing.description,
+            mealBoxes: existing.meal_boxes,
+            fromMealBox: existing.from_meal_box ?? false,
+            mealBoxStockId: existing.meal_box_stock_id,
+          }
+        : null,
+      {
+        description,
+        mealBoxes,
+        fromMealBox: false,
+        mealBoxStockId: null,
+      },
+    );
+    if (!stockRes.ok) return stockRes;
   }
 
   revalidatePath("/", "layout");
@@ -805,7 +837,7 @@ export async function clearMealAction(input: {
 
   const { data: existing } = await supabase
     .from("meal_entries")
-    .select("id, water_log_id")
+    .select("id, water_log_id, description, meal_boxes, from_meal_box, meal_box_stock_id")
     .eq("user_id", user.id)
     .eq("local_date", input.localDate)
     .eq("meal", input.meal)
@@ -814,6 +846,15 @@ export async function clearMealAction(input: {
   if (!existing) {
     return { ok: true };
   }
+
+  const { syncMealBoxStockOnMealClear } = await import("@/lib/meal-box.server");
+  const stockRes = await syncMealBoxStockOnMealClear(supabase, user.id, {
+    description: existing.description,
+    mealBoxes: existing.meal_boxes,
+    fromMealBox: existing.from_meal_box ?? false,
+    mealBoxStockId: existing.meal_box_stock_id,
+  });
+  if (!stockRes.ok) return stockRes;
 
   if (existing.water_log_id) {
     await supabase
@@ -829,6 +870,85 @@ export async function clearMealAction(input: {
     .eq("id", existing.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Log a meal by eating one matlåda from inventory. */
+export async function eatMealBoxAction(input: {
+  localDate: string;
+  meal: MealKey;
+  stockId: string;
+}): Promise<ActionResult> {
+  if (!VALID_MEAL_KEYS.has(input.meal)) {
+    return { ok: false, error: "Invalid meal." };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
+    return { ok: false, error: "Invalid date." };
+  }
+  if (!input.stockId) {
+    return { ok: false, error: "Välj en matlåda." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: stock } = await supabase
+    .from("meal_box_stock")
+    .select("id, description, remaining")
+    .eq("id", input.stockId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!stock || stock.remaining <= 0) {
+    return { ok: false, error: "Inga matlådor kvar av den rätten." };
+  }
+
+  const { data: existing } = await supabase
+    .from("meal_entries")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("local_date", input.localDate)
+    .eq("meal", input.meal)
+    .maybeSingle();
+
+  if (existing) {
+    return {
+      ok: false,
+      error: `${MEAL_LABEL[input.meal]} är redan inloggad den dagen.`,
+    };
+  }
+
+  const { adjustMealBoxStock } = await import("@/lib/meal-box.server");
+  const stockRes = await adjustMealBoxStock(
+    supabase,
+    user.id,
+    stock.description,
+    -1,
+  );
+  if (!stockRes.ok) return stockRes;
+
+  const { error } = await supabase.from("meal_entries").insert({
+    user_id: user.id,
+    local_date: input.localDate,
+    meal: input.meal,
+    description: stock.description,
+    water_log_id: null,
+    cooked_by: null,
+    meal_boxes: null,
+    restaurant_id: null,
+    cooked_by_name: null,
+    from_meal_box: true,
+    meal_box_stock_id: stock.id,
+  });
+  if (error) {
+    await adjustMealBoxStock(supabase, user.id, stock.description, 1);
+    return { ok: false, error: error.message };
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };

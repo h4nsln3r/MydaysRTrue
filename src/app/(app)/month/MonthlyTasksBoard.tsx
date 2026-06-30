@@ -247,7 +247,9 @@ export function MonthlyTasksBoard({
           }}
           onCancelEdit={() => setEditingId(null)}
           onSaveEdit={(values) => saveEdit(t.id, values, t)}
-          onDelete={() => removeTask(t.id)}
+          onDelete={
+            t.singleMonthStart ? () => removeTask(t.id) : undefined
+          }
           onToggleQuick={toggleQuick}
           onCompleteSimple={completeSimple}
           onCompleteAmount={completeAmount}
@@ -357,7 +359,7 @@ interface MonthlyTaskRowProps {
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSaveEdit: (values: MonthlyTaskEditValues) => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   onToggleQuick: (task: MonthlyTaskForMonth) => void;
   onCompleteSimple: (task: MonthlyTaskForMonth, note: string) => void;
   onCompleteAmount: (
@@ -495,6 +497,17 @@ function MonthlyTaskRow({
           <span aria-hidden />
         )}
       </button>
+      {task.singleMonthStart && onDelete ? (
+        <button
+          type="button"
+          className={styles.taskRemoveBtn}
+          onClick={onDelete}
+          disabled={pending}
+          aria-label={`Ta bort ${task.title}`}
+        >
+          ×
+        </button>
+      ) : null}
       <span className={styles.taskIcon} aria-hidden style={{ borderColor: task.accent }}>
         {task.icon}
       </span>
@@ -727,6 +740,17 @@ function MonthlyTaskRow({
               >
                 Redigera uppgift
               </button>
+
+              {task.singleMonthStart && onDelete ? (
+                <button
+                  type="button"
+                  className={styles.removeOneOffBtn}
+                  onClick={onDelete}
+                  disabled={pending}
+                >
+                  Ta bort engångsuppgift
+                </button>
+              ) : null}
             </>
           )}
         </div>

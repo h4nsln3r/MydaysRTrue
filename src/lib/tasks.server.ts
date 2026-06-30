@@ -84,6 +84,8 @@ interface WeeklyTaskRow {
   sort_order: number;
   default_weekday: number | null;
   completion_kind: string;
+  single_week_start: string | null;
+  enabled: boolean;
 }
 
 function rowToWeekly(r: WeeklyTaskRow): WeeklyTask {
@@ -98,7 +100,13 @@ function rowToWeekly(r: WeeklyTaskRow): WeeklyTask {
     sortOrder: r.sort_order,
     completionKind: r.completion_kind as WeeklyTask["completionKind"],
     defaultWeekday: r.default_weekday as Weekday | null,
+    singleWeekStart: r.single_week_start,
+    enabled: r.enabled ?? true,
   };
+}
+
+function isActiveWeeklyRow(r: WeeklyTaskRow): boolean {
+  return r.single_week_start != null || (r.enabled ?? true);
 }
 
 interface WeeklyPlacementRow {
@@ -152,7 +160,7 @@ function rowToChecklistItem(r: ChecklistRow): WeeklyTaskChecklistItem {
 }
 
 const WEEKLY_TASK_SELECT =
-  "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind";
+  "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled";
 
 const WEEKLY_PLACEMENT_SELECT =
   "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band";
@@ -244,6 +252,7 @@ export async function getWeekSummary(
   }[] = [];
 
   for (const row of tasksRes.data ?? []) {
+    if (!isActiveWeeklyRow(row)) continue;
     if (!placements.has(row.id)) {
       const wd = row.default_weekday;
       let daySortOrder = 0;
@@ -271,7 +280,9 @@ export async function getWeekSummary(
     }
   }
 
-  const tasks: WeeklyTaskForWeek[] = (tasksRes.data ?? []).map((row) => ({
+  const tasks: WeeklyTaskForWeek[] = (tasksRes.data ?? [])
+    .filter(isActiveWeeklyRow)
+    .map((row) => ({
     ...rowToWeekly(row),
     placement: placements.get(row.id) ?? null,
     checklist: checklistByTask.get(row.id) ?? [],
@@ -358,6 +369,7 @@ interface MonthlyTaskRow {
   completion_kind: string;
   single_month_start: string | null;
   default_amount_kr: number | null;
+  enabled: boolean;
 }
 
 function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
@@ -375,7 +387,12 @@ function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
     singleMonthStart: r.single_month_start,
     defaultAmountKr:
       r.default_amount_kr != null ? Number(r.default_amount_kr) : null,
+    enabled: r.enabled ?? true,
   };
+}
+
+function isActiveMonthlyRow(r: MonthlyTaskRow): boolean {
+  return r.single_month_start != null || (r.enabled ?? true);
 }
 
 interface MonthlyCompletionRow {
@@ -407,7 +424,7 @@ function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
 }
 
 const MONTHLY_TASK_SELECT =
-  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start, default_amount_kr";
+  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start, default_amount_kr, enabled";
 
 const MONTHLY_COMPLETION_SELECT =
   "id, task_id, month_start, done_at, note, amount, scheduled_day_of_month, scheduled_week_start, is_unscheduled, day_sort_order";
@@ -579,10 +596,12 @@ export async function getMonthTaskSummary(
   }
 
   const tasks: MonthlyTaskForMonth[] = dedupeMonthlyTasksByTitle(
-    (tasksRes.data ?? []).map((row) => ({
-      ...rowToMonthly(row),
-      completion: compMap.get(row.id) ?? null,
-    })),
+    (tasksRes.data ?? [])
+      .filter(isActiveMonthlyRow)
+      .map((row) => ({
+        ...rowToMonthly(row),
+        completion: compMap.get(row.id) ?? null,
+      })),
   );
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
@@ -640,10 +659,12 @@ export async function getMonthlyBillsForWeek(
   }
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
-  const tasks: MonthlyTaskForMonth[] = (tasksRes.data ?? []).map((row) => ({
-    ...rowToMonthly(row),
-    completion: null,
-  }));
+  const tasks: MonthlyTaskForMonth[] = (tasksRes.data ?? [])
+    .filter(isActiveMonthlyRow)
+    .map((row) => ({
+      ...rowToMonthly(row),
+      completion: null,
+    }));
 
   return {
     tasks,

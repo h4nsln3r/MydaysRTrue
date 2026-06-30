@@ -6,7 +6,6 @@ import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import type { TaskCategory, WeeklyTask } from "@/lib/tasks";
 import {
-  archiveWeeklyTaskAction,
   createWeeklyTaskAction,
   setWeeklyTaskCategoryAction,
 } from "@/app/(app)/tasks-actions";
@@ -36,7 +35,6 @@ export function WeeklyTasksEditor({ tasks, categories }: Props) {
   const [icon, setIcon] = useState<string>(PRESET_ICONS[0]);
   const [accent, setAccent] = useState<string>(PRESET_ACCENTS[0]);
   const [error, setError] = useState<string | null>(null);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const reset = () => {
     setAdding(false);
@@ -66,19 +64,6 @@ export function WeeklyTasksEditor({ tasks, categories }: Props) {
     });
   };
 
-  const archive = (id: string) => {
-    setError(null);
-    startTransition(async () => {
-      const res = await archiveWeeklyTaskAction(id);
-      if (!res.ok) {
-        setError(res.error ?? "Could not remove task.");
-        return;
-      }
-      setConfirmingId(null);
-      router.refresh();
-    });
-  };
-
   const changeCategory = (taskId: string, nextCategoryId: string) => {
     setError(null);
     startTransition(async () => {
@@ -98,14 +83,16 @@ export function WeeklyTasksEditor({ tasks, categories }: Props) {
       <header className={styles.subHeader}>
         <h4 className={styles.h4}>Tasks</h4>
         <span className={styles.muted}>
-          {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
+          {tasks.length} {tasks.length === 1 ? "task" : "tasks"} · slå av/på under{" "}
+          <a href="/profile/tasks" className={styles.inlineLink}>
+            uppgifter per kategori
+          </a>
         </span>
       </header>
 
       {tasks.length > 0 ? (
         <ul className={styles.habitList}>
           {tasks.map((t) => {
-            const isConfirming = confirmingId === t.id;
             const category = t.categoryId ? catById.get(t.categoryId) : null;
             return (
               <li key={t.id} className={styles.habitItem}>
@@ -138,36 +125,6 @@ export function WeeklyTasksEditor({ tasks, categories }: Props) {
                     ))}
                   </select>
                 ) : null}
-                {isConfirming ? (
-                  <span className={styles.habitConfirm}>
-                    <button
-                      type="button"
-                      className={styles.habitConfirmYes}
-                      onClick={() => archive(t.id)}
-                      disabled={pending}
-                    >
-                      Remove
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.habitConfirmNo}
-                      onClick={() => setConfirmingId(null)}
-                      disabled={pending}
-                    >
-                      Cancel
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className={styles.habitRemove}
-                    onClick={() => setConfirmingId(t.id)}
-                    aria-label={`Remove ${t.title}`}
-                    disabled={pending}
-                  >
-                    ×
-                  </button>
-                )}
               </li>
             );
           })}

@@ -43,7 +43,7 @@ interface Props {
   categories: TaskCategory[];
   pending: boolean;
   onSave: (values: MonthlyTaskEditValues) => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   onCancel: () => void;
 }
 
@@ -221,45 +221,47 @@ export function MonthlyTaskEditForm({
         </Button>
       </div>
 
-      <div className={styles.deleteZone}>
-        {confirmDelete ? (
-          <div className={styles.deleteConfirm}>
-            <p className={styles.deleteWarn}>
-              Ta bort &quot;{task.title}&quot;? Detta går inte att ångra.
-            </p>
-            <div className={styles.deleteActions}>
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                onClick={() => setConfirmDelete(false)}
-                disabled={pending}
-              >
-                Nej
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="md"
-                loading={pending}
-                onClick={onDelete}
-                className={styles.deleteBtn}
-              >
-                Ja, ta bort
-              </Button>
+      {onDelete ? (
+        <div className={styles.deleteZone}>
+          {confirmDelete ? (
+            <div className={styles.deleteConfirm}>
+              <p className={styles.deleteWarn}>
+                Ta bort &quot;{task.title}&quot;? Detta går inte att ångra.
+              </p>
+              <div className={styles.deleteActions}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={pending}
+                >
+                  Nej
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  loading={pending}
+                  onClick={onDelete}
+                  className={styles.deleteBtn}
+                >
+                  Ja, ta bort
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className={styles.deleteLink}
-            onClick={() => setConfirmDelete(true)}
-            disabled={pending}
-          >
-            Ta bort uppgift
-          </button>
-        )}
-      </div>
+          ) : (
+            <button
+              type="button"
+              className={styles.deleteLink}
+              onClick={() => setConfirmDelete(true)}
+              disabled={pending}
+            >
+              Ta bort uppgift
+            </button>
+          )}
+        </div>
+      ) : null}
     </form>
   );
 }

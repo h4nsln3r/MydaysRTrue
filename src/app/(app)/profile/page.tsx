@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
@@ -103,6 +104,20 @@ export default async function ProfilePage() {
         </header>
         <div className={styles.stack}>
           <CategoryEditor scope="task" categories={taskCategories} />
+          <Link href="/profile/tasks" className={styles.tasksOverviewLink}>
+            <span className={styles.tasksOverviewText}>
+              <span className={styles.tasksOverviewTitle}>
+                Uppgifter per kategori
+              </span>
+              <span className={styles.muted}>
+                Vecko- och månadsuppgifter samlade — slå av eller på permanenta
+                mallar.
+              </span>
+            </span>
+            <span className={styles.tasksOverviewArrow} aria-hidden>
+              →
+            </span>
+          </Link>
         </div>
       </Card>
 
@@ -110,10 +125,10 @@ export default async function ProfilePage() {
         <header className={styles.cardHeader}>
           <div>
             <p className={styles.cardEyebrow}>Weekly</p>
-            <h3 className={styles.h3}>Tasks & categories</h3>
+            <h3 className={styles.h3}>Veckomallar</h3>
             <p className={styles.muted}>
-              Mallar du placerar på dagar i veckovyn — sätt standarddag och
-              kategori per aktivitet.
+              Permanenta mallar du placerar i veckovyn. Engångsuppgifter skapas
+              via «Lägg till uppgift» i veckoplanen.
             </p>
           </div>
         </header>
@@ -133,9 +148,10 @@ export default async function ProfilePage() {
         <header className={styles.cardHeader}>
           <div>
             <p className={styles.cardEyebrow}>Monthly</p>
-            <h3 className={styles.h3}>Tasks & categories</h3>
+            <h3 className={styles.h3}>Månadsmallar</h3>
             <p className={styles.muted}>
-              Things you do once a month, with an optional reminder day.
+              Permanenta månadsuppgifter med valfri standarddag. Engångsuppgifter
+              skapas i månadsvyn.
             </p>
           </div>
         </header>

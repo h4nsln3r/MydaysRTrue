@@ -525,5 +525,61 @@
 }
 
 .taskOneOff {
-    border-style: dashed;
+    opacity: 0.95;
+}
+
+.taskRemoveBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    font-size: 1.1rem;
+    line-height: 1;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition:
+        color 160ms $ease-out,
+        border-color 160ms $ease-out,
+        background 160ms $ease-out;
+
+    &:hover:not(:disabled) {
+        color: $color-danger;
+        border-color: $color-danger;
+        background: rgba(255, 82, 71, 0.08);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.removeOneOffBtn {
+    width: 100%;
+    padding: $space-3;
+    border-radius: $radius-md;
+    border: 1px dashed rgba(255, 82, 71, 0.45);
+    background: transparent;
+    color: $color-danger;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 160ms $ease-out;
+
+    &:hover:not(:disabled) {
+        background: rgba(255, 82, 71, 0.08);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 }

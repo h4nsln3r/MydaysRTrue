@@ -377,11 +377,27 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 
     .taskDone & {
         text-decoration: line-through;
         text-decoration-thickness: 1.5px;
     }
+}
+
+.oneOffBadge {
+    flex-shrink: 0;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-orange-bright;
+    border: 1px solid rgba(255, 122, 26, 0.45);
+    border-radius: $radius-pill;
+    padding: 1px 6px;
 }
 
 .taskCategory {

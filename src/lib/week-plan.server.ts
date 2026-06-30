@@ -212,6 +212,7 @@ export async function getUnifiedWeekPlan(
         t.placement?.daySortOrder ?? 0,
         t.sortOrder,
       ),
+      singleWeekStart: t.singleWeekStart,
     });
   }
 
@@ -278,6 +279,7 @@ export async function getUnifiedWeekPlan(
         completion?.daySortOrder ?? 0,
         8000 + slot.task.sortOrder,
       ),
+      singleMonthStart: slot.task.singleMonthStart,
     });
   }
 
@@ -314,6 +316,7 @@ export async function getUnifiedWeekPlan(
       weekday: null,
       done: Boolean(completion?.doneAt),
       sortOrder: 8000 + entry.task.sortOrder,
+      singleMonthStart: entry.task.singleMonthStart,
     });
   }
 

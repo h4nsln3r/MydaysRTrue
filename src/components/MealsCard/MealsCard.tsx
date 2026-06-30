@@ -158,6 +158,7 @@ export function MealsCard({
                       restaurantName={entry.restaurantName}
                       cookedByName={entry.cookedByName}
                       mealBoxes={entry.mealBoxes}
+                      fromMealBox={entry.fromMealBox}
                       pending={pending}
                       onEdit={() => setEditing(editKey)}
                       onClear={() => clearMeal(meal)}
@@ -246,6 +247,7 @@ interface LoggedRowProps {
   restaurantName?: string | null;
   cookedByName?: string | null;
   mealBoxes?: number | null;
+  fromMealBox?: boolean;
   pending: boolean;
   onEdit: () => void;
   onClear: () => void;
@@ -265,6 +267,7 @@ function LoggedRow({
   restaurantName = null,
   cookedByName = null,
   mealBoxes = null,
+  fromMealBox = false,
   pending,
   onEdit,
   onClear,
@@ -303,8 +306,11 @@ function LoggedRow({
           </span>
           <span className={styles.description}>{description}</span>
         </span>
-        {cookedBy || waterMl > 0 || (mealBoxes != null && mealBoxes > 0) ? (
+        {cookedBy || waterMl > 0 || fromMealBox || (mealBoxes != null && mealBoxes > 0) ? (
           <span className={styles.metaBadges}>
+            {fromMealBox ? (
+              <span className={styles.boxesBadge}>Matlåda</span>
+            ) : null}
             {cookedBy ? (
               <span
                 className={[

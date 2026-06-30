@@ -462,6 +462,7 @@ export interface Database {
           default_weekday: number | null;
           single_week_start: string | null;
           completion_kind: "simple" | "shop" | "journal" | "laundry" | "music";
+          enabled: boolean;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -479,6 +480,7 @@ export interface Database {
           default_weekday?: number | null;
           single_week_start?: string | null;
           completion_kind?: "simple" | "shop" | "journal" | "laundry";
+          enabled?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -496,6 +498,7 @@ export interface Database {
           default_weekday?: number | null;
           single_week_start?: string | null;
           completion_kind?: "simple" | "shop" | "journal" | "laundry";
+          enabled?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -604,6 +607,7 @@ export interface Database {
           completion_kind: "simple" | "amount" | "finance";
           single_month_start: string | null;
           default_amount_kr: number | null;
+          enabled: boolean;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -622,6 +626,7 @@ export interface Database {
           completion_kind?: "simple" | "amount" | "finance";
           single_month_start?: string | null;
           default_amount_kr?: number | null;
+          enabled?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -640,6 +645,7 @@ export interface Database {
           completion_kind?: "simple" | "amount" | "finance";
           single_month_start?: string | null;
           default_amount_kr?: number | null;
+          enabled?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -760,6 +766,8 @@ export interface Database {
           meal_boxes: number | null;
           restaurant_id: string | null;
           cooked_by_name: string | null;
+          from_meal_box: boolean;
+          meal_box_stock_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -774,6 +782,8 @@ export interface Database {
           meal_boxes?: number | null;
           restaurant_id?: string | null;
           cooked_by_name?: string | null;
+          from_meal_box?: boolean;
+          meal_box_stock_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -788,10 +798,19 @@ export interface Database {
           meal_boxes?: number | null;
           restaurant_id?: string | null;
           cooked_by_name?: string | null;
+          from_meal_box?: boolean;
+          meal_box_stock_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "meal_entries_meal_box_stock_id_fkey";
+            columns: ["meal_box_stock_id"];
+            isOneToOne: false;
+            referencedRelation: "meal_box_stock";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "meal_entries_restaurant_id_fkey";
             columns: ["restaurant_id"];
@@ -800,6 +819,33 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      meal_box_stock: {
+        Row: {
+          id: string;
+          user_id: string;
+          description: string;
+          remaining: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          description: string;
+          remaining?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          description?: string;
+          remaining?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       meal_restaurants: {
         Row: {

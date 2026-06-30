@@ -153,6 +153,10 @@ export interface MealEntry {
   cookedByName: string | null;
   /** Meal-prep boxes made when cooking — lunch/dinner only. */
   mealBoxes: number | null;
+  /** Logged by eating from meal-prep inventory. */
+  fromMealBox: boolean;
+  /** Stock row consumed when fromMealBox is true. */
+  mealBoxStockId: string | null;
 }
 
 /**

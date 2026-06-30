@@ -1,0 +1,372 @@
+@use "abstracts" as *;
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+    margin-top: $space-6;
+    padding: $space-5;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-lg;
+}
+
+.header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-4;
+}
+
+.title {
+    margin: 0;
+    font-family: $font-display;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.subtitle {
+    margin: 4px 0 0;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+}
+
+.stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-3;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: $space-2 $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-fog;
+
+    strong {
+        font-family: $font-display;
+        font-size: 1.35rem;
+        color: $color-orange-bright;
+        letter-spacing: normal;
+        text-transform: none;
+    }
+}
+
+.stockBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+}
+
+.stockChip {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    padding: 6px 12px;
+    border-radius: $radius-pill;
+    background: rgba(255, 122, 26, 0.1);
+    border: 1px solid rgba(255, 122, 26, 0.35);
+}
+
+.stockName {
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.stockCount {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: $radius-pill;
+    background: $color-orange;
+    color: $color-ink;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.stockEmpty {
+    margin: 0;
+    padding: $space-3 $space-4;
+    border-radius: $radius-md;
+    border: 1px dashed $color-line;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+
+    a {
+        color: $color-orange-bright;
+    }
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.88rem;
+}
+
+.gridWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.grid {
+    width: 100%;
+    min-width: 640px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.82rem;
+}
+
+.cornerCell,
+.mealLabel {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: $color-ink-soft;
+    text-align: left;
+    padding: $space-2 $space-3;
+    border-bottom: 1px solid $color-line;
+    border-right: 1px solid $color-line;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-fog;
+    white-space: nowrap;
+}
+
+.mealLabel {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.dayHead {
+    padding: $space-2 $space-2;
+    border-bottom: 1px solid $color-line;
+    border-right: 1px solid $color-line;
+    text-align: center;
+    vertical-align: bottom;
+    min-width: 88px;
+}
+
+.dayHeadToday {
+    background: rgba(255, 122, 26, 0.08);
+}
+
+.dayHeadFuture {
+    opacity: 0.55;
+}
+
+.dayWeekday {
+    display: block;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $color-fog;
+}
+
+.dayDate {
+    display: block;
+    font-weight: 700;
+    color: $color-cream;
+}
+
+.dayBoxesMade {
+    display: block;
+    margin-top: 2px;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    color: $color-orange-bright;
+}
+
+.cell {
+    padding: $space-2;
+    border-bottom: 1px solid $color-line;
+    border-right: 1px solid $color-line;
+    vertical-align: top;
+    min-width: 88px;
+}
+
+.cellToday {
+    background: rgba(255, 122, 26, 0.05);
+}
+
+.cellFuture {
+    opacity: 0.45;
+}
+
+.cellEmpty {
+    color: $color-fog;
+    font-family: $font-mono;
+}
+
+.cellActions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+}
+
+.logLink,
+.boxBtn {
+    padding: 4px 8px;
+    border-radius: $radius-sm;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: center;
+    cursor: pointer;
+    transition: opacity 160ms $ease-out;
+}
+
+.logLink {
+    background: transparent;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    text-decoration: none;
+
+    &:hover {
+        color: $color-cream;
+        border-color: $color-cream-dim;
+    }
+}
+
+.boxBtn {
+    background: rgba(255, 122, 26, 0.12);
+    border: 1px solid rgba(255, 122, 26, 0.4);
+    color: $color-orange-bright;
+
+    &:hover:not(:disabled) {
+        background: rgba(255, 122, 26, 0.2);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.pickerList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+
+.pickerBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    padding: $space-2 $space-3;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid $color-line;
+    color: $color-cream;
+    font-size: 0.78rem;
+    text-align: left;
+    cursor: pointer;
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &:hover:not(:disabled) {
+        background: rgba(255, 122, 26, 0.1);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.pickerCount {
+    font-family: $font-mono;
+    font-size: 0.65rem;
+    color: $color-orange-bright;
+}
+
+.mealCell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mealDesc {
+    color: $color-cream;
+    font-weight: 600;
+    line-height: 1.3;
+    text-decoration: none;
+
+    &:hover {
+        color: $color-orange-bright;
+        text-decoration: underline;
+    }
+}
+
+.mealMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+.badgeBox,
+.badgeMade {
+    padding: 1px 6px;
+    border-radius: $radius-pill;
+    font-family: $font-mono;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.badgeBox {
+    background: rgba(95, 182, 255, 0.15);
+    border: 1px solid rgba(95, 182, 255, 0.35);
+    color: #5fb6ff;
+}
+
+.badgeMade {
+    background: rgba(255, 122, 26, 0.12);
+    border: 1px solid rgba(255, 122, 26, 0.35);
+    color: $color-orange-bright;
+}
+
+.cookedBy {
+    font-family: $font-mono;
+    font-size: 0.65rem;
+    color: $color-fog;
+}

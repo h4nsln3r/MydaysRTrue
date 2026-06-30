@@ -67,6 +67,10 @@ export interface WeeklyTask {
   completionKind: WeeklyTaskCompletionKind;
   /** Suggested ISO weekday when a new week is opened (1 = Mon … 7 = Sun). */
   defaultWeekday: Weekday | null;
+  /** One-off task — only shown for this week (Monday YYYY-MM-DD). */
+  singleWeekStart: string | null;
+  /** When false, hidden from week planning until turned back on. */
+  enabled: boolean;
 }
 
 export type MonthlyTaskCompletionKind = "simple" | "amount" | "finance";
@@ -87,6 +91,8 @@ export interface MonthlyTask {
   singleMonthStart: string | null;
   /** Typical monthly cost (kr) — used for Räkningar. */
   defaultAmountKr: number | null;
+  /** When false, hidden from month/week planning until turned back on. */
+  enabled: boolean;
 }
 
 export interface WeeklyPlacement {

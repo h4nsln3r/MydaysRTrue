@@ -397,6 +397,40 @@ export async function updateWeeklyTaskAction(input: {
   return { ok: true };
 }
 
+export async function setWeeklyTaskEnabledAction(input: {
+  taskId: string;
+  enabled: boolean;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: task } = await supabase
+    .from("weekly_tasks")
+    .select("single_week_start")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Task not found." };
+  if (task.single_week_start) {
+    return { ok: false, error: "Engångsuppgifter tas bort i stället för att stängas av." };
+  }
+
+  const { error } = await supabase
+    .from("weekly_tasks")
+    .update({ enabled: input.enabled })
+    .eq("id", input.taskId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function archiveWeeklyTaskAction(id: string): Promise<ActionResult> {
   if (!id) return { ok: false, error: "Missing task id." };
   const supabase = await createClient();
@@ -1100,6 +1134,40 @@ export async function updateMonthlyTaskAction(input: {
     .from("monthly_tasks")
     .update(patch)
     .eq("id", input.id)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function setMonthlyTaskEnabledAction(input: {
+  taskId: string;
+  enabled: boolean;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: task } = await supabase
+    .from("monthly_tasks")
+    .select("single_month_start")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Task not found." };
+  if (task.single_month_start) {
+    return { ok: false, error: "Engångsuppgifter tas bort i stället för att stängas av." };
+  }
+
+  const { error } = await supabase
+    .from("monthly_tasks")
+    .update({ enabled: input.enabled })
+    .eq("id", input.taskId)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
 

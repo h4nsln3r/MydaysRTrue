@@ -47,6 +47,7 @@ export interface WeekPlanTaskItem extends WeekPlanItemBase {
   completionKind: WeeklyTaskCompletionKind;
   placement: WeeklyPlacement | null;
   checklist: WeeklyTaskChecklistItem[];
+  singleWeekStart: string | null;
 }
 
 export interface WeekPlanGymItem extends WeekPlanItemBase {
@@ -92,6 +93,7 @@ export interface WeekPlanMonthlyBillItem extends WeekPlanItemBase {
   scheduledDayOfMonth: number | null;
   completionKind: MonthlyTaskCompletionKind;
   completion: import("@/lib/tasks").MonthlyCompletion | null;
+  singleMonthStart: string | null;
 }
 
 export type WeekPlanItem =

@@ -85,7 +85,8 @@ export function AddTaskPanel({
 
   const canOneOffWeekly = allowOneOff && weekStart != null && scope === "weekly";
   const canOneOffMonthly =
-    allowOneOff && monthStart != null && scope === "monthly";
+    allowOneOff && monthStart != null && scope === "monthly" && !weeklyOnly;
+  const forceOneOffWeekly = weeklyOnly && weekStart != null;
   const canOneOff = canOneOffWeekly || canOneOffMonthly;
 
   // Weekly + monthly tasks share one 'task' category set; daily habits use 'daily'.
@@ -132,10 +133,10 @@ export function AddTaskPanel({
         });
       } else if (scope === "weekly") {
         res =
-          canOneOffWeekly && oneOff && weekStart
+          forceOneOffWeekly || (canOneOffWeekly && oneOff && weekStart)
             ? await createOneOffWeeklyTaskAction({
                 title,
-                weekStart,
+                weekStart: weekStart!,
                 categoryId: categoryId || null,
                 icon,
                 accent,
@@ -196,7 +197,7 @@ export function AddTaskPanel({
           <h2 className={styles.title}>Lägg till uppgift</h2>
           <p className={styles.sub}>
             {weeklyOnly
-              ? "Skapar en uppgift under knappen — dra den till en veckodag"
+              ? "Skapar en engångsuppgift för den här veckan — dra den till en veckodag"
               : "Dagliga vanor, veckouppgifter eller månadsuppgifter"}
           </p>
         </header>
@@ -272,7 +273,7 @@ export function AddTaskPanel({
             </div>
           ) : null}
 
-          {canOneOff ? (
+          {canOneOff && !forceOneOffWeekly ? (
             <label className={styles.checkRow}>
               <input
                 type="checkbox"

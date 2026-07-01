@@ -19,6 +19,7 @@ const DAILY_KINDS = new Set<DayPlanItem["kind"]>([
   "meal",
   "snack",
   "intake",
+  "habit",
   "work_start",
   "work_end",
   "steps",

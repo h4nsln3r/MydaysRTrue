@@ -7,6 +7,7 @@ import {
   saveDailyActivityAction,
   saveMealAction,
   saveSnackAction,
+  setHabitStatusAction,
 } from "@/app/(app)/actions";
 import {
   clearIntakeAction,
@@ -82,6 +83,8 @@ export function DayPlanDailyRow(props: DailyRowProps) {
       return <SnackPlanRow {...props} item={props.item} />;
     case "intake":
       return <IntakePlanRow {...props} item={props.item} />;
+    case "habit":
+      return <HabitPlanRow {...props} item={props.item} />;
     case "work_start":
     case "work_end":
       return <WorkPlanRow {...props} item={props.item} />;
@@ -614,6 +617,110 @@ function IntakePlanRow(
             disabled={
               pending || (requiresDescription && !description.trim())
             }
+            onClick={save}
+          >
+            Markera klart
+          </Button>
+        </>
+      ) : (
+        <button type="button" className={styles.undoBtn} onClick={clear} disabled={pending}>
+          Ångra
+        </button>
+      )}
+    </PlanRowShell>
+  );
+}
+
+function HabitPlanRow(
+  props: DailyRowProps & { item: Extract<DayPlanItem, { kind: "habit" }> },
+) {
+  const {
+    item,
+    date,
+    expanded,
+    busy,
+    pending,
+    onToggleExpand,
+    onError,
+    onPendingKey,
+    onDone,
+  } = props;
+  const done = item.status === "yes";
+  const [note, setNote] = useState(item.note ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setNote(item.note ?? "");
+  }, [item.note]);
+
+  const detail = item.note?.trim() || null;
+
+  const save = () => {
+    onError(null);
+    onPendingKey(true);
+    startTransition(async () => {
+      const res = await setHabitStatusAction({
+        habitId: item.id,
+        localDate: date,
+        status: "yes",
+        note: note.trim() || null,
+      });
+      if (!res.ok) {
+        onError(res.error ?? "Kunde inte spara.");
+        setError(res.error ?? "Kunde inte spara.");
+      }
+      onPendingKey(false);
+      onDone();
+    });
+  };
+
+  const clear = () => {
+    onError(null);
+    onPendingKey(true);
+    startTransition(async () => {
+      const res = await setHabitStatusAction({
+        habitId: item.id,
+        localDate: date,
+        status: null,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte ta bort.");
+      onPendingKey(false);
+      onDone();
+    });
+  };
+
+  return (
+    <PlanRowShell
+      item={item}
+      done={done}
+      detail={detail}
+      expanded={expanded}
+      busy={busy}
+      pending={pending}
+      onToggleExpand={onToggleExpand}
+      {...sortableShellProps(props)}
+      planningMode={props.planningMode}
+    >
+      {error ? <p className={styles.error}>{error}</p> : null}
+      {!done ? (
+        <>
+          <Input
+            label="Kommentar (valfritt)"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="t.ex. plockade undan i vardagsrummet"
+            maxLength={280}
+            autoFocus
+            disabled={pending}
+          />
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            fullWidth
+            loading={pending && busy}
+            disabled={pending}
             onClick={save}
           >
             Markera klart

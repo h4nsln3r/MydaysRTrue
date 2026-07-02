@@ -4,7 +4,7 @@ import { getWeekHabitSummary } from "@/lib/habits.server";
 
 import { getWeeklySummary } from "@/lib/water.server";
 
-import { getWeekSummary } from "@/lib/tasks.server";
+import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 
 import { getBathingWeekSummary } from "@/lib/bathing.server";
 
@@ -74,6 +74,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     week,
     habitWeek,
     weeklyTasks,
+    monthlyBillsWeek,
     gymWeek,
     cardioWeek,
     sportWeek,
@@ -85,6 +86,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getWeeklySummary(user.id, start),
     getWeekHabitSummary(user.id, start),
     getWeekSummary(user.id, start),
+    getMonthlyBillsForWeek(user.id, start),
     getGymWeekSummary(user.id, start),
     getCardioWeekSummary(user.id, start),
     getSportWeekSummary(user.id, start),
@@ -101,6 +103,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     sportSessions: sportWeek.sessions,
     bathingSessions: bathingWeek.placedSessions,
     tasks: weeklyTasks.tasks,
+    monthlyBillsWeek,
     weightPlan,
     workByDate: await getWorkLogsForWeek(user.id, start),
   });

@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
+import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import {
   setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
@@ -198,6 +199,7 @@ export function MonthlyTaskDayRow({
         .filter(Boolean)
         .join(" ")}
     >
+      <PlanCadenceBadge cadence="monthly" done={done} corner />
       {dragHandle}
       <button
         type="button"
@@ -252,14 +254,7 @@ export function MonthlyTaskDayRow({
               accent={category.accent}
               done={done}
             />
-          ) : (
-            <ActivityCategoryBadge
-              icon="📅"
-              label="Månad"
-              accent="#f59e0b"
-              done={done}
-            />
-          )}
+          ) : null}
           <span className={styles.taskTitle}>{task.title}</span>
           {isBill && billAmountLabel ? (
             <span className={styles.taskDetail}>{billAmountLabel}</span>

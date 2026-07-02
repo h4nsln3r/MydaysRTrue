@@ -33,3 +33,15 @@
 .badgeDone {
     opacity: 0.72;
 }
+
+.badgeCompact {
+    padding: 1px 5px;
+    font-size: 0.55rem;
+    gap: 2px;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+
+    .icon {
+        font-size: 0.62rem;
+    }
+}

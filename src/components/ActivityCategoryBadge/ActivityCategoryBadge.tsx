@@ -5,6 +5,7 @@ interface Props {
   label: string;
   accent: string;
   done?: boolean;
+  compact?: boolean;
 }
 
 export function ActivityCategoryBadge({
@@ -12,10 +13,15 @@ export function ActivityCategoryBadge({
   label,
   accent,
   done = false,
+  compact = false,
 }: Props) {
   return (
     <span
-      className={[styles.badge, done ? styles.badgeDone : ""]
+      className={[
+        styles.badge,
+        compact ? styles.badgeCompact : "",
+        done ? styles.badgeDone : "",
+      ]
         .filter(Boolean)
         .join(" ")}
       style={

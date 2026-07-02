@@ -297,6 +297,8 @@ export interface WeeklyTasksDaySummary {
   weekStart: string;
   weekday: Weekday;
   tasks: WeeklyTaskForWeek[];
+  /** All tasks in the ISO week (for journal / done-on-day lookup). */
+  weekTasks: WeeklyTaskForWeek[];
   categories: TaskCategory[];
 }
 
@@ -317,7 +319,7 @@ export async function getWeeklyTasksForDate(
       const bo = b.placement?.daySortOrder ?? b.sortOrder;
       return ao - bo;
     });
-  return { localDate, weekStart, weekday, tasks: forDay, categories };
+  return { localDate, weekStart, weekday, tasks: forDay, weekTasks: tasks, categories };
 }
 
 export interface MonthlyTasksDaySummary {

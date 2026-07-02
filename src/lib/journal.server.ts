@@ -19,7 +19,13 @@ import {
 } from "@/lib/journal";
 import { MOOD_ICON, MOOD_LABEL, type MoodKey } from "@/lib/mood";
 import { isMoodKey } from "@/lib/mood";
-import type { WeeklyTaskForWeek } from "@/lib/tasks";
+import {
+  formatMonthlyTaskDetail,
+  type MonthlyTaskForMonth,
+  type WeeklyTaskForWeek,
+} from "@/lib/tasks";
+import { monthlyTasksOnLocalDate } from "@/lib/monthly-bills";
+import type { MonthlyBillsWeekContext } from "@/lib/tasks.server";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
 import type { WorkDailyLog } from "@/lib/work";
@@ -74,6 +80,7 @@ export interface JournalDayContext {
   sportSessions: SportSessionForWeek[];
   bathingSessions: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
+  monthlyTasks?: MonthlyTaskForMonth[];
   mood: MoodKey | null;
   weightKg: number | null;
   work: WorkDailyLog | null;
@@ -87,6 +94,7 @@ export interface WeekJournalContext {
   sportSessions: SportSessionForWeek[];
   bathingSessions: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
+  monthlyBillsWeek?: MonthlyBillsWeekContext;
   weightPlan: WeightWeekPlan;
   workByDate: Map<string, WorkDailyLog>;
 }
@@ -297,19 +305,33 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
     });
   }
 
-  for (const t of ctx.tasks) {
-    if (!t.placement?.doneAt) continue;
+  for (const t of journalWeeklyTasksForDate(ctx.tasks, ctx.localDate)) {
+    const placement = t.placement!;
     const parts: string[] = [];
-    if (t.placement.planNote) parts.push(`Plan: ${t.placement.planNote}`);
-    if (t.placement.band) parts.push(t.placement.band);
-    if (t.placement.note) parts.push(t.placement.note);
+    if (placement.planNote) parts.push(`Plan: ${placement.planNote}`);
+    if (placement.band) parts.push(placement.band);
+    if (placement.note) parts.push(placement.note);
     entries.push({
-      id: `task-${t.placement.id}`,
+      id: `task-${placement.id}`,
       source: "task",
       icon: t.icon,
       title: t.title,
       body: parts.length > 0 ? parts.join(". ") : "Klar.",
-      at: t.placement.doneAt,
+      at: placement.doneAt!,
+      editable: false,
+    });
+  }
+
+  for (const t of journalMonthlyTasksForDate(ctx.monthlyTasks ?? [], ctx.localDate)) {
+    const completion = t.completion!;
+    const detail = formatMonthlyTaskDetail(t, completion);
+    entries.push({
+      id: `monthly-task-${completion.id}`,
+      source: "task",
+      icon: t.icon,
+      title: t.title,
+      body: detail ?? "Klar.",
+      at: completion.doneAt!,
       editable: false,
     });
   }
@@ -434,10 +456,45 @@ function sessionsForDate<T extends { placement: { weekday: number | null } }>(
   );
 }
 
-function tasksForDate(tasks: WeeklyTaskForWeek[], localDate: string): WeeklyTaskForWeek[] {
-  const weekday = isoWeekdayFromLocalISO(localDate);
-  return tasks.filter(
-    (t) => t.placement?.weekday != null && t.placement.weekday === weekday,
+/** Weekly tasks checked off on this calendar day. */
+function journalWeeklyTasksForDate(
+  tasks: WeeklyTaskForWeek[],
+  localDate: string,
+): WeeklyTaskForWeek[] {
+  return tasks.filter((t) => {
+    const doneAt = t.placement?.doneAt;
+    return doneAt != null && doneAt.slice(0, 10) === localDate;
+  });
+}
+
+/** Monthly tasks checked off on this calendar day. */
+function journalMonthlyTasksForDate(
+  tasks: MonthlyTaskForMonth[],
+  localDate: string,
+): MonthlyTaskForMonth[] {
+  return tasks.filter((t) => {
+    const doneAt = t.completion?.doneAt;
+    return doneAt != null && doneAt.slice(0, 10) === localDate;
+  });
+}
+
+function monthlyTasksForDate(
+  billsWeek: MonthlyBillsWeekContext,
+  localDate: string,
+): MonthlyTaskForMonth[] {
+  const monthStart = `${localDate.slice(0, 7)}-01`;
+  const merged = billsWeek.tasks.map((task) => ({
+    ...task,
+    completion:
+      billsWeek.completionsByTaskMonth.get(`${task.id}|${monthStart}`) ??
+      task.completion ??
+      null,
+  }));
+  return monthlyTasksOnLocalDate(
+    merged,
+    localDate,
+    billsWeek.completionsByTaskMonth,
+    { includeWhenDone: true },
   );
 }
 
@@ -502,7 +559,10 @@ export async function getWeekJournalSummary(
       cardioSessions: sessionsForDate(context.cardioSessions, localDate),
       sportSessions: sessionsForDate(context.sportSessions, localDate),
       bathingSessions: sessionsForDate(context.bathingSessions, localDate),
-      tasks: tasksForDate(context.tasks, localDate),
+      tasks: context.tasks,
+      monthlyTasks: context.monthlyBillsWeek
+        ? monthlyTasksForDate(context.monthlyBillsWeek, localDate)
+        : undefined,
       mood: moods.get(localDate) ?? null,
       weightKg: weightForDate(context.weightPlan, localDate),
       work: context.workByDate.get(localDate) ?? null,

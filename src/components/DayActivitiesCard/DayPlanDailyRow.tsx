@@ -40,6 +40,7 @@ import {
   dayPlanItemIcon,
   dayPlanItemLabel,
 } from "@/lib/day-plan";
+import { PlanCadenceBadge, type PlanCadence } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import {
   INTAKE_DESCRIPTION_LABEL,
   INTAKE_DESCRIPTION_PLACEHOLDER,
@@ -101,6 +102,7 @@ interface ShellProps extends PlanSortableProps {
   item: DayPlanItem;
   done: boolean;
   detail: string | null;
+  cadence?: PlanCadence;
   expanded: boolean;
   busy: boolean;
   pending: boolean;
@@ -113,6 +115,7 @@ function PlanRowShell({
   item,
   done,
   detail,
+  cadence,
   expanded,
   busy,
   pending,
@@ -140,6 +143,7 @@ function PlanRowShell({
         .filter(Boolean)
         .join(" ")}
     >
+      {cadence ? <PlanCadenceBadge cadence={cadence} done={done} corner /> : null}
       {dragHandle}
       <button
         type="button"
@@ -695,6 +699,7 @@ function HabitPlanRow(
       item={item}
       done={done}
       detail={detail}
+      cadence="daily"
       expanded={expanded}
       busy={busy}
       pending={pending}

@@ -28,6 +28,7 @@ import {
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
+import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import { taskCategory } from "@/lib/activity-category";
 import { isoWeekdayFromLocalISO } from "@/lib/date";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
@@ -461,6 +462,7 @@ export function WeeklyTaskRow({
         .filter(Boolean)
         .join(" ")}
     >
+      <PlanCadenceBadge cadence="weekly" done={done} corner />
       {dragHandle}
       {isQuickToggle ? (
         <button

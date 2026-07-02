@@ -205,11 +205,44 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
           </section>
         </>
       ) : (
-        <DayPlanPanel
-          habits={dayPlan.habits}
-          goals={dayPlan.goals}
-          categories={allCategories}
-        />
+        <>
+          <section className={styles.section}>
+            <DayActivitiesCard
+              weekStart={weeklyTasksDay.weekStart}
+              tasks={weeklyTasksDay.tasks}
+              monthlyTasks={monthlyTasksDay.tasks}
+              monthStart={monthlyTasksDay.monthStart}
+              gymSessions={gymDay.sessions}
+              cardioSessions={cardioDay.sessions}
+              sportSessions={sportDay.sessions}
+              bathingSessions={bathingDay.sessions}
+              weight={weightDay}
+              habits={habits}
+              meals={meals}
+              snacks={snacks}
+              savedRestaurants={savedRestaurants}
+              mealBoxStock={mealBoxStock}
+              intake={intake}
+              work={work}
+              activityLog={activityLog}
+              goals={dayPlan.goals}
+              savedOrder={savedOrder}
+              categories={weeklyTasksDay.categories}
+              date={today}
+              today={today}
+              title="Dagens plan"
+              hideWhenEmpty
+              showWeekLink={false}
+              enableQuickAdd
+              bathingWeekday={bathingDay.weekday}
+            />
+          </section>
+          <DayPlanPanel
+            habits={dayPlan.habits}
+            goals={dayPlan.goals}
+            categories={allCategories}
+          />
+        </>
       )}
     </main>
   );

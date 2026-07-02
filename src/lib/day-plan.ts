@@ -8,6 +8,7 @@ import {
   type DailyHabit,
   type DailySnacks,
   type HabitKind,
+  type HabitStatus,
   type MealEntry,
   type MealKey,
   type SnackSlot,
@@ -37,6 +38,7 @@ export type DayPlanKind =
   | "meal"
   | "snack"
   | "intake"
+  | "habit"
   | "work_start"
   | "work_end"
   | "steps"
@@ -50,6 +52,13 @@ export const DAY_PLAN_HABIT_KINDS = new Set<HabitKind>([
   "steps",
   "activity_hours",
 ]);
+
+/** Tri-state habits that only appear in Dagens plan — not in Dagen trackers. */
+export const DAY_PLAN_ONLY_HABIT_KEYS = new Set(["lite_stad"]);
+
+export function isDayPlanOnlyHabit(habit: { key: string }): boolean {
+  return DAY_PLAN_ONLY_HABIT_KEYS.has(habit.key);
+}
 
 const MEAL_SUB_ORDER: Record<MealKey, number> = {
   breakfast: 0,
@@ -156,6 +165,19 @@ export type DayPlanItem =
       doneAt: string | null;
       intakeKind: IntakeKind;
       entry: IntakeEntry | null;
+    }
+  | {
+      kind: "habit";
+      id: string;
+      itemKey: string;
+      sortOrder: number;
+      doneAt: string | null;
+      habitKey: string;
+      label: string;
+      icon: string;
+      accent: string;
+      status: HabitStatus | null;
+      note: string | null;
     }
   | {
       kind: "work_start";
@@ -266,6 +288,14 @@ function activityDefaultRank(slots: HabitSortSlots): number {
   return END_OF_DAY_BASE + (slots.activity_hours ?? 1) * 10 + 1;
 }
 
+function habitPlanDefaultRank(slots: HabitSortSlots, habitKey: string): number {
+  if (habitKey === "lite_stad") {
+    return intakeDefaultRank(slots, "fruit") + 1;
+  }
+  const base = (slots.intake ?? 60) * 1000;
+  return base + 50;
+}
+
 export function dayPlanItemKey(item: Pick<DayPlanItem, "kind" | "id">): string {
   return `${item.kind}:${item.id}`;
 }
@@ -306,6 +336,9 @@ function assignDefaultSortOrders(items: DayPlanItem[], slots: HabitSortSlots): v
         break;
       case "intake":
         item.sortOrder = intakeDefaultRank(slots, item.intakeKind);
+        break;
+      case "habit":
+        item.sortOrder = habitPlanDefaultRank(slots, item.habitKey);
         break;
       case "work_start":
         item.sortOrder = workStartDefaultRank(slots);
@@ -465,6 +498,24 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     }
   }
 
+  for (const habit of input.habits) {
+    if (!DAY_PLAN_ONLY_HABIT_KEYS.has(habit.key)) continue;
+    items.push({
+      kind: "habit",
+      id: habit.id,
+      itemKey: `habit:${habit.id}`,
+      sortOrder: 0,
+      doneAt:
+        habit.status === "yes" ? `${input.date}T12:00:00.000Z` : null,
+      habitKey: habit.key,
+      label: habit.label,
+      icon: habit.icon,
+      accent: habit.accent,
+      status: habit.status,
+      note: habit.note,
+    });
+  }
+
   if (isWorkday(input.date)) {
     items.push({
       kind: "work_start",
@@ -559,6 +610,8 @@ export function dayPlanItemLabel(item: DayPlanItem): string {
       return SNACK_LABEL[item.slot];
     case "intake":
       return INTAKE_LABEL[item.intakeKind];
+    case "habit":
+      return item.label;
     case "work_start":
       return "Jobb start";
     case "work_end":
@@ -592,6 +645,8 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
       return SNACK_ICON[item.slot];
     case "intake":
       return INTAKE_ICON[item.intakeKind];
+    case "habit":
+      return item.icon;
     case "work_start":
     case "work_end":
       return "💼";
@@ -624,6 +679,8 @@ export function dayPlanItemAccent(item: DayPlanItem): string {
       return "#ffcf3a";
     case "intake":
       return "#6ee7a3";
+    case "habit":
+      return item.accent;
     case "work_start":
     case "work_end":
       return "#94a3b8";

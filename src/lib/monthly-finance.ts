@@ -81,6 +81,7 @@ export const TRANSFER_TASK_ACCOUNT: Record<string, EditableFinanceKey> = {
 };
 
 export const SALARY_TASK_KEY = "finance_lon";
+export const CARPAY_TASK_KEY = "finance_carpay";
 export const FINANCE_EKONOMI_TASK_KEY = "finance_ekonomi";
 
 /** Month plan URL that scrolls to the ekonomi accounts table. */

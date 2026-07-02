@@ -45,6 +45,29 @@ function sortItems(items: WeekPlanItem[]): WeekPlanItem[] {
   });
 }
 
+/** Prefer a placed monthly row over the same dragId sitting in backlog. */
+function dedupeMonthlyWeekPlanItems(items: WeekPlanItem[]): WeekPlanItem[] {
+  const monthlyByDragId = new Map<string, WeekPlanItem>();
+  const rest: WeekPlanItem[] = [];
+
+  for (const item of items) {
+    if (item.kind !== "monthly_bill") {
+      rest.push(item);
+      continue;
+    }
+    const existing = monthlyByDragId.get(item.dragId);
+    if (!existing) {
+      monthlyByDragId.set(item.dragId, item);
+      continue;
+    }
+    if (existing.weekday == null && item.weekday != null) {
+      monthlyByDragId.set(item.dragId, item);
+    }
+  }
+
+  return [...rest, ...monthlyByDragId.values()];
+}
+
 /** All weekly activities merged for the unified plan board. */
 export async function getUnifiedWeekPlan(
   userId: string,
@@ -242,6 +265,7 @@ export async function getUnifiedWeekPlan(
     billsWeek.tasks,
     weekStart,
     billsWeek.completionsByTaskMonth,
+    billsWeek.categories,
   );
 
   for (const slot of placed) {
@@ -259,6 +283,8 @@ export async function getUnifiedWeekPlan(
         completion?.scheduledDayOfMonth ?? slot.task.dayOfMonth,
       completionKind: slot.task.completionKind,
       completion,
+      notes: slot.task.notes,
+      defaultAmountKr: slot.task.defaultAmountKr,
       label: slot.task.title,
       subtitle:
         slot.task.completionKind === "finance"
@@ -298,6 +324,8 @@ export async function getUnifiedWeekPlan(
       scheduledDayOfMonth: null,
       completionKind: entry.task.completionKind,
       completion,
+      notes: entry.task.notes,
+      defaultAmountKr: entry.task.defaultAmountKr,
       label: entry.task.title,
       subtitle:
         entry.task.completionKind === "finance"
@@ -329,7 +357,7 @@ export async function getUnifiedWeekPlan(
 
   return {
     weekStart,
-    items: sortItems(items),
+    items: sortItems(dedupeMonthlyWeekPlanItems(items)),
     categories: allCategories,
   };
 }

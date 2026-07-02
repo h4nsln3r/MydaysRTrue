@@ -6,7 +6,7 @@ import { MediaDayCard } from "@/components/MediaDayCard/MediaDayCard";
 import { TriStateHabitRow } from "@/components/TriStateHabitRow/TriStateHabitRow";
 import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
-import { DAY_PLAN_HABIT_KINDS } from "@/lib/day-plan";
+import { DAY_PLAN_HABIT_KINDS, isDayPlanOnlyHabit } from "@/lib/day-plan";
 import {
   sortOtherDailyTrackersIncompleteFirst,
   type DailyHabit,
@@ -70,7 +70,9 @@ export function DailyTrackersBoard({
     );
   }
 
-  const boardHabits = habits.filter((h) => !DAY_PLAN_HABIT_KINDS.has(h.kind));
+  const boardHabits = habits.filter(
+    (h) => !DAY_PLAN_HABIT_KINDS.has(h.kind) && !isDayPlanOnlyHabit(h),
+  );
 
   if (boardHabits.length === 0) {
     return (

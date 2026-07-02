@@ -168,6 +168,15 @@
     margin: 0;
     color: $color-fog;
     font-size: 0.78rem;
+    white-space: pre-line;
+}
+
+.notesBlock {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    white-space: pre-line;
 }
 
 .taskDone {

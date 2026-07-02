@@ -78,7 +78,11 @@ export function MonthlyTaskDayRow({
         : "";
   const [note, setNote] = useState(savedNote);
   const [amount, setAmount] = useState(
-    task.completion?.amount != null ? String(task.completion.amount) : "",
+    task.completion?.amount != null
+      ? String(task.completion.amount)
+      : task.defaultAmountKr != null
+        ? String(task.defaultAmountKr)
+        : "",
   );
   const [billAmount, setBillAmount] = useState(
     task.completion?.amount != null
@@ -320,12 +324,19 @@ export function MonthlyTaskDayRow({
             </>
           ) : !done ? (
             <>
+              {task.completionKind === "amount" && task.notes ? (
+                <p className={styles.notesBlock}>{task.notes}</p>
+              ) : null}
               {task.completionKind === "amount" ? (
                 <Input
                   label="Belopp (kr)"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="t.ex. 1500"
+                  placeholder={
+                    task.defaultAmountKr != null
+                      ? String(task.defaultAmountKr)
+                      : "t.ex. 1500"
+                  }
                   inputMode="decimal"
                   required
                   disabled={pending}

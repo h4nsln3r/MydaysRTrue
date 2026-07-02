@@ -251,7 +251,26 @@ export function dedupeMonthlyTasksByTitle<T extends MonthlyTask>(tasks: T[]): T[
     const existing = byTitle.get(norm);
     byTitle.set(norm, existing ? pickMonthlyTaskKeeper(existing, task) : task);
   }
-  return [...byTitle.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+  return [...fromMapValues(byTitle)].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+/** One row per seeded `key` (then title for keyless rows). */
+export function dedupeMonthlyTasks<T extends MonthlyTask>(tasks: T[]): T[] {
+  const byKey = new Map<string, T>();
+  const keyless: T[] = [];
+  for (const task of tasks) {
+    if (task.key) {
+      const existing = byKey.get(task.key);
+      byKey.set(task.key, existing ? pickMonthlyTaskKeeper(existing, task) : task);
+    } else {
+      keyless.push(task);
+    }
+  }
+  return dedupeMonthlyTasksByTitle([...fromMapValues(byKey), ...keyless]);
+}
+
+function fromMapValues<V>(map: Map<string, V>): V[] {
+  return [...map.values()];
 }
 
 /** Group items by category id, preserving the order of `categories` then `none`. */

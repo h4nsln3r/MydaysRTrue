@@ -64,7 +64,8 @@ import {
   bathingRequiresWaterTemp,
   formatWaterTemp,
 } from "@/lib/bathing";
-import { monthPlanEkonomiHref, parseKrInput, SALARY_TASK_KEY } from "@/lib/monthly-finance";
+import { monthPlanEkonomiHref, parseKrInput, SALARY_TASK_KEY, CARPAY_TASK_KEY } from "@/lib/monthly-finance";
+import { SAVINGS_CATEGORY_NAME } from "@/lib/monthly-bills";
 import {
   GYM_WARMUP_ICON,
   GYM_WARMUP_LABEL,
@@ -535,7 +536,7 @@ export function UnifiedWeekBoard({
             {monthlyBacklog.length > 0 ? (
               <section className={styles.backlogSubsection}>
                 <header className={styles.backlogSubheader}>
-                  <h4 className={styles.backlogSubtitle}>Försenade månadsuppgifter</h4>
+                  <h4 className={styles.backlogSubtitle}>Månadsuppgifter att placera</h4>
                   <span className={styles.backlogSubcount}>
                     {monthlyBacklog.length}
                   </span>
@@ -648,7 +649,7 @@ function BacklogDropZone({
       <header className={styles.dayHeader}>
         <div>
           <h3 className={styles.dayTitle}>Att placera</h3>
-          <p className={styles.daySub}>veckoaktiviteter</p>
+          <p className={styles.daySub}>vecko- & månadsaktiviteter</p>
         </div>
         <span className={styles.dayCount}>{count}</span>
       </header>
@@ -923,7 +924,9 @@ function ItemRowContent({
   const [monthlyAmount, setMonthlyAmount] = useState(
     item.kind === "monthly_bill" && item.completion?.amount != null
       ? String(item.completion.amount)
-      : "",
+      : item.kind === "monthly_bill" && item.defaultAmountKr != null
+        ? String(item.defaultAmountKr)
+        : "",
   );
   const isMonthlyAmount =
     item.kind === "monthly_bill" && item.completionKind === "amount";
@@ -931,6 +934,8 @@ function ItemRowContent({
     item.kind === "monthly_bill" && item.completionKind === "finance";
   const isSalaryTask =
     item.kind === "monthly_bill" && item.taskKey === SALARY_TASK_KEY;
+  const isCarpayTask =
+    item.kind === "monthly_bill" && item.taskKey === CARPAY_TASK_KEY;
   const taskPlanningExpand =
     item.kind === "task" &&
     (item.completionKind === "journal" ||
@@ -983,7 +988,9 @@ function ItemRowContent({
                 : isMonthlyAmount
                   ? isSalaryTask
                     ? "Lön"
-                    : "Sparande"
+                    : category?.name === SAVINGS_CATEGORY_NAME
+                      ? "Sparande"
+                      : category?.name ?? "Belopp"
                   : "Räkning"
               : null);
 
@@ -1635,11 +1642,22 @@ function ItemRowContent({
 
           {isMonthlyAmount && !item.done ? (
             <>
+              {item.notes ? (
+                <p className={styles.notesBlock}>{item.notes}</p>
+              ) : null}
               <Input
-                label={isSalaryTask ? "Lön (kr)" : "Belopp (kr)"}
+                label={isSalaryTask ? "Lön (kr)" : isCarpayTask ? "Överfört belopp (kr)" : "Belopp (kr)"}
                 value={monthlyAmount}
                 onChange={(e) => setMonthlyAmount(e.target.value)}
-                placeholder={isSalaryTask ? "t.ex. 32000" : "t.ex. 1500"}
+                placeholder={
+                  isSalaryTask
+                    ? "t.ex. 32000"
+                    : item.defaultAmountKr != null
+                      ? String(item.defaultAmountKr)
+                      : isCarpayTask
+                        ? "t.ex. 2750"
+                        : "t.ex. 1500"
+                }
                 inputMode="decimal"
                 disabled={pending}
               />

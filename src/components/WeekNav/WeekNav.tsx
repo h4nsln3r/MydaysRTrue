@@ -16,6 +16,7 @@ interface Props {
   currentWeekStart: string;
   view: PeriodView;
   title: string;
+  maxWeekStart?: string;
 }
 
 export function WeekNav({
@@ -23,12 +24,14 @@ export function WeekNav({
   currentWeekStart,
   view,
   title,
+  maxWeekStart,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const { prevStart, nextStart, canGoForward } = weekNavState(
     weekStart,
     currentWeekStart,
+    maxWeekStart,
   );
 
   const go = (href: string) => {

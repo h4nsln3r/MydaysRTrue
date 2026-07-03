@@ -11,12 +11,13 @@ import {
   setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
 } from "@/app/(app)/tasks-actions";
-import { monthPlanEkonomiHref, parseKrInput } from "@/lib/monthly-finance";
+import { monthPlanEkonomiHref, monthlyTaskDisplayTitle, parseKrInput, transferTaskFinanceLabel } from "@/lib/monthly-finance";
 import {
   effectiveBillAmountKr,
   formatBillAmountKr,
   isMonthlyBill,
   isMonthlyFinanceTask,
+  isMonthlyTaskComplete,
 } from "@/lib/monthly-bills";
 import {
   formatMonthlyTaskDetail,
@@ -57,11 +58,13 @@ export function MonthlyTaskDayRow({
   planningMode = false,
 }: Props) {
   const router = useRouter();
-  const done = Boolean(task.completion?.doneAt);
+  const done = isMonthlyTaskComplete(task, task.completion);
   const isFinance = isMonthlyFinanceTask(task);
   const detail = formatMonthlyTaskDetail(task, task.completion);
   const billAmountLabel = formatBillAmountKr(task);
   const isBill = isMonthlyBill(task, categories);
+  const displayTitle = monthlyTaskDisplayTitle(task);
+  const transferTarget = transferTaskFinanceLabel(task.key);
   const category = task.categoryId
     ? categories.find((c) => c.id === task.categoryId) ?? null
     : null;
@@ -255,11 +258,13 @@ export function MonthlyTaskDayRow({
               done={done}
             />
           ) : null}
-          <span className={styles.taskTitle}>{task.title}</span>
+          <span className={styles.taskTitle}>{displayTitle}</span>
           {isBill && billAmountLabel ? (
             <span className={styles.taskDetail}>{billAmountLabel}</span>
           ) : detail ? (
             <span className={styles.taskDetail}>{detail}</span>
+          ) : transferTarget ? (
+            <span className={styles.taskDetail}>→ {transferTarget}</span>
           ) : !done && isFinance ? (
             <span className={styles.planHint}>Öppna ekonomitabellen</span>
           ) : null}

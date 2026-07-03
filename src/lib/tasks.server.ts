@@ -19,6 +19,7 @@ import {
 } from "@/lib/tasks";
 import {
   balancesFromSnapshotRow,
+  SAVINGS_TRANSFER_TASKS,
   type MonthlyFinanceBalances,
   type MonthlyFinanceSnapshot,
 } from "@/lib/monthly-finance";
@@ -27,6 +28,7 @@ import {
   monthStartFromDate,
   monthlyTasksOnLocalDate,
 } from "@/lib/monthly-bills";
+import { repairAmountCompletionsMissingDone } from "@/app/(app)/tasks-actions";
 
 // ----------------------------------------------------------------------------
 // Categories
@@ -534,9 +536,24 @@ async function repairDuplicateMonthlyTasks(
     .eq("user_id", userId);
 }
 
+/** Keep seeded savings transfer titles/notes in sync (e.g. SBAB spar rename). */
+async function repairMonthlySavingsTaskLabels(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<void> {
+  for (const [key, meta] of Object.entries(SAVINGS_TRANSFER_TASKS)) {
+    await supabase
+      .from("monthly_tasks")
+      .update({ title: meta.title, notes: meta.notes })
+      .eq("user_id", userId)
+      .eq("key", key);
+  }
+}
+
 export async function getMonthlyTasks(userId: string): Promise<MonthlyTask[]> {
   const supabase = await createClient();
   await repairDuplicateMonthlyTasks(supabase, userId);
+  await repairMonthlySavingsTaskLabels(supabase, userId);
   const { data } = await supabase
     .from("monthly_tasks")
     .select(MONTHLY_TASK_SELECT)
@@ -603,6 +620,8 @@ export async function getMonthTaskSummary(
 ): Promise<MonthSummaryTasks> {
   const supabase = await createClient();
   await repairDuplicateMonthlyTasks(supabase, userId);
+  await repairMonthlySavingsTaskLabels(supabase, userId);
+  await repairAmountCompletionsMissingDone(userId);
   const [tasksRes, completionsRes, catsRes, financeRes] = await Promise.all([
     supabase
       .from("monthly_tasks")
@@ -667,6 +686,8 @@ export async function getMonthlyBillsForWeek(
 ): Promise<MonthlyBillsWeekContext> {
   const supabase = await createClient();
   await repairDuplicateMonthlyTasks(supabase, userId);
+  await repairMonthlySavingsTaskLabels(supabase, userId);
+  await repairAmountCompletionsMissingDone(userId);
   const weekDates = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const monthStarts = [...new Set(weekDates.map((d) => `${d.slice(0, 7)}-01`))];
   const oneOffFilter = monthStarts.map((m) => `single_month_start.eq.${m}`).join(",");

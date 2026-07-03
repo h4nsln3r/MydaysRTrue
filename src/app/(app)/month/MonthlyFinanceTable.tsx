@@ -24,6 +24,8 @@ interface Props {
   salaryTaskId?: string | null;
   salaryAmount?: number | null;
   readOnly?: boolean;
+  /** Future month — schedule amounts only, not account balances. */
+  planOnly?: boolean;
 }
 
 export function MonthlyFinanceTable({
@@ -33,6 +35,7 @@ export function MonthlyFinanceTable({
   salaryTaskId = null,
   salaryAmount = null,
   readOnly = false,
+  planOnly = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -101,13 +104,17 @@ export function MonthlyFinanceTable({
 
   if (!financeTaskId) return null;
 
+  const balancesReadOnly = readOnly || done || planOnly;
+
   return (
     <section className={styles.section} id="ekonomi" aria-label="Ekonomi">
       <header className={styles.header}>
         <div>
           <h2 className={styles.title}>Ekonomi</h2>
           <p className={styles.sub}>
-            Fyll i saldo per konto — LF-total och summa räknas ut automatiskt
+            {planOnly
+              ? "Planera när ekonomin ska göras — saldon fylls i efter månadens slut"
+              : "Fyll i saldo per konto — LF-total och summa räknas ut automatiskt"}
           </p>
         </div>
         {done ? (
@@ -212,7 +219,7 @@ export function MonthlyFinanceTable({
                     ) : null}
                   </td>
                   <td className={styles.amountCell}>
-                    {readOnly || done ? (
+                    {balancesReadOnly ? (
                       <span className={styles.readValue}>
                         {value != null ? formatKr(value) : "—"}
                       </span>
@@ -241,7 +248,7 @@ export function MonthlyFinanceTable({
         </table>
       </div>
 
-      {!readOnly && !done ? (
+      {!readOnly && !done && !planOnly ? (
         <div className={styles.footer}>
           <Input
             label="Kommentar (valfritt)"

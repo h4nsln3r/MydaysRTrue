@@ -20,16 +20,19 @@ export function weekNavKicker(
 export function weekNavState(
   weekStart: string,
   currentWeekStart: string,
+  maxWeekStart?: string,
 ): {
   prevStart: string;
   nextStart: string;
   canGoForward: boolean;
 } {
   const nextWeekStart = addDaysISO(currentWeekStart, 7);
+  const forwardLimit = maxWeekStart ?? nextWeekStart;
+  const nextStart = addDaysISO(weekStart, 7);
   return {
     prevStart: addDaysISO(weekStart, -7),
-    nextStart: addDaysISO(weekStart, 7),
-    canGoForward: weekStart < nextWeekStart,
+    nextStart,
+    canGoForward: nextStart <= forwardLimit,
   };
 }
 

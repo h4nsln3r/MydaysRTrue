@@ -71,6 +71,52 @@ export function isMonthlyFinanceTask(
   );
 }
 
+export function isMonthlyAmountTask(
+  task: Pick<MonthlyTask, "completionKind">,
+): boolean {
+  return task.completionKind === "amount";
+}
+
+/** Done, or amount saved for amount-tasks (counts as complete in UI). */
+export function isMonthlyTaskComplete(
+  task: Pick<MonthlyTask, "completionKind">,
+  completion: MonthlyCompletion | null | undefined,
+): boolean {
+  if (completion?.doneAt) return true;
+  return (
+    isMonthlyAmountTask(task) &&
+    completion?.amount != null &&
+    Number.isFinite(completion.amount)
+  );
+}
+
+export type MonthlyTaskVisualStatus =
+  | "done"
+  | "planned"
+  | "missed"
+  | "unplaced";
+
+export function monthlyTaskVisualStatus(
+  task: Pick<MonthlyTask, "dayOfMonth" | "completionKind">,
+  completion: MonthlyCompletion | null | undefined,
+  monthStart: string,
+  today: string,
+): MonthlyTaskVisualStatus {
+  if (isMonthlyTaskComplete(task, completion)) return "done";
+
+  const schedule = resolveMonthlyTaskSchedule(task, completion ?? null, monthStart);
+  if (!schedule.isPlanned) return "unplaced";
+
+  if (schedule.dayOfMonth != null) {
+    const scheduledDate = dateInMonth(monthStart, schedule.dayOfMonth);
+    if (scheduledDate > today) return "planned";
+    if (scheduledDate === today) return "planned";
+    return "missed";
+  }
+
+  return "planned";
+}
+
 export function effectiveBillAmountKr(task: MonthlyTaskForMonth): number | null {
   const actual = task.completion?.amount;
   if (actual != null && Number.isFinite(actual)) return actual;
@@ -288,11 +334,11 @@ export function monthlyTasksOnLocalDate(
 
 /** True when the task still needs week/day planning on the month board. */
 export function needsMonthPlacement(
-  task: Pick<MonthlyTask, "dayOfMonth">,
+  task: Pick<MonthlyTask, "dayOfMonth" | "completionKind">,
   completion: MonthlyCompletion | null,
   monthStart: string,
 ): boolean {
-  if (completion?.doneAt) return false;
+  if (isMonthlyTaskComplete(task, completion)) return false;
   if (
     completion?.scheduledWeekStart != null ||
     completion?.scheduledDayOfMonth != null
@@ -353,7 +399,6 @@ export function resolveMonthlyBillsForWeek(
 ): { placed: MonthlyBillWeekSlot[]; backlog: MonthlyBillForWeekBacklog[] } {
   const weekDates = new Set(weekDayDates(weekStart));
   const monthStarts = [...new Set([...weekDates].map(monthStartFromDate))];
-  const primaryMonthStart = monthStartFromDate(weekStart);
   const placed: MonthlyBillWeekSlot[] = [];
   const backlog: MonthlyBillForWeekBacklog[] = [];
   const inBacklog = new Set<string>();
@@ -408,14 +453,15 @@ export function resolveMonthlyBillsForWeek(
       if (!schedule.isPlanned || !schedule.weekStart) {
         if (skipRecurringBacklog(task)) continue;
         if (!task.singleMonthStart) {
-          if (!unplannedRecurringBacklog.has(task.id)) {
-            unplannedRecurringBacklog.add(task.id);
-            const primaryCompletion =
-              completionsByTaskMonth.get(`${task.id}|${primaryMonthStart}`) ??
+          const recurringBacklogKey = `${task.id}|${monthStart}`;
+          if (!unplannedRecurringBacklog.has(recurringBacklogKey)) {
+            unplannedRecurringBacklog.add(recurringBacklogKey);
+            const monthCompletion =
+              completionsByTaskMonth.get(`${task.id}|${monthStart}`) ??
               null;
             backlog.push({
-              task: { ...task, completion: primaryCompletion },
-              monthStart: primaryMonthStart,
+              task: { ...task, completion: monthCompletion },
+              monthStart,
             });
           }
           continue;
@@ -462,9 +508,10 @@ export function resolveMonthlyBillsForWeek(
       dedupedBacklog.push(entry);
       continue;
     }
-    if (seenRecurringBacklog.has(entry.task.id)) continue;
+    const key = `${entry.task.id}|${entry.monthStart}`;
+    if (seenRecurringBacklog.has(key)) continue;
     if (placedTaskIds.has(entry.task.id)) continue;
-    seenRecurringBacklog.add(entry.task.id);
+    seenRecurringBacklog.add(key);
     dedupedBacklog.push(entry);
   }
 

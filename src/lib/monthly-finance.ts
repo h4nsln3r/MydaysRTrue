@@ -50,6 +50,7 @@ export const FINANCE_TABLE_ROWS: FinanceTableRow[] = [
     kind: "account",
     key: "sbab_spar",
     label: "SBAB spar",
+    hint: "Uppdateras vid överföring SBAB spar",
   },
   {
     kind: "account",
@@ -73,12 +74,35 @@ export const FINANCE_TABLE_ROWS: FinanceTableRow[] = [
   },
 ];
 
+/** Canonical titles, notes and account targets for savings transfer tasks. */
+export const SAVINGS_TRANSFER_TASKS = {
+  save_transfer_lf: {
+    title: "Överföring fondkonto LF",
+    notes: "Ange belopp som fördes över till ISK fondkonto på LF.",
+    account: "isk" as EditableFinanceKey,
+  },
+  save_transfer_avanza: {
+    title: "Överföring Avanza",
+    notes: "Ange belopp som fördes över till Avanza.",
+    account: "avanza" as EditableFinanceKey,
+  },
+  save_transfer_spar: {
+    title: "Överföring SBAB spar",
+    notes: "Ange belopp som fördes över till SBAB spar.",
+    account: "sbab_spar" as EditableFinanceKey,
+  },
+} as const;
+
+export type SavingsTransferTaskKey = keyof typeof SAVINGS_TRANSFER_TASKS;
+
 /** Maps savings transfer tasks → finance account column. */
-export const TRANSFER_TASK_ACCOUNT: Record<string, EditableFinanceKey> = {
-  save_transfer_lf: "isk",
-  save_transfer_avanza: "avanza",
-  save_transfer_spar: "spar",
-};
+export const TRANSFER_TASK_ACCOUNT: Record<string, EditableFinanceKey> =
+  Object.fromEntries(
+    Object.entries(SAVINGS_TRANSFER_TASKS).map(([key, meta]) => [
+      key,
+      meta.account,
+    ]),
+  );
 
 export const SALARY_TASK_KEY = "finance_lon";
 export const CARPAY_TASK_KEY = "finance_carpay";
@@ -87,6 +111,33 @@ export const FINANCE_EKONOMI_TASK_KEY = "finance_ekonomi";
 /** Month plan URL that scrolls to the ekonomi accounts table. */
 export function monthPlanEkonomiHref(monthStart: string): string {
   return `/month?m=${monthStart.slice(0, 7)}&view=plan#ekonomi`;
+}
+
+export function isSavingsTransferTaskKey(
+  key: string | null | undefined,
+): key is SavingsTransferTaskKey {
+  return key != null && key in SAVINGS_TRANSFER_TASKS;
+}
+
+export function monthlyTaskDisplayTitle(task: {
+  key: string | null;
+  title: string;
+}): string {
+  if (isSavingsTransferTaskKey(task.key)) {
+    return SAVINGS_TRANSFER_TASKS[task.key].title;
+  }
+  return task.title;
+}
+
+/** Finance table label for where a transfer task posts its amount. */
+export function transferTaskFinanceLabel(
+  taskKey: string | null | undefined,
+): string | null {
+  if (!isSavingsTransferTaskKey(taskKey)) return null;
+  const account = SAVINGS_TRANSFER_TASKS[taskKey].account;
+  return (
+    FINANCE_TABLE_ROWS.find((row) => row.key === account)?.label ?? null
+  );
 }
 
 export interface MonthlyFinanceSnapshot {

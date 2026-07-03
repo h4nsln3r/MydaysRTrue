@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
-import { dateInMonth, monthStartFromDate } from "@/lib/monthly-bills";
+import { dateInMonth, monthStartFromDate, weeksInMonth } from "@/lib/monthly-bills";
+import { shiftMonthStartISO } from "@/lib/month-plan-horizon";
 import {
   applyTransferDelta,
   balancesFromSnapshotRow,
@@ -1262,8 +1263,32 @@ export async function setMonthlyBillAmountAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
+  const { data: task } = await supabase
+    .from("monthly_tasks")
+    .select("completion_kind")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Task not found." };
+
   const amount =
     input.amountKr != null ? Math.round(input.amountKr * 100) / 100 : null;
+
+  if (task.completion_kind === "amount") {
+    if (amount == null) {
+      return toggleMonthlyTaskDoneAction({
+        taskId: input.taskId,
+        monthStart: input.monthStart,
+        done: false,
+      });
+    }
+    return toggleMonthlyTaskDoneAction({
+      taskId: input.taskId,
+      monthStart: input.monthStart,
+      done: true,
+      amount,
+    });
+  }
 
   const { data: existing } = await supabase
     .from("monthly_task_completions")
@@ -1408,6 +1433,130 @@ export async function scheduleMonthlyTaskPlanAction(input: {
     input.weekStart,
     false,
   );
+}
+
+/** Copy last month's schedule (and bill amounts) into a future month plan. */
+export async function copyMonthPlanFromPreviousAction(input: {
+  monthStart: string;
+}): Promise<ActionResult> {
+  if (!MONTH_START_RE.test(input.monthStart)) {
+    return { ok: false, error: "Invalid month." };
+  }
+
+  const prevMonthStart = shiftMonthStartISO(input.monthStart, -1);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const [tasksRes, targetCompletionsRes, prevCompletionsRes] =
+    await Promise.all([
+      supabase
+        .from("monthly_tasks")
+        .select("id, day_of_month, single_month_start")
+        .eq("user_id", user.id)
+        .is("archived_at", null),
+      supabase
+        .from("monthly_task_completions")
+        .select(
+          "id, task_id, scheduled_day_of_month, scheduled_week_start, is_unscheduled, done_at",
+        )
+        .eq("user_id", user.id)
+        .eq("month_start", input.monthStart),
+      supabase
+        .from("monthly_task_completions")
+        .select(
+          "id, task_id, scheduled_day_of_month, scheduled_week_start, is_unscheduled, amount",
+        )
+        .eq("user_id", user.id)
+        .eq("month_start", prevMonthStart),
+    ]);
+
+  const targetByTask = new Map(
+    (targetCompletionsRes.data ?? []).map((r) => [r.task_id, r]),
+  );
+  const prevByTask = new Map(
+    (prevCompletionsRes.data ?? []).map((r) => [r.task_id, r]),
+  );
+
+  let copied = 0;
+
+  for (const task of tasksRes.data ?? []) {
+    if (task.single_month_start && task.single_month_start !== input.monthStart) {
+      continue;
+    }
+    if (task.day_of_month != null) continue;
+
+    const target = targetByTask.get(task.id);
+    if (target?.done_at) continue;
+    if (
+      target?.scheduled_day_of_month != null ||
+      target?.scheduled_week_start != null
+    ) {
+      continue;
+    }
+    if (target?.is_unscheduled) continue;
+
+    const prev = prevByTask.get(task.id);
+    if (!prev || prev.is_unscheduled) continue;
+    if (prev.scheduled_day_of_month == null && !prev.scheduled_week_start) {
+      continue;
+    }
+
+    let scheduledDay: number | null = prev.scheduled_day_of_month;
+    let scheduledWeek: string | null = null;
+
+    if (scheduledDay != null) {
+      scheduledWeek = weekStartISO(
+        parseLocalISO(dateInMonth(input.monthStart, scheduledDay)),
+      );
+    } else if (prev.scheduled_week_start) {
+      const prevWeeks = weeksInMonth(prevMonthStart);
+      const targetWeeks = weeksInMonth(input.monthStart);
+      const idx = prevWeeks.indexOf(prev.scheduled_week_start);
+      scheduledWeek =
+        idx >= 0
+          ? targetWeeks[Math.min(idx, targetWeeks.length - 1)]
+          : targetWeeks[0];
+    }
+
+    const payload = {
+      scheduled_day_of_month: scheduledDay,
+      scheduled_week_start: scheduledWeek,
+      is_unscheduled: false,
+      ...(prev.amount != null ? { amount: Number(prev.amount) } : {}),
+    };
+
+    if (target) {
+      const { error } = await supabase
+        .from("monthly_task_completions")
+        .update(payload)
+        .eq("id", target.id)
+        .eq("user_id", user.id);
+      if (error) return { ok: false, error: error.message };
+    } else {
+      const { error } = await supabase.from("monthly_task_completions").insert({
+        user_id: user.id,
+        task_id: task.id,
+        month_start: input.monthStart,
+        done_at: null,
+        ...payload,
+      });
+      if (error) return { ok: false, error: error.message };
+    }
+    copied += 1;
+  }
+
+  if (copied === 0) {
+    return {
+      ok: false,
+      error: "Inget att kopiera — förra månaden saknar plan eller den här månaden är redan planerad.",
+    };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 /** Place a monthly bill on a weekday in the unified week board. */
@@ -1738,8 +1887,43 @@ export async function saveMonthlyFinanceAction(input: {
     if (!toggleRes.ok) return toggleRes;
   }
 
-  revalidatePath("/month", "page");
+  revalidatePath("/", "layout");
   return { ok: true };
+}
+
+/** Backfill: amount-tasks with a saved amount should count as done. */
+export async function repairAmountCompletionsMissingDone(
+  userId: string,
+): Promise<void> {
+  const supabase = await createClient();
+
+  const { data: amountTasks } = await supabase
+    .from("monthly_tasks")
+    .select("id, key")
+    .eq("user_id", userId)
+    .eq("completion_kind", "amount")
+    .is("archived_at", null);
+
+  const amountTaskIds = (amountTasks ?? []).map((t) => t.id);
+  if (amountTaskIds.length === 0) return;
+
+  const { data: rows } = await supabase
+    .from("monthly_task_completions")
+    .select("id, task_id, month_start, amount")
+    .eq("user_id", userId)
+    .is("done_at", null)
+    .not("amount", "is", null)
+    .in("task_id", amountTaskIds);
+
+  for (const row of rows ?? []) {
+    if (row.amount == null || !Number.isFinite(Number(row.amount))) continue;
+    await toggleMonthlyTaskDoneAction({
+      taskId: row.task_id,
+      monthStart: row.month_start,
+      done: true,
+      amount: Number(row.amount),
+    });
+  }
 }
 
 // ============================================================================

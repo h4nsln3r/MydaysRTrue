@@ -5,9 +5,9 @@ import {
   formatMonthlyTaskDetail,
   type MonthlyTaskForMonth,
 } from "@/lib/tasks";
-import { dateInMonth, formatBillAmountKr, isMonthlyBill, monthStartFromDate, resolveMonthlyTaskSchedule } from "@/lib/monthly-bills";
+import { dateInMonth, formatBillAmountKr, isMonthlyBill, isMonthlyAmountTask, isMonthlyTaskComplete, monthStartFromDate, monthlyTaskVisualStatus, resolveMonthlyTaskSchedule } from "@/lib/monthly-bills";
 import { formatDayShort } from "@/lib/date";
-import type { MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
+import { monthlyTaskDisplayTitle, type MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
 import type { TaskCategory } from "@/lib/tasks";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
@@ -275,12 +275,14 @@ function MonthlyTaskCard({
   monthStart: string;
   today: string;
 }) {
-  const done = Boolean(task.completion?.doneAt);
-  const schedule = resolveMonthlyTaskSchedule(task, task.completion, monthStart);
+  const schedule = resolveMonthlyTaskSchedule(task, task.completion, monthStart, {
+    includeWhenDone: true,
+  });
   const scheduledDay = schedule.dayOfMonth;
   const scheduledDate =
     scheduledDay != null ? dateInMonth(monthStart, scheduledDay) : null;
   const billAmountLabel = formatBillAmountKr(task);
+  const amountDetail = formatMonthlyTaskDetail(task, task.completion);
   const isBill = isMonthlyBill(task, categories);
   const isFuture = scheduledDate ? scheduledDate > today : false;
   const isToday = scheduledDate === today;
@@ -292,13 +294,7 @@ function MonthlyTaskCard({
         ? "/"
         : `/day/${scheduledDate}`;
 
-  let status: "done" | "planned" | "missed" | "unplaced" = "unplaced";
-  if (schedule.isPlanned) {
-    if (done) status = "done";
-    else if (scheduledDate && (isFuture || isToday)) status = "planned";
-    else if (scheduledDate) status = "missed";
-    else status = "planned";
-  }
+  const status = monthlyTaskVisualStatus(task, task.completion, monthStart, today);
 
   return (
     <div
@@ -315,7 +311,7 @@ function MonthlyTaskCard({
           {task.icon}
         </span>
         <div className={styles.monthlyCardBody}>
-          <p className={styles.monthlyCardKicker}>{task.title}</p>
+          <p className={styles.monthlyCardKicker}>{monthlyTaskDisplayTitle(task)}</p>
           {category ? (
             <p className={styles.monthlyCardCategory}>
               {category.icon} {category.name}
@@ -323,6 +319,8 @@ function MonthlyTaskCard({
           ) : null}
           {isBill && billAmountLabel ? (
             <p className={styles.monthlyCardDetail}>{billAmountLabel}</p>
+          ) : isMonthlyAmountTask(task) && amountDetail ? (
+            <p className={styles.monthlyCardDetail}>{amountDetail}</p>
           ) : null}
           {status === "unplaced" ? (
             <p className={styles.monthlyCardDetail}>Ej planerad den här månaden</p>
@@ -339,12 +337,10 @@ function MonthlyTaskCard({
           ) : (
             <p className={styles.monthlyCardDetail}>Planerad vecka (ingen specifik dag)</p>
           )}
-          {done && formatMonthlyTaskDetail(task, task.completion) ? (
+          {status === "done" && (amountDetail || task.completion?.note) ? (
             <p className={styles.monthlyCardHint}>
-              {formatMonthlyTaskDetail(task, task.completion)}
+              {amountDetail ?? task.completion?.note}
             </p>
-          ) : done && task.completion?.note ? (
-            <p className={styles.monthlyCardHint}>{task.completion.note}</p>
           ) : status === "planned" ? (
             <p className={styles.monthlyCardHint}>Planerad uppgift</p>
           ) : status === "missed" ? (
@@ -373,7 +369,7 @@ function MonthlyTaskCard({
         >
           {status === "unplaced"
             ? "Öppna månadsplan"
-            : done
+            : status === "done"
               ? "Visa dag"
               : "Öppna månadsplan"}
         </Link>
@@ -470,7 +466,7 @@ function DayScore({
     );
     if (schedule.dayOfMonth === day.dayOfMonth) {
       total += 1;
-      if (task.completion?.doneAt) hit += 1;
+      if (isMonthlyTaskComplete(task, task.completion)) hit += 1;
     }
   }
 

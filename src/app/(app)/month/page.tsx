@@ -4,8 +4,15 @@ import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getMonthSummary, shiftMonth } from "@/lib/habits.server";
+import {
+  clampMonthNavigation,
+  isFutureMonth,
+  maxPlanMonthStart,
+  todayYearMonth,
+} from "@/lib/month-plan-horizon";
 import { getCategories, getMonthTaskSummary } from "@/lib/tasks.server";
 import { SALARY_TASK_KEY } from "@/lib/monthly-finance";
+import { isMonthlyTaskComplete } from "@/lib/monthly-bills";
 import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView, type PeriodView } from "@/lib/period-view";
 import { MonthProgressBoard } from "./MonthProgressBoard";
@@ -27,11 +34,6 @@ function monthNavHref(year: number, month: number, view: PeriodView): string {
 
 const MONTH_QS_RE = /^(\d{4})-(\d{2})$/;
 
-function todayYearMonth(): { year: number; month: number } {
-  const now = new Date();
-  return { year: now.getFullYear(), month: now.getMonth() + 1 };
-}
-
 function formatMonthLabel(year: number, month: number): string {
   const d = new Date(year, month - 1, 1);
   return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
@@ -42,7 +44,8 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
 
   const params = await searchParams;
   const view = parsePeriodView(params.view);
-  const todayYM = todayYearMonth();
+  const today = todayLocalISO();
+  const todayYM = todayYearMonth(today);
 
   let year = todayYM.year;
   let month = todayYM.month;
@@ -51,14 +54,10 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     year = Number(y);
     month = Number(m);
   }
-  // Don't allow viewing months entirely in the future.
-  if (
-    year > todayYM.year ||
-    (year === todayYM.year && month > todayYM.month)
-  ) {
-    year = todayYM.year;
-    month = todayYM.month;
-  }
+
+  const clamped = clampMonthNavigation(year, month, view, today);
+  year = clamped.year;
+  month = clamped.month;
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const [summary, monthlyTasks, allCategories] = await Promise.all([
@@ -66,25 +65,37 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     getMonthTaskSummary(user.id, monthStart),
     getCategories(user.id),
   ]);
-  const monthlyDone = monthlyTasks.tasks.filter(
-    (t) => t.completion?.doneAt,
+  const monthlyDone = monthlyTasks.tasks.filter((t) =>
+    isMonthlyTaskComplete(t, t.completion),
   ).length;
-  const today = todayLocalISO();
+  const isCurrent = year === todayYM.year && month === todayYM.month;
+  const isFuturePlan = view === "plan" && isFutureMonth(monthStart, today);
+  const financeTask = monthlyTasks.tasks.find((t) => t.key === "finance_ekonomi");
+  const salaryTask = monthlyTasks.tasks.find((t) => t.key === SALARY_TASK_KEY);
 
   const prev = shiftMonth(year, month, -1);
   const next = shiftMonth(year, month, +1);
+  const maxPlan = maxPlanMonthStart(today);
+  const maxPlanYear = Number(maxPlan.slice(0, 4));
+  const maxPlanMonth = Number(maxPlan.slice(5, 7));
   const canGoForward =
-    next.year < todayYM.year ||
-    (next.year === todayYM.year && next.month <= todayYM.month);
-  const isCurrent = year === todayYM.year && month === todayYM.month;
-  const financeTask = monthlyTasks.tasks.find((t) => t.key === "finance_ekonomi");
-  const salaryTask = monthlyTasks.tasks.find((t) => t.key === SALARY_TASK_KEY);
+    view === "plan"
+      ? next.year < maxPlanYear ||
+        (next.year === maxPlanYear && next.month <= maxPlanMonth)
+      : next.year < todayYM.year ||
+        (next.year === todayYM.year && next.month <= todayYM.month);
+
+  const kicker = isFuturePlan
+    ? "Planera framåt"
+    : isCurrent
+      ? "This month"
+      : "Past month";
 
   return (
     <main className={styles.main}>
       <header className={styles.header}>
         <p className={styles.kicker}>
-          {isCurrent ? "This month" : "Past month"}
+          {kicker}
         </p>
         <div className={styles.monthNav}>
           <Link
@@ -156,6 +167,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             snapshot={monthlyTasks.financeSnapshot}
             salaryTaskId={salaryTask?.id ?? null}
             salaryAmount={salaryTask?.completion?.amount ?? null}
+            planOnly={isFuturePlan}
           />
 
           <MonthlyBillsSummary
@@ -172,6 +184,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
               monthStart={monthStart}
               tasks={monthlyTasks.tasks}
               categories={monthlyTasks.categories}
+              isFuturePlan={isFuturePlan}
             />
           </section>
         </>

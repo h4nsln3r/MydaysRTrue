@@ -6,6 +6,7 @@ import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import {
   archiveMonthlyTaskAction,
+  copyMonthPlanFromPreviousAction,
   scheduleMonthlyTaskPlanAction,
   setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
@@ -15,7 +16,11 @@ import {
   MonthlyTaskEditForm,
   type MonthlyTaskEditValues,
 } from "@/components/MonthlyTaskEditForm/MonthlyTaskEditForm";
-import { parseKrInput } from "@/lib/monthly-finance";
+import {
+  monthlyTaskDisplayTitle,
+  parseKrInput,
+  transferTaskFinanceLabel,
+} from "@/lib/monthly-finance";
 import {
   formatMonthlyTaskDetail,
   groupByCategory,
@@ -29,6 +34,8 @@ import {
   effectiveBillAmountKr,
   isMonthlyBill,
   isMonthlyFinanceTask,
+  isMonthlyAmountTask,
+  isMonthlyTaskComplete,
   needsMonthPlacement,
   resolveMonthlyTaskSchedule,
   weeksInMonth,
@@ -39,12 +46,14 @@ interface Props {
   monthStart: string;
   tasks: MonthlyTaskForMonth[];
   categories: TaskCategory[];
+  isFuturePlan?: boolean;
 }
 
 export function MonthlyTasksBoard({
   monthStart,
   tasks,
   categories,
+  isFuturePlan = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -199,6 +208,15 @@ export function MonthlyTasksBoard({
       return res;
     });
 
+  const copyFromPrevious = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await copyMonthPlanFromPreviousAction({ monthStart });
+      if (!res.ok) setError(res.error ?? "Kunde inte kopiera planen.");
+      router.refresh();
+    });
+  };
+
   if (tasks.length === 0) {
     return (
       <p className={styles.empty}>
@@ -219,12 +237,14 @@ export function MonthlyTasksBoard({
   );
   const groupedToPlace = groupByCategory(toPlaceTasks, categories);
   const groupedPlanned = groupByCategory(plannedTasks, categories);
-  const doneCount = tasks.filter((t) => t.completion?.doneAt).length;
+  const doneCount = tasks.filter((t) =>
+    isMonthlyTaskComplete(t, t.completion),
+  ).length;
+  const plannedCount = tasks.filter(
+    (t) => !needsMonthPlacement(t, t.completion, monthStart),
+  ).length;
 
-  const renderTaskList = (
-    items: MonthlyTaskForMonth[],
-    showPlanPicker: boolean,
-  ) => (
+  const renderTaskList = (items: MonthlyTaskForMonth[]) => (
     <ul className={styles.taskList}>
       {items.map((t) => (
         <MonthlyTaskRow
@@ -236,7 +256,6 @@ export function MonthlyTasksBoard({
           busy={pendingId === t.id}
           expanded={expandedId === t.id}
           editing={editingId === t.id}
-          showPlanPicker={showPlanPicker}
           onToggleExpand={() => {
             if (editingId === t.id) return;
             setExpandedId(expandedId === t.id ? null : t.id);
@@ -264,7 +283,6 @@ export function MonthlyTasksBoard({
 
   const renderGroupedSection = (
     grouped: { category: TaskCategory | null; items: MonthlyTaskForMonth[] }[],
-    showPlanPicker: boolean,
   ) =>
     grouped.map(({ category, items }) => (
       <section
@@ -287,26 +305,43 @@ export function MonthlyTasksBoard({
             </span>
           </span>
           <span className={styles.groupCount}>
-            {items.filter((t) => t.completion?.doneAt).length}/{items.length}
+            {items.filter((t) => isMonthlyTaskComplete(t, t.completion)).length}/{items.length}
           </span>
         </header>
-        {renderTaskList(items, showPlanPicker)}
+        {renderTaskList(items)}
       </section>
     ));
 
   return (
     <div className={styles.board}>
+      {toPlaceTasks.length > 0 ? (
+        <div className={styles.copyPlanRow}>
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            loading={pending}
+            disabled={pending}
+            onClick={copyFromPrevious}
+          >
+            Kopiera plan från förra månaden
+          </Button>
+        </div>
+      ) : null}
+
       <div className={styles.progressLine}>
         <span className={styles.progressText}>
-          <strong>{doneCount}</strong>
+          <strong>{isFuturePlan ? plannedCount : doneCount}</strong>
           <span className={styles.progressSlash}>/ {tasks.length}</span>
-          <span className={styles.progressLabel}>klara den här månaden</span>
+          <span className={styles.progressLabel}>
+            {isFuturePlan ? "planerade" : "klara den här månaden"}
+          </span>
         </span>
         <div className={styles.progressBar} aria-hidden>
           <div
             className={styles.progressFill}
             style={{
-              width: `${tasks.length === 0 ? 0 : Math.round((doneCount / tasks.length) * 100)}%`,
+              width: `${tasks.length === 0 ? 0 : Math.round(((isFuturePlan ? plannedCount : doneCount) / tasks.length) * 100)}%`,
             }}
           />
         </div>
@@ -321,7 +356,7 @@ export function MonthlyTasksBoard({
             <span className={styles.planSectionCount}>{toPlaceTasks.length}</span>
           </header>
           {groupedToPlace.length > 0 ? (
-            renderGroupedSection(groupedToPlace, true)
+            renderGroupedSection(groupedToPlace)
           ) : null}
         </section>
       ) : (
@@ -335,11 +370,11 @@ export function MonthlyTasksBoard({
           <header className={styles.planSectionHeader}>
             <h3 className={styles.planSectionTitle}>Planerade</h3>
             <span className={styles.planSectionCount}>
-              {plannedTasks.filter((t) => t.completion?.doneAt).length}/
+              {plannedTasks.filter((t) => isMonthlyTaskComplete(t, t.completion)).length}/
               {plannedTasks.length} klara
             </span>
           </header>
-          {renderGroupedSection(groupedPlanned, false)}
+          {renderGroupedSection(groupedPlanned)}
         </section>
       ) : null}
     </div>
@@ -354,7 +389,6 @@ interface MonthlyTaskRowProps {
   busy: boolean;
   expanded: boolean;
   editing: boolean;
-  showPlanPicker: boolean;
   onToggleExpand: () => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -385,7 +419,6 @@ function MonthlyTaskRow({
   busy,
   expanded,
   editing,
-  showPlanPicker,
   onToggleExpand,
   onStartEdit,
   onCancelEdit,
@@ -399,12 +432,15 @@ function MonthlyTaskRow({
   onChangeCategory,
   onSaveBillAmount,
 }: MonthlyTaskRowProps) {
-  const done = Boolean(task.completion?.doneAt);
   const schedule = resolveMonthlyTaskSchedule(task, task.completion, monthStart);
   const monthWeeks = weeksInMonth(monthStart);
   const detail = formatMonthlyTaskDetail(task, task.completion);
   const billAmountLabel = formatBillAmountKr(task);
+  const amountDetail = formatMonthlyTaskDetail(task, task.completion);
   const isBill = isMonthlyBill(task, categories);
+  const displayTitle = monthlyTaskDisplayTitle(task);
+  const transferTarget = transferTaskFinanceLabel(task.key);
+  const done = isMonthlyTaskComplete(task, task.completion);
   const savedNote =
     task.completionKind === "amount" && task.completion?.note
       ? task.completion.note
@@ -427,10 +463,10 @@ function MonthlyTaskRow({
         : "",
   );
 
-  const showDayPicker = showPlanPicker && !done;
+  const showDayPicker = !done;
 
   const planSummary =
-    !showPlanPicker && schedule.isPlanned && schedule.weekStart
+    done && schedule.isPlanned && schedule.weekStart
       ? schedule.dayOfMonth != null
         ? `${formatWeekLabel(schedule.weekStart)} · dag ${schedule.dayOfMonth}`
         : formatWeekLabel(schedule.weekStart)
@@ -520,15 +556,20 @@ function MonthlyTaskRow({
           disabled={pending}
         >
           <span className={styles.taskTitle}>
-            {task.title}
+            {displayTitle}
             {task.singleMonthStart ? (
               <span className={styles.oneOffBadge}>Engång</span>
             ) : null}
-            {isBill && billAmountLabel ? (
+            {transferTarget ? (
+              <span className={styles.transferTargetBadge}>→ {transferTarget}</span>
+            ) : null}
+            {(isBill || isMonthlyAmountTask(task)) && billAmountLabel ? (
               <span className={styles.billAmountBadge}>{billAmountLabel}</span>
             ) : null}
           </span>
-          {detail && !isBill ? <span className={styles.taskNoteHint}>{detail}</span> : null}
+          {amountDetail && !isBill && !billAmountLabel ? (
+            <span className={styles.taskNoteHint}>{amountDetail}</span>
+          ) : detail && !isBill ? <span className={styles.taskNoteHint}>{detail}</span> : null}
           {isBill && done && detail ? (
             <span className={styles.taskNoteHint}>{detail}</span>
           ) : null}
@@ -565,7 +606,7 @@ function MonthlyTaskRow({
               <select
                 className={styles.taskDaySelect}
                 value={schedule.dayOfMonth ?? ""}
-                disabled={pending || schedule.weekStart == null}
+                disabled={pending}
                 onChange={(e) => onDayChange(e.target.value)}
                 aria-label={`Placera ${task.title} på dag i månaden`}
               >
@@ -616,20 +657,6 @@ function MonthlyTaskRow({
             </label>
           ) : null}
 
-          {!showPlanPicker && !done ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              fullWidth
-              loading={pending && busy}
-              disabled={pending}
-              onClick={() => onSchedulePlan(task, null, null)}
-            >
-              Planera om
-            </Button>
-          ) : null}
-
           {isBill ? (
             <>
               <Input
@@ -678,6 +705,11 @@ function MonthlyTaskRow({
             <>
               {task.completionKind === "amount" && task.notes ? (
                 <p className={styles.financeLinkText}>{task.notes}</p>
+              ) : transferTarget ? (
+                <p className={styles.financeLinkText}>
+                  Beloppet läggs till på <strong>{transferTarget}</strong> i
+                  ekonomitabellen.
+                </p>
               ) : null}
               {task.completionKind === "amount" ? (
                 <Input

@@ -42,6 +42,11 @@
     border-radius: $radius-md;
 }
 
+.copyPlanRow {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .progressText {
     display: inline-flex;
     align-items: baseline;
@@ -522,6 +527,15 @@
     font-size: 0.78rem;
     font-weight: 600;
     color: $color-orange;
+    vertical-align: middle;
+}
+
+.transferTargetBadge {
+    margin-left: 8px;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: $color-fog;
     vertical-align: middle;
 }
 

@@ -7,7 +7,8 @@ import { getGymWeekSummary } from "@/lib/gym.server";
 import { formatWeeklyTaskDetail, type Weekday } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
-import { formatBillAmountKr, resolveMonthlyBillsForWeek } from "@/lib/monthly-bills";
+import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
+import { monthlyTaskDisplayTitle } from "@/lib/monthly-finance";
 import { formatMonthlyTaskDetail } from "@/lib/tasks";
 import {
   weekPlanBathingPlacementDragId,
@@ -285,7 +286,7 @@ export async function getUnifiedWeekPlan(
       completion,
       notes: slot.task.notes,
       defaultAmountKr: slot.task.defaultAmountKr,
-      label: slot.task.title,
+      label: monthlyTaskDisplayTitle(slot.task),
       subtitle:
         slot.task.completionKind === "finance"
           ? formatMonthlyTaskDetail(slot.task, completion) ??
@@ -299,7 +300,7 @@ export async function getUnifiedWeekPlan(
       accent: slot.task.accent,
       defaultWeekday: null,
       weekday: slot.weekday as Weekday,
-      done: Boolean(completion?.doneAt),
+      done: isMonthlyTaskComplete(slot.task, completion),
       sortOrder: dayPlanSortOrder(
         slot.weekday as Weekday,
         completion?.daySortOrder ?? 0,
@@ -326,7 +327,7 @@ export async function getUnifiedWeekPlan(
       completion,
       notes: entry.task.notes,
       defaultAmountKr: entry.task.defaultAmountKr,
-      label: entry.task.title,
+      label: monthlyTaskDisplayTitle(entry.task),
       subtitle:
         entry.task.completionKind === "finance"
           ? formatMonthlyTaskDetail(entry.task, completion) ??
@@ -342,7 +343,7 @@ export async function getUnifiedWeekPlan(
       accent: entry.task.accent,
       defaultWeekday: null,
       weekday: null,
-      done: Boolean(completion?.doneAt),
+      done: isMonthlyTaskComplete(entry.task, completion),
       sortOrder: 8000 + entry.task.sortOrder,
       singleMonthStart: entry.task.singleMonthStart,
     });

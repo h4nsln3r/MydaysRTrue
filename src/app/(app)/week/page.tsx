@@ -30,6 +30,7 @@ import {
   todayLocalISO,
   weekStartISO,
 } from "@/lib/date";
+import { maxPlanWeekStart } from "@/lib/month-plan-horizon";
 
 import { UnifiedWeekBoard } from "./UnifiedWeekBoard";
 
@@ -67,8 +68,9 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
       : currentWeekStart;
 
   const nextWeekStart = addDaysISO(currentWeekStart, 7);
-  const start =
-    requested > nextWeekStart ? nextWeekStart : requested;
+  const maxWeek =
+    view === "plan" ? maxPlanWeekStart(today) : nextWeekStart;
+  const start = requested > maxWeek ? maxWeek : requested;
 
   const [
     week,
@@ -115,6 +117,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
         currentWeekStart={currentWeekStart}
         view={view}
         title={formatWeekLabel(start)}
+        maxWeekStart={maxWeek}
       />
 
       <WeekViewTabs weekStart={start} view={view} />

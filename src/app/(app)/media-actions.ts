@@ -11,10 +11,13 @@ export interface ActionResult {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+const MEDIA_NOTE_MAX = 280;
+
 export async function createMediaItemAction(input: {
   year: number;
   kind: MediaKind;
   title: string;
+  note?: string;
   totalLength?: number | null;
 }): Promise<ActionResult> {
   const title = input.title.trim();
@@ -34,6 +37,15 @@ export async function createMediaItemAction(input: {
             : "Ange antal avsnitt.",
       };
     }
+  }
+
+  let note: string | null = null;
+  if (input.kind === "movie" || input.kind === "series") {
+    const trimmed = input.note?.trim() ?? "";
+    if (trimmed.length > MEDIA_NOTE_MAX) {
+      return { ok: false, error: "Håll kommentaren under 280 tecken." };
+    }
+    note = trimmed || null;
   }
 
   const supabase = await createClient();
@@ -57,6 +69,7 @@ export async function createMediaItemAction(input: {
     year: input.year,
     kind: input.kind,
     title,
+    note,
     total_length:
       input.kind === "movie" ? null : (input.totalLength ?? null),
     sort_order: (last?.sort_order ?? -1) + 1,

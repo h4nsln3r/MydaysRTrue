@@ -21,6 +21,8 @@ export interface MediaItem {
   year: number;
   kind: MediaKind;
   title: string;
+  /** Optional comment when the item was added (films & series). */
+  note: string | null;
   totalLength: number | null;
   sortOrder: number;
   /** Highest logged position this year for this item. */

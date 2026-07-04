@@ -59,6 +59,9 @@ export function MediaYearProgress({ yearMedia, planHref }: Props) {
                     ? ` · senast ${item.lastActivityDate}`
                     : ""}
                 </p>
+                {item.note ? (
+                  <p className={styles.itemNote}>{item.note}</p>
+                ) : null}
                 {item.kind !== "movie" && item.totalLength ? (
                   <div className={styles.bar} aria-hidden>
                     <div

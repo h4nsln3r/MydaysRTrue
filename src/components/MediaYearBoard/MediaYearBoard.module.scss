@@ -53,6 +53,14 @@
     color: $color-fog;
 }
 
+.itemNote {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-style: italic;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .removeBtn {
     padding: 4px 8px;
     border-radius: $radius-pill;

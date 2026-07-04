@@ -29,6 +29,7 @@ export function MediaYearBoard({ yearMedia }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<MediaKind>("book");
   const [title, setTitle] = useState("");
+  const [note, setNote] = useState("");
   const [totalLength, setTotalLength] = useState("");
 
   const add = () => {
@@ -43,6 +44,7 @@ export function MediaYearBoard({ yearMedia }: Props) {
         year: yearMedia.year,
         kind,
         title,
+        note: kind === "movie" || kind === "series" ? note : undefined,
         totalLength:
           kind === "movie"
             ? null
@@ -55,6 +57,7 @@ export function MediaYearBoard({ yearMedia }: Props) {
         return;
       }
       setTitle("");
+      setNote("");
       setTotalLength("");
       router.refresh();
     });
@@ -96,6 +99,9 @@ export function MediaYearBoard({ yearMedia }: Props) {
                     ? ` · ${mediaProgressLabel(item)}`
                     : ""}
                 </span>
+                {item.note ? (
+                  <span className={styles.itemNote}>{item.note}</span>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -123,7 +129,10 @@ export function MediaYearBoard({ yearMedia }: Props) {
               aria-checked={kind === k}
               aria-pressed={kind === k}
               className={styles.kindBtn}
-              onClick={() => setKind(k)}
+              onClick={() => {
+                setKind(k);
+                if (k === "book") setNote("");
+              }}
               disabled={pending}
             >
               {MEDIA_KIND_ICON[k]} {MEDIA_KIND_LABEL[k]}
@@ -152,6 +161,21 @@ export function MediaYearBoard({ yearMedia }: Props) {
             value={totalLength}
             onChange={(e) => setTotalLength(e.target.value)}
             placeholder={kind === "book" ? "t.ex. 412" : "t.ex. 62"}
+            disabled={pending}
+          />
+        ) : null}
+        {kind === "movie" || kind === "series" ? (
+          <Input
+            label="Kommentar (valfritt)"
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={
+              kind === "movie"
+                ? "t.ex. Rekommenderad av Anna, vill se på bio"
+                : "t.ex. Säsong 3 kvar, bra att ha på kvällen"
+            }
+            maxLength={280}
             disabled={pending}
           />
         ) : null}

@@ -14,6 +14,7 @@ interface ItemRow {
   year: number;
   kind: string;
   title: string;
+  note: string | null;
   total_length: number | null;
   sort_order: number;
 }
@@ -63,6 +64,7 @@ function rowToItem(
     year: r.year,
     kind: r.kind as MediaKind,
     title: r.title,
+    note: r.note,
     totalLength: r.total_length,
     sortOrder: r.sort_order,
     bestPosition: stats.bestPosition,
@@ -80,7 +82,7 @@ export async function getYearMedia(
   const supabase = await createClient();
   const { data } = await supabase
     .from("media_items")
-    .select("id, year, kind, title, total_length, sort_order")
+    .select("id, year, kind, title, note, total_length, sort_order")
     .eq("user_id", userId)
     .eq("year", year)
     .is("archived_at", null)

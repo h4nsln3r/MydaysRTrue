@@ -96,6 +96,15 @@
     color: $color-fog;
 }
 
+.itemNote {
+    margin: 4px 0 0;
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-style: italic;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .bar {
     margin-top: 6px;
     height: 4px;

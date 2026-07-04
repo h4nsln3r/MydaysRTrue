@@ -210,6 +210,7 @@ export interface Database {
           kind: "book" | "series" | "movie";
           title: string;
           note: string | null;
+          rating: number | null;
           total_length: number | null;
           sort_order: number;
           archived_at: string | null;
@@ -223,6 +224,7 @@ export interface Database {
           kind: "book" | "series" | "movie";
           title: string;
           note?: string | null;
+          rating?: number | null;
           total_length?: number | null;
           sort_order?: number;
           archived_at?: string | null;
@@ -236,6 +238,7 @@ export interface Database {
           kind?: "book" | "series" | "movie";
           title?: string;
           note?: string | null;
+          rating?: number | null;
           total_length?: number | null;
           sort_order?: number;
           archived_at?: string | null;

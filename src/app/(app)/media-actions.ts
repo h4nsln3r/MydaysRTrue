@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { yearFromLocalISO, type MediaKind } from "@/lib/media";
+import {
+  MEDIA_RATING_MAX,
+  MEDIA_RATING_MIN,
+  yearFromLocalISO,
+  type MediaKind,
+} from "@/lib/media";
 
 export interface ActionResult {
   ok: boolean;
@@ -13,11 +18,26 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const MEDIA_NOTE_MAX = 280;
 
+function parseMediaRating(
+  value: number | null | undefined,
+): { ok: true; rating: number | null } | { ok: false; error: string } {
+  if (value == null) return { ok: true, rating: null };
+  if (
+    !Number.isInteger(value) ||
+    value < MEDIA_RATING_MIN ||
+    value > MEDIA_RATING_MAX
+  ) {
+    return { ok: false, error: "Betyget måste vara 1–10." };
+  }
+  return { ok: true, rating: value };
+}
+
 export async function createMediaItemAction(input: {
   year: number;
   kind: MediaKind;
   title: string;
   note?: string;
+  rating?: number | null;
   totalLength?: number | null;
 }): Promise<ActionResult> {
   const title = input.title.trim();
@@ -48,6 +68,9 @@ export async function createMediaItemAction(input: {
     note = trimmed || null;
   }
 
+  const ratingResult = parseMediaRating(input.rating);
+  if (!ratingResult.ok) return ratingResult;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -70,10 +93,39 @@ export async function createMediaItemAction(input: {
     kind: input.kind,
     title,
     note,
+    rating: ratingResult.rating,
     total_length:
       input.kind === "movie" ? null : (input.totalLength ?? null),
     sort_order: (last?.sort_order ?? -1) + 1,
   });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  revalidatePath("/year", "page");
+  return { ok: true };
+}
+
+export async function updateMediaItemRatingAction(input: {
+  id: string;
+  rating: number | null;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar id." };
+
+  const ratingResult = parseMediaRating(input.rating);
+  if (!ratingResult.ok) return ratingResult;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("media_items")
+    .update({ rating: ratingResult.rating })
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .is("archived_at", null);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");

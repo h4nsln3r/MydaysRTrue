@@ -68,10 +68,36 @@
     background: $color-ink-elevated;
     color: $color-cream-dim;
     font-size: 0.72rem;
+    flex-shrink: 0;
 
     &:hover:not(:disabled) {
         color: $color-danger;
     }
+}
+
+.ratingField {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.ratingLabel {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-fog;
+}
+
+.ratingSelect {
+    min-width: 3.5rem;
+    padding: 4px 6px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-size: 0.78rem;
+    font-family: $font-mono;
 }
 
 .form {

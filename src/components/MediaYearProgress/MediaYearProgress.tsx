@@ -4,6 +4,7 @@ import {
   MEDIA_KIND_LABEL,
   mediaProgressLabel,
   mediaProgressPct,
+  mediaRatingLabel,
   mediaYearGroups,
   type YearMediaContext,
 } from "@/lib/media";
@@ -54,6 +55,9 @@ export function MediaYearProgress({ yearMedia, planHref }: Props) {
                   {MEDIA_KIND_LABEL[item.kind]}
                   {mediaProgressLabel(item)
                     ? ` · ${mediaProgressLabel(item)}`
+                    : ""}
+                  {mediaRatingLabel(item.rating)
+                    ? ` · ${mediaRatingLabel(item.rating)}`
                     : ""}
                   {item.lastActivityDate
                     ? ` · senast ${item.lastActivityDate}`

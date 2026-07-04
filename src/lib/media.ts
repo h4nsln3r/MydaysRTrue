@@ -23,6 +23,8 @@ export interface MediaItem {
   title: string;
   /** Optional comment when the item was added (films & series). */
   note: string | null;
+  /** Optional 1–10 rating. */
+  rating: number | null;
   totalLength: number | null;
   sortOrder: number;
   /** Highest logged position this year for this item. */
@@ -51,6 +53,14 @@ export interface YearMediaContext {
 
 export function yearFromLocalISO(localDate: string): number {
   return Number(localDate.slice(0, 4));
+}
+
+export const MEDIA_RATING_MIN = 1;
+export const MEDIA_RATING_MAX = 10;
+
+export function mediaRatingLabel(rating: number | null): string | null {
+  if (rating == null) return null;
+  return `${rating}/10`;
 }
 
 export function mediaPositionLabel(kind: MediaKind): string {

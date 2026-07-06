@@ -63,6 +63,26 @@ export function mediaRatingLabel(rating: number | null): string | null {
   return `${rating}/10`;
 }
 
+export function mediaCompletionPrompt(kind: MediaKind): string {
+  if (kind === "book") return "Klart! Vad tyckte du om boken?";
+  if (kind === "series") return "Klart! Vad tyckte du om serien?";
+  return "Klart! Vad tyckte du om filmen?";
+}
+
+/** Whether logging this position marks the item as newly complete. */
+export function willCompleteMediaItem(
+  item: MediaItem,
+  position: number,
+  didConsume: boolean,
+): boolean {
+  if (item.completed) return false;
+  if (item.kind === "movie") return didConsume;
+  if (item.totalLength && item.totalLength > 0) {
+    return position >= item.totalLength;
+  }
+  return false;
+}
+
 export function mediaPositionLabel(kind: MediaKind): string {
   if (kind === "book") return "Sida du är på";
   if (kind === "series") return "Avsnitt du är på";

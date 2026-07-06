@@ -26,13 +26,45 @@
 
 .item {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr auto auto;
     align-items: center;
     gap: $space-2;
     padding: $space-1 $space-2;
     border-radius: $radius-sm;
     background: $color-ink-elevated;
     border: 1px solid $color-line;
+}
+
+.itemEditing {
+    grid-template-columns: 1fr;
+    border-color: $color-orange;
+}
+
+.editForm {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.editActions {
+    display: flex;
+    gap: $space-2;
+    justify-content: flex-end;
+}
+
+.editBtn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: $color-fog;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+    }
 }
 
 .check {

@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   archiveMediaItemAction,
   createMediaItemAction,
-  updateMediaItemRatingAction,
+  updateMediaItemAction,
 } from "@/app/(app)/media-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { MediaItemReview } from "@/components/MediaItemReview/MediaItemReview";
 import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
@@ -17,6 +18,7 @@ import {
   mediaProgressLabel,
   mediaRatingLabel,
   type MediaKind,
+  type MediaItem,
   type YearMediaContext,
 } from "@/lib/media";
 import styles from "./MediaYearBoard.module.scss";
@@ -37,8 +39,6 @@ export function MediaYearBoard({ yearMedia }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<MediaKind>("book");
   const [title, setTitle] = useState("");
-  const [note, setNote] = useState("");
-  const [rating, setRating] = useState("");
   const [totalLength, setTotalLength] = useState("");
 
   const add = () => {
@@ -49,14 +49,10 @@ export function MediaYearBoard({ yearMedia }: Props) {
 
     setError(null);
     startTransition(async () => {
-      const parsedRating =
-        rating.trim() === "" ? null : Number(rating);
       const res = await createMediaItemAction({
         year: yearMedia.year,
         kind,
         title,
-        note: kind === "movie" || kind === "series" ? note : undefined,
-        rating: parsedRating,
         totalLength:
           kind === "movie"
             ? null
@@ -69,30 +65,7 @@ export function MediaYearBoard({ yearMedia }: Props) {
         return;
       }
       setTitle("");
-      setNote("");
-      setRating("");
       setTotalLength("");
-      router.refresh();
-    });
-  };
-
-  const setItemRating = (id: string, value: string) => {
-    setError(null);
-    startTransition(async () => {
-      const res = await updateMediaItemRatingAction({
-        id,
-        rating: value === "" ? null : Number(value),
-      });
-      if (!res.ok) setError(res.error ?? "Kunde inte spara betyg.");
-      router.refresh();
-    });
-  };
-
-  const remove = (id: string) => {
-    setError(null);
-    startTransition(async () => {
-      const res = await archiveMediaItemAction(id);
-      if (!res.ok) setError(res.error ?? "Kunde inte ta bort.");
       router.refresh();
     });
   };
@@ -101,62 +74,19 @@ export function MediaYearBoard({ yearMedia }: Props) {
     <div className={styles.board}>
       <p className={styles.hint}>
         Lägg till böcker, serier och filmer för {yearMedia.year}. I dagsvyn
-        väljer du titel och loggar sida eller avsnitt.
+        väljer du titel och loggar sida eller avsnitt. När du är klar kan du
+        skriva en recension och ge betyg.
       </p>
 
       {yearMedia.items.length > 0 ? (
         <ul className={styles.list}>
           {yearMedia.items.map((item) => (
-            <li key={item.id} className={styles.item}>
-              <span className={styles.itemIcon} aria-hidden>
-                {MEDIA_KIND_ICON[item.kind]}
-              </span>
-              <div className={styles.itemMeta}>
-                <span className={styles.itemTitle}>{item.title}</span>
-                <span className={styles.itemSub}>
-                  {MEDIA_KIND_LABEL[item.kind]}
-                  {item.totalLength
-                    ? item.kind === "book"
-                      ? ` · ${item.totalLength} sidor`
-                      : ` · ${item.totalLength} avsnitt`
-                    : ""}
-                  {mediaProgressLabel(item)
-                    ? ` · ${mediaProgressLabel(item)}`
-                    : ""}
-                  {mediaRatingLabel(item.rating)
-                    ? ` · ${mediaRatingLabel(item.rating)}`
-                    : ""}
-                </span>
-                {item.note ? (
-                  <span className={styles.itemNote}>{item.note}</span>
-                ) : null}
-              </div>
-              <label className={styles.ratingField}>
-                <span className={styles.ratingLabel}>Betyg</span>
-                <select
-                  className={styles.ratingSelect}
-                  value={item.rating ?? ""}
-                  onChange={(e) => setItemRating(item.id, e.target.value)}
-                  disabled={pending}
-                  aria-label={`Betyg för ${item.title}`}
-                >
-                  <option value="">–</option>
-                  {RATING_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className={styles.removeBtn}
-                onClick={() => remove(item.id)}
-                disabled={pending}
-              >
-                Ta bort
-              </button>
-            </li>
+            <MediaItemRow
+              key={item.id}
+              item={item}
+              pending={pending}
+              onError={setError}
+            />
           ))}
         </ul>
       ) : (
@@ -174,10 +104,7 @@ export function MediaYearBoard({ yearMedia }: Props) {
               aria-checked={kind === k}
               aria-pressed={kind === k}
               className={styles.kindBtn}
-              onClick={() => {
-                setKind(k);
-                if (k === "book") setNote("");
-              }}
+              onClick={() => setKind(k)}
               disabled={pending}
             >
               {MEDIA_KIND_ICON[k]} {MEDIA_KIND_LABEL[k]}
@@ -209,33 +136,6 @@ export function MediaYearBoard({ yearMedia }: Props) {
             disabled={pending}
           />
         ) : null}
-        {kind === "movie" || kind === "series" ? (
-          <Input
-            label="Kommentar (valfritt)"
-            type="text"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={
-              kind === "movie"
-                ? "t.ex. Rekommenderad av Anna, vill se på bio"
-                : "t.ex. Säsong 3 kvar, bra att ha på kvällen"
-            }
-            maxLength={280}
-            disabled={pending}
-          />
-        ) : null}
-        <Input
-          label="Betyg (valfritt)"
-          type="number"
-          inputMode="numeric"
-          min={MEDIA_RATING_MIN}
-          max={MEDIA_RATING_MAX}
-          step={1}
-          value={rating}
-          onChange={(e) => setRating(e.target.value)}
-          placeholder="1–10"
-          disabled={pending}
-        />
         <Button
           type="button"
           variant="primary"
@@ -251,5 +151,229 @@ export function MediaYearBoard({ yearMedia }: Props) {
 
       {error ? <p className={styles.error}>{error}</p> : null}
     </div>
+  );
+}
+
+interface MediaItemRowProps {
+  item: MediaItem;
+  pending: boolean;
+  onError: (msg: string | null) => void;
+}
+
+function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
+  const router = useRouter();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(item.title);
+  const [editNote, setEditNote] = useState(item.note ?? "");
+  const [editRating, setEditRating] = useState(
+    item.rating != null ? String(item.rating) : "",
+  );
+  const [editTotalLength, setEditTotalLength] = useState(
+    item.totalLength != null ? String(item.totalLength) : "",
+  );
+  const [localPending, startTransition] = useTransition();
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const busy = pending || localPending;
+
+  const startEdit = () => {
+    setEditTitle(item.title);
+    setEditNote(item.note ?? "");
+    setEditRating(item.rating != null ? String(item.rating) : "");
+    setEditTotalLength(
+      item.totalLength != null ? String(item.totalLength) : "",
+    );
+    setLocalError(null);
+    onError(null);
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setLocalError(null);
+  };
+
+  const saveEdit = () => {
+    if (!editTitle.trim()) {
+      setLocalError("Skriv en titel.");
+      return;
+    }
+
+    setLocalError(null);
+    onError(null);
+    startTransition(async () => {
+      const res = await updateMediaItemAction({
+        id: item.id,
+        title: editTitle,
+        note: editNote,
+        rating: editRating.trim() === "" ? null : Number(editRating),
+        totalLength:
+          item.kind === "movie"
+            ? null
+            : editTotalLength.trim() === ""
+              ? undefined
+              : Number(editTotalLength),
+      });
+      if (!res.ok) {
+        setLocalError(res.error ?? "Kunde inte spara.");
+        return;
+      }
+      setIsEditing(false);
+      router.refresh();
+    });
+  };
+
+  const remove = () => {
+    onError(null);
+    startTransition(async () => {
+      const res = await archiveMediaItemAction(item.id);
+      if (!res.ok) onError(res.error ?? "Kunde inte ta bort.");
+      router.refresh();
+    });
+  };
+
+  if (isEditing) {
+    return (
+      <li className={[styles.itemWrap, styles.itemEditing].filter(Boolean).join(" ")}>
+        <div className={styles.item}>
+          <span className={styles.itemIcon} aria-hidden>
+            {MEDIA_KIND_ICON[item.kind]}
+          </span>
+          <div className={styles.editForm}>
+            <Input
+              label="Titel"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              maxLength={120}
+              disabled={busy}
+            />
+            {item.kind !== "movie" ? (
+              <Input
+                label={item.kind === "book" ? "Antal sidor" : "Antal avsnitt"}
+                type="number"
+                inputMode="numeric"
+                value={editTotalLength}
+                onChange={(e) => setEditTotalLength(e.target.value)}
+                disabled={busy}
+              />
+            ) : null}
+            {item.completed ? (
+              <>
+                <Input
+                  label="Recension (valfritt)"
+                  type="text"
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  maxLength={280}
+                  disabled={busy}
+                />
+                <label className={styles.ratingField}>
+                  <span className={styles.ratingLabel}>Betyg</span>
+                  <select
+                    className={styles.ratingSelect}
+                    value={editRating}
+                    onChange={(e) => setEditRating(e.target.value)}
+                    disabled={busy}
+                    aria-label={`Betyg för ${editTitle}`}
+                  >
+                    <option value="">–</option>
+                    {RATING_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            ) : null}
+            {localError ? <p className={styles.error}>{localError}</p> : null}
+            <div className={styles.editActions}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                onClick={cancelEdit}
+                disabled={busy}
+              >
+                Avbryt
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                loading={busy}
+                disabled={busy}
+                onClick={saveEdit}
+              >
+                Spara
+              </Button>
+            </div>
+          </div>
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li className={styles.itemWrap}>
+      <div className={styles.item}>
+        <span className={styles.itemIcon} aria-hidden>
+          {MEDIA_KIND_ICON[item.kind]}
+        </span>
+        <div className={styles.itemMeta}>
+          <span className={styles.itemTitle}>
+            {item.title}
+            {item.completed ? (
+              <span className={styles.doneBadge} aria-label="Klart">
+                {" "}
+                ✓
+              </span>
+            ) : null}
+          </span>
+          <span className={styles.itemSub}>
+            {MEDIA_KIND_LABEL[item.kind]}
+            {item.totalLength
+              ? item.kind === "book"
+                ? ` · ${item.totalLength} sidor`
+                : ` · ${item.totalLength} avsnitt`
+              : ""}
+            {mediaProgressLabel(item)
+              ? ` · ${mediaProgressLabel(item)}`
+              : ""}
+            {mediaRatingLabel(item.rating)
+              ? ` · ${mediaRatingLabel(item.rating)}`
+              : ""}
+          </span>
+          {item.note ? (
+            <span className={styles.itemNote}>{item.note}</span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          className={styles.editBtn}
+          onClick={startEdit}
+          disabled={busy}
+        >
+          Redigera
+        </button>
+        <button
+          type="button"
+          className={styles.removeBtn}
+          onClick={remove}
+          disabled={busy}
+        >
+          Ta bort
+        </button>
+      </div>
+      {item.completed ? (
+        <MediaItemReview
+          itemId={item.id}
+          kind={item.kind}
+          note={item.note}
+          rating={item.rating}
+          compact
+        />
+      ) : null}
+    </li>
   );
 }

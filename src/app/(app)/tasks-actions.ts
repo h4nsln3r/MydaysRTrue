@@ -928,6 +928,32 @@ export async function addWeeklyTaskChecklistItemAction(input: {
   return { ok: true };
 }
 
+export async function updateWeeklyTaskChecklistItemAction(input: {
+  itemId: string;
+  text: string;
+}): Promise<ActionResult> {
+  const text = (input.text ?? "").trim();
+  if (!text) return { ok: false, error: "Skriv en uppgift." };
+  if (text.length > 200) return { ok: false, error: "Max 200 tecken." };
+  if (!input.itemId) return { ok: false, error: "Saknar id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("weekly_task_checklist_items")
+    .update({ text })
+    .eq("id", input.itemId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function toggleWeeklyTaskChecklistItemAction(input: {
   itemId: string;
   done: boolean;

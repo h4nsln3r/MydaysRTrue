@@ -1,0 +1,65 @@
+@use "abstracts" as *;
+
+.wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-3;
+    border-radius: $radius-md;
+    background: rgba(110, 231, 163, 0.06);
+    border: 1px solid rgba(110, 231, 163, 0.25);
+}
+
+.wrapHighlight {
+    border-color: rgba(110, 231, 163, 0.55);
+    box-shadow: 0 0 0 1px rgba(110, 231, 163, 0.15);
+}
+
+.wrapCompact {
+    padding: $space-2;
+}
+
+.prompt {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: $color-cream;
+}
+
+.ratingField {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ratingLabel {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-fog;
+}
+
+.ratingSelect {
+    width: 100%;
+    max-width: 8rem;
+    padding: 8px 10px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-size: 0.88rem;
+    font-family: $font-mono;
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.82rem;
+}
+
+.saved {
+    margin: 0;
+    color: $color-success;
+    font-size: 0.82rem;
+    font-weight: 600;
+}

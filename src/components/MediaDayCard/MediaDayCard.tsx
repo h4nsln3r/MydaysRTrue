@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { saveMediaDailyLogAction } from "@/app/(app)/media-actions";
 import { Card } from "@/components/Card/Card";
 import { Input } from "@/components/Input/Input";
+import { MediaItemReview } from "@/components/MediaItemReview/MediaItemReview";
 import type { DailyHabit } from "@/lib/habits";
 import {
   mediaPositionLabel,
   mediaProgressLabel,
   mediaProgressPct,
+  willCompleteMediaItem,
   type DailyMediaContext,
   type MediaItem,
 } from "@/lib/media";
@@ -26,6 +28,7 @@ export function MediaDayCard({ date, habit, media }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [reviewHighlight, setReviewHighlight] = useState(false);
 
   const [selectedId, setSelectedId] = useState(
     media.dayLog?.mediaItemId ?? media.items[0]?.id ?? "",
@@ -41,11 +44,26 @@ export function MediaDayCard({ date, habit, media }: Props) {
     setSelectedId(media.dayLog?.mediaItemId ?? media.items[0]?.id ?? "");
     setPosition(media.dayLog ? String(media.dayLog.position) : "");
     setDidConsume(media.dayLog?.didConsume ?? false);
+    setReviewHighlight(false);
   }, [media.dayLog, media.items]);
 
   const selected: MediaItem | undefined = media.items.find(
     (i) => i.id === selectedId,
   );
+
+  const parsedPosition =
+    selected?.kind === "movie"
+      ? didConsume
+        ? 1
+        : 0
+      : position.trim() === ""
+        ? 0
+        : Number(position);
+
+  const showReview = selected
+    ? selected.completed ||
+      willCompleteMediaItem(selected, parsedPosition, didConsume)
+    : false;
 
   const save = (
     nextId: string,
@@ -74,6 +92,8 @@ export function MediaDayCard({ date, habit, media }: Props) {
       return;
     }
 
+    const willComplete = willCompleteMediaItem(item, pos, nextDidConsume);
+
     setError(null);
     startTransition(async () => {
       const res = await saveMediaDailyLogAction({
@@ -82,8 +102,14 @@ export function MediaDayCard({ date, habit, media }: Props) {
         position: pos,
         didConsume: nextDidConsume,
       });
-      if (!res.ok) setError(res.error ?? "Kunde inte spara.");
-      else router.refresh();
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte spara.");
+        return;
+      }
+      if (res.justCompleted || willComplete) {
+        setReviewHighlight(true);
+      }
+      router.refresh();
     });
   };
 
@@ -133,12 +159,14 @@ export function MediaDayCard({ date, habit, media }: Props) {
               setSelectedId(id);
               setPosition("");
               setDidConsume(false);
+              setReviewHighlight(false);
             }}
             disabled={pending}
           >
             {media.items.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.title}
+                {item.completed ? " ✓" : ""}
               </option>
             ))}
           </select>
@@ -202,6 +230,16 @@ export function MediaDayCard({ date, habit, media }: Props) {
               </label>
             </>
           )}
+
+          {showReview && selected ? (
+            <MediaItemReview
+              itemId={selected.id}
+              kind={selected.kind}
+              note={selected.note}
+              rating={selected.rating}
+              highlight={reviewHighlight}
+            />
+          ) : null}
         </div>
       )}
 

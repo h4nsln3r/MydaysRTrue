@@ -111,6 +111,7 @@ export async function getDailyMedia(
 ): Promise<DailyMediaContext> {
   const year = yearFromLocalISO(localDate);
   const { items } = await getYearMedia(userId, year);
+  const activeItems = items.filter((item) => !item.completed);
 
   const supabase = await createClient();
   const { data: dayRow } = await supabase
@@ -120,16 +121,20 @@ export async function getDailyMedia(
     .eq("local_date", localDate)
     .maybeSingle();
 
-  return {
-    localDate,
-    year,
-    items,
-    dayLog: dayRow
+  const dayLog =
+    dayRow && activeItems.some((item) => item.id === dayRow.media_item_id)
       ? {
           mediaItemId: dayRow.media_item_id,
           position: dayRow.position,
           didConsume: dayRow.did_consume,
         }
-      : null,
+      : null;
+
+  return {
+    localDate,
+    year,
+    items: activeItems,
+    dayLog,
+    allCompleted: items.length > 0 && activeItems.length === 0,
   };
 }

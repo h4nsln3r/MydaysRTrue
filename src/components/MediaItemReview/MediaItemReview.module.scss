@@ -63,3 +63,10 @@
     font-size: 0.82rem;
     font-weight: 600;
 }
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+    align-items: center;
+}

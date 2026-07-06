@@ -65,6 +65,23 @@
     font-size: 0.9rem;
 }
 
+.completedTitle {
+    margin: 0;
+    font-size: 0.9rem;
+    color: $color-cream-dim;
+
+    strong {
+        color: $color-cream;
+    }
+}
+
+.completeHint {
+    margin: 0;
+    font-size: 0.82rem;
+    color: $color-success;
+    font-style: italic;
+}
+
 .section {
     display: flex;
     flex-direction: column;

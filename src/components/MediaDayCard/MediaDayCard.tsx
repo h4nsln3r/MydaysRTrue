@@ -29,6 +29,9 @@ export function MediaDayCard({ date, habit, media }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [reviewHighlight, setReviewHighlight] = useState(false);
+  const [pendingReviewItem, setPendingReviewItem] = useState<MediaItem | null>(
+    null,
+  );
 
   const [selectedId, setSelectedId] = useState(
     media.dayLog?.mediaItemId ?? media.items[0]?.id ?? "",
@@ -44,7 +47,9 @@ export function MediaDayCard({ date, habit, media }: Props) {
     setSelectedId(media.dayLog?.mediaItemId ?? media.items[0]?.id ?? "");
     setPosition(media.dayLog ? String(media.dayLog.position) : "");
     setDidConsume(media.dayLog?.didConsume ?? false);
-    setReviewHighlight(false);
+    if (media.items.length > 0) {
+      setReviewHighlight(false);
+    }
   }, [media.dayLog, media.items]);
 
   const selected: MediaItem | undefined = media.items.find(
@@ -60,9 +65,8 @@ export function MediaDayCard({ date, habit, media }: Props) {
         ? 0
         : Number(position);
 
-  const showReview = selected
-    ? selected.completed ||
-      willCompleteMediaItem(selected, parsedPosition, didConsume)
+  const showInlineReview = selected
+    ? willCompleteMediaItem(selected, parsedPosition, didConsume)
     : false;
 
   const save = (
@@ -107,6 +111,7 @@ export function MediaDayCard({ date, habit, media }: Props) {
         return;
       }
       if (res.justCompleted || willComplete) {
+        setPendingReviewItem({ ...item, completed: true, bestPosition: pos });
         setReviewHighlight(true);
       }
       router.refresh();
@@ -114,6 +119,7 @@ export function MediaDayCard({ date, habit, media }: Props) {
   };
 
   const yearHref = `/year?y=${media.year}&view=plan`;
+  const logging = media.items.length > 0 && !pendingReviewItem;
 
   return (
     <Card
@@ -141,12 +147,44 @@ export function MediaDayCard({ date, habit, media }: Props) {
         </Link>
       </div>
 
-      {media.items.length === 0 ? (
+      {pendingReviewItem ? (
+        <div className={styles.section}>
+          <p className={styles.completedTitle}>
+            Klart: <strong>{pendingReviewItem.title}</strong>
+          </p>
+          <MediaItemReview
+            itemId={pendingReviewItem.id}
+            kind={pendingReviewItem.kind}
+            note={pendingReviewItem.note}
+            rating={pendingReviewItem.rating}
+            highlight={reviewHighlight}
+            onDismiss={() => {
+              setPendingReviewItem(null);
+              setReviewHighlight(false);
+            }}
+            onSaved={() => {
+              window.setTimeout(() => {
+                setPendingReviewItem(null);
+                setReviewHighlight(false);
+              }, 1500);
+            }}
+          />
+        </div>
+      ) : media.items.length === 0 ? (
         <p className={styles.empty}>
-          Lägg till böcker, serier eller filmer under{" "}
-          <Link href={yearHref}>årsvyn</Link>.
+          {media.allCompleted ? (
+            <>
+              Alla titlar klara för {media.year}! Se recensioner och lägg till
+              fler i <Link href={yearHref}>årsvyn</Link>.
+            </>
+          ) : (
+            <>
+              Lägg till böcker, serier eller filmer under{" "}
+              <Link href={yearHref}>årsvyn</Link>.
+            </>
+          )}
         </p>
-      ) : (
+      ) : logging ? (
         <div className={styles.section}>
           <label className={styles.checkLabel}>
             <span>Välj titel</span>
@@ -166,7 +204,6 @@ export function MediaDayCard({ date, habit, media }: Props) {
             {media.items.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.title}
-                {item.completed ? " ✓" : ""}
               </option>
             ))}
           </select>
@@ -231,17 +268,14 @@ export function MediaDayCard({ date, habit, media }: Props) {
             </>
           )}
 
-          {showReview && selected ? (
-            <MediaItemReview
-              itemId={selected.id}
-              kind={selected.kind}
-              note={selected.note}
-              rating={selected.rating}
-              highlight={reviewHighlight}
-            />
+          {showInlineReview && selected ? (
+            <p className={styles.completeHint}>
+              Spara sidan/avsnittet för att markera som klart och skriva en
+              recension.
+            </p>
           ) : null}
         </div>
-      )}
+      ) : null}
 
       {error ? <p className={styles.error}>{error}</p> : null}
     </Card>

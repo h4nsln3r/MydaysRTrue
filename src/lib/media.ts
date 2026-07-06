@@ -42,8 +42,11 @@ export interface MediaDayLog {
 export interface DailyMediaContext {
   localDate: string;
   year: number;
+  /** Incomplete titles only — completed ones are hidden in the day view. */
   items: MediaItem[];
   dayLog: MediaDayLog | null;
+  /** True when every title for the year is finished. */
+  allCompleted: boolean;
 }
 
 export interface YearMediaContext {

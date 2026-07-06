@@ -26,6 +26,8 @@ interface Props {
   /** Highlight when the user just finished the title. */
   highlight?: boolean;
   compact?: boolean;
+  onDismiss?: () => void;
+  onSaved?: () => void;
 }
 
 export function MediaItemReview({
@@ -35,6 +37,8 @@ export function MediaItemReview({
   rating,
   highlight = false,
   compact = false,
+  onDismiss,
+  onSaved,
 }: Props) {
   const router = useRouter();
   const [reviewNote, setReviewNote] = useState(note ?? "");
@@ -70,7 +74,12 @@ export function MediaItemReview({
       }
       setSaved(true);
       router.refresh();
+      onSaved?.();
     });
+  };
+
+  const dismiss = () => {
+    onDismiss?.();
   };
 
   return (
@@ -125,17 +134,30 @@ export function MediaItemReview({
       {saved && !dirty ? (
         <p className={styles.saved}>Sparat!</p>
       ) : (
-        <Button
-          type="button"
-          variant={highlight ? "primary" : "outline"}
-          size="md"
-          fullWidth={!compact}
-          loading={pending}
-          disabled={pending || !dirty}
-          onClick={save}
-        >
-          Spara recension
-        </Button>
+        <div className={styles.actions}>
+          <Button
+            type="button"
+            variant={highlight ? "primary" : "outline"}
+            size="md"
+            fullWidth={!compact}
+            loading={pending}
+            disabled={pending || !dirty}
+            onClick={save}
+          >
+            Spara recension
+          </Button>
+          {onDismiss ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              disabled={pending}
+              onClick={dismiss}
+            >
+              Hoppa över
+            </Button>
+          ) : null}
+        </div>
       )}
     </div>
   );

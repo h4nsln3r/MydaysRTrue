@@ -39,6 +39,7 @@ const KIND_HINT: Partial<Record<HabitKind, string>> = {
   steps: "Antal steg per dag",
   activity_hours: "Aktiva timmar per dag",
   media: "Läsa & titta — loggas i Dagens plan",
+  live: "Live — planera i årsvyn, loggas i Dagens plan",
   mobile_games: "Chess, Duolingo, Pokemon GO",
   mood: "Välj hur dagen kändes — en emoji per dag",
   tri_state: "Ja / halv / nej",

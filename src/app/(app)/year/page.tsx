@@ -6,6 +6,9 @@ import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getYearMedia } from "@/lib/media.server";
+import { getYearLiveEvents } from "@/lib/live-events.server";
+import { LiveEventsYearBoard } from "@/components/LiveEventsYearBoard/LiveEventsYearBoard";
+import { LiveEventsYearProgress } from "@/components/LiveEventsYearProgress/LiveEventsYearProgress";
 import { getYearRestaurantMeals } from "@/lib/meals.server";
 import { parsePeriodView } from "@/lib/period-view";
 import styles from "./year.module.scss";
@@ -36,6 +39,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
   if (year > currentYear) year = currentYear;
 
   const yearMedia = await getYearMedia(user.id, year);
+  const yearLive = await getYearLiveEvents(user.id, year);
   const yearRestaurants = await getYearRestaurantMeals(user.id, year);
   const isCurrent = year === currentYear;
   const canGoForward = year < currentYear;
@@ -97,6 +101,22 @@ export default async function YearPage({ searchParams }: YearPageProps) {
           />
         ) : (
           <MediaYearBoard yearMedia={yearMedia} />
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <header className={styles.sectionHeader}>
+          <h2 className={styles.h2}>Live-upplevelser</h2>
+          <span className={styles.muted}>konserter · sport · fester</span>
+        </header>
+
+        {view === "progress" ? (
+          <LiveEventsYearProgress
+            yearLive={yearLive}
+            planHref={yearNavHref(year, "plan")}
+          />
+        ) : (
+          <LiveEventsYearBoard yearLive={yearLive} />
         )}
       </section>
 

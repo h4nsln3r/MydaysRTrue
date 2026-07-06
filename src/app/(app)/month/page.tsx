@@ -5,6 +5,8 @@ import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs
 import { getAuthUser } from "@/lib/auth.server";
 import { getMonthSummary, shiftMonth } from "@/lib/habits.server";
 import { getMonthMedia } from "@/lib/media.server";
+import { getMonthLiveEvents } from "@/lib/live-events.server";
+import { LiveEventsMonthSummary } from "@/components/LiveEventsMonthSummary/LiveEventsMonthSummary";
 import { MediaMonthSummary } from "@/components/MediaMonthSummary/MediaMonthSummary";
 import {
   clampMonthNavigation,
@@ -62,11 +64,13 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
   month = clamped.month;
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-  const [summary, monthlyTasks, allCategories, monthMedia] = await Promise.all([
+  const [summary, monthlyTasks, allCategories, monthMedia, monthLive] =
+    await Promise.all([
     getMonthSummary(user.id, year, month),
     getMonthTaskSummary(user.id, monthStart),
     getCategories(user.id),
     getMonthMedia(user.id, monthStart),
+    getMonthLiveEvents(user.id, monthStart),
   ]);
   const monthlyDone = monthlyTasks.tasks.filter((t) =>
     isMonthlyTaskComplete(t, t.completion),
@@ -158,6 +162,9 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
         />
         <section className={styles.section}>
           <MediaMonthSummary monthMedia={monthMedia} year={year} />
+        </section>
+        <section className={styles.section}>
+          <LiveEventsMonthSummary monthLive={monthLive} year={year} />
         </section>
         </>
       ) : (

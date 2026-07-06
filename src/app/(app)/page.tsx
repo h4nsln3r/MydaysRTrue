@@ -20,6 +20,7 @@ import { getDailyMood } from "@/lib/mood.server";
 import { getDailyJournal } from "@/lib/journal.server";
 import { getWorkDailyLog } from "@/lib/work.server";
 import { getDailyMedia } from "@/lib/media.server";
+import { getDailyLiveEvents } from "@/lib/live-events.server";
 import { getBathingSessionsForDate } from "@/lib/bathing.server";
 import { getCardioSessionsForDate } from "@/lib/cardio.server";
 import { getSportSessionsForDate } from "@/lib/sport.server";
@@ -62,6 +63,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     dayPlan,
     activityLog,
     media,
+    liveEvents,
     mobileGames,
     mood,
   ] = await Promise.all([
@@ -81,6 +83,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     getDayPlanSettings(user.id),
     getDailyActivityLog(user.id, today),
     getDailyMedia(user.id, today),
+    getDailyLiveEvents(user.id, today),
     getDailyMobileGames(user.id, today),
     getDailyMood(user.id, today),
   ]);
@@ -163,6 +166,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               activityLog={activityLog}
               goals={dayPlan.goals}
               media={media}
+              liveEvents={liveEvents}
               savedOrder={savedOrder}
               categories={weeklyTasksDay.categories}
               date={today}
@@ -228,6 +232,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               activityLog={activityLog}
               goals={dayPlan.goals}
               media={media}
+              liveEvents={liveEvents}
               savedOrder={savedOrder}
               categories={weeklyTasksDay.categories}
               date={today}

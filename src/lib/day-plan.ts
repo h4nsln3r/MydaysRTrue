@@ -27,6 +27,7 @@ import type { MonthlyTaskForMonth, WeeklyTaskForWeek } from "@/lib/tasks";
 import { isWorkday, type WorkDailyLog } from "@/lib/work";
 import type { WeightDayContext } from "@/lib/weight";
 import type { DailyMediaContext } from "@/lib/media";
+import type { DailyLiveEventsContext, LiveEvent } from "@/lib/live-events";
 
 export type DayPlanKind =
   | "task"
@@ -44,7 +45,8 @@ export type DayPlanKind =
   | "work_end"
   | "steps"
   | "activity_hours"
-  | "media";
+  | "media"
+  | "live_event";
 
 /** Kinds shown in Dagens plan (excludes water, mood, mobile_games, etc.). */
 export const DAY_PLAN_HABIT_KINDS = new Set<HabitKind>([
@@ -54,6 +56,7 @@ export const DAY_PLAN_HABIT_KINDS = new Set<HabitKind>([
   "steps",
   "activity_hours",
   "media",
+  "live",
 ]);
 
 /** Tri-state habits that only appear in Dagens plan — not in Dagen trackers. */
@@ -227,6 +230,14 @@ export type DayPlanItem =
       icon: string;
       accent: string;
       media: DailyMediaContext;
+    }
+  | {
+      kind: "live_event";
+      id: string;
+      itemKey: string;
+      sortOrder: number;
+      doneAt: string | null;
+      event: LiveEvent;
     };
 
 export interface DayPlanInput {
@@ -247,6 +258,7 @@ export interface DayPlanInput {
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
   media?: DailyMediaContext;
+  liveEvents?: DailyLiveEventsContext;
   savedOrder?: Map<string, number>;
 }
 
@@ -307,6 +319,11 @@ function activityDefaultRank(slots: HabitSortSlots): number {
 
 function mediaDefaultRank(slots: HabitSortSlots): number {
   return END_OF_DAY_BASE + (slots.media ?? 2) * 10;
+}
+
+function liveEventDefaultRank(eventDate: string): number {
+  const compact = Number(eventDate.replace(/-/g, ""));
+  return 400_000 + compact;
 }
 
 function habitPlanDefaultRank(slots: HabitSortSlots, habitKey: string): number {
@@ -375,6 +392,9 @@ function assignDefaultSortOrders(items: DayPlanItem[], slots: HabitSortSlots): v
         break;
       case "media":
         item.sortOrder = mediaDefaultRank(slots);
+        break;
+      case "live_event":
+        item.sortOrder = liveEventDefaultRank(item.event.eventDate);
         break;
     }
   }
@@ -606,6 +626,19 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     });
   }
 
+  if (enabledKinds.has("live") && input.liveEvents) {
+    for (const event of input.liveEvents.dueEvents) {
+      items.push({
+        kind: "live_event",
+        id: event.id,
+        itemKey: `live_event:${event.id}`,
+        sortOrder: 0,
+        doneAt: event.attendedAt ? `${input.date}T21:00:00.000Z` : null,
+        event,
+      });
+    }
+  }
+
   assignDefaultSortOrders(items, slots);
 
   if (input.savedOrder && input.savedOrder.size > 0) {
@@ -665,6 +698,8 @@ export function dayPlanItemLabel(item: DayPlanItem): string {
       return "Aktivitet";
     case "media":
       return item.label;
+    case "live_event":
+      return item.event.title;
   }
 }
 
@@ -701,6 +736,8 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
       return "⏱";
     case "media":
       return item.icon;
+    case "live_event":
+      return "🎫";
   }
 }
 
@@ -737,5 +774,7 @@ export function dayPlanItemAccent(item: DayPlanItem): string {
       return "#c084fc";
     case "media":
       return item.accent;
+    case "live_event":
+      return "#f472b6";
   }
 }

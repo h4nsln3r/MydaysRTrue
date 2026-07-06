@@ -1,0 +1,35 @@
+@use "abstracts" as *;
+
+.overdue {
+    border-color: rgba(251, 191, 36, 0.35);
+}
+
+.prompt {
+    margin: 0;
+    font-size: 0.85rem;
+    color: $color-cream-dim;
+}
+
+.ratingField {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ratingLabel {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-fog;
+}
+
+.ratingSelect {
+    width: 100%;
+    max-width: 8rem;
+    padding: 8px 10px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-mono;
+}

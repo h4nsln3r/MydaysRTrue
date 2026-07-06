@@ -247,6 +247,57 @@ export interface Database {
         };
         Relationships: [];
       };
+      live_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          year: number;
+          kind: "concert" | "sport" | "race" | "birthday" | "wedding" | "other";
+          title: string;
+          event_date: string;
+          location: string | null;
+          note: string | null;
+          rating: number | null;
+          attended_at: string | null;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          year: number;
+          kind: "concert" | "sport" | "race" | "birthday" | "wedding" | "other";
+          title: string;
+          event_date: string;
+          location?: string | null;
+          note?: string | null;
+          rating?: number | null;
+          attended_at?: string | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          year?: number;
+          kind?: "concert" | "sport" | "race" | "birthday" | "wedding" | "other";
+          title?: string;
+          event_date?: string;
+          location?: string | null;
+          note?: string | null;
+          rating?: number | null;
+          attended_at?: string | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       media_daily_logs: {
         Row: {
           id: string;

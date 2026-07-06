@@ -12,6 +12,7 @@ export type HabitKind =
   | "steps"
   | "activity_hours"
   | "media"
+  | "live"
   | "mobile_games"
   | "mood";
 

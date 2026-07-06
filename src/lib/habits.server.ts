@@ -18,6 +18,7 @@ import {
 import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
 import { mobileGamesStatusFor } from "@/lib/mobile-games";
 import { mediaStatusFor, type MediaDayLog } from "@/lib/media";
+import { liveStatusFor } from "@/lib/live-events";
 import { isMoodKey, moodStatusFor, type MoodKey } from "@/lib/mood";
 
 interface HabitRow {
@@ -182,6 +183,7 @@ export async function getDailyHabits(
     mediaLogRes,
     mobileGamesRes,
     moodRes,
+    liveAttendedRes,
   ] = await Promise.all([
     supabase
       .from("habits")
@@ -248,6 +250,12 @@ export async function getDailyHabits(
       .eq("user_id", userId)
       .eq("local_date", localDate)
       .maybeSingle(),
+    supabase
+      .from("live_events")
+      .select("id")
+      .eq("user_id", userId)
+      .gte("attended_at", `${localDate}T00:00:00.000Z`)
+      .lte("attended_at", `${localDate}T23:59:59.999Z`),
   ]);
 
   const habits = habitsRes.data ?? [];
@@ -363,6 +371,14 @@ export async function getDailyHabits(
       return {
         ...habit,
         status: isFuture ? null : mediaStatusFor(mediaDayLog, isFuture),
+        note: null,
+      };
+    }
+    if (habit.kind === "live") {
+      const attendedToday = (liveAttendedRes.data ?? []).length > 0;
+      return {
+        ...habit,
+        status: isFuture ? null : liveStatusFor(attendedToday, isFuture),
         note: null,
       };
     }
@@ -511,6 +527,7 @@ export async function getMonthSummary(
     mobileGamesRes,
     moodRes,
     mediaLogRes,
+    liveAttendedRes,
   ] = await Promise.all([
     supabase
       .from("habits")
@@ -582,6 +599,13 @@ export async function getMonthSummary(
       .eq("user_id", userId)
       .gte("local_date", startISO)
       .lte("local_date", endISO),
+    supabase
+      .from("live_events")
+      .select("attended_at")
+      .eq("user_id", userId)
+      .not("attended_at", "is", null)
+      .gte("attended_at", `${startISO}T00:00:00.000Z`)
+      .lte("attended_at", `${endISO}T23:59:59.999Z`),
   ]);
 
   const habits = (habitsRes.data ?? []).map(rowToHabit);
@@ -662,6 +686,11 @@ export async function getMonthSummary(
     });
   }
 
+  const liveAttendedByDate = new Set<string>();
+  for (const r of liveAttendedRes.data ?? []) {
+    if (r.attended_at) liveAttendedByDate.add(r.attended_at.slice(0, 10));
+  }
+
   const today = todayLocalISO();
   const days: MonthDay[] = [];
   const yesByHabit: Record<string, number> = Object.fromEntries(
@@ -711,6 +740,8 @@ export async function getMonthSummary(
           );
         } else if (h.kind === "media") {
           status = mediaStatusFor(mediaLogByDate.get(date) ?? null, false);
+        } else if (h.kind === "live") {
+          status = liveStatusFor(liveAttendedByDate.has(date), false);
         } else {
           status = checkMap.get(`${h.id}|${date}`) ?? null;
         }
@@ -799,6 +830,7 @@ export async function getWeekHabitSummary(
     mobileGamesRes,
     moodRes,
     mediaLogRes,
+    liveAttendedWeekRes,
   ] = await Promise.all([
     supabase
       .from("habits")
@@ -870,6 +902,13 @@ export async function getWeekHabitSummary(
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
+    supabase
+      .from("live_events")
+      .select("attended_at")
+      .eq("user_id", userId)
+      .not("attended_at", "is", null)
+      .gte("attended_at", `${weekStart}T00:00:00.000Z`)
+      .lte("attended_at", `${weekEnd}T23:59:59.999Z`),
   ]);
 
   const allHabits = (habitsRes.data ?? []).map(rowToHabit);
@@ -948,6 +987,11 @@ export async function getWeekHabitSummary(
     });
   }
 
+  const liveAttendedByDate = new Set<string>();
+  for (const r of liveAttendedWeekRes.data ?? []) {
+    if (r.attended_at) liveAttendedByDate.add(r.attended_at.slice(0, 10));
+  }
+
   const today = todayLocalISO();
   const days: WeekHabitDay[] = [];
   const yesByHabit: Record<string, number> = Object.fromEntries(
@@ -993,6 +1037,8 @@ export async function getWeekHabitSummary(
           );
         } else if (h.kind === "media") {
           status = mediaStatusFor(mediaLogByDate.get(date) ?? null, false);
+        } else if (h.kind === "live") {
+          status = liveStatusFor(liveAttendedByDate.has(date), false);
         } else {
           status = checkMap.get(`${h.id}|${date}`) ?? null;
         }

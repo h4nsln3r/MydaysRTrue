@@ -23,7 +23,11 @@ import {
 } from "@/lib/intake";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
-import type { MonthlyTaskForMonth, WeeklyTaskForWeek } from "@/lib/tasks";
+import type {
+  MonthlyTaskForMonth,
+  WeeklyTaskChecklistItem,
+  WeeklyTaskForWeek,
+} from "@/lib/tasks";
 import { isWorkday, type WorkDailyLog } from "@/lib/work";
 import type { WeightDayContext } from "@/lib/weight";
 import type { DailyMediaContext } from "@/lib/media";
@@ -31,6 +35,7 @@ import type { DailyLiveEventsContext, LiveEvent } from "@/lib/live-events";
 
 export type DayPlanKind =
   | "task"
+  | "task_checklist"
   | "monthly_task"
   | "gym"
   | "cardio"
@@ -95,6 +100,15 @@ export type DayPlanItem =
       sortOrder: number;
       doneAt: string | null;
       task: WeeklyTaskForWeek;
+    }
+  | {
+      kind: "task_checklist";
+      id: string;
+      itemKey: string;
+      sortOrder: number;
+      doneAt: string | null;
+      task: WeeklyTaskForWeek;
+      checklistItem: WeeklyTaskChecklistItem;
     }
   | {
       kind: "monthly_task";
@@ -346,6 +360,14 @@ function assignDefaultSortOrders(items: DayPlanItem[], slots: HabitSortSlots): v
           item.task.placement?.daySortOrder ?? item.task.sortOrder,
         );
         break;
+      case "task_checklist":
+        item.sortOrder =
+          weekDefaultRank(
+            item.task.placement?.daySortOrder ?? item.task.sortOrder,
+          ) +
+          1 +
+          item.checklistItem.sortOrder / 1000;
+        break;
       case "monthly_task":
         item.sortOrder = weekDefaultRank(
           item.task.completion?.daySortOrder ?? item.task.sortOrder,
@@ -427,6 +449,20 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
       doneAt: task.placement?.doneAt ?? null,
       task,
     });
+
+    if (task.completionKind === "music" && task.checklist.length > 0) {
+      for (const checklistItem of task.checklist) {
+        items.push({
+          kind: "task_checklist",
+          id: checklistItem.id,
+          itemKey: `task_checklist:${checklistItem.id}`,
+          sortOrder: 0,
+          doneAt: checklistItem.completion?.doneAt ?? null,
+          task,
+          checklistItem,
+        });
+      }
+    }
   }
 
   const monthStart = input.monthStart ?? `${input.date.slice(0, 7)}-01`;
@@ -668,6 +704,8 @@ export function dayPlanItemLabel(item: DayPlanItem): string {
   switch (item.kind) {
     case "task":
       return item.task.title;
+    case "task_checklist":
+      return item.checklistItem.text;
     case "monthly_task":
       return item.task.title;
     case "gym":
@@ -707,6 +745,8 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
   switch (item.kind) {
     case "task":
       return item.task.icon;
+    case "task_checklist":
+      return item.task.icon;
     case "monthly_task":
       return item.task.icon;
     case "gym":
@@ -744,6 +784,8 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
 export function dayPlanItemAccent(item: DayPlanItem): string {
   switch (item.kind) {
     case "task":
+      return item.task.accent;
+    case "task_checklist":
       return item.task.accent;
     case "monthly_task":
       return item.task.accent;

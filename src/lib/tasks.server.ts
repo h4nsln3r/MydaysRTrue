@@ -14,6 +14,7 @@ import {
   type WeeklyPlacement,
   type WeeklyTask,
   type WeeklyTaskChecklistItem,
+  type WeeklyTaskChecklistCompletion,
   type WeeklyTaskForWeek,
   type MusicBand,
 } from "@/lib/tasks";
@@ -147,7 +148,6 @@ interface ChecklistRow {
   id: string;
   task_id: string;
   text: string;
-  done_at: string | null;
   sort_order: number;
 }
 
@@ -156,9 +156,45 @@ function rowToChecklistItem(r: ChecklistRow): WeeklyTaskChecklistItem {
     id: r.id,
     taskId: r.task_id,
     text: r.text,
-    doneAt: r.done_at,
     sortOrder: r.sort_order,
+    completion: null,
   };
+}
+
+interface ChecklistCompletionRow {
+  id: string;
+  checklist_item_id: string;
+  local_date: string;
+  note: string | null;
+  done_at: string;
+}
+
+function rowToChecklistCompletion(
+  r: ChecklistCompletionRow,
+): WeeklyTaskChecklistCompletion {
+  return {
+    id: r.id,
+    checklistItemId: r.checklist_item_id,
+    localDate: r.local_date,
+    note: r.note,
+    doneAt: r.done_at,
+  };
+}
+
+function attachChecklistCompletionsForDate(
+  tasks: WeeklyTaskForWeek[],
+  localDate: string,
+): WeeklyTaskForWeek[] {
+  return tasks.map((task) => ({
+    ...task,
+    checklist: task.checklist.map((item) => ({
+      ...item,
+      completion:
+        task.checklistCompletions.find(
+          (c) => c.checklistItemId === item.id && c.localDate === localDate,
+        ) ?? null,
+    })),
+  }));
 }
 
 const WEEKLY_TASK_SELECT =
@@ -167,7 +203,10 @@ const WEEKLY_TASK_SELECT =
 const WEEKLY_PLACEMENT_SELECT =
   "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band";
 
-const CHECKLIST_SELECT = "id, task_id, text, done_at, sort_order";
+const CHECKLIST_SELECT = "id, task_id, text, sort_order";
+
+const CHECKLIST_COMPLETION_SELECT =
+  "id, checklist_item_id, local_date, note, done_at";
 
 export async function getWeeklyTasks(userId: string): Promise<WeeklyTask[]> {
   const supabase = await createClient();
@@ -261,8 +300,9 @@ export async function getWeekSummary(
 ): Promise<WeekSummary> {
   await carryOverIncompleteOneOffTasks(userId, weekStart);
 
+  const weekEnd = addDaysISO(weekStart, 6);
   const supabase = await createClient();
-  const [tasksRes, placementsRes, catsRes, checklistRes, doneCustomRes] =
+  const [tasksRes, placementsRes, catsRes, checklistRes, checklistCompletionsRes, doneCustomRes] =
     await Promise.all([
     supabase
       .from("weekly_tasks")
@@ -289,6 +329,12 @@ export async function getWeekSummary(
       .select(CHECKLIST_SELECT)
       .eq("user_id", userId)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("weekly_task_checklist_completions")
+      .select(CHECKLIST_COMPLETION_SELECT)
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
     supabase
       .from("weekly_task_placements")
       .select("task_id")
@@ -322,6 +368,22 @@ export async function getWeekSummary(
     const list = checklistByTask.get(row.task_id) ?? [];
     list.push(rowToChecklistItem(row));
     checklistByTask.set(row.task_id, list);
+  }
+
+  const checklistItemToTask = new Map<string, string>();
+  for (const [taskId, items] of checklistByTask) {
+    for (const item of items) {
+      checklistItemToTask.set(item.id, taskId);
+    }
+  }
+
+  const completionsByTask = new Map<string, WeeklyTaskChecklistCompletion[]>();
+  for (const row of checklistCompletionsRes.data ?? []) {
+    const taskId = checklistItemToTask.get(row.checklist_item_id);
+    if (!taskId) continue;
+    const list = completionsByTask.get(taskId) ?? [];
+    list.push(rowToChecklistCompletion(row));
+    completionsByTask.set(taskId, list);
   }
 
   const dayOrderCursor = new Map<number, number>();
@@ -375,6 +437,7 @@ export async function getWeekSummary(
     ...rowToWeekly(row),
     placement: placements.get(row.id) ?? null,
     checklist: checklistByTask.get(row.id) ?? [],
+    checklistCompletions: completionsByTask.get(row.id) ?? [],
   }));
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
@@ -399,7 +462,8 @@ export async function getWeeklyTasksForDate(
   const weekStart = weekStartISO(parseLocalISO(localDate));
   const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
   const { tasks, categories } = await getWeekSummary(userId, weekStart);
-  const forDay = tasks
+  const withCompletions = attachChecklistCompletionsForDate(tasks, localDate);
+  const forDay = withCompletions
     .filter(
       (t) => t.placement?.weekday != null && t.placement.weekday === weekday,
     )
@@ -408,7 +472,14 @@ export async function getWeeklyTasksForDate(
       const bo = b.placement?.daySortOrder ?? b.sortOrder;
       return ao - bo;
     });
-  return { localDate, weekStart, weekday, tasks: forDay, weekTasks: tasks, categories };
+  return {
+    localDate,
+    weekStart,
+    weekday,
+    tasks: forDay,
+    weekTasks: withCompletions,
+    categories,
+  };
 }
 
 export interface MonthlyTasksDaySummary {

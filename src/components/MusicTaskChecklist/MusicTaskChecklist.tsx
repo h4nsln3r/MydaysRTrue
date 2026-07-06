@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
@@ -16,10 +16,16 @@ import styles from "./MusicTaskChecklist.module.scss";
 interface Props {
   taskId: string;
   items: WeeklyTaskChecklistItem[];
+  localDate?: string;
   disabled?: boolean;
 }
 
-export function MusicTaskChecklist({ taskId, items, disabled = false }: Props) {
+export function MusicTaskChecklist({
+  taskId,
+  items,
+  localDate,
+  disabled = false,
+}: Props) {
   const router = useRouter();
   const [newText, setNewText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +55,7 @@ export function MusicTaskChecklist({ taskId, items, disabled = false }: Props) {
             <ChecklistItemRow
               key={item.id}
               item={item}
+              localDate={localDate}
               disabled={disabled}
               pending={pending}
               onError={setError}
@@ -91,6 +98,7 @@ export function MusicTaskChecklist({ taskId, items, disabled = false }: Props) {
 
 interface ChecklistItemRowProps {
   item: WeeklyTaskChecklistItem;
+  localDate?: string;
   disabled: boolean;
   pending: boolean;
   onError: (msg: string | null) => void;
@@ -98,6 +106,7 @@ interface ChecklistItemRowProps {
 
 function ChecklistItemRow({
   item,
+  localDate,
   disabled,
   pending,
   onError,
@@ -105,15 +114,28 @@ function ChecklistItemRow({
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(item.text);
+  const [note, setNote] = useState(item.completion?.note ?? "");
   const [localPending, startTransition] = useTransition();
   const [localError, setLocalError] = useState<string | null>(null);
 
   const busy = disabled || pending || localPending;
+  const done = Boolean(item.completion);
+  const canComplete = Boolean(localDate);
 
-  const toggle = (done: boolean) => {
+  useEffect(() => {
+    setNote(item.completion?.note ?? "");
+  }, [item.completion?.note]);
+
+  const toggle = (nextDone: boolean) => {
+    if (!localDate) return;
     onError(null);
     startTransition(async () => {
-      const res = await toggleWeeklyTaskChecklistItemAction({ itemId: item.id, done });
+      const res = await toggleWeeklyTaskChecklistItemAction({
+        itemId: item.id,
+        localDate,
+        done: nextDone,
+        note: nextDone ? note.trim() || null : undefined,
+      });
       if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
       router.refresh();
     });
@@ -207,55 +229,76 @@ function ChecklistItemRow({
 
   return (
     <li className={styles.item}>
-      <button
-        type="button"
-        className={[
-          styles.check,
-          item.doneAt ? styles.checkDone : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        aria-label={item.doneAt ? "Markera ej klar" : "Markera klar"}
-        disabled={busy}
-        onClick={() => toggle(!item.doneAt)}
-      >
-        {item.doneAt ? (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path
-              d="M5 12.5 10 17.5 19 7.5"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        ) : null}
-      </button>
-      <span
-        className={[styles.text, item.doneAt ? styles.textDone : ""]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        {item.text}
-      </span>
-      <button
-        type="button"
-        className={styles.editBtn}
-        aria-label="Redigera"
-        disabled={busy}
-        onClick={startEdit}
-      >
-        ✎
-      </button>
-      <button
-        type="button"
-        className={styles.remove}
-        aria-label="Ta bort"
-        disabled={busy}
-        onClick={remove}
-      >
-        ×
-      </button>
+      <div className={styles.itemMain}>
+        {canComplete ? (
+          <button
+            type="button"
+            className={[
+              styles.check,
+              done ? styles.checkDone : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            aria-label={done ? "Markera ej klar" : "Markera klar"}
+            disabled={busy}
+            onClick={() => toggle(!done)}
+          >
+            {done ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M5 12.5 10 17.5 19 7.5"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : null}
+          </button>
+        ) : (
+          <span className={styles.check} aria-hidden />
+        )}
+        <span
+          className={[styles.text, done ? styles.textDone : ""]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {item.text}
+        </span>
+        <button
+          type="button"
+          className={styles.editBtn}
+          aria-label="Redigera"
+          disabled={busy}
+          onClick={startEdit}
+        >
+          ✎
+        </button>
+        <button
+          type="button"
+          className={styles.remove}
+          aria-label="Ta bort"
+          disabled={busy}
+          onClick={remove}
+        >
+          ×
+        </button>
+      </div>
+      {canComplete ? (
+        <Input
+          label="Kommentar (valfritt)"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={() => {
+            if (done && note !== (item.completion?.note ?? "")) {
+              toggle(true);
+            }
+          }}
+          placeholder="t.ex. lärde mig introt"
+          maxLength={500}
+          disabled={busy}
+        />
+      ) : null}
     </li>
   );
 }

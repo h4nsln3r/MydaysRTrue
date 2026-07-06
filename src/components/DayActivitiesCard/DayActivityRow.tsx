@@ -13,6 +13,7 @@ import type { TaskCategory } from "@/lib/tasks";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
 import { WeightActivityRow } from "./WeightActivityRow";
 import { DayPlanDailyRow } from "./DayPlanDailyRow";
+import { TaskChecklistPlanRow } from "./TaskChecklistPlanRow";
 import { MediaPlanRow } from "./MediaPlanRow";
 import { LiveEventPlanRow } from "./LiveEventPlanRow";
 import type { PlanSortableProps } from "./usePlanSortable";
@@ -184,6 +185,27 @@ export function DayActivityRow(props: Props) {
           onError={props.onError}
           onPendingId={props.onPendingId}
           onRefresh={onRefresh}
+          onDone={props.onDone}
+          planningMode={planningMode}
+          localDate={date}
+          dragHandle={props.dragHandle}
+          sortableRef={props.sortableRef}
+          sortableStyle={props.sortableStyle}
+        />
+      );
+    case "task_checklist":
+      return (
+        <TaskChecklistPlanRow
+          item={item}
+          date={date}
+          expanded={planningMode ? false : props.expanded}
+          busy={props.busy}
+          pending={props.pending}
+          onToggleExpand={planningMode ? () => {} : props.onToggleExpand}
+          onError={props.onError}
+          onPendingKey={(active) =>
+            props.onPendingId(active ? item.itemKey : null)
+          }
           onDone={props.onDone}
           planningMode={planningMode}
           dragHandle={props.dragHandle}

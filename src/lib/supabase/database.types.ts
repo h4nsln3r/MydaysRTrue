@@ -518,7 +518,7 @@ export interface Database {
           sort_order: number;
           default_weekday: number | null;
           single_week_start: string | null;
-          completion_kind: "simple" | "shop" | "journal" | "laundry" | "music";
+          completion_kind: "simple" | "shop" | "expense" | "journal" | "laundry" | "music" | "note";
           enabled: boolean;
           archived_at: string | null;
           created_at: string;
@@ -536,7 +536,7 @@ export interface Database {
           sort_order?: number;
           default_weekday?: number | null;
           single_week_start?: string | null;
-          completion_kind?: "simple" | "shop" | "journal" | "laundry";
+          completion_kind?: "simple" | "shop" | "expense" | "journal" | "laundry" | "music" | "note";
           enabled?: boolean;
           archived_at?: string | null;
           created_at?: string;
@@ -554,7 +554,7 @@ export interface Database {
           sort_order?: number;
           default_weekday?: number | null;
           single_week_start?: string | null;
-          completion_kind?: "simple" | "shop" | "journal" | "laundry";
+          completion_kind?: "simple" | "shop" | "expense" | "journal" | "laundry" | "music" | "note";
           enabled?: boolean;
           archived_at?: string | null;
           created_at?: string;
@@ -644,6 +644,39 @@ export interface Database {
           text?: string;
           done_at?: string | null;
           sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      weekly_task_checklist_completions: {
+        Row: {
+          id: string;
+          user_id: string;
+          checklist_item_id: string;
+          local_date: string;
+          note: string | null;
+          done_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          checklist_item_id: string;
+          local_date: string;
+          note?: string | null;
+          done_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          checklist_item_id?: string;
+          local_date?: string;
+          note?: string | null;
+          done_at?: string;
           created_at?: string;
           updated_at?: string;
         };

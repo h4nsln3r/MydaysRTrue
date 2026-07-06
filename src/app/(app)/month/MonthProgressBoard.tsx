@@ -11,6 +11,8 @@ import { monthlyTaskDisplayTitle, type MonthlyFinanceSnapshot } from "@/lib/mont
 import type { TaskCategory } from "@/lib/tasks";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
+import { ExpensesSummary } from "@/components/ExpensesSummary/ExpensesSummary";
+import type { ExpenseSummary } from "@/lib/expenses";
 import styles from "./month-progress.module.scss";
 
 interface Props {
@@ -25,6 +27,7 @@ interface Props {
   salaryTaskId?: string | null;
   salaryAmount?: number | null;
   categories: TaskCategory[];
+  expenseSummary: ExpenseSummary;
 }
 
 const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
@@ -48,6 +51,7 @@ export function MonthProgressBoard({
   salaryTaskId = null,
   salaryAmount = null,
   categories,
+  expenseSummary,
 }: Props) {
   const pastDays = summary.days.filter((d) => !d.isFuture).length;
   const colSpan = summary.days.length + 2;
@@ -55,6 +59,11 @@ export function MonthProgressBoard({
 
   return (
     <div className={styles.board}>
+      <ExpensesSummary
+        summary={expenseSummary}
+        title="Utgifter denna månad"
+      />
+
       <div className={styles.legendBar} aria-label="Förklaring">
         <span className={styles.legendGroup}>
           <span className={styles.legendTitle}>Vanor</span>

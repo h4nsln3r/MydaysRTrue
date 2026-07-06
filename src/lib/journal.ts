@@ -10,6 +10,7 @@ export type JournalEntrySource =
   | "bathing"
   | "mood"
   | "task"
+  | "task_checklist"
   | "weight"
   | "work_start"
   | "work_end"
@@ -30,6 +31,7 @@ export const JOURNAL_SOURCE_LABEL: Record<JournalEntrySource, string> = {
   bathing: "Bad & bastu",
   mood: "Dagskänsla",
   task: "Uppgift",
+  task_checklist: "Deluppgift",
   weight: "Vikt",
   work_start: "Jobb start",
   work_end: "Jobb slut",

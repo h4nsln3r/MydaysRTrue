@@ -25,14 +25,20 @@
 }
 
 .item {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-2;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+}
+
+.itemMain {
     display: grid;
     grid-template-columns: auto 1fr auto auto;
     align-items: center;
     gap: $space-2;
-    padding: $space-1 $space-2;
-    border-radius: $radius-sm;
-    background: $color-ink-elevated;
-    border: 1px solid $color-line;
 }
 
 .itemEditing {

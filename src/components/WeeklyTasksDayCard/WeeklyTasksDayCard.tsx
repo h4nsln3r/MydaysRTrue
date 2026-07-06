@@ -167,6 +167,7 @@ export function WeeklyTasksDayCard({
               setExpandedId(null);
               router.refresh();
             }}
+            localDate={date}
           />
         ))}
       </ul>
@@ -308,6 +309,7 @@ interface TaskRowProps {
   sortableRef?: (node: HTMLElement | null) => void;
   sortableStyle?: React.CSSProperties;
   planningMode?: boolean;
+  localDate?: string;
 }
 
 export function WeeklyTaskRow({
@@ -329,6 +331,7 @@ export function WeeklyTaskRow({
   sortableRef,
   sortableStyle,
   planningMode = false,
+  localDate,
 }: TaskRowProps) {
   const placement = task.placement;
   const done = Boolean(placement?.doneAt);
@@ -588,6 +591,7 @@ export function WeeklyTaskRow({
             <MusicTaskChecklist
               taskId={task.id}
               items={task.checklist}
+              localDate={planningMode ? undefined : localDate}
               disabled={pending}
             />
           ) : null}
@@ -600,13 +604,21 @@ export function WeeklyTaskRow({
 
           {!done ? (
             <>
-              {task.completionKind === "shop" ? (
+              {task.completionKind === "shop" || task.completionKind === "expense" ? (
                 <>
                   <Input
-                    label="Var handlade du?"
+                    label={
+                      task.completionKind === "expense"
+                        ? "Vad gällde utgiften?"
+                        : "Var handlade du?"
+                    }
                     value={shopLocation}
                     onChange={(e) => setShopLocation(e.target.value)}
-                    placeholder="t.ex. ICA, Coop"
+                    placeholder={
+                      task.completionKind === "expense"
+                        ? "t.ex. Netflix, bensin, kläder"
+                        : "t.ex. ICA, Coop"
+                    }
                     maxLength={120}
                     disabled={pending}
                   />
@@ -635,6 +647,7 @@ export function WeeklyTaskRow({
               {task.completionKind === "simple" ||
               task.completionKind === "note" ||
               task.completionKind === "shop" ||
+              task.completionKind === "expense" ||
               task.completionKind === "laundry" ? (
                 <Input
                   label="Kommentar (valfritt)"

@@ -43,6 +43,7 @@ export interface TaskCategory {
 export type WeeklyTaskCompletionKind =
   | "simple"
   | "shop"
+  | "expense"
   | "journal"
   | "laundry"
   | "music"
@@ -115,12 +116,21 @@ export interface WeeklyPlacement {
   band: MusicBand | null;
 }
 
+export interface WeeklyTaskChecklistCompletion {
+  id: string;
+  checklistItemId: string;
+  localDate: string;
+  note: string | null;
+  doneAt: string;
+}
+
 export interface WeeklyTaskChecklistItem {
   id: string;
   taskId: string;
   text: string;
-  doneAt: string | null;
   sortOrder: number;
+  /** Completion on the day being viewed, when loaded for a specific date. */
+  completion: WeeklyTaskChecklistCompletion | null;
 }
 
 export interface MonthlyCompletion {
@@ -146,11 +156,19 @@ export interface WeeklyTaskForWeek extends WeeklyTask {
   /** null = no row yet for this week. */
   placement: WeeklyPlacement | null;
   checklist: WeeklyTaskChecklistItem[];
+  /** All checklist completions in this week (for journal / day plan). */
+  checklistCompletions: WeeklyTaskChecklistCompletion[];
 }
 
 export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | null {
   if (placement.shopLocation && placement.shopAmount != null) {
     return `${placement.shopLocation} · ${placement.shopAmount} kr`;
+  }
+  if (placement.shopAmount != null && !placement.shopLocation) {
+    return `${placement.shopAmount} kr`;
+  }
+  if (placement.shopLocation?.trim()) {
+    return placement.shopLocation.trim();
   }
   if (placement.laundryLoads != null) {
     const time = placement.planNote ? `${placement.planNote} · ` : "";

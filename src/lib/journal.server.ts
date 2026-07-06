@@ -21,6 +21,7 @@ import { MOOD_ICON, MOOD_LABEL, type MoodKey } from "@/lib/mood";
 import { isMoodKey } from "@/lib/mood";
 import {
   formatMonthlyTaskDetail,
+  formatWeeklyTaskDetail,
   type MonthlyTaskForMonth,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
@@ -308,9 +309,27 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
   for (const t of journalWeeklyTasksForDate(ctx.tasks, ctx.localDate)) {
     const placement = t.placement!;
     const parts: string[] = [];
-    if (placement.planNote) parts.push(`Plan: ${placement.planNote}`);
-    if (placement.band) parts.push(placement.band);
-    if (placement.note) parts.push(placement.note);
+    const purchaseDetail = formatWeeklyTaskDetail(placement);
+
+    if (purchaseDetail) {
+      parts.push(purchaseDetail);
+    } else {
+      if (placement.planNote) parts.push(`Plan: ${placement.planNote}`);
+      if (placement.band) parts.push(placement.band);
+    }
+
+    const note = placement.note?.trim();
+    const purchaseText = placement.shopLocation?.trim();
+    if (
+      note &&
+      note !== purchaseText &&
+      !(purchaseDetail && purchaseDetail.includes(note))
+    ) {
+      parts.push(note);
+    } else if (note && !purchaseDetail) {
+      parts.push(note);
+    }
+
     entries.push({
       id: `task-${placement.id}`,
       source: "task",
@@ -320,6 +339,10 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
       at: placement.doneAt!,
       editable: false,
     });
+  }
+
+  for (const entry of journalChecklistCompletionsForDate(ctx.tasks, ctx.localDate)) {
+    entries.push(entry);
   }
 
   for (const t of journalMonthlyTasksForDate(ctx.monthlyTasks ?? [], ctx.localDate)) {
@@ -465,6 +488,38 @@ function journalWeeklyTasksForDate(
     const doneAt = t.placement?.doneAt;
     return doneAt != null && doneAt.slice(0, 10) === localDate;
   });
+}
+
+/** Checklist sub-tasks completed on this calendar day. */
+function journalChecklistCompletionsForDate(
+  tasks: WeeklyTaskForWeek[],
+  localDate: string,
+): JournalDisplayEntry[] {
+  const entries: JournalDisplayEntry[] = [];
+
+  for (const task of tasks) {
+    if (task.completionKind !== "music") continue;
+    const checklistById = new Map(task.checklist.map((item) => [item.id, item]));
+
+    for (const completion of task.checklistCompletions) {
+      if (completion.localDate !== localDate) continue;
+      const item = checklistById.get(completion.checklistItemId);
+      if (!item) continue;
+
+      const body = completion.note?.trim() || item.text;
+      entries.push({
+        id: `task-checklist-${completion.id}`,
+        source: "task_checklist",
+        icon: task.icon,
+        title: `${task.title}: ${item.text}`,
+        body,
+        at: completion.doneAt,
+        editable: false,
+      });
+    }
+  }
+
+  return entries;
 }
 
 /** Monthly tasks checked off on this calendar day. */

@@ -20,6 +20,8 @@ import {
   type Weekday,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import { collectWeekExpenses } from "@/lib/expenses";
+import { ExpensesSummary } from "@/components/ExpensesSummary/ExpensesSummary";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_TIME_LABEL } from "@/lib/weight";
@@ -97,11 +99,17 @@ export function WeekProgressBoard({
   const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
   const weightActive = weightPlan.enabled && weightPlan.weekday != null;
   const weightDone = Boolean(weightPlan.log);
+  const expenseSummary = collectWeekExpenses(tasks, taskCategories);
   const today = week.days.find((d) => d.isToday)?.date ?? "";
   const colSpan = week.days.length + 2;
 
   return (
     <div className={styles.board}>
+      <ExpensesSummary
+        summary={expenseSummary}
+        title="Utgifter denna vecka"
+      />
+
       <div className={styles.legendBar} aria-label="Förklaring">
         <span className={styles.legendGroup}>
           <span className={styles.legendTitle}>Vanor</span>

@@ -26,6 +26,7 @@ import {
   type Weekday,
   type WeeklyTaskCompletionKind,
 } from "@/lib/tasks";
+import { UTGIFTER_CATEGORY_NAME } from "@/lib/expenses";
 import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
 
 type CategoryUpdate = Database["public"]["Tables"]["task_categories"]["Update"];
@@ -68,6 +69,38 @@ async function validateCategoryScope(
     return "Invalid category.";
   }
   return null;
+}
+
+async function weeklyCompletionKindForCategory(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  categoryId: string | null | undefined,
+): Promise<WeeklyTaskCompletionKind | undefined> {
+  if (!categoryId) return undefined;
+  const { data: cat } = await supabase
+    .from("task_categories")
+    .select("name, user_id")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (!cat || cat.user_id !== userId) return undefined;
+  if (cat.name === UTGIFTER_CATEGORY_NAME) return "expense";
+  return undefined;
+}
+
+async function monthlyCompletionKindForCategory(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  categoryId: string | null | undefined,
+): Promise<"amount" | undefined> {
+  if (!categoryId) return undefined;
+  const { data: cat } = await supabase
+    .from("task_categories")
+    .select("name, user_id")
+    .eq("id", categoryId)
+    .maybeSingle();
+  if (!cat || cat.user_id !== userId) return undefined;
+  if (cat.name === UTGIFTER_CATEGORY_NAME) return "amount";
+  return undefined;
 }
 
 function cleanTitle(raw: string, max = 80): string | null {
@@ -248,6 +281,12 @@ export async function createWeeklyTaskAction(input: {
     .maybeSingle();
   const nextOrder = (maxRow?.sort_order ?? -1) + 1;
 
+  const completionKind = await weeklyCompletionKindForCategory(
+    supabase,
+    user.id,
+    input.categoryId,
+  );
+
   const { error } = await supabase.from("weekly_tasks").insert({
     user_id: user.id,
     category_id: input.categoryId ?? null,
@@ -256,6 +295,7 @@ export async function createWeeklyTaskAction(input: {
     icon: cleanIcon(input.icon),
     accent: cleanAccent(input.accent),
     sort_order: nextOrder,
+    ...(completionKind ? { completion_kind: completionKind } : {}),
   });
   if (error) return { ok: false, error: error.message };
 
@@ -308,6 +348,12 @@ export async function createOneOffWeeklyTaskAction(input: {
     .maybeSingle();
   const nextOrder = (maxRow?.sort_order ?? -1) + 1;
 
+  const completionKind = await weeklyCompletionKindForCategory(
+    supabase,
+    user.id,
+    input.categoryId,
+  );
+
   // completion_kind omitted → DB default 'note' (quick check + optional comment).
   const { data: created, error } = await supabase
     .from("weekly_tasks")
@@ -319,6 +365,7 @@ export async function createOneOffWeeklyTaskAction(input: {
       accent: cleanAccent(input.accent),
       sort_order: nextOrder,
       single_week_start: input.weekStart,
+      ...(completionKind ? { completion_kind: completionKind } : {}),
     })
     .select("id")
     .maybeSingle();
@@ -714,13 +761,25 @@ export async function completeWeeklyTaskAction(input: {
   let laundryLoads: number | null = null;
   let band: MusicBand | null = null;
 
-  if (kind === "shop") {
+  if (kind === "shop" || kind === "expense") {
     if (!shopLocation) {
-      return { ok: false, error: "Ange var du handlade." };
+      return {
+        ok: false,
+        error:
+          kind === "expense"
+            ? "Ange vad utgiften gällde."
+            : "Ange var du handlade.",
+      };
     }
     const amount = input.shopAmount;
     if (amount == null || !Number.isFinite(amount) || amount < 0) {
-      return { ok: false, error: "Ange hur mycket du handlade för." };
+      return {
+        ok: false,
+        error:
+          kind === "expense"
+            ? "Ange beloppet."
+            : "Ange hur mycket du handlade för.",
+      };
     }
     shopAmount = Math.round(amount * 100) / 100;
   } else if (kind === "journal") {
@@ -765,8 +824,10 @@ export async function completeWeeklyTaskAction(input: {
       done_at: new Date().toISOString(),
       plan_note: planNote || null,
       note: completionNote,
-      shop_location: kind === "shop" ? shopLocation : null,
-      shop_amount: shopAmount,
+      shop_location:
+        kind === "shop" || kind === "expense" ? shopLocation : null,
+      shop_amount:
+        kind === "shop" || kind === "expense" ? shopAmount : null,
       laundry_loads: laundryLoads,
       band: kind === "music" ? band : null,
     })
@@ -956,9 +1017,14 @@ export async function updateWeeklyTaskChecklistItemAction(input: {
 
 export async function toggleWeeklyTaskChecklistItemAction(input: {
   itemId: string;
+  localDate: string;
   done: boolean;
+  note?: string | null;
 }): Promise<ActionResult> {
   if (!input.itemId) return { ok: false, error: "Saknar id." };
+  if (!ISO_DATE_RE.test(input.localDate)) {
+    return { ok: false, error: "Ogiltigt datum." };
+  }
 
   const supabase = await createClient();
   const {
@@ -966,12 +1032,39 @@ export async function toggleWeeklyTaskChecklistItemAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
-  const { error } = await supabase
+  const { data: item } = await supabase
     .from("weekly_task_checklist_items")
-    .update({ done_at: input.done ? new Date().toISOString() : null })
+    .select("id")
     .eq("id", input.itemId)
-    .eq("user_id", user.id);
-  if (error) return { ok: false, error: error.message };
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!item) return { ok: false, error: "Uppgiften hittades inte." };
+
+  if (!input.done) {
+    const { error } = await supabase
+      .from("weekly_task_checklist_completions")
+      .delete()
+      .eq("checklist_item_id", input.itemId)
+      .eq("local_date", input.localDate)
+      .eq("user_id", user.id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const note = (input.note ?? "").trim() || null;
+    if (note && note.length > 500) {
+      return { ok: false, error: "Håll kommentaren under 500 tecken." };
+    }
+    const { error } = await supabase.from("weekly_task_checklist_completions").upsert(
+      {
+        user_id: user.id,
+        checklist_item_id: input.itemId,
+        local_date: input.localDate,
+        note,
+        done_at: new Date().toISOString(),
+      },
+      { onConflict: "checklist_item_id,local_date" },
+    );
+    if (error) return { ok: false, error: error.message };
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -1038,6 +1131,12 @@ export async function createMonthlyTaskAction(input: {
     .maybeSingle();
   const nextOrder = (maxRow?.sort_order ?? -1) + 1;
 
+  const completionKind = await monthlyCompletionKindForCategory(
+    supabase,
+    user.id,
+    input.categoryId,
+  );
+
   const { error } = await supabase.from("monthly_tasks").insert({
     user_id: user.id,
     category_id: input.categoryId ?? null,
@@ -1047,6 +1146,7 @@ export async function createMonthlyTaskAction(input: {
     icon: cleanIcon(input.icon),
     accent: cleanAccent(input.accent),
     sort_order: nextOrder,
+    ...(completionKind ? { completion_kind: completionKind } : {}),
   });
   if (error) return { ok: false, error: error.message };
 
@@ -1103,6 +1203,13 @@ export async function createOneOffMonthlyTaskAction(input: {
     .maybeSingle();
   const nextOrder = (maxRow?.sort_order ?? -1) + 1;
 
+  const completionKind =
+    (await monthlyCompletionKindForCategory(
+      supabase,
+      user.id,
+      input.categoryId,
+    )) ?? "simple";
+
   const { error } = await supabase.from("monthly_tasks").insert({
     user_id: user.id,
     category_id: input.categoryId ?? null,
@@ -1113,7 +1220,7 @@ export async function createOneOffMonthlyTaskAction(input: {
     accent: cleanAccent(input.accent),
     sort_order: nextOrder,
     single_month_start: input.monthStart,
-    completion_kind: "simple",
+    completion_kind: completionKind,
   });
   if (error) return { ok: false, error: error.message };
 

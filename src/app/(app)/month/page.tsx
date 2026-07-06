@@ -15,6 +15,7 @@ import {
   todayYearMonth,
 } from "@/lib/month-plan-horizon";
 import { getCategories, getMonthTaskSummary } from "@/lib/tasks.server";
+import { getMonthExpenses } from "@/lib/expenses.server";
 import { SALARY_TASK_KEY } from "@/lib/monthly-finance";
 import { isMonthlyTaskComplete } from "@/lib/monthly-bills";
 import { todayLocalISO } from "@/lib/date";
@@ -64,13 +65,14 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
   month = clamped.month;
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-  const [summary, monthlyTasks, allCategories, monthMedia, monthLive] =
+  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, expenseSummary] =
     await Promise.all([
     getMonthSummary(user.id, year, month),
     getMonthTaskSummary(user.id, monthStart),
     getCategories(user.id),
     getMonthMedia(user.id, monthStart),
     getMonthLiveEvents(user.id, monthStart),
+    getMonthExpenses(user.id, monthStart),
   ]);
   const monthlyDone = monthlyTasks.tasks.filter((t) =>
     isMonthlyTaskComplete(t, t.completion),
@@ -159,6 +161,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             salaryTaskId={salaryTask?.id ?? null}
             salaryAmount={salaryTask?.completion?.amount ?? null}
             categories={monthlyTasks.categories}
+            expenseSummary={expenseSummary}
         />
         <section className={styles.section}>
           <MediaMonthSummary monthMedia={monthMedia} year={year} />

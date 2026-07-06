@@ -1,0 +1,114 @@
+@use "abstracts" as *;
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-left: 3px solid #f97316;
+    border-radius: $radius-md;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.heading {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+}
+
+.icon {
+    font-size: 1.1rem;
+}
+
+.title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: $color-cream;
+}
+
+.total {
+    margin: 0;
+    font-family: $font-mono;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f97316;
+    white-space: nowrap;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-2 $space-3;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+}
+
+.rowIcon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.rowBody {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.rowTitle {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: $color-cream;
+}
+
+.rowDetail {
+    font-size: 0.82rem;
+    color: $color-cream-dim;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rowMeta {
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    color: $color-fog;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.rowAmount {
+    font-family: $font-mono;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: $color-cream;
+    white-space: nowrap;
+}

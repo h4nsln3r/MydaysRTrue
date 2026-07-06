@@ -113,6 +113,7 @@ export function MediaDayCard({ date, habit, media }: Props) {
       if (res.justCompleted || willComplete) {
         setPendingReviewItem({ ...item, completed: true, bestPosition: pos });
         setReviewHighlight(true);
+        return;
       }
       router.refresh();
     });
@@ -161,12 +162,7 @@ export function MediaDayCard({ date, habit, media }: Props) {
             onDismiss={() => {
               setPendingReviewItem(null);
               setReviewHighlight(false);
-            }}
-            onSaved={() => {
-              window.setTimeout(() => {
-                setPendingReviewItem(null);
-                setReviewHighlight(false);
-              }, 1500);
+              router.refresh();
             }}
           />
         </div>

@@ -72,8 +72,12 @@ export function MediaItemReview({
         setError(res.error ?? "Kunde inte spara.");
         return;
       }
-      setSaved(true);
       router.refresh();
+      if (onDismiss) {
+        onDismiss();
+        return;
+      }
+      setSaved(true);
       onSaved?.();
     });
   };

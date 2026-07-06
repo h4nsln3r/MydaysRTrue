@@ -156,6 +156,8 @@ export function MediaPlanRow(props: RowProps) {
       if (res.justCompleted || willComplete) {
         setPendingReviewItem({ ...logItem, completed: true, bestPosition: pos });
         setReviewHighlight(true);
+        onPendingKey(false);
+        return;
       }
       onPendingKey(false);
       onDone();
@@ -277,12 +279,7 @@ export function MediaPlanRow(props: RowProps) {
                 onDismiss={() => {
                   setPendingReviewItem(null);
                   setReviewHighlight(false);
-                }}
-                onSaved={() => {
-                  window.setTimeout(() => {
-                    setPendingReviewItem(null);
-                    setReviewHighlight(false);
-                  }, 1500);
+                  onDone();
                 }}
               />
             </>
@@ -409,13 +406,17 @@ export function MediaPlanRow(props: RowProps) {
             </>
           ) : (
             <>
-              {done && media.loggedItem?.completed ? (
+              {done &&
+              media.loggedItem?.completed &&
+              media.loggedItem.rating == null &&
+              !(media.loggedItem.note?.trim() ?? "") ? (
                 <MediaItemReview
                   itemId={media.loggedItem.id}
                   kind={media.loggedItem.kind}
                   note={media.loggedItem.note}
                   rating={media.loggedItem.rating}
                   compact
+                  onDismiss={onDone}
                 />
               ) : null}
               <button

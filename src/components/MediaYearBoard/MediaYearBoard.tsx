@@ -365,7 +365,9 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
           Ta bort
         </button>
       </div>
-      {item.completed ? (
+      {item.completed &&
+      item.rating == null &&
+      !(item.note?.trim() ?? "") ? (
         <MediaItemReview
           itemId={item.id}
           kind={item.kind}

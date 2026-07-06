@@ -172,6 +172,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               work={work}
               activityLog={activityLog}
               goals={dayPlan.goals}
+              media={media}
               savedOrder={savedOrder}
               categories={weeklyTasksDay.categories}
               date={date}
@@ -209,7 +210,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               intake={intake}
               activityLog={activityLog}
               goals={dayPlan.goals}
-              media={media}
               mobileGames={mobileGames}
               mood={mood}
             />
@@ -266,6 +266,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               work={work}
               activityLog={activityLog}
               goals={dayPlan.goals}
+              media={media}
               savedOrder={savedOrder}
               categories={weeklyTasksDay.categories}
               date={date}

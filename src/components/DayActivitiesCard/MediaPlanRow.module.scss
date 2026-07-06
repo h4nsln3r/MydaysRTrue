@@ -1,0 +1,112 @@
+@use "abstracts" as *;
+
+.fieldLabel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+}
+
+.select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    color: $color-cream;
+    font-size: 0.9rem;
+}
+
+.progress {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.progressMeta {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+}
+
+.progressBar {
+    height: 6px;
+    border-radius: $radius-pill;
+    background: $color-ink-elevated;
+    overflow: hidden;
+}
+
+.progressFill {
+    height: 100%;
+    background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+    border-radius: $radius-pill;
+}
+
+.checkLabel {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    color: $color-cream;
+    font-size: 0.9rem;
+    cursor: pointer;
+
+    input {
+        width: 18px;
+        height: 18px;
+        accent-color: $color-orange;
+    }
+}
+
+.empty {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+
+    a {
+        color: $color-orange-bright;
+    }
+}
+
+.completedTitle {
+    margin: 0;
+    font-size: 0.9rem;
+    color: $color-cream-dim;
+
+    strong {
+        color: $color-cream;
+    }
+}
+
+.disableBtn {
+    margin-top: $space-1;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: $color-fog;
+    font-size: 0.78rem;
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream-dim;
+    }
+}
+
+.cadence {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-fog;
+    font-weight: 700;
+}
+
+.cadenceCorner {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+}
+
+.cadenceDone {
+    color: $color-success;
+}

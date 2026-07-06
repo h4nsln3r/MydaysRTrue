@@ -38,7 +38,7 @@ const KIND_HINT: Partial<Record<HabitKind, string>> = {
   intake: "Frukt, kreatin, vitaminer, shake",
   steps: "Antal steg per dag",
   activity_hours: "Aktiva timmar per dag",
-  media: "Välj titel i dagsvyn — lägg till i månaden",
+  media: "Läsa & titta — loggas i Dagens plan",
   mobile_games: "Chess, Duolingo, Pokemon GO",
   mood: "Välj hur dagen kändes — en emoji per dag",
   tri_state: "Ja / halv / nej",

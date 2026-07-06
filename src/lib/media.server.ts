@@ -6,6 +6,8 @@ import {
   type DailyMediaContext,
   type MediaItem,
   type MediaKind,
+  type MonthMediaContext,
+  type MonthMediaEntry,
   type YearMediaContext,
 } from "@/lib/media";
 
@@ -121,20 +123,83 @@ export async function getDailyMedia(
     .eq("local_date", localDate)
     .maybeSingle();
 
-  const dayLog =
-    dayRow && activeItems.some((item) => item.id === dayRow.media_item_id)
-      ? {
-          mediaItemId: dayRow.media_item_id,
-          position: dayRow.position,
-          didConsume: dayRow.did_consume,
-        }
-      : null;
+  const dayLog = dayRow
+    ? {
+        mediaItemId: dayRow.media_item_id,
+        position: dayRow.position,
+        didConsume: dayRow.did_consume,
+      }
+    : null;
+
+  const loggedItem = dayRow
+    ? items.find((item) => item.id === dayRow.media_item_id) ?? null
+    : null;
 
   return {
     localDate,
     year,
     items: activeItems,
     dayLog,
+    loggedItem,
     allCompleted: items.length > 0 && activeItems.length === 0,
   };
+}
+
+function monthEndFromStart(monthStart: string): string {
+  const y = Number(monthStart.slice(0, 4));
+  const m = Number(monthStart.slice(5, 7));
+  const lastDay = new Date(y, m, 0).getDate();
+  return `${monthStart.slice(0, 7)}-${String(lastDay).padStart(2, "0")}`;
+}
+
+export async function getMonthMedia(
+  userId: string,
+  monthStart: string,
+): Promise<MonthMediaContext> {
+  const monthEnd = monthEndFromStart(monthStart);
+
+  const supabase = await createClient();
+  const { data: logs } = await supabase
+    .from("media_daily_logs")
+    .select("local_date, media_item_id, position, did_consume")
+    .eq("user_id", userId)
+    .gte("local_date", monthStart)
+    .lte("local_date", monthEnd)
+    .order("local_date", { ascending: true });
+
+  const logRows = logs ?? [];
+  if (logRows.length === 0) {
+    return { monthStart, entries: [] };
+  }
+
+  const itemIds = [...new Set(logRows.map((r) => r.media_item_id))];
+  const { data: itemRows } = await supabase
+    .from("media_items")
+    .select("id, year, kind, title, note, rating, total_length, sort_order")
+    .eq("user_id", userId)
+    .in("id", itemIds)
+    .is("archived_at", null);
+
+  const stats = await logStatsForItems(userId, itemIds);
+  const itemById = new Map(
+    (itemRows ?? []).map((r) => [
+      r.id,
+      rowToItem(r, stats.get(r.id) ?? { bestPosition: 0, lastActivityDate: null }),
+    ]),
+  );
+
+  const entries: MonthMediaEntry[] = [];
+  for (const row of logRows) {
+    const item = itemById.get(row.media_item_id);
+    if (!item) continue;
+    if (!row.did_consume && row.position <= 0) continue;
+    entries.push({
+      localDate: row.local_date,
+      item,
+      position: row.position,
+      didConsume: row.did_consume,
+    });
+  }
+
+  return { monthStart, entries };
 }

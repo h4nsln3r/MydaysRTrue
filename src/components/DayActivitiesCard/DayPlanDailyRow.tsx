@@ -93,6 +93,8 @@ export function DayPlanDailyRow(props: DailyRowProps) {
       return <StepsPlanRow {...props} item={props.item} />;
     case "activity_hours":
       return <ActivityPlanRow {...props} item={props.item} />;
+    case "media":
+      return null;
     default:
       return null;
   }

@@ -26,6 +26,7 @@ import type { SportSessionForWeek } from "@/lib/sport";
 import type { MonthlyTaskForMonth, WeeklyTaskForWeek } from "@/lib/tasks";
 import { isWorkday, type WorkDailyLog } from "@/lib/work";
 import type { WeightDayContext } from "@/lib/weight";
+import type { DailyMediaContext } from "@/lib/media";
 
 export type DayPlanKind =
   | "task"
@@ -42,15 +43,17 @@ export type DayPlanKind =
   | "work_start"
   | "work_end"
   | "steps"
-  | "activity_hours";
+  | "activity_hours"
+  | "media";
 
-/** Kinds shown in Dagens plan (excludes water, mood, media, etc. for now). */
+/** Kinds shown in Dagens plan (excludes water, mood, mobile_games, etc.). */
 export const DAY_PLAN_HABIT_KINDS = new Set<HabitKind>([
   "meal",
   "snack",
   "intake",
   "steps",
   "activity_hours",
+  "media",
 ]);
 
 /** Tri-state habits that only appear in Dagens plan — not in Dagen trackers. */
@@ -212,6 +215,18 @@ export type DayPlanItem =
       doneAt: string | null;
       activityHours: number | null;
       activityHoursGoal: number;
+    }
+  | {
+      kind: "media";
+      id: string;
+      itemKey: string;
+      sortOrder: number;
+      doneAt: string | null;
+      habitId: string;
+      label: string;
+      icon: string;
+      accent: string;
+      media: DailyMediaContext;
     };
 
 export interface DayPlanInput {
@@ -231,6 +246,7 @@ export interface DayPlanInput {
   work: WorkDailyLog;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
+  media?: DailyMediaContext;
   savedOrder?: Map<string, number>;
 }
 
@@ -240,6 +256,7 @@ interface HabitSortSlots {
   intake?: number;
   steps?: number;
   activity_hours?: number;
+  media?: number;
 }
 
 function habitSortSlots(habits: DailyHabit[]): HabitSortSlots {
@@ -286,6 +303,10 @@ function stepsDefaultRank(slots: HabitSortSlots): number {
 
 function activityDefaultRank(slots: HabitSortSlots): number {
   return END_OF_DAY_BASE + (slots.activity_hours ?? 1) * 10 + 1;
+}
+
+function mediaDefaultRank(slots: HabitSortSlots): number {
+  return END_OF_DAY_BASE + (slots.media ?? 2) * 10;
 }
 
 function habitPlanDefaultRank(slots: HabitSortSlots, habitKey: string): number {
@@ -351,6 +372,9 @@ function assignDefaultSortOrders(items: DayPlanItem[], slots: HabitSortSlots): v
         break;
       case "activity_hours":
         item.sortOrder = activityDefaultRank(slots);
+        break;
+      case "media":
+        item.sortOrder = mediaDefaultRank(slots);
         break;
     }
   }
@@ -563,6 +587,25 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     });
   }
 
+  if (enabledKinds.has("media") && input.media) {
+    const mediaHabit = input.habits.find((h) => h.kind === "media");
+    const logged = input.media.dayLog;
+    const hasLog =
+      logged != null && (logged.didConsume || logged.position > 0);
+    items.push({
+      kind: "media",
+      id: "media",
+      itemKey: "media:media",
+      sortOrder: 0,
+      doneAt: hasLog ? `${input.date}T20:00:00.000Z` : null,
+      habitId: mediaHabit?.id ?? "",
+      label: mediaHabit?.label ?? "Läsa & titta",
+      icon: mediaHabit?.icon ?? "📺",
+      accent: mediaHabit?.accent ?? "#a78bfa",
+      media: input.media,
+    });
+  }
+
   assignDefaultSortOrders(items, slots);
 
   if (input.savedOrder && input.savedOrder.size > 0) {
@@ -620,6 +663,8 @@ export function dayPlanItemLabel(item: DayPlanItem): string {
       return "Steg";
     case "activity_hours":
       return "Aktivitet";
+    case "media":
+      return item.label;
   }
 }
 
@@ -654,6 +699,8 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
       return "👟";
     case "activity_hours":
       return "⏱";
+    case "media":
+      return item.icon;
   }
 }
 
@@ -688,5 +735,7 @@ export function dayPlanItemAccent(item: DayPlanItem): string {
       return "#5fb6ff";
     case "activity_hours":
       return "#c084fc";
+    case "media":
+      return item.accent;
   }
 }

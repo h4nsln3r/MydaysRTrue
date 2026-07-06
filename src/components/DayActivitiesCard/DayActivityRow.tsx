@@ -13,6 +13,7 @@ import type { TaskCategory } from "@/lib/tasks";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
 import { WeightActivityRow } from "./WeightActivityRow";
 import { DayPlanDailyRow } from "./DayPlanDailyRow";
+import { MediaPlanRow } from "./MediaPlanRow";
 import type { PlanSortableProps } from "./usePlanSortable";
 
 const DAILY_KINDS = new Set<DayPlanItem["kind"]>([
@@ -24,6 +25,7 @@ const DAILY_KINDS = new Set<DayPlanItem["kind"]>([
   "work_end",
   "steps",
   "activity_hours",
+  "media",
 ]);
 
 interface Props extends PlanSortableProps {
@@ -93,6 +95,28 @@ export function DayActivityRow(props: Props) {
     savedRestaurants = [],
     mealBoxStock = [],
   } = props;
+
+  if (item.kind === "media") {
+    return (
+      <MediaPlanRow
+        item={item}
+        date={date}
+        expanded={planningMode ? false : props.expanded}
+        busy={props.busy}
+        pending={props.pending}
+        onToggleExpand={planningMode ? () => {} : props.onToggleExpand}
+        onError={props.onError}
+        onPendingKey={(active) =>
+          props.onPendingId(active ? item.itemKey : null)
+        }
+        onDone={props.onDone}
+        planningMode={planningMode}
+        dragHandle={props.dragHandle}
+        sortableRef={props.sortableRef}
+        sortableStyle={props.sortableStyle}
+      />
+    );
+  }
 
   if (DAILY_KINDS.has(item.kind)) {
     return (

@@ -32,6 +32,7 @@ import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
 import type { MonthlyTaskForMonth, TaskCategory, Weekday, WeeklyTaskForWeek } from "@/lib/tasks";
 import type { WeightDayContext } from "@/lib/weight";
+import type { DailyMediaContext } from "@/lib/media";
 import type { WorkDailyLog } from "@/lib/work";
 import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
 import { DayActivityRow } from "./DayActivityRow";
@@ -57,6 +58,7 @@ interface Props {
   work: WorkDailyLog;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
+  media?: DailyMediaContext;
   savedOrder: Map<string, number>;
   categories: TaskCategory[];
   date?: string;
@@ -90,6 +92,7 @@ export function DayActivitiesCard({
   work,
   activityLog,
   goals,
+  media,
   savedOrder,
   categories,
   date,
@@ -129,6 +132,7 @@ export function DayActivitiesCard({
         work,
         activityLog,
         goals,
+        media,
         savedOrder,
       }),
     [
@@ -148,6 +152,7 @@ export function DayActivitiesCard({
       work,
       activityLog,
       goals,
+      media,
       savedOrder,
     ],
   );

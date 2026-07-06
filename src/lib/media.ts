@@ -45,8 +45,22 @@ export interface DailyMediaContext {
   /** Incomplete titles only — completed ones are hidden in the day view. */
   items: MediaItem[];
   dayLog: MediaDayLog | null;
+  /** Item logged today, even if now marked complete. */
+  loggedItem: MediaItem | null;
   /** True when every title for the year is finished. */
   allCompleted: boolean;
+}
+
+export interface MonthMediaEntry {
+  localDate: string;
+  item: MediaItem;
+  position: number;
+  didConsume: boolean;
+}
+
+export interface MonthMediaContext {
+  monthStart: string;
+  entries: MonthMediaEntry[];
 }
 
 export interface YearMediaContext {
@@ -70,6 +84,33 @@ export function mediaCompletionPrompt(kind: MediaKind): string {
   if (kind === "book") return "Klart! Vad tyckte du om boken?";
   if (kind === "series") return "Klart! Vad tyckte du om serien?";
   return "Klart! Vad tyckte du om filmen?";
+}
+
+/** Whether logging this position marks the item as newly complete. */
+export function mediaDayLogDetail(
+  item: MediaItem,
+  position: number,
+  didConsume: boolean,
+): string {
+  if (item.kind === "movie") {
+    return didConsume ? `${item.title} · Sedd` : item.title;
+  }
+  if (position > 0) {
+    const unit = item.kind === "book" ? "sida" : "avsnitt";
+    const progress =
+      item.totalLength && item.totalLength > 0
+        ? `${position}/${item.totalLength} ${unit}`
+        : `${unit} ${position}`;
+    return `${item.title} · ${progress}`;
+  }
+  return item.title;
+}
+
+export function isMediaDayLogDone(
+  dayLog: MediaDayLog | null,
+): boolean {
+  if (!dayLog) return false;
+  return dayLog.didConsume || dayLog.position > 0;
 }
 
 /** Whether logging this position marks the item as newly complete. */

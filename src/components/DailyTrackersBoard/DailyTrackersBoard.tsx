@@ -2,7 +2,6 @@ import { DailyActivityCard } from "@/components/DailyActivityCard/DailyActivityC
 import { MobileGamesDayCard } from "@/components/MobileGamesDayCard/MobileGamesDayCard";
 import { MoodDayCard } from "@/components/MoodDayCard/MoodDayCard";
 import { NutritionBoard } from "@/components/NutritionBoard/NutritionBoard";
-import { MediaDayCard } from "@/components/MediaDayCard/MediaDayCard";
 import { TriStateHabitRow } from "@/components/TriStateHabitRow/TriStateHabitRow";
 import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
@@ -20,7 +19,6 @@ import {
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { DailyMobileGamesContext } from "@/lib/mobile-games";
 import type { DailyMoodContext } from "@/lib/mood";
-import type { DailyMediaContext } from "@/lib/media";
 import type { WaterSummary } from "@/lib/water";
 import styles from "./DailyTrackersBoard.module.scss";
 
@@ -38,7 +36,6 @@ interface Props {
   intake: Record<IntakeKind, IntakeEntry | null>;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
-  media: DailyMediaContext;
   mobileGames: DailyMobileGamesContext;
   mood: DailyMoodContext;
   waterPlusHref?: string;
@@ -56,7 +53,6 @@ export function DailyTrackersBoard({
   intake,
   activityLog,
   goals,
-  media,
   mobileGames,
   mood,
   waterPlusHref,
@@ -133,15 +129,6 @@ export function DailyTrackersBoard({
       case "tri_state":
         return (
           <TriStateHabitRow key={habit.id} date={date} habit={habit} />
-        );
-      case "media":
-        return (
-          <MediaDayCard
-            key={habit.id}
-            date={date}
-            habit={habit}
-            media={media}
-          />
         );
       case "mobile_games":
         return (

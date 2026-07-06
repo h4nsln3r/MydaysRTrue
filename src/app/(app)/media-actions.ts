@@ -380,3 +380,29 @@ export async function saveMediaDailyLogAction(input: {
   revalidatePath("/", "layout");
   return { ok: true, justCompleted };
 }
+
+export async function clearMediaDailyLogAction(
+  localDate: string,
+): Promise<ActionResult> {
+  if (!ISO_DATE_RE.test(localDate)) {
+    return { ok: false, error: "Ogiltigt datum." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("media_daily_logs")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("local_date", localDate);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  revalidatePath("/year", "page");
+  revalidatePath("/month", "page");
+  return { ok: true };
+}

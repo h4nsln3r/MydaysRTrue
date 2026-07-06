@@ -162,6 +162,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               work={work}
               activityLog={activityLog}
               goals={dayPlan.goals}
+              media={media}
               savedOrder={savedOrder}
               categories={weeklyTasksDay.categories}
               date={today}
@@ -193,7 +194,6 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               intake={intake}
               activityLog={activityLog}
               goals={dayPlan.goals}
-              media={media}
               mobileGames={mobileGames}
               mood={mood}
               waterPlusHref="/water"
@@ -227,6 +227,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               work={work}
               activityLog={activityLog}
               goals={dayPlan.goals}
+              media={media}
               savedOrder={savedOrder}
               categories={weeklyTasksDay.categories}
               date={today}

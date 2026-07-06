@@ -859,6 +859,23 @@ export async function toggleWeeklyTaskDoneAction(input: {
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
 
+  if (input.done) {
+    const { data: task } = await supabase
+      .from("weekly_tasks")
+      .select("single_week_start, key")
+      .eq("id", input.taskId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    // One-offs and user-created tasks (no system key) disappear once done.
+    if (task?.single_week_start || task?.key == null) {
+      await supabase
+        .from("weekly_tasks")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", input.taskId)
+        .eq("user_id", user.id);
+    }
+  }
+
   revalidatePath("/", "layout");
   return { ok: true };
 }
@@ -1700,7 +1717,7 @@ export async function toggleMonthlyTaskDoneAction(input: {
 
   const { data: task } = await supabase
     .from("monthly_tasks")
-    .select("completion_kind, key, day_of_month")
+    .select("completion_kind, key, day_of_month, single_month_start")
     .eq("id", input.taskId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -1823,6 +1840,14 @@ export async function toggleMonthlyTaskDoneAction(input: {
       delta,
     );
     if (!syncRes.ok) return syncRes;
+  }
+
+  if (input.done && task.single_month_start) {
+    await supabase
+      .from("monthly_tasks")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", input.taskId)
+      .eq("user_id", user.id);
   }
 
   revalidatePath("/", "layout");

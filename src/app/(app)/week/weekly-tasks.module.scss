@@ -266,6 +266,61 @@
         transform 160ms $ease-out;
 }
 
+.taskWithActions {
+    grid-template-columns: auto auto 1fr auto;
+}
+
+.taskInlineActions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-self: end;
+    margin-left: $space-1;
+}
+
+.taskEditBtn,
+.taskRemoveBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition:
+        color 160ms $ease-out,
+        border-color 160ms $ease-out,
+        background 160ms $ease-out;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.taskEditBtn {
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-orange;
+        background: rgba(255, 122, 26, 0.08);
+    }
+}
+
+.taskRemoveBtn {
+    font-size: 0.95rem;
+    line-height: 1;
+
+    &:hover:not(:disabled) {
+        color: $color-danger;
+        border-color: $color-danger;
+        background: rgba(255, 82, 71, 0.08);
+    }
+}
+
 .taskPreview {
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
     border-color: $color-orange;
@@ -493,6 +548,10 @@
 .taskExpanded {
     grid-template-columns: auto auto 1fr;
     align-items: start;
+
+    &.taskWithActions {
+        grid-template-columns: auto auto 1fr auto;
+    }
 }
 
 .taskBody {
@@ -543,6 +602,33 @@
     text-transform: uppercase;
     letter-spacing: 0.12em;
     font-weight: 700;
+}
+
+.oneOffField {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.oneOffLabel {
+    color: $color-cream-dim;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.oneOffSelect {
+    width: 100%;
+    padding: $space-2 $space-3;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+    color: $color-cream;
+    font: inherit;
+    font-size: 0.88rem;
+
+    &:disabled {
+        opacity: 0.5;
+    }
 }
 
 .notesBlock {

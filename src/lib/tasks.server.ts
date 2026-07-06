@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { addDaysISO, isoWeekdayFromLocalISO, parseLocalISO, weekStartISO } from "@/lib/date";
+import { addDaysISO, isoWeekdayFromLocalISO, parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
 import {
   dedupeMonthlyTasks,
   monthlyTaskKeeperScore,
@@ -192,12 +192,78 @@ export interface WeekSummary {
  * Returns all of the user's active weekly tasks merged with their placement
  * for the given week. Tasks without a placement sit in the backlog.
  */
+/**
+ * Rolls incomplete one-off tasks from earlier weeks into `weekStart` so they
+ * can be planned in the current (or future) week plan.
+ */
+async function carryOverIncompleteOneOffTasks(
+  userId: string,
+  weekStart: string,
+): Promise<void> {
+  const todayWeekStart = weekStartISO(parseLocalISO(todayLocalISO()));
+  if (weekStart < todayWeekStart) return;
+
+  const supabase = await createClient();
+  const { data: staleOneOffs } = await supabase
+    .from("weekly_tasks")
+    .select("id")
+    .eq("user_id", userId)
+    .is("archived_at", null)
+    .not("single_week_start", "is", null)
+    .lt("single_week_start", weekStart);
+
+  if (!staleOneOffs?.length) return;
+
+  const taskIds = staleOneOffs.map((t) => t.id);
+  const { data: donePlacements } = await supabase
+    .from("weekly_task_placements")
+    .select("task_id")
+    .eq("user_id", userId)
+    .in("task_id", taskIds)
+    .not("done_at", "is", null);
+
+  const completedIds = new Set((donePlacements ?? []).map((p) => p.task_id));
+  const toCarryIds = taskIds.filter((id) => !completedIds.has(id));
+  if (toCarryIds.length === 0) return;
+
+  await supabase
+    .from("weekly_tasks")
+    .update({ single_week_start: weekStart })
+    .eq("user_id", userId)
+    .in("id", toCarryIds);
+
+  const { data: existingPlacements } = await supabase
+    .from("weekly_task_placements")
+    .select("task_id")
+    .eq("user_id", userId)
+    .eq("week_start", weekStart)
+    .in("task_id", toCarryIds);
+
+  const hasPlacement = new Set((existingPlacements ?? []).map((p) => p.task_id));
+  const toInsert = toCarryIds
+    .filter((id) => !hasPlacement.has(id))
+    .map((taskId) => ({
+      user_id: userId,
+      task_id: taskId,
+      week_start: weekStart,
+      weekday: null,
+      day_sort_order: 0,
+    }));
+
+  if (toInsert.length > 0) {
+    await supabase.from("weekly_task_placements").insert(toInsert);
+  }
+}
+
 export async function getWeekSummary(
   userId: string,
   weekStart: string,
 ): Promise<WeekSummary> {
+  await carryOverIncompleteOneOffTasks(userId, weekStart);
+
   const supabase = await createClient();
-  const [tasksRes, placementsRes, catsRes, checklistRes] = await Promise.all([
+  const [tasksRes, placementsRes, catsRes, checklistRes, doneCustomRes] =
+    await Promise.all([
     supabase
       .from("weekly_tasks")
       .select(WEEKLY_TASK_SELECT)
@@ -223,7 +289,28 @@ export async function getWeekSummary(
       .select(CHECKLIST_SELECT)
       .eq("user_id", userId)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("weekly_task_placements")
+      .select("task_id")
+      .eq("user_id", userId)
+      .not("done_at", "is", null),
   ]);
+
+  const taskRows = tasksRes.data ?? [];
+  const taskById = new Map(taskRows.map((r) => [r.id, r]));
+  const everCompletedCustom = new Set<string>();
+  for (const row of doneCustomRes.data ?? []) {
+    const t = taskById.get(row.task_id);
+    if (t && t.key == null && t.single_week_start == null) {
+      everCompletedCustom.add(row.task_id);
+    }
+  }
+
+  function includeWeeklyTask(row: WeeklyTaskRow): boolean {
+    if (!isActiveWeeklyRow(row)) return false;
+    if (row.key != null || row.single_week_start != null) return true;
+    return !everCompletedCustom.has(row.id);
+  }
 
   const placements = new Map<string, WeeklyPlacement>();
   for (const row of placementsRes.data ?? []) {
@@ -253,8 +340,8 @@ export async function getWeekSummary(
     day_sort_order: number;
   }[] = [];
 
-  for (const row of tasksRes.data ?? []) {
-    if (!isActiveWeeklyRow(row)) continue;
+  for (const row of taskRows) {
+    if (!includeWeeklyTask(row)) continue;
     if (!placements.has(row.id)) {
       const wd = row.default_weekday;
       let daySortOrder = 0;
@@ -282,8 +369,8 @@ export async function getWeekSummary(
     }
   }
 
-  const tasks: WeeklyTaskForWeek[] = (tasksRes.data ?? [])
-    .filter(isActiveWeeklyRow)
+  const tasks: WeeklyTaskForWeek[] = taskRows
+    .filter(includeWeeklyTask)
     .map((row) => ({
     ...rowToWeekly(row),
     placement: placements.get(row.id) ?? null,

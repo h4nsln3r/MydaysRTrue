@@ -41,6 +41,8 @@ import {
 } from "@/app/(app)/gym-actions";
 import {
   updateWeeklyTaskPlanAction,
+  updateWeeklyTaskAction,
+  updateMonthlyTaskAction,
   setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
   toggleWeeklyTaskDoneAction,
@@ -413,6 +415,7 @@ export function UnifiedWeekBoard({
       <SortableItemRow
         key={item.dragId}
         item={item}
+        categories={plan.categories}
         weekStart={weekStart}
         expanded={expandedId === item.dragId}
         busy={pendingId === item.dragId}
@@ -435,6 +438,7 @@ export function UnifiedWeekBoard({
       <DraggableItemRow
         key={item.dragId}
         item={item}
+        categories={plan.categories}
         category={
           (item.kind === "task" || item.kind === "monthly_bill") && item.categoryId
             ? catById.get(item.categoryId)
@@ -684,6 +688,7 @@ function DayDropZone({
 
 interface DraggableItemRowProps {
   item: WeekPlanItem;
+  categories: TaskCategory[];
   category?: TaskCategory;
   weekStart: string;
   expanded: boolean;
@@ -728,12 +733,14 @@ function SortableItemRow(props: DraggableItemRowProps) {
         props.busy ? styles.taskBusy : "",
         isDragging || props.dragging ? styles.taskDragging : "",
         props.expanded ? styles.taskExpanded : "",
+        canManageTask(item) ? styles.taskWithActions : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
       <ItemRowContent
         item={item}
+        categories={props.categories}
         category={props.category}
         weekStart={props.weekStart}
         expanded={props.expanded}
@@ -754,6 +761,7 @@ function SortableItemRow(props: DraggableItemRowProps) {
 
 function DraggableItemRow({
   item,
+  categories,
   category,
   weekStart,
   expanded,
@@ -787,12 +795,14 @@ function DraggableItemRow({
         busy ? styles.taskBusy : "",
         dragging ? styles.taskDragging : "",
         expanded ? styles.taskExpanded : "",
+        canManageTask(item) ? styles.taskWithActions : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
       <ItemRowContent
         item={item}
+        categories={categories}
         category={category}
         weekStart={weekStart}
         expanded={expanded}
@@ -832,6 +842,7 @@ function ItemCardPreview({
     >
       <ItemRowContent
         item={item}
+        categories={[]}
         category={category}
         weekStart=""
         expanded={false}
@@ -852,6 +863,7 @@ function ItemCardPreview({
 
 interface ItemRowContentProps {
   item: WeekPlanItem;
+  categories: TaskCategory[];
   category?: TaskCategory;
   weekStart: string;
   expanded: boolean;
@@ -868,8 +880,25 @@ interface ItemRowContentProps {
   onDone: () => void;
 }
 
+function isOneOffTask(item: WeekPlanItem): boolean {
+  return (
+    (item.kind === "task" && item.singleWeekStart != null) ||
+    (item.kind === "monthly_bill" && item.singleMonthStart != null)
+  );
+}
+
+/** User-created or one-off tasks that can be edited or removed from the plan. */
+function canManageTask(item: WeekPlanItem): boolean {
+  if (item.kind === "monthly_bill") return item.singleMonthStart != null;
+  if (item.kind === "task") {
+    return item.singleWeekStart != null || item.taskKey == null;
+  }
+  return false;
+}
+
 function ItemRowContent({
   item,
+  categories,
   category,
   weekStart,
   expanded,
@@ -942,11 +971,28 @@ function ItemRowContent({
       item.completionKind === "laundry" ||
       item.completionKind === "music");
 
-  const isOneOff =
-    (item.kind === "task" && item.singleWeekStart != null) ||
-    (item.kind === "monthly_bill" && item.singleMonthStart != null);
+  const isOneOff = isOneOffTask(item);
+  const canManage = canManageTask(item);
+  const canExpand =
+    canManage ||
+    taskPlanningExpand ||
+    item.kind === "gym" ||
+    item.kind === "cardio" ||
+    item.kind === "sport" ||
+    (item.kind === "bathing" && item.bathingRole === "placement") ||
+    item.kind === "weight" ||
+    isMonthlyAmount ||
+    isMonthlyFinance;
 
-  const removeOneOff = () => {
+  const taskCategories = categories.filter((c) => c.scope === "task");
+  const [editTitle, setEditTitle] = useState(item.label);
+  const [editCategoryId, setEditCategoryId] = useState(
+    item.kind === "task" || item.kind === "monthly_bill"
+      ? (item.categoryId ?? "")
+      : "",
+  );
+
+  const removeTask = () => {
     if (item.kind === "task") {
       onError(null);
       onPendingId(item.dragId);
@@ -968,6 +1014,35 @@ function ItemRowContent({
         onDone();
       });
     }
+  };
+
+  const saveTaskEdit = () => {
+    const title = editTitle.trim();
+    if (!title) {
+      onError("Ange ett namn.");
+      return;
+    }
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res =
+        item.kind === "task"
+          ? await updateWeeklyTaskAction({
+              id: item.taskId,
+              title,
+              categoryId: editCategoryId || null,
+            })
+          : item.kind === "monthly_bill"
+            ? await updateMonthlyTaskAction({
+                id: item.taskId,
+                title,
+                categoryId: editCategoryId || null,
+              })
+            : { ok: false as const, error: "Kan inte redigera." };
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
+      onPendingId(null);
+      onDone();
+    });
   };
 
   const kindLabel =
@@ -1342,8 +1417,18 @@ function ItemRowContent({
       <button
         type="button"
         className={styles.taskBody}
-        onClick={preview ? undefined : isMonthlyFinance ? () => router.push(monthPlanEkonomiHref(item.monthStart)) : onToggleExpand}
-        aria-expanded={expanded}
+        onClick={
+          preview
+            ? undefined
+            : isMonthlyFinance
+              ? () => router.push(monthPlanEkonomiHref(item.monthStart))
+              : canManage
+                ? undefined
+                : canExpand
+                  ? onToggleExpand
+                  : undefined
+        }
+        aria-expanded={canExpand && !canManage ? expanded : undefined}
         disabled={pending || preview}
       >
         <span
@@ -1369,15 +1454,7 @@ function ItemRowContent({
           ) : null}
           {detail ? <span className={styles.taskNotes}>{detail}</span> : null}
         </span>
-        {!preview &&
-        (taskPlanningExpand ||
-          item.kind === "gym" ||
-          item.kind === "cardio" ||
-          item.kind === "sport" ||
-          (item.kind === "bathing" && item.bathingRole === "placement") ||
-          item.kind === "weight" ||
-          isMonthlyAmount ||
-          isMonthlyFinance) ? (
+        {!preview && canExpand && !canManage ? (
           <span
             className={[styles.chevron, expanded ? styles.chevronUp : ""]
               .filter(Boolean)
@@ -1389,8 +1466,85 @@ function ItemRowContent({
         ) : null}
       </button>
 
+      {!preview && canManage ? (
+        <div className={styles.taskInlineActions}>
+          <button
+            type="button"
+            className={styles.taskEditBtn}
+            onClick={onToggleExpand}
+            aria-label={`Redigera ${item.label}`}
+            aria-expanded={expanded}
+            disabled={pending}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+              <path d="m13.5 6.5 3 3" stroke="currentColor" strokeWidth="2" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={styles.taskRemoveBtn}
+            onClick={removeTask}
+            disabled={pending}
+            aria-label={`Ta bort ${item.label}`}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
+
       {expanded && !preview ? (
         <div className={styles.taskActions}>
+          {canManage ? (
+            <>
+              <p className={styles.actionsLabel}>Redigera uppgift</p>
+              <Input
+                label="Namn"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                maxLength={80}
+                disabled={pending}
+              />
+              {taskCategories.length > 0 ? (
+                <div className={styles.oneOffField}>
+                  <label className={styles.oneOffLabel} htmlFor={`edit-cat-${item.dragId}`}>
+                    Kategori
+                  </label>
+                  <select
+                    id={`edit-cat-${item.dragId}`}
+                    className={styles.oneOffSelect}
+                    value={editCategoryId}
+                    onChange={(e) => setEditCategoryId(e.target.value)}
+                    disabled={pending}
+                  >
+                    <option value="">— Ingen kategori —</option>
+                    {taskCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.icon} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={saveTaskEdit}
+              >
+                Spara ändringar
+              </Button>
+            </>
+          ) : null}
+
           {item.kind !== "bathing" ? (
             <>
               <p className={styles.actionsLabel}>Flytta till annan dag</p>
@@ -1783,7 +1937,7 @@ function ItemRowContent({
             </>
           ) : null}
 
-          {isOneOff ? (
+          {canManage ? (
             <Button
               type="button"
               variant="ghost"
@@ -1791,9 +1945,9 @@ function ItemRowContent({
               fullWidth
               loading={pending && busy}
               disabled={pending}
-              onClick={removeOneOff}
+              onClick={removeTask}
             >
-              Ta bort engångsuppgift
+              Ta bort uppgift
             </Button>
           ) : null}
         </div>

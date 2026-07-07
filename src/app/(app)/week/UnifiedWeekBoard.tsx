@@ -117,8 +117,9 @@ export function UnifiedWeekBoard({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (pendingId != null || draggingId != null) return;
     setLocalItems(plan.items);
-  }, [plan.items]);
+  }, [plan.items, pendingId, draggingId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -373,7 +374,8 @@ export function UnifiedWeekBoard({
       return;
     }
 
-    const weekday = weekdayFromWeekPlanDropId(overId);
+    const weekday =
+      weekdayFromWeekPlanDropId(overId) ?? overItem?.weekday ?? null;
     if (weekday) place(dragId, weekday);
   };
 

@@ -358,6 +358,14 @@
     opacity: 0.55;
 }
 
+.habitItemActions {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .categoryTasksGroup {
     display: flex;
     flex-direction: column;

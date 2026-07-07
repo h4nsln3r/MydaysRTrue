@@ -11,7 +11,13 @@ import { DefaultWeekdaySelect } from "@/components/DefaultWeekdaySelect/DefaultW
 import type { CardioSessionTemplate } from "@/lib/cardio";
 import type { SportSessionTemplate } from "@/lib/sport";
 import type { GymSessionTemplate } from "@/lib/gym";
-import { WEEKDAY_SHORT, type Weekday, type WeeklyTask } from "@/lib/tasks";
+import {
+  groupTasksByCategory,
+  WEEKDAY_SHORT,
+  type TaskCategory,
+  type Weekday,
+  type WeeklyTask,
+} from "@/lib/tasks";
 import styles from "./profile.module.scss";
 
 interface Props {
@@ -19,6 +25,7 @@ interface Props {
   cardioTemplates: CardioSessionTemplate[];
   sportTemplates: SportSessionTemplate[];
   weeklyTasks: WeeklyTask[];
+  taskCategories: TaskCategory[];
   weightDefaultWeekday: Weekday | null;
 }
 
@@ -27,6 +34,7 @@ export function WeeklyDefaultsEditor({
   cardioTemplates,
   sportTemplates,
   weeklyTasks,
+  taskCategories,
   weightDefaultWeekday,
 }: Props) {
   const router = useRouter();
@@ -182,34 +190,44 @@ export function WeeklyDefaultsEditor({
         </section>
       ) : null}
 
-      {weeklyTasks.length > 0 ? (
-        <section className={styles.defaultsSection}>
-          <h5 className={styles.defaultsHeading}>Veckouppgifter</h5>
-          <ul className={styles.defaultsList}>
-            {weeklyTasks.map((t) => (
-              <li key={t.id} className={styles.defaultsRow}>
-                <span className={styles.defaultsLabel}>
-                  <span className={styles.habitIcon} aria-hidden style={{ borderColor: t.accent }}>
-                    {t.icon}
-                  </span>
-                  {t.title}
-                  {t.defaultWeekday ? (
-                    <span className={styles.defaultsHint}>
-                      ({WEEKDAY_SHORT[t.defaultWeekday]})
+      {weeklyTasks.length > 0
+        ? groupTasksByCategory(taskCategories, weeklyTasks).map((group) => (
+            <section key={group.id} className={styles.defaultsSection}>
+              <h5 className={styles.defaultsHeading}>
+                {group.category
+                  ? `${group.category.icon} ${group.category.name}`
+                  : "Veckouppgifter utan kategori"}
+              </h5>
+              <ul className={styles.defaultsList}>
+                {group.items.map((t) => (
+                  <li key={t.id} className={styles.defaultsRow}>
+                    <span className={styles.defaultsLabel}>
+                      <span
+                        className={styles.habitIcon}
+                        aria-hidden
+                        style={{ borderColor: t.accent }}
+                      >
+                        {t.icon}
+                      </span>
+                      {t.title}
+                      {t.defaultWeekday ? (
+                        <span className={styles.defaultsHint}>
+                          ({WEEKDAY_SHORT[t.defaultWeekday]})
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                </span>
-                <DefaultWeekdaySelect
-                  id={`task-default-${t.id}`}
-                  value={t.defaultWeekday}
-                  onChange={(d) => saveTask(t.id, d)}
-                  disabled={pending}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+                    <DefaultWeekdaySelect
+                      id={`task-default-${t.id}`}
+                      value={t.defaultWeekday}
+                      onChange={(d) => saveTask(t.id, d)}
+                      disabled={pending}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))
+        : null}
 
       <section className={styles.defaultsSection}>
         <h5 className={styles.defaultsHeading}>Vikt</h5>

@@ -74,6 +74,41 @@ export interface WeeklyTask {
   enabled: boolean;
 }
 
+export interface TaskCategoryGroup<T extends { categoryId: string | null }> {
+  id: string;
+  category: TaskCategory | null;
+  items: T[];
+}
+
+/** Groups tasks under their category (category sort order, uncategorized last). */
+export function groupTasksByCategory<T extends { categoryId: string | null }>(
+  categories: TaskCategory[],
+  items: T[],
+): TaskCategoryGroup<T>[] {
+  const byId = new Map<string, TaskCategoryGroup<T>>();
+  for (const category of categories) {
+    byId.set(category.id, { id: category.id, category, items: [] });
+  }
+  const uncategorized: TaskCategoryGroup<T> = {
+    id: "uncategorized",
+    category: null,
+    items: [],
+  };
+
+  for (const item of items) {
+    const group = item.categoryId ? byId.get(item.categoryId) : uncategorized;
+    (group ?? uncategorized).items.push(item);
+  }
+
+  const groups: TaskCategoryGroup<T>[] = [];
+  for (const category of categories) {
+    const group = byId.get(category.id);
+    if (group && group.items.length > 0) groups.push(group);
+  }
+  if (uncategorized.items.length > 0) groups.push(uncategorized);
+  return groups;
+}
+
 export type MonthlyTaskCompletionKind = "simple" | "amount" | "finance";
 
 export interface MonthlyTask {

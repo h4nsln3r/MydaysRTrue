@@ -165,6 +165,7 @@ export default async function ProfilePage() {
             cardioTemplates={cardioTemplates}
             sportTemplates={sportTemplates}
             weeklyTasks={weeklyTasks}
+            taskCategories={taskCategories}
             weightDefaultWeekday={weightDefaultWeekday}
           />
           <WeeklyTasksEditor tasks={weeklyTasks} categories={taskCategories} />

@@ -4,8 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
-import type { TaskCategory, WeeklyTask } from "@/lib/tasks";
 import {
+  groupTasksByCategory,
+  type TaskCategory,
+  type WeeklyTask,
+} from "@/lib/tasks";
+import {
+  archiveWeeklyTaskAction,
   createWeeklyTaskAction,
   setWeeklyTaskCategoryAction,
 } from "@/app/(app)/tasks-actions";
@@ -35,6 +40,7 @@ export function WeeklyTasksEditor({ tasks, categories }: Props) {
   const [icon, setIcon] = useState<string>(PRESET_ICONS[0]);
   const [accent, setAccent] = useState<string>(PRESET_ACCENTS[0]);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const reset = () => {
     setAdding(false);
@@ -76,7 +82,20 @@ export function WeeklyTasksEditor({ tasks, categories }: Props) {
     });
   };
 
-  const catById = new Map(categories.map((c) => [c.id, c]));
+  const archive = (taskId: string) => {
+    setError(null);
+    startTransition(async () => {
+      const res = await archiveWeeklyTaskAction(taskId);
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte ta bort uppgiften.");
+        return;
+      }
+      setConfirmingId(null);
+      router.refresh();
+    });
+  };
+
+  const groups = groupTasksByCategory(categories, tasks);
 
   return (
     <div className={styles.subBlock}>
@@ -91,44 +110,94 @@ export function WeeklyTasksEditor({ tasks, categories }: Props) {
       </header>
 
       {tasks.length > 0 ? (
-        <ul className={styles.habitList}>
-          {tasks.map((t) => {
-            const category = t.categoryId ? catById.get(t.categoryId) : null;
-            return (
-              <li key={t.id} className={styles.habitItem}>
+        <div className={styles.stack}>
+          {groups.map((group) => (
+            <section key={group.id} className={styles.categoryTasksGroup}>
+              <header className={styles.categoryTasksHeader}>
                 <span
-                  className={styles.habitIcon}
-                  aria-hidden
-                  style={{ borderColor: t.accent }}
+                  className={styles.categoryTasksChip}
+                  style={{
+                    borderColor: group.category?.accent ?? undefined,
+                    color: group.category?.accent ?? undefined,
+                  }}
                 >
-                  {t.icon}
+                  <span aria-hidden>{group.category?.icon ?? "•"}</span>
+                  <span>{group.category?.name ?? "Ingen kategori"}</span>
                 </span>
-                <div className={styles.habitText}>
-                  <span className={styles.habitLabel}>{t.title}</span>
-                  <span className={styles.habitKind}>
-                    {category ? `${category.icon} ${category.name}` : "No category"}
-                  </span>
-                </div>
-                {categories.length > 0 ? (
-                  <select
-                    className={styles.habitCategorySelect}
-                    value={t.categoryId ?? ""}
-                    onChange={(e) => changeCategory(t.id, e.target.value)}
-                    disabled={pending}
-                    aria-label={`Category for ${t.title}`}
-                  >
-                    <option value="">—</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.icon} {c.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+                <span className={styles.muted}>{group.items.length}</span>
+              </header>
+              <ul className={styles.habitList}>
+                {group.items.map((t) => {
+                  const isConfirming = confirmingId === t.id;
+                  return (
+                    <li key={t.id} className={styles.habitItem}>
+                      <span
+                        className={styles.habitIcon}
+                        aria-hidden
+                        style={{ borderColor: t.accent }}
+                      >
+                        {t.icon}
+                      </span>
+                      <div className={styles.habitText}>
+                        <span className={styles.habitLabel}>{t.title}</span>
+                      </div>
+                      <div className={styles.habitItemActions}>
+                        {categories.length > 0 ? (
+                          <select
+                            className={styles.habitCategorySelect}
+                            value={t.categoryId ?? ""}
+                            onChange={(e) => changeCategory(t.id, e.target.value)}
+                            disabled={pending}
+                            aria-label={`Kategori för ${t.title}`}
+                          >
+                            <option value="">—</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.icon} {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
+                        {isConfirming ? (
+                          <span className={styles.habitConfirm}>
+                            <button
+                              type="button"
+                              className={styles.habitConfirmYes}
+                              onClick={() => archive(t.id)}
+                              disabled={pending}
+                              aria-label={`Bekräfta borttagning av ${t.title}`}
+                            >
+                              Ta bort
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.habitConfirmNo}
+                              onClick={() => setConfirmingId(null)}
+                              disabled={pending}
+                              aria-label="Avbryt"
+                            >
+                              Avbryt
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.habitRemove}
+                            onClick={() => setConfirmingId(t.id)}
+                            aria-label={`Ta bort ${t.title}`}
+                            disabled={pending}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
       ) : (
         <p className={styles.emptyNote}>
           No weekly tasks yet. Add things you do every week — laundry,

@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { addDaysISO, isoWeekdayFromLocalISO, parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
+import { addDaysISO, DISPLAY_TIMEZONE, isoWeekdayFromLocalISO, parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
 import {
   dedupeMonthlyTasks,
   monthlyTaskKeeperScore,
@@ -110,6 +110,98 @@ function rowToWeekly(r: WeeklyTaskRow): WeeklyTask {
 
 function isActiveWeeklyRow(r: WeeklyTaskRow): boolean {
   return r.single_week_start != null || (r.enabled ?? true);
+}
+
+function weekStartFromCreatedAt(createdAt: string): string {
+  const local = new Date(createdAt).toLocaleDateString("en-CA", {
+    timeZone: DISPLAY_TIMEZONE,
+  });
+  return weekStartISO(parseLocalISO(local));
+}
+
+/**
+ * Fixes one-offs pinned to a later week than when they were created (carryOver bug).
+ * Runs on every week load so existing bad rows heal without manual SQL.
+ */
+async function repairMisplacedOneOffWeekPins(userId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: rows } = await supabase
+    .from("weekly_tasks")
+    .select("id, created_at, single_week_start")
+    .eq("user_id", userId)
+    .is("archived_at", null)
+    .not("single_week_start", "is", null);
+
+  const toRepair: { id: string; weekStart: string }[] = [];
+  for (const row of rows ?? []) {
+    if (!row.single_week_start) continue;
+    const createdWeek = weekStartFromCreatedAt(row.created_at);
+    if (row.single_week_start > createdWeek) {
+      toRepair.push({ id: row.id, weekStart: createdWeek });
+    }
+  }
+  if (toRepair.length === 0) return;
+
+  const byWeek = new Map<string, string[]>();
+  for (const row of toRepair) {
+    const list = byWeek.get(row.weekStart) ?? [];
+    list.push(row.id);
+    byWeek.set(row.weekStart, list);
+  }
+
+  for (const [correctWeek, taskIds] of byWeek) {
+    await supabase
+      .from("weekly_tasks")
+      .update({ single_week_start: correctWeek })
+      .eq("user_id", userId)
+      .in("id", taskIds);
+
+    const { data: existingPlacements } = await supabase
+      .from("weekly_task_placements")
+      .select("task_id")
+      .eq("user_id", userId)
+      .eq("week_start", correctWeek)
+      .in("task_id", taskIds);
+
+    const hasPlacement = new Set(
+      (existingPlacements ?? []).map((p) => p.task_id),
+    );
+    const missingIds = taskIds.filter((id) => !hasPlacement.has(id));
+    if (missingIds.length === 0) continue;
+
+    const { data: sourcePlacements } = await supabase
+      .from("weekly_task_placements")
+      .select("task_id, weekday, day_sort_order, week_start")
+      .eq("user_id", userId)
+      .in("task_id", missingIds)
+      .order("week_start", { ascending: true });
+
+    const sourceByTask = new Map<
+      string,
+      { weekday: number | null; day_sort_order: number }
+    >();
+    for (const p of sourcePlacements ?? []) {
+      if (!sourceByTask.has(p.task_id)) {
+        sourceByTask.set(p.task_id, {
+          weekday: p.weekday,
+          day_sort_order: p.day_sort_order ?? 0,
+        });
+      }
+    }
+
+    await supabase.from("weekly_task_placements").insert(
+      missingIds.map((taskId) => {
+        const src = sourceByTask.get(taskId);
+        return {
+          user_id: userId,
+          task_id: taskId,
+          week_start: correctWeek,
+          weekday: src?.weekday ?? null,
+          day_sort_order: src?.day_sort_order ?? 0,
+        };
+      }),
+    );
+  }
 }
 
 interface WeeklyPlacementRow {
@@ -232,15 +324,16 @@ export interface WeekSummary {
  * for the given week. Tasks without a placement sit in the backlog.
  */
 /**
- * Rolls incomplete one-off tasks from earlier weeks into `weekStart` so they
- * can be planned in the current (or future) week plan.
+ * Rolls incomplete one-off tasks from earlier weeks into the current week so they
+ * can be planned. Only runs when loading the current week's plan — browsing a
+ * future week must not re-pin one-offs to that future week.
  */
 async function carryOverIncompleteOneOffTasks(
   userId: string,
   weekStart: string,
 ): Promise<void> {
   const todayWeekStart = weekStartISO(parseLocalISO(todayLocalISO()));
-  if (weekStart < todayWeekStart) return;
+  if (weekStart !== todayWeekStart) return;
 
   const supabase = await createClient();
   const { data: staleOneOffs } = await supabase
@@ -249,7 +342,7 @@ async function carryOverIncompleteOneOffTasks(
     .eq("user_id", userId)
     .is("archived_at", null)
     .not("single_week_start", "is", null)
-    .lt("single_week_start", weekStart);
+    .lt("single_week_start", todayWeekStart);
 
   if (!staleOneOffs?.length) return;
 
@@ -267,7 +360,7 @@ async function carryOverIncompleteOneOffTasks(
 
   await supabase
     .from("weekly_tasks")
-    .update({ single_week_start: weekStart })
+    .update({ single_week_start: todayWeekStart })
     .eq("user_id", userId)
     .in("id", toCarryIds);
 
@@ -275,7 +368,7 @@ async function carryOverIncompleteOneOffTasks(
     .from("weekly_task_placements")
     .select("task_id")
     .eq("user_id", userId)
-    .eq("week_start", weekStart)
+    .eq("week_start", todayWeekStart)
     .in("task_id", toCarryIds);
 
   const hasPlacement = new Set((existingPlacements ?? []).map((p) => p.task_id));
@@ -284,7 +377,7 @@ async function carryOverIncompleteOneOffTasks(
     .map((taskId) => ({
       user_id: userId,
       task_id: taskId,
-      week_start: weekStart,
+      week_start: todayWeekStart,
       weekday: null,
       day_sort_order: 0,
     }));
@@ -298,6 +391,7 @@ export async function getWeekSummary(
   userId: string,
   weekStart: string,
 ): Promise<WeekSummary> {
+  await repairMisplacedOneOffWeekPins(userId);
   await carryOverIncompleteOneOffTasks(userId, weekStart);
 
   const weekEnd = addDaysISO(weekStart, 6);

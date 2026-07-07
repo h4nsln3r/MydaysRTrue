@@ -117,9 +117,14 @@ export function UnifiedWeekBoard({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (pendingId != null || draggingId != null) return;
+    if (draggingId != null || pending || pendingId != null) return;
     setLocalItems(plan.items);
-  }, [plan.items, pendingId, draggingId]);
+  }, [plan.items, draggingId, pending, pendingId]);
+
+  useEffect(() => {
+    if (pendingId == null || draggingId != null || pending) return;
+    setPendingId(null);
+  }, [plan.items, pendingId, draggingId, pending]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -207,14 +212,16 @@ export function UnifiedWeekBoard({
         return prev.map((i) => {
           if (i.dragId !== dragId) return i;
           const next = { ...i, weekday, sortOrder: nextOrder };
-          if (i.kind === "task" && i.placement) {
+          if (i.kind === "task") {
             return {
               ...next,
-              placement: {
-                ...i.placement,
-                weekday,
-                daySortOrder: nextOrder,
-              },
+              placement: i.placement
+                ? {
+                    ...i.placement,
+                    weekday,
+                    daySortOrder: nextOrder,
+                  }
+                : i.placement,
             };
           }
           if (i.kind === "monthly_bill") {
@@ -234,8 +241,9 @@ export function UnifiedWeekBoard({
       if (!res.ok) {
         setError(res.error ?? "Kunde inte placera.");
         setLocalItems(plan.items);
+        setPendingId(null);
+        return;
       }
-      setPendingId(null);
       router.refresh();
     });
   };
@@ -289,8 +297,9 @@ export function UnifiedWeekBoard({
       if (!res.ok) {
         setError(res.error ?? "Kunde inte flytta tillbaka.");
         setLocalItems(plan.items);
+        setPendingId(null);
+        return;
       }
-      setPendingId(null);
       router.refresh();
     });
   };
@@ -301,9 +310,11 @@ export function UnifiedWeekBoard({
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    setDraggingId(null);
     const { active, over } = event;
-    if (!over) return;
+    if (!over) {
+      setDraggingId(null);
+      return;
+    }
 
     const dragId = String(active.id);
     const overId = String(over.id);
@@ -359,24 +370,36 @@ export function UnifiedWeekBoard({
           if (!res.ok) {
             setError(res.error ?? "Kunde inte spara ordning.");
             setLocalItems(plan.items);
+            setPendingId(null);
+            return;
           }
-          setPendingId(null);
           router.refresh();
         });
+        setDraggingId(null);
+        return;
       }
-      return;
     }
 
     if (overId === WEEK_PLAN_BACKLOG_DROP_ID) {
       const item = localItems.find((i) => i.dragId === dragId);
-      if (item?.kind === "bathing" && item.bathingRole === "source") return;
+      if (item?.kind === "bathing" && item.bathingRole === "source") {
+        setDraggingId(null);
+        return;
+      }
+      setDraggingId(null);
       unplace(dragId);
       return;
     }
 
     const weekday =
       weekdayFromWeekPlanDropId(overId) ?? overItem?.weekday ?? null;
-    if (weekday) place(dragId, weekday);
+    if (weekday) {
+      setDraggingId(null);
+      place(dragId, weekday);
+      return;
+    }
+
+    setDraggingId(null);
   };
 
   const resetWeek = () => {

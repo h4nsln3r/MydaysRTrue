@@ -123,9 +123,9 @@ function phraseWorkStart(entry: JournalDisplayEntry): string {
 function phraseWorkEnd(entry: JournalDisplayEntry): string {
   const note = entry.body.trim();
   if (note) {
-    return ensureSentence(note.charAt(0).toUpperCase() + note.slice(1));
+    return ensureSentence(`Kl. ${formatTime(entry.at)} slutade jobbet — ${lowercaseFirst(note)}`);
   }
-  return ensureSentence(`Jobbet slutade kl. ${formatTime(entry.at)}`);
+  return ensureSentence(`Kl. ${formatTime(entry.at)} slutade jobbet`);
 }
 
 function mergeWorkPhrases(start: JournalDisplayEntry, end: JournalDisplayEntry): string {

@@ -927,8 +927,10 @@ export async function toggleWeeklyTaskDoneAction(input: {
       .eq("id", input.taskId)
       .eq("user_id", user.id)
       .maybeSingle();
-    // One-offs and user-created tasks (no system key) disappear once done.
-    if (task?.single_week_start || task?.key == null) {
+    // Recurring user-created tasks (no system key, not a one-off) are archived
+    // once done. One-offs (single_week_start set) are kept so they stay in
+    // "Dagens plan" as a checked-off row and are recorded in the diary.
+    if (task?.key == null && !task?.single_week_start) {
       await supabase
         .from("weekly_tasks")
         .update({ archived_at: new Date().toISOString() })
@@ -1975,13 +1977,8 @@ export async function toggleMonthlyTaskDoneAction(input: {
     if (!syncRes.ok) return syncRes;
   }
 
-  if (input.done && task.single_month_start) {
-    await supabase
-      .from("monthly_tasks")
-      .update({ archived_at: new Date().toISOString() })
-      .eq("id", input.taskId)
-      .eq("user_id", user.id);
-  }
+  // One-off monthly tasks (single_month_start set) are kept once done so they
+  // stay in the plan as a checked-off row and are recorded in the diary.
 
   revalidatePath("/", "layout");
   return { ok: true };

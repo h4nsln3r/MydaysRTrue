@@ -279,7 +279,8 @@
 }
 
 .taskEditBtn,
-.taskRemoveBtn {
+.taskRemoveBtn,
+.taskHoldBtn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -318,6 +319,17 @@
         color: $color-danger;
         border-color: $color-danger;
         background: rgba(255, 82, 71, 0.08);
+    }
+}
+
+.taskHoldBtn {
+    font-size: 0.62rem;
+    line-height: 1;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-fog;
+        background: rgba(255, 255, 255, 0.06);
     }
 }
 
@@ -485,6 +497,84 @@
     background: $color-ink-soft;
     border: 1px solid $color-line;
     border-radius: $radius-md;
+}
+
+.onHoldSection {
+    margin-top: $space-4;
+    padding: $space-3 $space-4;
+    background: $color-ink-soft;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: $radius-md;
+}
+
+.onHoldHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+    margin-bottom: $space-3;
+}
+
+.onHoldTitle {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: $color-cream;
+}
+
+.onHoldSub {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    color: $color-fog;
+}
+
+.onHoldList {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.onHoldRow {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-2 $space-3;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.onHoldMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.onHoldSelect {
+    min-width: 9.5rem;
+    padding: 6px 10px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-family: $font-sans;
+    font-size: 0.78rem;
+    cursor: pointer;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-cream;
+    }
 }
 
 .summaryStat {

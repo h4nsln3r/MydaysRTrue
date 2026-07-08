@@ -577,6 +577,7 @@ export interface Database {
           shop_amount: number | null;
           laundry_loads: number | null;
           band: string | null;
+          on_hold: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -594,6 +595,7 @@ export interface Database {
           shop_amount?: number | null;
           laundry_loads?: number | null;
           band?: string | null;
+          on_hold?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -611,6 +613,7 @@ export interface Database {
           shop_amount?: number | null;
           laundry_loads?: number | null;
           band?: string | null;
+          on_hold?: boolean;
           created_at?: string;
           updated_at?: string;
         };

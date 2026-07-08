@@ -48,6 +48,7 @@ import {
   toggleWeeklyTaskDoneAction,
   archiveMonthlyTaskAction,
   archiveWeeklyTaskAction,
+  setWeeklyTaskOnHoldAction,
 } from "@/app/(app)/tasks-actions";
 import { setWeightWeekEnabledAction } from "@/app/(app)/weight-actions";
 import {
@@ -94,6 +95,7 @@ import {
   weekdayFromWeekPlanDropId,
   type UnifiedWeekPlan,
   type WeekPlanItem,
+  type WeekPlanTaskItem,
 } from "@/lib/week-plan";
 import styles from "./weekly-tasks.module.scss";
 
@@ -135,6 +137,7 @@ export function UnifiedWeekBoard({
 
   const catById = new Map(plan.categories.map((c) => [c.id, c]));
   const weeklyBacklog = localItems.filter((i) => {
+    if (isTaskOnHold(i)) return false;
     if (i.kind === "monthly_bill") return false;
     if (i.weekday != null) return false;
     if (i.kind === "bathing" && i.bathingRole === "source") return true;
@@ -143,11 +146,20 @@ export function UnifiedWeekBoard({
   const monthlyBacklog = localItems.filter(
     (i) => i.kind === "monthly_bill" && i.weekday == null && !i.done,
   );
+  const onHoldTasks = localItems.filter(
+    (i): i is WeekPlanTaskItem =>
+      i.kind === "task" &&
+      i.singleWeekStart != null &&
+      isTaskOnHold(i) &&
+      !i.done,
+  );
   const byDay = new Map<Weekday, WeekPlanItem[]>(
     WEEKDAYS.map((d) => [d, [] as WeekPlanItem[]]),
   );
   for (const item of localItems) {
-    if (item.weekday != null) byDay.get(item.weekday)?.push(item);
+    if (item.weekday != null && !isTaskOnHold(item)) {
+      byDay.get(item.weekday)?.push(item);
+    }
   }
 
   const placedCount = localItems.filter(
@@ -220,6 +232,7 @@ export function UnifiedWeekBoard({
                     ...i.placement,
                     weekday,
                     daySortOrder: nextOrder,
+                    onHold: false,
                   }
                 : i.placement,
             };
@@ -619,6 +632,36 @@ export function UnifiedWeekBoard({
         </div>
       </div>
 
+      {onHoldTasks.length > 0 ? (
+        <section className={styles.onHoldSection}>
+          <header className={styles.onHoldHeader}>
+            <div>
+              <h3 className={styles.onHoldTitle}>På paus</h3>
+              <p className={styles.onHoldSub}>Engångsuppgifter som väntar</p>
+            </div>
+            <span className={styles.dayCount}>{onHoldTasks.length}</span>
+          </header>
+          <ul className={styles.onHoldList}>
+            {onHoldTasks.map((item) => (
+              <OnHoldTaskRow
+                key={item.dragId}
+                item={item}
+                category={
+                  item.categoryId ? catById.get(item.categoryId) : undefined
+                }
+                weekStart={weekStart}
+                busy={pendingId === item.dragId}
+                pending={pending}
+                onPlace={place}
+                onError={setError}
+                onPendingId={setPendingId}
+                onDone={() => router.refresh()}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <div className={styles.summaryRow}>
         <span className={styles.summaryStat}>
           <span className={styles.summaryBig}>{doneCount}</span>
@@ -684,6 +727,105 @@ function BacklogDropZone({
       </header>
       {children}
     </section>
+  );
+}
+
+interface OnHoldTaskRowProps {
+  item: WeekPlanTaskItem;
+  category?: TaskCategory;
+  weekStart: string;
+  busy: boolean;
+  pending: boolean;
+  onPlace: (dragId: string, weekday: Weekday) => void;
+  onError: (msg: string | null) => void;
+  onPendingId: (id: string | null) => void;
+  onDone: () => void;
+}
+
+function OnHoldTaskRow({
+  item,
+  category,
+  weekStart,
+  busy,
+  pending,
+  onPlace,
+  onError,
+  onPendingId,
+  onDone,
+}: OnHoldTaskRowProps) {
+  const [, startTransition] = useTransition();
+
+  const resumeFromHold = () => {
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await setWeeklyTaskOnHoldAction({
+        taskId: item.taskId,
+        weekStart,
+        onHold: false,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte återaktivera.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const placeFromHold = (value: string) => {
+    if (!value) return;
+    if (value === "resume") {
+      resumeFromHold();
+      return;
+    }
+    const weekday = Number(value) as Weekday;
+    if (weekday < 1 || weekday > 7) return;
+    onPlace(item.dragId, weekday);
+  };
+
+  return (
+    <li
+      className={[
+        styles.onHoldRow,
+        busy ? styles.taskBusy : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span
+        className={styles.taskIcon}
+        aria-hidden
+        style={{ borderColor: item.accent }}
+      >
+        {item.icon}
+      </span>
+      <span className={styles.onHoldMeta}>
+        <span className={styles.taskTitle}>
+          {item.label}
+          <span className={styles.oneOffBadge}>Engång</span>
+        </span>
+        {category ? (
+          <span className={styles.taskCategory} style={{ color: category.accent }}>
+            {category.icon} {category.name}
+          </span>
+        ) : null}
+      </span>
+      <select
+        className={styles.onHoldSelect}
+        value=""
+        disabled={pending}
+        onChange={(e) => placeFromHold(e.target.value)}
+        aria-label={`Placera ${item.label} på en dag`}
+      >
+        <option value="" disabled>
+          Placera på dag…
+        </option>
+        {WEEKDAYS.map((d) => (
+          <option key={d} value={String(d)}>
+            {WEEKDAY_LONG[d]}
+          </option>
+        ))}
+        <option value="resume">Tillbaka till att placera</option>
+      </select>
+    </li>
   );
 }
 
@@ -905,6 +1047,10 @@ interface ItemRowContentProps {
   onDone: () => void;
 }
 
+function isTaskOnHold(item: WeekPlanItem): boolean {
+  return item.kind === "task" && item.placement?.onHold === true;
+}
+
 function isOneOffTask(item: WeekPlanItem): boolean {
   return (
     (item.kind === "task" && item.singleWeekStart != null) ||
@@ -1016,6 +1162,22 @@ function ItemRowContent({
       ? (item.categoryId ?? "")
       : "",
   );
+
+  const pauseTask = () => {
+    if (item.kind !== "task" || !isOneOff) return;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await setWeeklyTaskOnHoldAction({
+        taskId: item.taskId,
+        weekStart,
+        onHold: true,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte pausa.");
+      onPendingId(null);
+      onDone();
+    });
+  };
 
   const removeTask = () => {
     if (item.kind === "task") {
@@ -1493,6 +1655,18 @@ function ItemRowContent({
 
       {!preview && canManage ? (
         <div className={styles.taskInlineActions}>
+          {isOneOff && item.kind === "task" && !item.placement?.onHold ? (
+            <button
+              type="button"
+              className={styles.taskHoldBtn}
+              onClick={pauseTask}
+              disabled={pending}
+              aria-label={`Pausa ${item.label}`}
+              title="Pausa"
+            >
+              ⏸
+            </button>
+          ) : null}
           <button
             type="button"
             className={styles.taskEditBtn}

@@ -16,6 +16,7 @@ import {
   toggleWeeklyTaskDoneAction,
   uncompleteWeeklyTaskAction,
   unplaceWeeklyTaskAction,
+  setWeeklyTaskOnHoldAction,
 } from "@/app/(app)/tasks-actions";
 import {
   formatWeeklyTaskDetail,
@@ -23,6 +24,9 @@ import {
   MUSIC_BANDS,
   sortWeeklyDayTasks,
   type MusicBand,
+  WEEKDAY_LONG,
+  WEEKDAY_SHORT,
+  WEEKDAYS,
   type TaskCategory,
   type Weekday,
   type WeeklyTaskForWeek,
@@ -38,6 +42,7 @@ import styles from "./WeeklyTasksDayCard.module.scss";
 interface Props {
   weekStart: string;
   tasks: WeeklyTaskForWeek[];
+  onHoldTasks?: WeeklyTaskForWeek[];
   categories: TaskCategory[];
   /** The day this card represents (YYYY-MM-DD). */
   date?: string;
@@ -53,6 +58,7 @@ interface Props {
 export function WeeklyTasksDayCard({
   weekStart,
   tasks,
+  onHoldTasks = [],
   categories,
   date,
   today,
@@ -91,15 +97,23 @@ export function WeeklyTasksDayCard({
   const orderedTasks = sortWeeklyDayTasks(tasks);
 
   if (tasks.length === 0) {
-    if (hideWhenEmpty) {
+    if (hideWhenEmpty && onHoldTasks.length === 0) {
       if (!quickAdd) return null;
       return <Card className={styles.card}>{quickAdd}</Card>;
     }
 
     return (
       <Card className={styles.card}>
-        <p className={styles.empty}>Inga veckouppgifter planerade idag.</p>
+        {tasks.length === 0 ? (
+          <p className={styles.empty}>Inga veckouppgifter planerade idag.</p>
+        ) : null}
         {quickAdd}
+        <WeeklyOnHoldSection
+          tasks={onHoldTasks}
+          weekStart={weekStart}
+          categories={categories}
+          onDone={() => router.refresh()}
+        />
         {showWeekLink ? (
           <Link
             href={`/week?start=${weekStart}&view=plan`}
@@ -172,6 +186,12 @@ export function WeeklyTasksDayCard({
         ))}
       </ul>
       {quickAdd}
+      <WeeklyOnHoldSection
+        tasks={onHoldTasks}
+        weekStart={weekStart}
+        categories={categories}
+        onDone={() => router.refresh()}
+      />
     </Card>
   );
 }
@@ -341,6 +361,12 @@ export function WeeklyTaskRow({
     task.completionKind === "simple" || task.completionKind === "note";
   const needsExpand = true;
   const showReschedule = !planningMode && canReschedule && !done;
+  const showPause =
+    !planningMode &&
+    !done &&
+    task.singleWeekStart != null &&
+    !placement?.onHold;
+  const showRescheduleRow = showReschedule || showPause;
   const [, startTransition] = useTransition();
 
   const [taskNote, setTaskNote] = useState(placement?.note ?? "");
@@ -448,6 +474,21 @@ export function WeeklyTaskRow({
       if (!res.ok) onError(res.error ?? "Kunde inte byta kategori.");
       onPendingId(null);
       onRefresh();
+    });
+  };
+
+  const pauseTask = () => {
+    onError(null);
+    onPendingId(task.id);
+    startTransition(async () => {
+      const res = await setWeeklyTaskOnHoldAction({
+        taskId: task.id,
+        weekStart,
+        onHold: true,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte pausa.");
+      onPendingId(null);
+      onDone();
     });
   };
 
@@ -564,13 +605,27 @@ export function WeeklyTaskRow({
         ) : null}
       </button>
 
-      {showReschedule ? (
-        <TrainingRescheduleSelect
-          isOverdue={isOverdue}
-          days={rescheduleDays}
-          pending={pending}
-          onSelect={reschedule}
-        />
+      {showRescheduleRow ? (
+        <div className={styles.reschedule}>
+          {showPause ? (
+            <button
+              type="button"
+              className={styles.pauseBtn}
+              onClick={pauseTask}
+              disabled={pending}
+            >
+              ⏸ Pausa uppgift
+            </button>
+          ) : null}
+          {showReschedule ? (
+            <TrainingRescheduleSelect
+              isOverdue={isOverdue}
+              days={rescheduleDays}
+              pending={pending}
+              onSelect={reschedule}
+            />
+          ) : null}
+        </div>
       ) : null}
 
       {expanded && needsExpand && !planningMode ? (
@@ -749,6 +804,126 @@ export function WeeklyTaskRow({
           ) : null}
         </div>
       ) : null}
+    </li>
+  );
+}
+
+interface OnHoldSectionProps {
+  tasks: WeeklyTaskForWeek[];
+  weekStart: string;
+  categories: TaskCategory[];
+  onDone: () => void;
+}
+
+export function WeeklyOnHoldSection({
+  tasks,
+  weekStart,
+  categories,
+  onDone,
+}: OnHoldSectionProps) {
+  if (tasks.length === 0) return null;
+
+  return (
+    <section className={styles.onHoldSection}>
+      <header className={styles.onHoldHeader}>
+        <div>
+          <h3 className={styles.onHoldTitle}>På paus</h3>
+          <p className={styles.onHoldSub}>Engångsuppgifter som väntar</p>
+        </div>
+        <span className={styles.onHoldCount}>{tasks.length}</span>
+      </header>
+      <ul className={styles.onHoldList}>
+        {tasks.map((task) => (
+          <WeeklyOnHoldTaskRow
+            key={task.id}
+            task={task}
+            weekStart={weekStart}
+            category={taskCategory(task, categories)}
+            onDone={onDone}
+          />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+interface OnHoldTaskRowProps {
+  task: WeeklyTaskForWeek;
+  weekStart: string;
+  category: ReturnType<typeof taskCategory>;
+  onDone: () => void;
+}
+
+function WeeklyOnHoldTaskRow({
+  task,
+  weekStart,
+  category,
+  onDone,
+}: OnHoldTaskRowProps) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const placeFromHold = (value: string) => {
+    if (!value) return;
+    setError(null);
+    startTransition(async () => {
+      const res =
+        value === "resume"
+          ? await setWeeklyTaskOnHoldAction({
+              taskId: task.id,
+              weekStart,
+              onHold: false,
+            })
+          : await placeWeeklyTaskAction({
+              taskId: task.id,
+              weekStart,
+              weekday: Number(value) as Weekday,
+            });
+      if (!res.ok) setError(res.error ?? "Kunde inte uppdatera.");
+      onDone();
+    });
+  };
+
+  return (
+    <li className={styles.onHoldRow}>
+      <span
+        className={styles.taskIcon}
+        aria-hidden
+        style={{ borderColor: task.accent }}
+      >
+        {task.icon}
+      </span>
+      <span className={styles.onHoldMeta}>
+        <span className={styles.taskTitle}>
+          {task.title}
+          <span className={styles.oneOffBadge}>Engång</span>
+        </span>
+        {category ? (
+          <ActivityCategoryBadge
+            icon={category.icon}
+            label={category.label}
+            accent={category.accent}
+          />
+        ) : null}
+        {error ? <span className={styles.error}>{error}</span> : null}
+      </span>
+      <select
+        className={styles.onHoldSelect}
+        value=""
+        disabled={pending}
+        onChange={(e) => placeFromHold(e.target.value)}
+        aria-label={`Placera ${task.title} på en dag`}
+      >
+        <option value="" disabled>
+          Placera på dag…
+        </option>
+        {WEEKDAYS.map((d) => (
+          <option key={d} value={String(d)}>
+            {WEEKDAY_LONG[d]}
+          </option>
+        ))}
+        <option value="resume">Tillbaka till att placera</option>
+      </select>
     </li>
   );
 }

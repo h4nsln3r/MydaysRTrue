@@ -546,6 +546,7 @@ export async function placeWeeklyTaskAction(input: {
       .update({
         weekday: input.weekday,
         day_sort_order: daySortOrder,
+        on_hold: false,
       })
       .eq("id", existing.id)
       .eq("user_id", user.id);
@@ -557,6 +558,7 @@ export async function placeWeeklyTaskAction(input: {
       week_start: input.weekStart,
       weekday: input.weekday,
       day_sort_order: daySortOrder,
+      on_hold: false,
     });
     if (error) return { ok: false, error: error.message };
   }
@@ -601,6 +603,77 @@ export async function reorderWeeklyDayTasksAction(input: {
       .from("weekly_task_placements")
       .update({ day_sort_order: i })
       .eq("id", placementId)
+      .eq("user_id", user.id);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Pause a one-off weekly task for this week — moves it to the on-hold list. */
+export async function setWeeklyTaskOnHoldAction(input: {
+  taskId: string;
+  weekStart: string;
+  onHold: boolean;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Veckan måste börja på en måndag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: task } = await supabase
+    .from("weekly_tasks")
+    .select("single_week_start")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+  if (!task.single_week_start) {
+    return {
+      ok: false,
+      error: "Bara engångsuppgifter kan pausas.",
+    };
+  }
+
+  const { data: existing } = await supabase
+    .from("weekly_task_placements")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("task_id", input.taskId)
+    .eq("week_start", input.weekStart)
+    .maybeSingle();
+
+  if (input.onHold) {
+    if (existing) {
+      const { error } = await supabase
+        .from("weekly_task_placements")
+        .update({ on_hold: true, weekday: null })
+        .eq("id", existing.id)
+        .eq("user_id", user.id);
+      if (error) return { ok: false, error: error.message };
+    } else {
+      const { error } = await supabase.from("weekly_task_placements").insert({
+        user_id: user.id,
+        task_id: input.taskId,
+        week_start: input.weekStart,
+        weekday: null,
+        day_sort_order: 0,
+        on_hold: true,
+      });
+      if (error) return { ok: false, error: error.message };
+    }
+  } else if (existing) {
+    const { error } = await supabase
+      .from("weekly_task_placements")
+      .update({ on_hold: false })
+      .eq("id", existing.id)
       .eq("user_id", user.id);
     if (error) return { ok: false, error: error.message };
   }

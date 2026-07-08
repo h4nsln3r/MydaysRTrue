@@ -149,6 +149,8 @@ export interface WeeklyPlacement {
   laundryLoads: number | null;
   /** Band name for music rep tasks (Totes / Bojeng). */
   band: MusicBand | null;
+  /** Paused for this week — hidden from backlog/days until placed again. */
+  onHold: boolean;
 }
 
 export interface WeeklyTaskChecklistCompletion {

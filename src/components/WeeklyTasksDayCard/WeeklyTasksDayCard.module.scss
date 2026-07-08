@@ -498,3 +498,129 @@
     border-color: #e879f9;
     color: #e879f9;
 }
+
+.oneOffBadge {
+    margin-left: 6px;
+    flex-shrink: 0;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-orange-bright;
+    border: 1px solid rgba(255, 122, 26, 0.45);
+    border-radius: $radius-pill;
+    padding: 1px 6px;
+}
+
+.pauseBtn {
+    align-self: flex-start;
+    padding: 6px 10px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-fog;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.onHoldSection {
+    margin-top: $space-2;
+    padding: $space-3;
+    background: $color-ink-soft;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: $radius-md;
+}
+
+.onHoldHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+    margin-bottom: $space-3;
+}
+
+.onHoldTitle {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: $color-cream;
+}
+
+.onHoldSub {
+    margin: 2px 0 0;
+    font-size: 0.72rem;
+    color: $color-fog;
+}
+
+.onHoldCount {
+    font-family: $font-mono;
+    font-size: 0.82rem;
+    color: $color-cream-dim;
+    padding: 2px 8px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+}
+
+.onHoldList {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.onHoldRow {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-2 $space-3;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.onHoldMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.onHoldSelect {
+    min-width: 9rem;
+    padding: 8px 10px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    cursor: pointer;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-cream;
+    }
+}

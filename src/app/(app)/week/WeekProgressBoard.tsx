@@ -516,7 +516,9 @@ function CategoryRecapCard({
   days: WeekDay[];
 }) {
   const { category, items, byWeekday, done, total } = group;
-  const backlog = items.filter((t) => t.placement?.weekday == null);
+  const backlog = items.filter(
+    (t) => t.placement?.weekday == null && !t.placement?.onHold,
+  );
   const placed = items.filter((t) => t.placement?.weekday != null);
   const doneItems = placed
     .filter((t) => t.placement?.doneAt)

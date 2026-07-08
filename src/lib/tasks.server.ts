@@ -217,6 +217,7 @@ interface WeeklyPlacementRow {
   shop_amount: number | null;
   laundry_loads: number | null;
   band: string | null;
+  on_hold: boolean;
 }
 
 function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
@@ -233,6 +234,7 @@ function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
     shopAmount: r.shop_amount != null ? Number(r.shop_amount) : null,
     laundryLoads: r.laundry_loads,
     band: (r.band as MusicBand | null) ?? null,
+    onHold: r.on_hold ?? false,
   };
 }
 
@@ -293,7 +295,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band, on_hold";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 
@@ -366,12 +368,27 @@ async function carryOverIncompleteOneOffTasks(
 
   const { data: existingPlacements } = await supabase
     .from("weekly_task_placements")
-    .select("task_id")
+    .select("task_id, on_hold")
     .eq("user_id", userId)
     .eq("week_start", todayWeekStart)
     .in("task_id", toCarryIds);
 
   const hasPlacement = new Set((existingPlacements ?? []).map((p) => p.task_id));
+
+  const { data: sourcePlacements } = await supabase
+    .from("weekly_task_placements")
+    .select("task_id, on_hold, week_start")
+    .eq("user_id", userId)
+    .in("task_id", toCarryIds)
+    .order("week_start", { ascending: false });
+
+  const onHoldByTask = new Map<string, boolean>();
+  for (const p of sourcePlacements ?? []) {
+    if (!onHoldByTask.has(p.task_id)) {
+      onHoldByTask.set(p.task_id, p.on_hold ?? false);
+    }
+  }
+
   const toInsert = toCarryIds
     .filter((id) => !hasPlacement.has(id))
     .map((taskId) => ({
@@ -380,6 +397,7 @@ async function carryOverIncompleteOneOffTasks(
       week_start: todayWeekStart,
       weekday: null,
       day_sort_order: 0,
+      on_hold: onHoldByTask.get(taskId) ?? false,
     }));
 
   if (toInsert.length > 0) {
@@ -545,6 +563,8 @@ export interface WeeklyTasksDaySummary {
   tasks: WeeklyTaskForWeek[];
   /** All tasks in the ISO week (for journal / done-on-day lookup). */
   weekTasks: WeeklyTaskForWeek[];
+  /** One-off tasks paused for this week. */
+  onHoldTasks: WeeklyTaskForWeek[];
   categories: TaskCategory[];
 }
 
@@ -559,19 +579,29 @@ export async function getWeeklyTasksForDate(
   const withCompletions = attachChecklistCompletionsForDate(tasks, localDate);
   const forDay = withCompletions
     .filter(
-      (t) => t.placement?.weekday != null && t.placement.weekday === weekday,
+      (t) =>
+        t.placement?.weekday != null &&
+        t.placement.weekday === weekday &&
+        !t.placement.onHold,
     )
     .sort((a, b) => {
       const ao = a.placement?.daySortOrder ?? a.sortOrder;
       const bo = b.placement?.daySortOrder ?? b.sortOrder;
       return ao - bo;
     });
+  const onHoldTasks = withCompletions.filter(
+    (t) =>
+      t.singleWeekStart != null &&
+      t.placement?.onHold === true &&
+      !t.placement?.doneAt,
+  );
   return {
     localDate,
     weekStart,
     weekday,
     tasks: forDay,
     weekTasks: withCompletions,
+    onHoldTasks,
     categories,
   };
 }

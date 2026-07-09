@@ -4,7 +4,11 @@ import { formatWaterTemp, type BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { SportSessionForWeek } from "@/lib/sport";
 import { formatSportDetail } from "@/lib/sport";
-import type { GymSessionForWeek } from "@/lib/gym";
+import {
+  GYM_WARMUP_ICON,
+  GYM_WARMUP_LABEL,
+  type GymSessionForWeek,
+} from "@/lib/gym";
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekJournalSummary } from "@/lib/journal";
@@ -228,7 +232,13 @@ export function WeekProgressBoard({
               renderSession={(s) => ({
                 icon: s.icon,
                 done: Boolean(s.placement.doneAt),
-                title: s.label,
+                title: s.placement.warmup
+                  ? `${s.label} · ${GYM_WARMUP_LABEL[s.placement.warmup]}`
+                  : s.label,
+                warmupIcon:
+                  s.placement.doneAt && s.placement.warmup
+                    ? GYM_WARMUP_ICON[s.placement.warmup]
+                    : undefined,
               })}
             />
 
@@ -912,7 +922,12 @@ function TrainingRow<T extends { id: string; placement: { weekday: number | null
   done: number;
   total: number;
   chipClass?: string;
-  renderSession: (item: T) => { icon: string; done: boolean; title: string };
+  renderSession: (item: T) => {
+    icon: string;
+    done: boolean;
+    title: string;
+    warmupIcon?: string;
+  };
 }) {
   return (
     <tr>
@@ -946,6 +961,11 @@ function TrainingRow<T extends { id: string; placement: { weekday: number | null
                       title={meta.title}
                     >
                       <span aria-hidden>{meta.icon}</span>
+                      {meta.warmupIcon ? (
+                        <span className={styles.warmupCorner} aria-hidden>
+                          {meta.warmupIcon}
+                        </span>
+                      ) : null}
                       {meta.done ? (
                         <span className={styles.sessionCheck} aria-hidden>
                           ✓

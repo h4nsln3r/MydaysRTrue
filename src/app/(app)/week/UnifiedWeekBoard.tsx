@@ -1624,6 +1624,15 @@ function ItemRowContent({
           style={{ borderColor: item.accent }}
         >
           {item.icon}
+          {item.kind === "gym" && item.done && item.warmup ? (
+            <span
+              className={styles.warmupCorner}
+              aria-label={`Uppvärmning: ${GYM_WARMUP_LABEL[item.warmup]}`}
+              title={GYM_WARMUP_LABEL[item.warmup]}
+            >
+              {GYM_WARMUP_ICON[item.warmup]}
+            </span>
+          ) : null}
         </span>
         <span className={styles.taskMeta}>
           <span className={styles.taskTitle}>

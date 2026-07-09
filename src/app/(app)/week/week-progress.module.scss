@@ -840,6 +840,23 @@
     border-color: rgba(167, 139, 250, 0.35);
 }
 
+.warmupCorner {
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: $color-ink;
+    border: 1px solid $color-line;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.5rem;
+    line-height: 1;
+    z-index: 1;
+}
+
 .sessionCheck {
     position: absolute;
     right: -4px;

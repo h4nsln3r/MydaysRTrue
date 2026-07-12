@@ -16,6 +16,7 @@ import {
 } from "@/lib/intake";
 import { MEDIA_KIND_LABEL, type MediaKind } from "@/lib/media";
 import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
+import { smokeFreeJournalBody } from "@/lib/smoke-free";
 
 const MEAL_LABEL_SV: Record<MealKey, string> = {
   breakfast: "Frukost",
@@ -77,9 +78,13 @@ export interface JournalDailyTrackers {
     kind: MediaKind;
     detail: string;
     loggedAt: string;
-  } | null;
+  }[];
   mobileGames: {
     labels: string[];
+    loggedAt: string;
+  } | null;
+  smokeFree: {
+    body: string;
     loggedAt: string;
   } | null;
 }
@@ -92,8 +97,9 @@ function emptyTrackers(): Omit<JournalDailyTrackers, never> {
     waterLogs: [],
     habits: [],
     activity: { steps: null, activityHours: null, loggedAt: null },
-    media: null,
+    media: [],
     mobileGames: null,
+    smokeFree: null,
   };
 }
 
@@ -127,6 +133,7 @@ export async function getJournalTrackersForWeek(
     activityRes,
     mediaRes,
     gamesRes,
+    smokeFreeRes,
   ] = await Promise.all([
     supabase
       .from("meal_entries")
@@ -183,6 +190,12 @@ export async function getJournalTrackersForWeek(
       .select(
         "local_date, chess_done, duolingo_done, pokemon_go_done, updated_at",
       )
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("smoke_free_daily_logs")
+      .select("local_date, nicotine_status, cannabis_status, updated_at")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
@@ -334,12 +347,12 @@ export async function getJournalTrackersForWeek(
     } else {
       detail = `avsnitt ${row.position}`;
     }
-    day.media = {
+    day.media.push({
       title: item.title,
       kind: item.kind,
       detail,
       loggedAt: row.updated_at,
-    };
+    });
   }
 
   for (const row of gamesRes.data ?? []) {
@@ -352,6 +365,33 @@ export async function getJournalTrackersForWeek(
     }).map((g) => g.label);
     if (labels.length === 0) continue;
     day.mobileGames = { labels, loggedAt: row.updated_at };
+  }
+
+  for (const row of smokeFreeRes.data ?? []) {
+    const day = result.get(row.local_date);
+    if (!day) continue;
+    const nicotine =
+      row.nicotine_status === "yes" ||
+      row.nicotine_status === "half" ||
+      row.nicotine_status === "no"
+        ? row.nicotine_status
+        : null;
+    const cannabis =
+      row.cannabis_status === "yes" ||
+      row.cannabis_status === "half" ||
+      row.cannabis_status === "no"
+        ? row.cannabis_status
+        : null;
+    if (nicotine === null && cannabis === null) continue;
+    day.smokeFree = {
+      body: smokeFreeJournalBody({
+        localDate: row.local_date,
+        nicotine,
+        cannabis,
+        hasLog: true,
+      }),
+      loggedAt: row.updated_at,
+    };
   }
 
   return result;

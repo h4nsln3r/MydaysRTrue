@@ -420,7 +420,7 @@ export async function saveMediaDailyLogAction(input: {
       position,
       did_consume: didConsume,
     },
-    { onConflict: "user_id,local_date" },
+    { onConflict: "user_id,local_date,media_item_id" },
   );
   if (error) return { ok: false, error: error.message };
 
@@ -448,6 +448,7 @@ export async function saveMediaDailyLogAction(input: {
 
 export async function clearMediaDailyLogAction(
   localDate: string,
+  mediaItemId?: string,
 ): Promise<ActionResult> {
   if (!ISO_DATE_RE.test(localDate)) {
     return { ok: false, error: "Ogiltigt datum." };
@@ -459,11 +460,17 @@ export async function clearMediaDailyLogAction(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
-  const { error } = await supabase
+  let query = supabase
     .from("media_daily_logs")
     .delete()
     .eq("user_id", user.id)
     .eq("local_date", localDate);
+
+  if (mediaItemId) {
+    query = query.eq("media_item_id", mediaItemId);
+  }
+
+  const { error } = await query;
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");

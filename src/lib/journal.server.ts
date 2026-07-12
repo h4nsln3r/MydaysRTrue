@@ -208,15 +208,15 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
     }
   }
 
-  if (trackers.media) {
-    const kindLabel = MEDIA_KIND_LABEL[trackers.media.kind].toLowerCase();
+  for (const mediaEntry of trackers.media) {
+    const kindLabel = MEDIA_KIND_LABEL[mediaEntry.kind].toLowerCase();
     entries.push({
-      id: `media-${trackers.media.loggedAt}`,
+      id: `media-${mediaEntry.loggedAt}-${mediaEntry.title}`,
       source: "media",
       icon: "📺",
-      title: MEDIA_KIND_LABEL[trackers.media.kind],
-      body: `${kindLabel}: ${trackers.media.title} (${trackers.media.detail})`,
-      at: trackers.media.loggedAt,
+      title: MEDIA_KIND_LABEL[mediaEntry.kind],
+      body: `${kindLabel}: ${mediaEntry.title} (${mediaEntry.detail})`,
+      at: mediaEntry.loggedAt,
       editable: false,
     });
   }
@@ -229,6 +229,18 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
       title: "Mobilspel",
       body: trackers.mobileGames.labels.join(", "),
       at: trackers.mobileGames.loggedAt,
+      editable: false,
+    });
+  }
+
+  if (trackers.smokeFree) {
+    entries.push({
+      id: `smoke-free-${trackers.smokeFree.loggedAt}`,
+      source: "habit",
+      icon: "🚭",
+      title: "Rökfri",
+      body: trackers.smokeFree.body,
+      at: trackers.smokeFree.loggedAt,
       editable: false,
     });
   }

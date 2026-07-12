@@ -30,7 +30,10 @@ import type {
 } from "@/lib/tasks";
 import { isWorkday, type WorkDailyLog } from "@/lib/work";
 import type { WeightDayContext } from "@/lib/weight";
-import type { DailyMediaContext } from "@/lib/media";
+import {
+  hasMediaDayActivity,
+  type DailyMediaContext,
+} from "@/lib/media";
 import type { DailyLiveEventsContext, LiveEvent } from "@/lib/live-events";
 
 export type DayPlanKind =
@@ -645,9 +648,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
 
   if (enabledKinds.has("media") && input.media) {
     const mediaHabit = input.habits.find((h) => h.kind === "media");
-    const logged = input.media.dayLog;
-    const hasLog =
-      logged != null && (logged.didConsume || logged.position > 0);
+    const hasLog = hasMediaDayActivity(input.media.dayLogs);
     items.push({
       kind: "media",
       id: "media",

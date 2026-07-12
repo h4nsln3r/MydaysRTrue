@@ -17,6 +17,7 @@ import {
 import { getDailyIntake } from "@/lib/intake.server";
 import { getDailyMobileGames } from "@/lib/mobile-games.server";
 import { getDailyMood } from "@/lib/mood.server";
+import { getDailySmokeFree } from "@/lib/smoke-free.server";
 import { getDailyJournal } from "@/lib/journal.server";
 import { getWorkDailyLog } from "@/lib/work.server";
 import { getDailyMedia } from "@/lib/media.server";
@@ -66,6 +67,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     liveEvents,
     mobileGames,
     mood,
+    smokeFree,
   ] = await Promise.all([
     getDailySummary(user.id, today),
     getDailyHabits(user.id, today),
@@ -86,6 +88,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     getDailyLiveEvents(user.id, today),
     getDailyMobileGames(user.id, today),
     getDailyMood(user.id, today),
+    getDailySmokeFree(user.id, today),
   ]);
 
   const work = await getWorkDailyLog(user.id, today);
@@ -201,6 +204,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               goals={dayPlan.goals}
               mobileGames={mobileGames}
               mood={mood}
+              smokeFree={smokeFree}
               waterPlusHref="/water"
               waterPlusLabel="Open water page"
             />

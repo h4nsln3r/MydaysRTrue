@@ -14,7 +14,8 @@ export type HabitKind =
   | "media"
   | "live"
   | "mobile_games"
-  | "mood";
+  | "mood"
+  | "smoke_free";
 
 export type SnackSlot = 1 | 2;
 

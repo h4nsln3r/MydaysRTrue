@@ -17,9 +17,35 @@ import {
 } from "@/lib/habits";
 import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
 import { mobileGamesStatusFor } from "@/lib/mobile-games";
+import {
+  smokeFreeStatusFor,
+  type DailySmokeFreeContext,
+} from "@/lib/smoke-free";
 import { mediaStatusFor, type MediaDayLog } from "@/lib/media";
 import { liveStatusFor } from "@/lib/live-events";
 import { isMoodKey, moodStatusFor, type MoodKey } from "@/lib/mood";
+
+function smokeFreeContextFromRow(
+  localDate: string,
+  nicotineRaw: string | null | undefined,
+  cannabisRaw: string | null | undefined,
+  hasRow: boolean,
+): DailySmokeFreeContext {
+  const nicotine =
+    nicotineRaw === "yes" || nicotineRaw === "half" || nicotineRaw === "no"
+      ? nicotineRaw
+      : null;
+  const cannabis =
+    cannabisRaw === "yes" || cannabisRaw === "half" || cannabisRaw === "no"
+      ? cannabisRaw
+      : null;
+  return {
+    localDate,
+    nicotine,
+    cannabis,
+    hasLog: hasRow && (nicotine !== null || cannabis !== null),
+  };
+}
 
 interface HabitRow {
   id: string;
@@ -184,6 +210,7 @@ export async function getDailyHabits(
     mobileGamesRes,
     moodRes,
     liveAttendedRes,
+    smokeFreeRes,
   ] = await Promise.all([
     supabase
       .from("habits")
@@ -236,8 +263,7 @@ export async function getDailyHabits(
       .from("media_daily_logs")
       .select("media_item_id, position, did_consume")
       .eq("user_id", userId)
-      .eq("local_date", localDate)
-      .maybeSingle(),
+      .eq("local_date", localDate),
     supabase
       .from("mobile_game_daily_logs")
       .select("chess_done, duolingo_done, pokemon_go_done")
@@ -256,6 +282,12 @@ export async function getDailyHabits(
       .eq("user_id", userId)
       .gte("attended_at", `${localDate}T00:00:00.000Z`)
       .lte("attended_at", `${localDate}T23:59:59.999Z`),
+    supabase
+      .from("smoke_free_daily_logs")
+      .select("nicotine_status, cannabis_status")
+      .eq("user_id", userId)
+      .eq("local_date", localDate)
+      .maybeSingle(),
   ]);
 
   const habits = habitsRes.data ?? [];
@@ -284,13 +316,11 @@ export async function getDailyHabits(
     checkByHabit.set(c.habit_id, { status: c.status, note: c.note });
   }
 
-  const mediaDayLog = mediaLogRes.data
-    ? {
-        mediaItemId: mediaLogRes.data.media_item_id,
-        position: mediaLogRes.data.position,
-        didConsume: mediaLogRes.data.did_consume,
-      }
-    : null;
+  const mediaDayLogs: MediaDayLog[] = (mediaLogRes.data ?? []).map((row) => ({
+    mediaItemId: row.media_item_id,
+    position: row.position,
+    didConsume: row.did_consume,
+  }));
   const mobileGamesCtx = {
     localDate,
     chess: mobileGamesRes.data?.chess_done ?? false,
@@ -303,6 +333,12 @@ export async function getDailyHabits(
       ? (moodRes.data.mood as MoodKey)
       : null;
   const moodCtx = { localDate, mood: moodKey };
+  const smokeFreeCtx = smokeFreeContextFromRow(
+    localDate,
+    smokeFreeRes.data?.nicotine_status,
+    smokeFreeRes.data?.cannabis_status,
+    Boolean(smokeFreeRes.data),
+  );
 
   return habits.map((row): DailyHabit => {
     const habit = rowToHabit(row);
@@ -370,7 +406,7 @@ export async function getDailyHabits(
     if (habit.kind === "media") {
       return {
         ...habit,
-        status: isFuture ? null : mediaStatusFor(mediaDayLog, isFuture),
+        status: isFuture ? null : mediaStatusFor(mediaDayLogs, isFuture),
         note: null,
       };
     }
@@ -388,6 +424,15 @@ export async function getDailyHabits(
         status: isFuture
           ? null
           : mobileGamesStatusFor(mobileGamesCtx, isFuture),
+        note: null,
+      };
+    }
+    if (habit.kind === "smoke_free") {
+      return {
+        ...habit,
+        status: isFuture
+          ? null
+          : smokeFreeStatusFor(smokeFreeCtx, isFuture),
         note: null,
       };
     }
@@ -528,6 +573,7 @@ export async function getMonthSummary(
     moodRes,
     mediaLogRes,
     liveAttendedRes,
+    smokeFreeRes,
   ] = await Promise.all([
     supabase
       .from("habits")
@@ -606,6 +652,12 @@ export async function getMonthSummary(
       .not("attended_at", "is", null)
       .gte("attended_at", `${startISO}T00:00:00.000Z`)
       .lte("attended_at", `${endISO}T23:59:59.999Z`),
+    supabase
+      .from("smoke_free_daily_logs")
+      .select("local_date, nicotine_status, cannabis_status")
+      .eq("user_id", userId)
+      .gte("local_date", startISO)
+      .lte("local_date", endISO),
   ]);
 
   const habits = (habitsRes.data ?? []).map(rowToHabit);
@@ -672,18 +724,33 @@ export async function getMonthSummary(
     });
   }
 
+  const smokeFreeByDate = new Map<string, DailySmokeFreeContext>();
+  for (const r of smokeFreeRes.data ?? []) {
+    smokeFreeByDate.set(
+      r.local_date,
+      smokeFreeContextFromRow(
+        r.local_date,
+        r.nicotine_status,
+        r.cannabis_status,
+        true,
+      ),
+    );
+  }
+
   const moodByDate = new Map<string, MoodKey>();
   for (const r of moodRes.data ?? []) {
     if (isMoodKey(r.mood)) moodByDate.set(r.local_date, r.mood);
   }
 
-  const mediaLogByDate = new Map<string, MediaDayLog>();
+  const mediaLogByDate = new Map<string, MediaDayLog[]>();
   for (const r of mediaLogRes.data ?? []) {
-    mediaLogByDate.set(r.local_date, {
+    const prev = mediaLogByDate.get(r.local_date) ?? [];
+    prev.push({
       mediaItemId: r.media_item_id,
       position: r.position,
       didConsume: r.did_consume,
     });
+    mediaLogByDate.set(r.local_date, prev);
   }
 
   const liveAttendedByDate = new Set<string>();
@@ -733,13 +800,16 @@ export async function getMonthSummary(
           status = games
             ? mobileGamesStatusFor({ localDate: date, ...games }, false)
             : null;
+        } else if (h.kind === "smoke_free") {
+          const smoke = smokeFreeByDate.get(date);
+          status = smoke ? smokeFreeStatusFor(smoke, false) : null;
         } else if (h.kind === "mood") {
           status = moodStatusFor(
             { localDate: date, mood: moodByDate.get(date) ?? null },
             false,
           );
         } else if (h.kind === "media") {
-          status = mediaStatusFor(mediaLogByDate.get(date) ?? null, false);
+          status = mediaStatusFor(mediaLogByDate.get(date) ?? [], false);
         } else if (h.kind === "live") {
           status = liveStatusFor(liveAttendedByDate.has(date), false);
         } else {
@@ -831,6 +901,7 @@ export async function getWeekHabitSummary(
     moodRes,
     mediaLogRes,
     liveAttendedWeekRes,
+    smokeFreeRes,
   ] = await Promise.all([
     supabase
       .from("habits")
@@ -909,6 +980,12 @@ export async function getWeekHabitSummary(
       .not("attended_at", "is", null)
       .gte("attended_at", `${weekStart}T00:00:00.000Z`)
       .lte("attended_at", `${weekEnd}T23:59:59.999Z`),
+    supabase
+      .from("smoke_free_daily_logs")
+      .select("local_date, nicotine_status, cannabis_status")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
   ]);
 
   const allHabits = (habitsRes.data ?? []).map(rowToHabit);
@@ -973,18 +1050,33 @@ export async function getWeekHabitSummary(
     });
   }
 
+  const smokeFreeByDate = new Map<string, DailySmokeFreeContext>();
+  for (const r of smokeFreeRes.data ?? []) {
+    smokeFreeByDate.set(
+      r.local_date,
+      smokeFreeContextFromRow(
+        r.local_date,
+        r.nicotine_status,
+        r.cannabis_status,
+        true,
+      ),
+    );
+  }
+
   const moodByDate = new Map<string, MoodKey>();
   for (const r of moodRes.data ?? []) {
     if (isMoodKey(r.mood)) moodByDate.set(r.local_date, r.mood);
   }
 
-  const mediaLogByDate = new Map<string, MediaDayLog>();
+  const mediaLogByDate = new Map<string, MediaDayLog[]>();
   for (const r of mediaLogRes.data ?? []) {
-    mediaLogByDate.set(r.local_date, {
+    const prev = mediaLogByDate.get(r.local_date) ?? [];
+    prev.push({
       mediaItemId: r.media_item_id,
       position: r.position,
       didConsume: r.did_consume,
     });
+    mediaLogByDate.set(r.local_date, prev);
   }
 
   const liveAttendedByDate = new Set<string>();
@@ -1030,13 +1122,16 @@ export async function getWeekHabitSummary(
           status = games
             ? mobileGamesStatusFor({ localDate: date, ...games }, false)
             : null;
+        } else if (h.kind === "smoke_free") {
+          const smoke = smokeFreeByDate.get(date);
+          status = smoke ? smokeFreeStatusFor(smoke, false) : null;
         } else if (h.kind === "mood") {
           status = moodStatusFor(
             { localDate: date, mood: moodByDate.get(date) ?? null },
             false,
           );
         } else if (h.kind === "media") {
-          status = mediaStatusFor(mediaLogByDate.get(date) ?? null, false);
+          status = mediaStatusFor(mediaLogByDate.get(date) ?? [], false);
         } else if (h.kind === "live") {
           status = liveStatusFor(liveAttendedByDate.has(date), false);
         } else {

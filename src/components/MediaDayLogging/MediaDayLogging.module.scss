@@ -1,0 +1,181 @@
+@use "abstracts" as *;
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.loggedList {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.loggedItem {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-2;
+    padding: $space-2 $space-3;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+}
+
+.loggedMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.loggedTitle {
+    font-weight: 600;
+    color: $color-cream;
+    font-size: 0.9rem;
+}
+
+.loggedDetail {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+}
+
+.undoBtn {
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: $color-fog;
+    font-size: 0.75rem;
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream-dim;
+    }
+}
+
+.extraToggle {
+    align-self: flex-start;
+    padding: 8px 12px;
+    border-radius: $radius-pill;
+    border: 1px dashed $color-line;
+    background: transparent;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    color: $color-cream;
+    font-size: 0.9rem;
+}
+
+.fieldLabel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+}
+
+.progress {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.progressMeta {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+}
+
+.progressBar {
+    height: 6px;
+    border-radius: $radius-pill;
+    background: $color-ink-elevated;
+    overflow: hidden;
+}
+
+.progressFill {
+    height: 100%;
+    background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+    border-radius: $radius-pill;
+}
+
+.checkLabel {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    color: $color-cream;
+    font-size: 0.9rem;
+    cursor: pointer;
+
+    input {
+        width: 18px;
+        height: 18px;
+        accent-color: $color-orange;
+    }
+}
+
+.completeHint {
+    margin: 0;
+    font-size: 0.82rem;
+    color: $color-success;
+    font-style: italic;
+}
+
+.completedTitle {
+    margin: 0;
+    font-size: 0.9rem;
+    color: $color-cream-dim;
+
+    strong {
+        color: $color-cream;
+    }
+}
+
+.empty {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+
+    a {
+        color: $color-orange-bright;
+    }
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.85rem;
+}

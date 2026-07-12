@@ -45,14 +45,20 @@ export interface MediaDayLog {
   didConsume: boolean;
 }
 
+export interface MediaDayLogEntry {
+  log: MediaDayLog;
+  item: MediaItem;
+}
+
 export interface DailyMediaContext {
   localDate: string;
   year: number;
-  /** Incomplete titles only — completed ones are hidden in the day view. */
+  /** Incomplete titles not yet logged today. */
   items: MediaItem[];
-  dayLog: MediaDayLog | null;
-  /** Item logged today, even if now marked complete. */
-  loggedItem: MediaItem | null;
+  /** All logs for this day. */
+  dayLogs: MediaDayLog[];
+  /** Titles logged today (including completed), with their log. */
+  loggedToday: MediaDayLogEntry[];
   /** True when every title for the year is finished. */
   allCompleted: boolean;
 }
@@ -124,11 +130,19 @@ export function mediaDayLogDetail(
   return item.title;
 }
 
-export function isMediaDayLogDone(
-  dayLog: MediaDayLog | null,
-): boolean {
-  if (!dayLog) return false;
-  return dayLog.didConsume || dayLog.position > 0;
+export function isMediaDayLogDone(log: MediaDayLog): boolean {
+  return log.didConsume || log.position > 0;
+}
+
+export function hasMediaDayActivity(dayLogs: MediaDayLog[]): boolean {
+  return dayLogs.some(isMediaDayLogDone);
+}
+
+export function mediaDaySummary(entries: MediaDayLogEntry[]): string | null {
+  const parts = entries
+    .filter(({ log }) => isMediaDayLogDone(log))
+    .map(({ log, item }) => mediaDayLogDetail(item, log.position, log.didConsume));
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 /** Whether logging this position marks the item as newly complete. */
@@ -168,11 +182,11 @@ export function mediaProgressLabel(item: MediaItem): string | null {
 }
 
 export function mediaStatusFor(
-  dayLog: MediaDayLog | null,
+  dayLogs: MediaDayLog[],
   isFuture: boolean,
 ): HabitStatus | null {
-  if (isFuture || !dayLog) return null;
-  if (dayLog.didConsume || dayLog.position > 0) return "yes";
+  if (isFuture || dayLogs.length === 0) return null;
+  if (hasMediaDayActivity(dayLogs)) return "yes";
   return "no";
 }
 

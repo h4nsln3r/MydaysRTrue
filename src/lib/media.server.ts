@@ -2,12 +2,14 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import {
   isMediaCompleted,
+  isMediaDayLogDone,
   yearFromLocalISO,
   type DailyMediaContext,
   type MediaItem,
   type MediaKind,
   type MonthMediaContext,
   type MonthMediaEntry,
+  type MediaDayLogEntry,
   type YearMediaContext,
 } from "@/lib/media";
 
@@ -121,34 +123,37 @@ export async function getDailyMedia(
 ): Promise<DailyMediaContext> {
   const year = yearFromLocalISO(localDate);
   const { items } = await getYearMedia(userId, year);
-  const activeItems = items.filter((item) => !item.completed);
 
   const supabase = await createClient();
-  const { data: dayRow } = await supabase
+  const { data: dayRows } = await supabase
     .from("media_daily_logs")
     .select("media_item_id, position, did_consume")
     .eq("user_id", userId)
-    .eq("local_date", localDate)
-    .maybeSingle();
+    .eq("local_date", localDate);
 
-  const dayLog = dayRow
-    ? {
-        mediaItemId: dayRow.media_item_id,
-        position: dayRow.position,
-        didConsume: dayRow.did_consume,
-      }
-    : null;
+  const dayLogs = (dayRows ?? []).map((row) => ({
+    mediaItemId: row.media_item_id,
+    position: row.position,
+    didConsume: row.did_consume,
+  }));
 
-  const loggedItem = dayRow
-    ? items.find((item) => item.id === dayRow.media_item_id) ?? null
-    : null;
+  const loggedIds = new Set(dayLogs.map((l) => l.mediaItemId));
+  const activeItems = items.filter((item) => !item.completed);
+  const availableItems = activeItems.filter((item) => !loggedIds.has(item.id));
+
+  const loggedToday: MediaDayLogEntry[] = [];
+  for (const log of dayLogs) {
+    if (!isMediaDayLogDone(log)) continue;
+    const item = items.find((i) => i.id === log.mediaItemId);
+    if (item) loggedToday.push({ log, item });
+  }
 
   return {
     localDate,
     year,
-    items: activeItems,
-    dayLog,
-    loggedItem,
+    items: availableItems,
+    dayLogs,
+    loggedToday,
     allCompleted: items.length > 0 && activeItems.length === 0,
   };
 }

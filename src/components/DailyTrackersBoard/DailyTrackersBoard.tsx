@@ -2,6 +2,7 @@ import { DailyActivityCard } from "@/components/DailyActivityCard/DailyActivityC
 import { MobileGamesDayCard } from "@/components/MobileGamesDayCard/MobileGamesDayCard";
 import { MoodDayCard } from "@/components/MoodDayCard/MoodDayCard";
 import { NutritionBoard } from "@/components/NutritionBoard/NutritionBoard";
+import { SmokeFreeDayCard } from "@/components/SmokeFreeDayCard/SmokeFreeDayCard";
 import { TriStateHabitRow } from "@/components/TriStateHabitRow/TriStateHabitRow";
 import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
@@ -19,6 +20,7 @@ import {
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { DailyMobileGamesContext } from "@/lib/mobile-games";
 import type { DailyMoodContext } from "@/lib/mood";
+import type { DailySmokeFreeContext } from "@/lib/smoke-free";
 import type { WaterSummary } from "@/lib/water";
 import styles from "./DailyTrackersBoard.module.scss";
 
@@ -38,6 +40,7 @@ interface Props {
   goals: DailyTrackerGoals;
   mobileGames: DailyMobileGamesContext;
   mood: DailyMoodContext;
+  smokeFree: DailySmokeFreeContext;
   waterPlusHref?: string;
   waterPlusLabel?: string;
 }
@@ -55,6 +58,7 @@ export function DailyTrackersBoard({
   goals,
   mobileGames,
   mood,
+  smokeFree,
   waterPlusHref,
   waterPlusLabel,
 }: Props) {
@@ -129,6 +133,15 @@ export function DailyTrackersBoard({
       case "tri_state":
         return (
           <TriStateHabitRow key={habit.id} date={date} habit={habit} />
+        );
+      case "smoke_free":
+        return (
+          <SmokeFreeDayCard
+            key={habit.id}
+            date={date}
+            habit={habit}
+            smokeFree={smokeFree}
+          />
         );
       case "mobile_games":
         return (

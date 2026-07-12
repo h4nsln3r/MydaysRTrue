@@ -43,6 +43,7 @@ const KIND_HINT: Partial<Record<HabitKind, string>> = {
   mobile_games: "Chess, Duolingo, Pokemon GO",
   mood: "Välj hur dagen kändes — en emoji per dag",
   tri_state: "Ja / halv / nej",
+  smoke_free: "Nikotin & cannabis — båda Ja = helt rökfri",
 };
 
 const GOAL_KINDS = new Set<HabitKind>(["water", "steps", "activity_hours"]);

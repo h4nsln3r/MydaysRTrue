@@ -140,7 +140,8 @@ export interface Database {
             | "activity_hours"
             | "media"
             | "mobile_games"
-            | "mood";
+            | "mood"
+            | "smoke_free";
           icon: string;
           accent: string;
           sort_order: number;
@@ -165,7 +166,8 @@ export interface Database {
             | "activity_hours"
             | "media"
             | "mobile_games"
-            | "mood";
+            | "mood"
+            | "smoke_free";
           icon?: string;
           accent?: string;
           sort_order?: number;
@@ -190,7 +192,8 @@ export interface Database {
             | "activity_hours"
             | "media"
             | "mobile_games"
-            | "mood";
+            | "mood"
+            | "smoke_free";
           icon?: string;
           accent?: string;
           sort_order?: number;
@@ -416,6 +419,33 @@ export interface Database {
           chess_done?: boolean;
           duolingo_done?: boolean;
           pokemon_go_done?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      smoke_free_daily_logs: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          nicotine_status: "yes" | "half" | "no" | null;
+          cannabis_status: "yes" | "half" | "no" | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          nicotine_status?: "yes" | "half" | "no" | null;
+          cannabis_status?: "yes" | "half" | "no" | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          nicotine_status?: "yes" | "half" | "no" | null;
+          cannabis_status?: "yes" | "half" | "no" | null;
           created_at?: string;
           updated_at?: string;
         };

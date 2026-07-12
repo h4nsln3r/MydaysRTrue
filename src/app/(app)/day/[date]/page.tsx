@@ -19,6 +19,7 @@ import {
 import { getDailyIntake } from "@/lib/intake.server";
 import { getDailyMobileGames } from "@/lib/mobile-games.server";
 import { getDailyMood } from "@/lib/mood.server";
+import { getDailySmokeFree } from "@/lib/smoke-free.server";
 import { getDailyJournal } from "@/lib/journal.server";
 import { getWorkDailyLog } from "@/lib/work.server";
 import { getDailyMedia } from "@/lib/media.server";
@@ -83,6 +84,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     liveEvents,
     mobileGames,
     mood,
+    smokeFree,
   ] = await Promise.all([
     getDailySummary(user.id, date),
     getDailyHabits(user.id, date),
@@ -103,6 +105,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getDailyLiveEvents(user.id, date),
     getDailyMobileGames(user.id, date),
     getDailyMood(user.id, date),
+    getDailySmokeFree(user.id, date),
   ]);
 
   const work = await getWorkDailyLog(user.id, date);
@@ -217,6 +220,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               goals={dayPlan.goals}
               mobileGames={mobileGames}
               mood={mood}
+              smokeFree={smokeFree}
               waterPlusHref={`/water?date=${date}`}
               waterPlusLabel="Lägg till vatten"
             />

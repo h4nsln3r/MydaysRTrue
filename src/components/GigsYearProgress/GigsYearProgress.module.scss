@@ -1,0 +1,133 @@
+@use "abstracts" as *;
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: $space-2;
+}
+
+.stat {
+    padding: $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    text-align: center;
+}
+
+.statBig {
+    display: block;
+    font-family: $font-mono;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: $color-cream;
+}
+
+.statLabel {
+    font-size: 0.72rem;
+    color: $color-fog;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.bandStats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+}
+
+.bandStat {
+    padding: $space-2 $space-3;
+    border-radius: $radius-pill;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+}
+
+.bandStatCount {
+    font-family: $font-mono;
+    font-weight: 800;
+    color: $color-cream;
+}
+
+.group {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.groupLabel {
+    margin: 0;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: $color-fog;
+    font-weight: 700;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+}
+
+.itemDone {
+    border-left: 3px solid $color-success;
+}
+
+.itemPlanned {
+    border-left: 3px solid $color-orange;
+}
+
+.itemIcon {
+    font-size: 1.2rem;
+}
+
+.itemMeta {
+    flex: 1;
+    min-width: 0;
+}
+
+.itemTitle {
+    margin: 0;
+    font-weight: 600;
+    color: $color-cream;
+}
+
+.itemSub {
+    margin: 0;
+    font-size: 0.78rem;
+    color: $color-fog;
+}
+
+.itemNote {
+    margin: 4px 0 0;
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-style: italic;
+}
+
+.empty {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.9rem;
+}

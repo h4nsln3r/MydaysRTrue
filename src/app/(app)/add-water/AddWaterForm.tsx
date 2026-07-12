@@ -9,7 +9,12 @@ import { todayLocalISO } from "@/lib/date";
 import { logWaterAction } from "../actions";
 import styles from "./add-water.module.scss";
 
-export function AddWaterForm() {
+interface AddWaterFormProps {
+  /** Calendar day to log water on (defaults to today). */
+  localDate?: string;
+}
+
+export function AddWaterForm({ localDate = todayLocalISO() }: AddWaterFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [amount, setAmount] = useState<string>("250");
@@ -23,7 +28,7 @@ export function AddWaterForm() {
     startTransition(async () => {
       const res = await logWaterAction({
         amountMl: ml,
-        localDate: todayLocalISO(),
+        localDate,
         note: n,
       });
       if (!res.ok) {

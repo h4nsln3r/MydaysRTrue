@@ -7,8 +7,11 @@ import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs
 import { getAuthUser } from "@/lib/auth.server";
 import { getYearMedia } from "@/lib/media.server";
 import { getYearLiveEvents } from "@/lib/live-events.server";
+import { getYearGigs } from "@/lib/gigs.server";
 import { LiveEventsYearBoard } from "@/components/LiveEventsYearBoard/LiveEventsYearBoard";
 import { LiveEventsYearProgress } from "@/components/LiveEventsYearProgress/LiveEventsYearProgress";
+import { GigsYearBoard } from "@/components/GigsYearBoard/GigsYearBoard";
+import { GigsYearProgress } from "@/components/GigsYearProgress/GigsYearProgress";
 import { getYearRestaurantMeals } from "@/lib/meals.server";
 import { parsePeriodView } from "@/lib/period-view";
 import styles from "./year.module.scss";
@@ -40,6 +43,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
 
   const yearMedia = await getYearMedia(user.id, year);
   const yearLive = await getYearLiveEvents(user.id, year);
+  const yearGigs = await getYearGigs(user.id, year);
   const yearRestaurants = await getYearRestaurantMeals(user.id, year);
   const isCurrent = year === currentYear;
   const canGoForward = year < currentYear;
@@ -117,6 +121,22 @@ export default async function YearPage({ searchParams }: YearPageProps) {
           />
         ) : (
           <LiveEventsYearBoard yearLive={yearLive} />
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <header className={styles.sectionHeader}>
+          <h2 className={styles.h2}>Spelningar</h2>
+          <span className={styles.muted}>Totes · Bojeng</span>
+        </header>
+
+        {view === "progress" ? (
+          <GigsYearProgress
+            yearGigs={yearGigs}
+            planHref={yearNavHref(year, "plan")}
+          />
+        ) : (
+          <GigsYearBoard yearGigs={yearGigs} />
         )}
       </section>
 

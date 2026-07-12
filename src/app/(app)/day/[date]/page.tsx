@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Card } from "@/components/Card/Card";
-import { Button } from "@/components/Button/Button";
 import { JournalDaySection } from "@/components/JournalDaySection/JournalDaySection";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
@@ -36,6 +35,7 @@ import { getMealBoxStock } from "@/lib/meal-box.server";
 import { parseLocalISO, todayLocalISO, weekEndISO, weekStartISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
 import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
+import { QuickAddRow } from "../../QuickAddRow";
 import styles from "../../dashboard.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -217,6 +217,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               goals={dayPlan.goals}
               mobileGames={mobileGames}
               mood={mood}
+              waterPlusHref={`/water?date=${date}`}
+              waterPlusLabel="Lägg till vatten"
             />
           </section>
 
@@ -227,16 +229,14 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
           <section className={styles.section}>
             <header className={styles.sectionHeader}>
               <h2 className={styles.h2}>Vattenlogg</h2>
-              <span className={styles.muted}>{summary.logs.length} entries</span>
+              <Link href={`/add-water?date=${date}`} className={styles.link}>
+                Mer →
+              </Link>
             </header>
+            <QuickAddRow localDate={date} />
             {summary.logs.length === 0 ? (
               <Card className={styles.empty}>
-                <p>No entries logged this day.</p>
-                <Link href="/">
-                  <Button size="md" variant="outline">
-                    Back to today
-                  </Button>
-                </Link>
+                <p>Inget vatten loggat den här dagen.</p>
               </Card>
             ) : (
               <ul className={styles.logList}>

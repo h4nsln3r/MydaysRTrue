@@ -1,0 +1,91 @@
+@use "abstracts" as *;
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: $color-cream;
+}
+
+.link {
+    color: $color-orange-bright;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.groupLabel {
+    margin: 0;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: $color-fog;
+}
+
+.empty {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.9rem;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.item {
+    display: flex;
+    gap: $space-3;
+    padding: $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+}
+
+.itemDone {
+    border-left: 3px solid $color-success;
+}
+
+.icon {
+    font-size: 1.2rem;
+}
+
+.meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.itemTitle {
+    margin: 0;
+    font-weight: 600;
+    color: $color-cream;
+}
+
+.itemSub {
+    margin: 0;
+    font-size: 0.78rem;
+    color: $color-fog;
+}
+
+.note {
+    margin: 4px 0 0;
+    font-size: 0.82rem;
+    color: $color-cream-dim;
+    font-style: italic;
+}

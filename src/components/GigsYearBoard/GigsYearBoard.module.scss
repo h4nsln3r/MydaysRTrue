@@ -1,0 +1,170 @@
+@use "abstracts" as *;
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.hint {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.85rem;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-2 $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+}
+
+.itemEditing {
+    border-color: $color-orange;
+    background: $color-ink-elevated;
+}
+
+.itemIcon {
+    font-size: 1.1rem;
+}
+
+.itemMeta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.itemTitle {
+    font-weight: 600;
+    color: $color-cream;
+}
+
+.doneBadge {
+    color: $color-success;
+}
+
+.itemSub {
+    font-size: 0.78rem;
+    color: $color-fog;
+}
+
+.itemNote {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-style: italic;
+}
+
+.editBtn,
+.resetBtn,
+.removeBtn {
+    padding: 4px 8px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+}
+
+.editBtn:hover:not(:disabled) {
+    color: $color-orange-bright;
+    border-color: $color-orange;
+}
+
+.removeBtn:hover:not(:disabled) {
+    color: $color-danger;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-3;
+    border-radius: $radius-md;
+    border: 1px dashed $color-line;
+}
+
+.bandRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bandBtn {
+    padding: 8px 12px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-size: 0.78rem;
+    font-weight: 600;
+
+    &[aria-pressed="true"] {
+        border-color: $color-orange;
+        color: $color-cream;
+        background: rgba(255, 122, 26, 0.12);
+    }
+}
+
+.empty {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.9rem;
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.85rem;
+}
+
+.editForm {
+    flex: 1;
+    min-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.editActions {
+    display: flex;
+    gap: $space-2;
+    justify-content: flex-end;
+}
+
+.ratingField {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ratingLabel {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-fog;
+}
+
+.ratingSelect {
+    max-width: 8rem;
+    padding: 8px 10px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+}

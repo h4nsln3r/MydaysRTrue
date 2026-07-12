@@ -298,6 +298,57 @@ export interface Database {
         };
         Relationships: [];
       };
+      gigs: {
+        Row: {
+          id: string;
+          user_id: string;
+          year: number;
+          band: "Totes" | "Bojeng";
+          title: string;
+          event_date: string;
+          venue: string | null;
+          note: string | null;
+          rating: number | null;
+          played_at: string | null;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          year: number;
+          band: "Totes" | "Bojeng";
+          title: string;
+          event_date: string;
+          venue?: string | null;
+          note?: string | null;
+          rating?: number | null;
+          played_at?: string | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          year?: number;
+          band?: "Totes" | "Bojeng";
+          title?: string;
+          event_date?: string;
+          venue?: string | null;
+          note?: string | null;
+          rating?: number | null;
+          played_at?: string | null;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       media_daily_logs: {
         Row: {
           id: string;

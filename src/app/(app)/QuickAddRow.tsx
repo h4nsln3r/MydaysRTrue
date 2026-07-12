@@ -6,7 +6,12 @@ import { todayLocalISO } from "@/lib/date";
 import { logWaterAction } from "./actions";
 import styles from "./dashboard.module.scss";
 
-export function QuickAddRow() {
+interface QuickAddRowProps {
+  /** Calendar day to log water on (defaults to today). */
+  localDate?: string;
+}
+
+export function QuickAddRow({ localDate = todayLocalISO() }: QuickAddRowProps) {
   const [pending, startTransition] = useTransition();
   const [activeMl, setActiveMl] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +20,7 @@ export function QuickAddRow() {
     setError(null);
     setActiveMl(ml);
     startTransition(async () => {
-      const res = await logWaterAction({ amountMl: ml, localDate: todayLocalISO() });
+      const res = await logWaterAction({ amountMl: ml, localDate });
       if (!res.ok) setError(res.error ?? "Could not log.");
       setActiveMl(null);
     });

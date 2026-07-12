@@ -221,8 +221,8 @@ export function MonthlyTasksBoard({
     return (
       <p className={styles.empty}>
         Inga månadsuppgifter ännu. Lägg till under{" "}
-        <a href="/profile" className={styles.link}>
-          profil
+        <a href="/settings" className={styles.link}>
+          inställningar
         </a>
         .
       </p>

@@ -27,7 +27,7 @@
     }
 
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: $space-1;
     background: $color-ink-soft;
     border: 1px solid $color-line;

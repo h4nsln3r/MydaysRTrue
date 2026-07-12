@@ -27,8 +27,8 @@ export default async function ProfileTasksPage() {
   return (
     <main className={styles.main}>
       <header className={styles.header}>
-        <Link href="/profile" className={styles.backLink}>
-          ← Profil
+        <Link href="/settings" className={styles.backLink}>
+          ← Inställningar
         </Link>
         <p className={styles.eyebrow}>Vecka & månad</p>
         <h1 className={styles.title}>Uppgifter per kategori</h1>

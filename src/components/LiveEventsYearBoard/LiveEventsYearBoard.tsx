@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   archiveLiveEventAction,
+  attendLiveEventAction,
   createLiveEventAction,
   resetLiveEventAttendanceAction,
   updateLiveEventAction,
@@ -172,6 +173,9 @@ function EventRow({
 }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
+  const [isMarking, setIsMarking] = useState(false);
+  const [markNote, setMarkNote] = useState("");
+  const [markRating, setMarkRating] = useState("");
   const [editTitle, setEditTitle] = useState(event.title);
   const [editKind, setEditKind] = useState(event.kind);
   const [editDate, setEditDate] = useState(event.eventDate);
@@ -223,6 +227,80 @@ function EventRow({
       router.refresh();
     });
   };
+
+  const attend = () => {
+    setLocalError(null);
+    onError(null);
+    startTransition(async () => {
+      const res = await attendLiveEventAction({
+        id: event.id,
+        note: markNote,
+        rating: markRating.trim() === "" ? null : Number(markRating),
+      });
+      if (!res.ok) {
+        setLocalError(res.error ?? "Kunde inte spara.");
+        return;
+      }
+      setIsMarking(false);
+      setMarkNote("");
+      setMarkRating("");
+      router.refresh();
+    });
+  };
+
+  if (isMarking) {
+    return (
+      <li className={[styles.item, styles.itemEditing].join(" ")}>
+        <div className={styles.editForm}>
+          <p className={styles.hint}>
+            Hur var upplevelsen? Skriv gärna en kommentar och ge betyg.
+          </p>
+          <Input
+            label="Kommentar (valfritt)"
+            value={markNote}
+            onChange={(e) => setMarkNote(e.target.value)}
+            placeholder="t.ex. Fantastisk stämning, bra setlista!"
+            maxLength={280}
+            disabled={busy}
+          />
+          <label className={styles.ratingField}>
+            <span className={styles.ratingLabel}>Betyg</span>
+            <select
+              className={styles.ratingSelect}
+              value={markRating}
+              onChange={(e) => setMarkRating(e.target.value)}
+              disabled={busy}
+            >
+              <option value="">–</option>
+              {RATING_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}/10
+                </option>
+              ))}
+            </select>
+          </label>
+          {localError ? <p className={styles.error}>{localError}</p> : null}
+          <div className={styles.editActions}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={() => {
+                setIsMarking(false);
+                setLocalError(null);
+              }}
+              disabled={busy}
+            >
+              Avbryt
+            </Button>
+            <Button type="button" variant="primary" size="md" loading={busy} onClick={attend}>
+              Jag var där!
+            </Button>
+          </div>
+        </div>
+      </li>
+    );
+  }
 
   if (isEditing) {
     return (
@@ -320,6 +398,11 @@ function EventRow({
       <button type="button" className={styles.editBtn} onClick={() => setIsEditing(true)} disabled={busy}>
         Redigera
       </button>
+      {!event.attendedAt ? (
+        <button type="button" className={styles.editBtn} onClick={() => setIsMarking(true)} disabled={busy}>
+          Jag var där!
+        </button>
+      ) : null}
       {event.attendedAt ? (
         <button type="button" className={styles.resetBtn} onClick={resetAttendance} disabled={busy}>
           Ångra besök

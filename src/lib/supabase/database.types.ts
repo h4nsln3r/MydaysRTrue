@@ -209,6 +209,9 @@ export interface Database {
           year: number;
           kind: "book" | "series" | "movie";
           title: string;
+          author: string | null;
+          director: string | null;
+          actors: string | null;
           note: string | null;
           rating: number | null;
           total_length: number | null;
@@ -223,6 +226,9 @@ export interface Database {
           year: number;
           kind: "book" | "series" | "movie";
           title: string;
+          author?: string | null;
+          director?: string | null;
+          actors?: string | null;
           note?: string | null;
           rating?: number | null;
           total_length?: number | null;
@@ -237,6 +243,9 @@ export interface Database {
           year?: number;
           kind?: "book" | "series" | "movie";
           title?: string;
+          author?: string | null;
+          director?: string | null;
+          actors?: string | null;
           note?: string | null;
           rating?: number | null;
           total_length?: number | null;

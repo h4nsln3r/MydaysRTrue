@@ -205,8 +205,8 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
     return (
       <p className={styles.empty}>
         Inga veckouppgifter ännu. Lägg till under{" "}
-        <a href="/profile" className={styles.link}>
-          profil
+        <a href="/settings" className={styles.link}>
+          inställningar
         </a>{" "}
         eller med panelen ovan.
       </p>

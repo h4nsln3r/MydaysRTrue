@@ -163,6 +163,8 @@ function GigRow({
 }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
+  const [isMarking, setIsMarking] = useState(false);
+  const [markNote, setMarkNote] = useState("");
   const [editTitle, setEditTitle] = useState(gig.title);
   const [editBand, setEditBand] = useState(gig.band);
   const [editDate, setEditDate] = useState(gig.eventDate);
@@ -216,13 +218,57 @@ function GigRow({
   };
 
   const markPlayed = () => {
+    setLocalError(null);
     onError(null);
     startTransition(async () => {
-      const res = await markGigPlayedAction({ id: gig.id });
-      if (!res.ok) onError(res.error ?? "Kunde inte markera.");
+      const res = await markGigPlayedAction({ id: gig.id, note: markNote });
+      if (!res.ok) {
+        setLocalError(res.error ?? "Kunde inte markera.");
+        return;
+      }
+      setIsMarking(false);
+      setMarkNote("");
       router.refresh();
     });
   };
+
+  if (isMarking) {
+    return (
+      <li className={[styles.item, styles.itemEditing].join(" ")}>
+        <div className={styles.editForm}>
+          <p className={styles.hint}>
+            Hur gick spelningen? Skriv gärna en kommentar.
+          </p>
+          <Input
+            label="Kommentar (valfritt)"
+            value={markNote}
+            onChange={(e) => setMarkNote(e.target.value)}
+            placeholder="t.ex. Bra publik, lite nervös i början"
+            maxLength={280}
+            disabled={busy}
+          />
+          {localError ? <p className={styles.error}>{localError}</p> : null}
+          <div className={styles.editActions}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={() => {
+                setIsMarking(false);
+                setLocalError(null);
+              }}
+              disabled={busy}
+            >
+              Avbryt
+            </Button>
+            <Button type="button" variant="primary" size="md" loading={busy} onClick={markPlayed}>
+              Spelad ✓
+            </Button>
+          </div>
+        </div>
+      </li>
+    );
+  }
 
   if (isEditing) {
     return (
@@ -324,7 +370,7 @@ function GigRow({
         Redigera
       </button>
       {!gig.playedAt ? (
-        <button type="button" className={styles.editBtn} onClick={markPlayed} disabled={busy}>
+        <button type="button" className={styles.editBtn} onClick={() => setIsMarking(true)} disabled={busy}>
           Spelad ✓
         </button>
       ) : null}

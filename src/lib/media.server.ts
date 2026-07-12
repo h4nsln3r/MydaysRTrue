@@ -16,6 +16,9 @@ interface ItemRow {
   year: number;
   kind: string;
   title: string;
+  author: string | null;
+  director: string | null;
+  actors: string | null;
   note: string | null;
   rating: number | null;
   total_length: number | null;
@@ -67,6 +70,9 @@ function rowToItem(
     year: r.year,
     kind: r.kind as MediaKind,
     title: r.title,
+    author: r.author,
+    director: r.director,
+    actors: r.actors,
     note: r.note,
     rating: r.rating,
     totalLength: r.total_length,
@@ -86,7 +92,9 @@ export async function getYearMedia(
   const supabase = await createClient();
   const { data } = await supabase
     .from("media_items")
-    .select("id, year, kind, title, note, rating, total_length, sort_order")
+    .select(
+      "id, year, kind, title, author, director, actors, note, rating, total_length, sort_order",
+    )
     .eq("user_id", userId)
     .eq("year", year)
     .is("archived_at", null)
@@ -175,7 +183,9 @@ export async function getMonthMedia(
   const itemIds = [...new Set(logRows.map((r) => r.media_item_id))];
   const { data: itemRows } = await supabase
     .from("media_items")
-    .select("id, year, kind, title, note, rating, total_length, sort_order")
+    .select(
+      "id, year, kind, title, author, director, actors, note, rating, total_length, sort_order",
+    )
     .eq("user_id", userId)
     .in("id", itemIds)
     .is("archived_at", null);

@@ -20,8 +20,8 @@ export default async function ProfileMealBoxesPage() {
   return (
     <main className={styles.main}>
       <header className={styles.header}>
-        <Link href="/profile" className={styles.backLink}>
-          ← Profil
+        <Link href="/settings" className={styles.backLink}>
+          ← Inställningar
         </Link>
         <p className={styles.eyebrow}>Mat & kyl</p>
         <h1 className={styles.title}>Matlådor i kylen</h1>

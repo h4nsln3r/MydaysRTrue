@@ -15,6 +15,7 @@ import {
   MEDIA_KIND_LABEL,
   MEDIA_RATING_MAX,
   MEDIA_RATING_MIN,
+  mediaCreditsLabel,
   mediaProgressLabel,
   mediaRatingLabel,
   type MediaKind,
@@ -39,6 +40,9 @@ export function MediaYearBoard({ yearMedia }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<MediaKind>("book");
   const [title, setTitle] = useState("");
+  const [author, setAuthor] = useState("");
+  const [director, setDirector] = useState("");
+  const [actors, setActors] = useState("");
   const [totalLength, setTotalLength] = useState("");
 
   const add = () => {
@@ -53,6 +57,9 @@ export function MediaYearBoard({ yearMedia }: Props) {
         year: yearMedia.year,
         kind,
         title,
+        author: kind === "book" ? author : undefined,
+        director: kind === "movie" ? director : undefined,
+        actors: kind === "movie" ? actors : undefined,
         totalLength:
           kind === "movie"
             ? null
@@ -65,6 +72,9 @@ export function MediaYearBoard({ yearMedia }: Props) {
         return;
       }
       setTitle("");
+      setAuthor("");
+      setDirector("");
+      setActors("");
       setTotalLength("");
       router.refresh();
     });
@@ -125,6 +135,36 @@ export function MediaYearBoard({ yearMedia }: Props) {
           maxLength={120}
           disabled={pending}
         />
+        {kind === "book" ? (
+          <Input
+            label="Författare (valfritt)"
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            placeholder="t.ex. Frank Herbert"
+            maxLength={120}
+            disabled={pending}
+          />
+        ) : null}
+        {kind === "movie" ? (
+          <>
+            <Input
+              label="Regissör (valfritt)"
+              value={director}
+              onChange={(e) => setDirector(e.target.value)}
+              placeholder="t.ex. Christopher Nolan"
+              maxLength={120}
+              disabled={pending}
+            />
+            <Input
+              label="Skådespelare (valfritt)"
+              value={actors}
+              onChange={(e) => setActors(e.target.value)}
+              placeholder="t.ex. Leonardo DiCaprio, Ellen Page"
+              maxLength={120}
+              disabled={pending}
+            />
+          </>
+        ) : null}
         {kind !== "movie" ? (
           <Input
             label={kind === "book" ? "Antal sidor" : "Antal avsnitt"}
@@ -164,6 +204,9 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
+  const [editAuthor, setEditAuthor] = useState(item.author ?? "");
+  const [editDirector, setEditDirector] = useState(item.director ?? "");
+  const [editActors, setEditActors] = useState(item.actors ?? "");
   const [editNote, setEditNote] = useState(item.note ?? "");
   const [editRating, setEditRating] = useState(
     item.rating != null ? String(item.rating) : "",
@@ -178,6 +221,9 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
 
   const startEdit = () => {
     setEditTitle(item.title);
+    setEditAuthor(item.author ?? "");
+    setEditDirector(item.director ?? "");
+    setEditActors(item.actors ?? "");
     setEditNote(item.note ?? "");
     setEditRating(item.rating != null ? String(item.rating) : "");
     setEditTotalLength(
@@ -205,6 +251,9 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
       const res = await updateMediaItemAction({
         id: item.id,
         title: editTitle,
+        author: item.kind === "book" ? editAuthor : undefined,
+        director: item.kind === "movie" ? editDirector : undefined,
+        actors: item.kind === "movie" ? editActors : undefined,
         note: editNote,
         rating: editRating.trim() === "" ? null : Number(editRating),
         totalLength:
@@ -247,6 +296,33 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
               maxLength={120}
               disabled={busy}
             />
+            {item.kind === "book" ? (
+              <Input
+                label="Författare (valfritt)"
+                value={editAuthor}
+                onChange={(e) => setEditAuthor(e.target.value)}
+                maxLength={120}
+                disabled={busy}
+              />
+            ) : null}
+            {item.kind === "movie" ? (
+              <>
+                <Input
+                  label="Regissör (valfritt)"
+                  value={editDirector}
+                  onChange={(e) => setEditDirector(e.target.value)}
+                  maxLength={120}
+                  disabled={busy}
+                />
+                <Input
+                  label="Skådespelare (valfritt)"
+                  value={editActors}
+                  onChange={(e) => setEditActors(e.target.value)}
+                  maxLength={120}
+                  disabled={busy}
+                />
+              </>
+            ) : null}
             {item.kind !== "movie" ? (
               <Input
                 label={item.kind === "book" ? "Antal sidor" : "Antal avsnitt"}
@@ -332,6 +408,7 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
           </span>
           <span className={styles.itemSub}>
             {MEDIA_KIND_LABEL[item.kind]}
+            {mediaCreditsLabel(item) ? ` · ${mediaCreditsLabel(item)}` : ""}
             {item.totalLength
               ? item.kind === "book"
                 ? ` · ${item.totalLength} sidor`

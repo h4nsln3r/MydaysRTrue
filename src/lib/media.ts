@@ -21,6 +21,12 @@ export interface MediaItem {
   year: number;
   kind: MediaKind;
   title: string;
+  /** Book author. */
+  author: string | null;
+  /** Movie director. */
+  director: string | null;
+  /** Movie cast (free text). */
+  actors: string | null;
   /** Optional comment when the item was added (films & series). */
   note: string | null;
   /** Optional 1–10 rating. */
@@ -78,6 +84,18 @@ export const MEDIA_RATING_MAX = 10;
 export function mediaRatingLabel(rating: number | null): string | null {
   if (rating == null) return null;
   return `${rating}/10`;
+}
+
+/** Author or director/actors line for subtitles. */
+export function mediaCreditsLabel(item: MediaItem): string | null {
+  if (item.kind === "book" && item.author) return item.author;
+  if (item.kind === "movie") {
+    const parts: string[] = [];
+    if (item.director) parts.push(item.director);
+    if (item.actors) parts.push(item.actors);
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }
+  return null;
 }
 
 export function mediaCompletionPrompt(kind: MediaKind): string {

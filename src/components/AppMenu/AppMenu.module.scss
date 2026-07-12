@@ -1,0 +1,111 @@
+@use "abstracts" as *;
+
+.bar {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    padding: calc(env(safe-area-inset-top, 0) + #{$space-2}) $space-5 $space-1;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(10, 10, 10, 0.98) 55%, rgba(10, 10, 10, 0));
+}
+
+.barInner {
+    width: 100%;
+    max-width: $container-max;
+    margin: 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    pointer-events: auto;
+
+    @media (min-width: $bp-md) {
+        max-width: $container-max-md;
+        padding-left: $space-1;
+        padding-right: $space-1;
+    }
+
+    @media (min-width: $bp-lg) {
+        max-width: $container-max-lg;
+    }
+}
+
+.wrap {
+    position: relative;
+}
+
+.menuBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    cursor: pointer;
+    transition:
+        border-color 160ms $ease-out,
+        color 160ms $ease-out,
+        background 160ms $ease-out;
+
+    &:hover {
+        border-color: $color-orange;
+        color: $color-cream;
+    }
+}
+
+.menuBtnOpen,
+.menuBtnActive {
+    border-color: $color-orange;
+    color: $color-orange-bright;
+}
+
+.dropdown {
+    position: absolute;
+    top: calc(100% + #{$space-2});
+    right: 0;
+    min-width: 148px;
+    padding: $space-1;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    box-shadow: $shadow-card;
+    backdrop-filter: blur(10px);
+}
+
+.menuItemLink {
+    display: block;
+    text-decoration: none;
+}
+
+.menuItem {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    width: 100%;
+    padding: $space-2 $space-3;
+    border-radius: $radius-sm;
+    text-decoration: none;
+    color: $color-cream-dim;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    transition: color 160ms $ease-out, background 160ms $ease-out;
+
+    svg { color: inherit; flex-shrink: 0; }
+
+    &:hover {
+        color: $color-cream;
+        background: rgba(255, 255, 255, 0.04);
+    }
+}
+
+.menuItemActive {
+    color: $color-orange-bright;
+    background: rgba(255, 122, 26, 0.12);
+}
+
+.menuItemPending {
+    opacity: 0.65;
+}

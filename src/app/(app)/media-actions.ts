@@ -22,6 +22,7 @@ export interface SaveMediaDailyLogResult extends ActionResult {
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const MEDIA_NOTE_MAX = 280;
+const MEDIA_CREDIT_MAX = 120;
 
 function parseMediaNote(
   value: string | undefined,
@@ -31,6 +32,16 @@ function parseMediaNote(
     return { ok: false, error: "Håll kommentaren under 280 tecken." };
   }
   return { ok: true, note: trimmed || null };
+}
+
+function parseMediaCredit(
+  value: string | undefined,
+): { ok: true; credit: string | null } | { ok: false; error: string } {
+  const trimmed = value?.trim() ?? "";
+  if (trimmed.length > MEDIA_CREDIT_MAX) {
+    return { ok: false, error: "Håll namnet under 120 tecken." };
+  }
+  return { ok: true, credit: trimmed || null };
 }
 
 function parseMediaRating(
@@ -51,6 +62,9 @@ export async function createMediaItemAction(input: {
   year: number;
   kind: MediaKind;
   title: string;
+  author?: string;
+  director?: string;
+  actors?: string;
   totalLength?: number | null;
 }): Promise<ActionResult> {
   const title = input.title.trim();
@@ -71,6 +85,24 @@ export async function createMediaItemAction(input: {
       };
     }
   }
+
+  const authorResult =
+    input.kind === "book"
+      ? parseMediaCredit(input.author)
+      : { ok: true as const, credit: null };
+  if (!authorResult.ok) return authorResult;
+
+  const directorResult =
+    input.kind === "movie"
+      ? parseMediaCredit(input.director)
+      : { ok: true as const, credit: null };
+  if (!directorResult.ok) return directorResult;
+
+  const actorsResult =
+    input.kind === "movie"
+      ? parseMediaCredit(input.actors)
+      : { ok: true as const, credit: null };
+  if (!actorsResult.ok) return actorsResult;
 
   const supabase = await createClient();
   const {
@@ -93,6 +125,9 @@ export async function createMediaItemAction(input: {
     year: input.year,
     kind: input.kind,
     title,
+    author: authorResult.credit,
+    director: directorResult.credit,
+    actors: actorsResult.credit,
     note: null,
     rating: null,
     total_length:
@@ -109,6 +144,9 @@ export async function createMediaItemAction(input: {
 export async function updateMediaItemAction(input: {
   id: string;
   title: string;
+  author?: string;
+  director?: string;
+  actors?: string;
   note?: string;
   rating?: number | null;
   totalLength?: number | null;
@@ -135,6 +173,24 @@ export async function updateMediaItemAction(input: {
 
   const noteResult = parseMediaNote(input.note);
   if (!noteResult.ok) return noteResult;
+
+  const authorResult =
+    existing.kind === "book"
+      ? parseMediaCredit(input.author)
+      : { ok: true as const, credit: null };
+  if (!authorResult.ok) return authorResult;
+
+  const directorResult =
+    existing.kind === "movie"
+      ? parseMediaCredit(input.director)
+      : { ok: true as const, credit: null };
+  if (!directorResult.ok) return directorResult;
+
+  const actorsResult =
+    existing.kind === "movie"
+      ? parseMediaCredit(input.actors)
+      : { ok: true as const, credit: null };
+  if (!actorsResult.ok) return actorsResult;
 
   const ratingResult = parseMediaRating(input.rating);
   if (!ratingResult.ok) return ratingResult;
@@ -176,6 +232,9 @@ export async function updateMediaItemAction(input: {
     .from("media_items")
     .update({
       title,
+      author: authorResult.credit,
+      director: directorResult.credit,
+      actors: actorsResult.credit,
       note: noteResult.note,
       rating: ratingResult.rating,
       total_length: totalLength,
@@ -328,6 +387,9 @@ export async function saveMediaDailyLogAction(input: {
     year,
     kind: item.kind as MediaKind,
     title: "",
+    author: null,
+    director: null,
+    actors: null,
     note: null,
     rating: null,
     totalLength: item.total_length,
@@ -368,6 +430,9 @@ export async function saveMediaDailyLogAction(input: {
     year,
     kind: item.kind as MediaKind,
     title: "",
+    author: null,
+    director: null,
+    actors: null,
     note: null,
     rating: null,
     totalLength: item.total_length,

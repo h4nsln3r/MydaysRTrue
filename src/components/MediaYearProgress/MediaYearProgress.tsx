@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
+  mediaCreditsLabel,
   mediaProgressLabel,
   mediaProgressPct,
   mediaRatingLabel,
@@ -53,6 +54,9 @@ export function MediaYearProgress({ yearMedia, planHref }: Props) {
                 <p className={styles.itemTitle}>{item.title}</p>
                 <p className={styles.itemSub}>
                   {MEDIA_KIND_LABEL[item.kind]}
+                  {mediaCreditsLabel(item)
+                    ? ` · ${mediaCreditsLabel(item)}`
+                    : ""}
                   {mediaProgressLabel(item)
                     ? ` · ${mediaProgressLabel(item)}`
                     : ""}

@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
 import { MEAL_LABEL, mealHasCookingMeta, mealShowsMealBoxes } from "@/lib/habits";
 import { resolveMealRestaurant } from "@/lib/meals.server";
+import { saveWeekProgressLayout } from "@/lib/week-progress-layout.server";
+import type { WeekProgressLayout } from "@/lib/week-progress-layout";
 
 export interface LogWaterResult {
   ok: boolean;
@@ -327,6 +329,23 @@ export async function reorderHabitsAction(
   }
 
   revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function updateWeekProgressLayoutAction(
+  layout: WeekProgressLayout,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const res = await saveWeekProgressLayout(user.id, layout);
+  if (!res.ok) return res;
+
+  revalidatePath("/week");
+  revalidatePath("/settings");
   return { ok: true };
 }
 

@@ -1,7 +1,19 @@
 // Client-safe habit types and helpers.
 // Server-only queries live in `./habits.server`.
 
+import type { IntakeKind } from "@/lib/intake";
 import type { MoodKey } from "@/lib/mood";
+
+/** Per-day sub-item data for expandable week progress rows. */
+export interface WeekHabitDayDetails {
+  water?: { totalMl: number; goalMl: number };
+  intake?: Partial<Record<IntakeKind, boolean>>;
+  mobileGames?: { chess: boolean; duolingo: boolean; pokemonGo: boolean };
+  smokeFree?: { nicotine: HabitStatus | null; cannabis: HabitStatus | null };
+  steps?: { value: number; goal: number };
+  activity?: { value: number; goal: number };
+  sugarFree?: HabitStatus | null;
+}
 
 export type HabitKind =
   | "tri_state"
@@ -16,6 +28,18 @@ export type HabitKind =
   | "mobile_games"
   | "mood"
   | "smoke_free";
+
+/** Habit keys shown in the week progress board. */
+export const WEEK_PROGRESS_HABIT_KEYS = [
+  "meals",
+  "intake",
+  "steps",
+  "activity_hours",
+  "smoke_free",
+  "sugar_free",
+  "mobile_games",
+  "mood",
+] as const;
 
 export type SnackSlot = 1 | 2;
 
@@ -193,6 +217,15 @@ export function numericGoalStatus(
   if (current >= goal) return "yes";
   if (current >= goal * 0.5) return "half";
   return "no";
+}
+
+/** Unfilled tracker on a past day counts as missed; today and future stay open. */
+export function statusOrMissedOnPastDay(
+  status: HabitStatus | null,
+  day: { isFuture: boolean; isToday: boolean },
+): HabitStatus | null {
+  if (day.isFuture || day.isToday) return status;
+  return status ?? "no";
 }
 
 /**

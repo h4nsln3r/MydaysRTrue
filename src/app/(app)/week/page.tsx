@@ -22,6 +22,8 @@ import { getWorkLogsForWeek } from "@/lib/work.server";
 
 import { getUnifiedWeekPlan } from "@/lib/week-plan.server";
 import { getWeekMealsSummary } from "@/lib/meal-box.server";
+import { getWeekProgressLayout } from "@/lib/week-progress-layout.server";
+import { WEEK_PROGRESS_HABIT_KEYS } from "@/lib/habits";
 
 import {
   addDaysISO,
@@ -84,6 +86,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     weightPlan,
     unifiedPlan,
     mealsWeek,
+    weekProgressLayout,
   ] = await Promise.all([
     getWeeklySummary(user.id, start),
     getWeekHabitSummary(user.id, start),
@@ -96,6 +99,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getWeightWeekPlan(user.id, start),
     getUnifiedWeekPlan(user.id, start),
     getWeekMealsSummary(user.id, start),
+    getWeekProgressLayout(user.id, [...WEEK_PROGRESS_HABIT_KEYS]),
   ]);
 
   const journalWeek = await getWeekJournalSummary(user.id, {
@@ -129,6 +133,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           key={start}
           week={week}
           habitWeek={habitWeek}
+          mealsWeek={mealsWeek}
           gymSessions={gymWeek.sessions}
           cardioSessions={cardioWeek.sessions}
           sportSessions={sportWeek.sessions}
@@ -137,6 +142,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           taskCategories={weeklyTasks.categories}
           weightPlan={weightPlan}
           journalWeek={journalWeek}
+          layout={weekProgressLayout}
         />
         </>
       ) : (

@@ -700,6 +700,106 @@
     vertical-align: middle;
 }
 
+.expandBtn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+
+    &:hover .rowText {
+        color: $color-cream;
+    }
+
+    &:hover .chevron {
+        color: $color-orange-bright;
+    }
+}
+
+.chevron {
+    flex-shrink: 0;
+    width: 12px;
+    font-size: 0.75rem;
+    color: $color-fog;
+    transition: transform 160ms $ease-out, color 120ms $ease-out;
+    line-height: 1;
+}
+
+.chevronUp {
+    transform: rotate(180deg);
+    color: $color-orange-bright;
+}
+
+.rowExpanded .rowLabel {
+    background: rgba(255, 122, 26, 0.1);
+    box-shadow: inset 3px 0 0 $color-orange;
+}
+
+.subRow .rowLabel,
+.subRow .dataCell,
+.subRow .totalCell {
+    background: rgba(16, 16, 16, 0.85);
+}
+
+.subRowLabel {
+    padding-left: $space-2 !important;
+}
+
+.subRowIndent {
+    display: inline-block;
+    width: 10px;
+    flex-shrink: 0;
+}
+
+.subRowText {
+    color: $color-fog;
+    font-size: 0.62rem;
+    font-family: $font-mono;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    vertical-align: middle;
+}
+
+.subCell {
+    height: 36px;
+    padding: 2px 3px;
+}
+
+.subTotalCell {
+    // inherits totalCell styling from parent row
+}
+
+.subDetail {
+    font-family: $font-mono;
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: $color-cream-dim;
+    line-height: 1.1;
+    word-break: break-word;
+}
+
+.subDetail_yes { color: $color-success; }
+.subDetail_half { color: $color-warning; }
+.subDetail_no { color: $color-danger; }
+
+.subMoodMark {
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.statusMarkSmall {
+    width: 18px;
+    height: 18px;
+    font-size: 0.7rem;
+}
+
 // Data cells
 .dataCell {
     padding: $space-2 4px;
@@ -912,6 +1012,27 @@
 
 .journalCellHasEntries {
     background: rgba(255, 122, 26, 0.06);
+}
+
+.journalBtn {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    padding: 2px 3px;
+    margin: 0;
+    border: none;
+    border-radius: $radius-xs;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    min-height: 100%;
+    font: inherit;
+
+    &:hover {
+        background: rgba(255, 122, 26, 0.12);
+    }
 }
 
 .journalLink {

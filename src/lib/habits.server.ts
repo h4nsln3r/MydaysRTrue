@@ -13,7 +13,10 @@ import {
   mealStatusFor,
   numericGoalStatus,
   snackStatusFor,
+  statusOrMissedOnPastDay,
   waterStatusFor,
+  WEEK_PROGRESS_HABIT_KEYS,
+  type WeekHabitDayDetails,
 } from "@/lib/habits";
 import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
 import { mobileGamesStatusFor } from "@/lib/mobile-games";
@@ -846,16 +849,7 @@ export async function getMonthSummary(
 // ============================================================================
 
 /** Habit keys shown in the week "Hur det går" progress board. */
-export const WEEK_PROGRESS_HABIT_KEYS = [
-  "meals",
-  "intake",
-  "steps",
-  "activity_hours",
-  "smoke_free",
-  "sugar_free",
-  "mobile_games",
-  "mood",
-] as const;
+export { WEEK_PROGRESS_HABIT_KEYS } from "@/lib/habits";
 
 export interface WeekHabitDay {
   date: string;
@@ -865,6 +859,8 @@ export interface WeekHabitDay {
   statuses: Record<string, HabitStatus | null>;
   /** Selected mood for the day, when logged. */
   mood: MoodKey | null;
+  /** Sub-item breakdown for expandable week rows. */
+  details: WeekHabitDayDetails;
 }
 
 export interface WeekHabitSummary {
@@ -1093,6 +1089,8 @@ export async function getWeekHabitSummary(
   for (let i = 0; i < 7; i++) {
     const date = addDaysISO(weekStart, i);
     const isFuture = date > today;
+    const isToday = date === today;
+    const dayCtx = { isFuture, isToday };
     const statuses: Record<string, HabitStatus | null> = {};
 
     for (const h of habits) {
@@ -1139,16 +1137,54 @@ export async function getWeekHabitSummary(
         }
         if (status === "yes") yesByHabit[h.id] += 1;
       }
-      statuses[h.id] = status;
+      statuses[h.id] = statusOrMissedOnPastDay(status, dayCtx);
     }
+
+    const smokeCtx = smokeFreeByDate.get(date);
+    const gamesCtx = mobileGamesByDate.get(date);
+    const sugarFreeHabit = habits.find((h) => h.key === "sugar_free");
 
     days.push({
       date,
       isFuture,
-      isToday: date === today,
+      isToday,
       weekday: isoWeekdayFromLocalISO(date),
       statuses,
       mood: isFuture ? null : (moodByDate.get(date) ?? null),
+      details: {
+        water: { totalMl: waterByDate.get(date) ?? 0, goalMl: goalMl },
+        intake: Object.fromEntries(
+          applicableIntakeKinds(date).map((k) => [
+            k,
+            intakeByDate.get(date)?.has(k) ?? false,
+          ]),
+        ),
+        mobileGames: gamesCtx
+          ? {
+              chess: gamesCtx.chess,
+              duolingo: gamesCtx.duolingo,
+              pokemonGo: gamesCtx.pokemonGo,
+            }
+          : undefined,
+        smokeFree: smokeCtx
+          ? {
+              nicotine: smokeCtx.nicotine,
+              cannabis: smokeCtx.cannabis,
+            }
+          : undefined,
+        steps: { value: stepsByDate.get(date) ?? 0, goal: stepsGoal },
+        activity: {
+          value: activityHoursByDate.get(date) ?? 0,
+          goal: activityHoursGoal,
+        },
+        sugarFree:
+          sugarFreeHabit && !isFuture
+            ? statusOrMissedOnPastDay(
+                checkMap.get(`${sugarFreeHabit.id}|${date}`) ?? null,
+                dayCtx,
+              )
+            : null,
+      },
     });
   }
 

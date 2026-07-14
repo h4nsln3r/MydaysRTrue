@@ -12,8 +12,11 @@ import {
   getWeeklyTasks,
 } from "@/lib/tasks.server";
 import { getWeightDefaultWeekday } from "@/lib/weight.server";
+import { getWeekProgressLayout } from "@/lib/week-progress-layout.server";
+import { WEEK_PROGRESS_HABIT_KEYS } from "@/lib/habits";
 import { HabitsManager } from "../profile/HabitsManager";
 import { CategoryEditor } from "../profile/CategoryEditor";
+import { WeekProgressLayoutEditor } from "../profile/WeekProgressLayoutEditor";
 import { WeeklyDefaultsEditor } from "../profile/WeeklyDefaultsEditor";
 import { WeeklyTasksEditor } from "../profile/WeeklyTasksEditor";
 import { MonthlyTasksEditor } from "../profile/MonthlyTasksEditor";
@@ -38,6 +41,7 @@ export default async function SettingsPage() {
     cardioTemplates,
     sportTemplates,
     weightDefaultWeekday,
+    weekProgressLayout,
   ] = await Promise.all([
     getHabits(user.id),
     getCategories(user.id, "daily"),
@@ -48,6 +52,7 @@ export default async function SettingsPage() {
     getCardioTemplates(user.id),
     getSportTemplates(user.id),
     getWeightDefaultWeekday(user.id),
+    getWeekProgressLayout(user.id, [...WEEK_PROGRESS_HABIT_KEYS]),
   ]);
 
   return (
@@ -101,6 +106,25 @@ export default async function SettingsPage() {
             </span>
           </Link>
         </div>
+      </Card>
+
+      <Card>
+        <header className={styles.cardHeader}>
+          <div>
+            <p className={styles.cardEyebrow}>Vecka</p>
+            <h3 className={styles.h3}>Veckovy – radordning</h3>
+            <p className={styles.muted}>
+              Styr ordningen på sektioner och rader under Hur det går i
+              veckovyn.
+            </p>
+          </div>
+        </header>
+        <WeekProgressLayoutEditor
+          layout={weekProgressLayout}
+          habits={habits.filter((h) =>
+            (WEEK_PROGRESS_HABIT_KEYS as readonly string[]).includes(h.key),
+          )}
+        />
       </Card>
 
       <Card>

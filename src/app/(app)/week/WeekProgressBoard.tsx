@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { addDaysISO, formatDayShort, formatWeekdayShort, isoWeekdayFromLocalISO } from "@/lib/date";
 import { formatWaterTemp, type BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
@@ -12,7 +13,6 @@ import {
 import type { Habit, HabitStatus } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekJournalSummary } from "@/lib/journal";
-import { MOOD_ICON, MOOD_LABEL } from "@/lib/mood";
 import type { WeekSummary, WeekDay } from "@/lib/water.server";
 import { waterDayStatus, type WaterDayStatus } from "@/lib/water";
 import {
@@ -29,11 +29,21 @@ import { ExpensesSummary } from "@/components/ExpensesSummary/ExpensesSummary";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_TIME_LABEL } from "@/lib/weight";
+import type { WeekMealsSummary } from "@/lib/meal-box.server";
+import { WeekDailyHabitRows } from "./WeekDailyHabitRows";
+import { WeekJournalRow } from "./WeekJournalRow";
+import {
+  WEEK_PROGRESS_SECTION_LABEL,
+  WEEK_PROGRESS_TRAINING_META,
+  type WeekProgressLayout,
+  type WeekProgressTrainingKey,
+} from "@/lib/week-progress-layout";
 import styles from "./week-progress.module.scss";
 
 interface Props {
   week: WeekSummary;
   habitWeek: WeekHabitSummary;
+  mealsWeek: WeekMealsSummary;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
   sportSessions: SportSessionForWeek[];
@@ -42,27 +52,15 @@ interface Props {
   taskCategories: TaskCategory[];
   weightPlan: WeightWeekPlan;
   journalWeek: WeekJournalSummary;
+  layout: WeekProgressLayout;
 }
-
-const WATER_LABEL: Record<WaterDayStatus, string> = {
-  future: "Kommande",
-  good: "Mål uppnått",
-  almost: "Nästan",
-  low: "Lågt",
-};
-
-const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
-  yes: "Ja",
-  half: "Delvis",
-  no: "Nej",
-  empty: "—",
-};
 
 const WEEKDAY_HEAD = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
 
 export function WeekProgressBoard({
   week,
   habitWeek,
+  mealsWeek,
   gymSessions,
   cardioSessions,
   sportSessions,
@@ -71,6 +69,7 @@ export function WeekProgressBoard({
   taskCategories,
   weightPlan,
   journalWeek,
+  layout,
 }: Props) {
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
 
@@ -80,7 +79,6 @@ export function WeekProgressBoard({
   const bathingByWeekday = groupByWeekday(bathingSessions);
   const tasksByWeekday = groupTasksByWeekday(tasks);
   const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
-  const journalByDate = new Map(journalWeek.days.map((d) => [d.localDate, d]));
 
   const placedGym = gymSessions.filter((s) => s.placement.weekday != null);
   const placedCardio = cardioSessions.filter((s) => s.placement.weekday != null);
@@ -151,265 +149,145 @@ export function WeekProgressBoard({
             </tr>
           </thead>
           <tbody>
-            <SectionRow label="Dagligt" colSpan={colSpan} />
+            {layout.sections.map((section) => (
+              <Fragment key={section}>
+                {section === "daily" ? (
+                  <>
+                    <SectionRow
+                      label={WEEK_PROGRESS_SECTION_LABEL.daily}
+                      colSpan={colSpan}
+                    />
+                    <WeekDailyHabitRows
+                      week={week}
+                      habitWeek={habitWeek}
+                      mealsWeek={mealsWeek}
+                      dailyRows={layout.dailyRows}
+                    />
+                  </>
+                ) : null}
 
-            <tr>
-              <RowLabel sticky icon="💧" label="Vatten" />
-              {week.days.map((d) => (
-                <td
-                  key={d.date}
-                  className={cellClass(
-                    styles.dataCell,
-                    d.isFuture && styles.cellFuture,
-                    d.isToday && styles.cellToday,
-                    styles[`waterCell_${waterDayStatus(d)}`],
-                  )}
-                  title={`${formatDayShort(d.date)}: ${WATER_LABEL[waterDayStatus(d)]}`}
-                >
-                  <WaterMark status={waterDayStatus(d)} />
-                </td>
-              ))}
-              <TotalCell
-                value={week.daysHit}
-                total={pastDays}
-                highlight={week.daysHit === pastDays && pastDays > 0}
-              />
-            </tr>
+                {section === "training" ? (
+                  <>
+                    <SectionRow
+                      label={WEEK_PROGRESS_SECTION_LABEL.training}
+                      colSpan={colSpan}
+                    />
+                    {layout.trainingRows.map((key) => (
+                      <Fragment key={key}>
+                        {renderTrainingRow(key, {
+                          week,
+                          gymByWeekday,
+                          cardioByWeekday,
+                          sportByWeekday,
+                          bathingByWeekday,
+                          gymDone,
+                          placedGym,
+                          cardioDone,
+                          placedCardio,
+                          sportDone,
+                          placedSport,
+                          bathingDone,
+                          placedBathing,
+                        })}
+                      </Fragment>
+                    ))}
+                  </>
+                ) : null}
 
-            {habitWeek.habits.map((h) => (
-              <tr key={h.id}>
-                <RowLabel sticky icon={h.icon} label={h.label} />
-                {week.days.map((d) => {
-                  const habitDay = habitDayByDate.get(d.date);
-                  const status = habitDay?.statuses[h.id] ?? null;
-                  const moodKey = h.kind === "mood" ? (habitDay?.mood ?? null) : null;
-                  return (
-                    <td
-                      key={d.date}
-                      className={cellClass(
-                        styles.dataCell,
-                        d.isFuture && styles.cellFuture,
-                        d.isToday && styles.cellToday,
-                        !d.isFuture && styles[`habitCell_${status ?? "empty"}`],
-                      )}
-                      title={`${h.label}, ${formatDayShort(d.date)}: ${
-                        d.isFuture
-                          ? "Kommande"
-                          : moodKey
-                            ? MOOD_LABEL[moodKey]
-                            : HABIT_STATUS_LABEL[status ?? "empty"]
-                      }`}
-                    >
-                      {!d.isFuture ? (
-                        moodKey ? (
-                          <span className={styles.moodMark} aria-label={MOOD_LABEL[moodKey]}>
-                            {MOOD_ICON[moodKey]}
-                          </span>
-                        ) : (
-                          <StatusMark status={status} />
-                        )
-                      ) : null}
-                    </td>
-                  );
-                })}
-                <TotalCell
-                  value={habitWeek.yesByHabit[h.id] ?? 0}
-                  total={pastDays}
-                  highlight={(habitWeek.yesByHabit[h.id] ?? 0) === pastDays && pastDays > 0}
-                />
-              </tr>
-            ))}
-
-            <SectionRow label="Träning & hälsa" colSpan={colSpan} />
-
-            <TrainingRow
-              icon="🏋️"
-              label="Gym"
-              days={week.days}
-              byWeekday={gymByWeekday}
-              done={gymDone}
-              total={placedGym.length}
-              renderSession={(s) => ({
-                icon: s.icon,
-                done: Boolean(s.placement.doneAt),
-                title: s.placement.warmup
-                  ? `${s.label} · ${GYM_WARMUP_LABEL[s.placement.warmup]}`
-                  : s.label,
-                warmupIcon:
-                  s.placement.doneAt && s.placement.warmup
-                    ? GYM_WARMUP_ICON[s.placement.warmup]
-                    : undefined,
-              })}
-            />
-
-            <TrainingRow
-              icon="🏃"
-              label="Cardio"
-              days={week.days}
-              byWeekday={cardioByWeekday}
-              done={cardioDone}
-              total={placedCardio.length}
-              chipClass={styles.cardioChip}
-              renderSession={(s) => ({
-                icon: s.icon,
-                done: Boolean(s.placement.doneAt),
-                title: s.placement.note ? `${s.label}: ${s.placement.note}` : s.label,
-              })}
-            />
-
-            <TrainingRow
-              icon="⚽"
-              label="Sport"
-              days={week.days}
-              byWeekday={sportByWeekday}
-              done={sportDone}
-              total={placedSport.length}
-              chipClass={styles.sportChip}
-              renderSession={(s) => ({
-                icon: s.icon,
-                done: Boolean(s.placement.doneAt),
-                title: formatSportDetail(s.placement) ?? s.label,
-              })}
-            />
-
-            <TrainingRow
-              icon="🧖"
-              label="Bad & bastu"
-              days={week.days}
-              byWeekday={bathingByWeekday}
-              done={bathingDone}
-              total={placedBathing.length}
-              chipClass={styles.bathingChip}
-              renderSession={(s) => ({
-                icon: s.icon,
-                done: Boolean(s.placement.doneAt),
-                title:
-                  s.placement.waterTempC != null
-                    ? `${s.label}: ${formatWaterTemp(s.placement.waterTempC)}`
-                    : s.description
-                      ? `${s.label}: ${s.description}`
-                      : s.label,
-              })}
-            />
-
-            <SectionRow label="Uppgifter" colSpan={colSpan} />
-
-            {taskGroups.length === 0 ? (
-              <tr>
-                <RowLabel sticky icon="📋" label="Veckouppgifter" />
-                {week.days.map((d) => (
-                  <td
-                    key={d.date}
-                    className={cellClass(
-                      styles.dataCell,
-                      styles.taskCell,
-                      d.isFuture && styles.cellFuture,
-                      d.isToday && styles.cellToday,
-                    )}
-                  >
-                    <span className={styles.emptyMark}>—</span>
-                  </td>
-                ))}
-                <TotalCell value={null} total={null} muted mutedLabel="—" />
-              </tr>
-            ) : (
-              taskGroups.map(({ category, byWeekday, done, total }) => (
-                <tr key={category?.id ?? "uncategorized"}>
-                  <RowLabel
-                    sticky
-                    icon={category?.icon ?? "📋"}
-                    label={category?.name ?? "Övrigt"}
-                  />
-                  {week.days.map((d) => {
-                    const weekday = isoWeekdayFromLocalISO(d.date);
-                    const dayTasks = byWeekday.get(weekday) ?? [];
-                    const dayDone = dayTasks.filter(
-                      (t) => t.placement?.doneAt,
-                    ).length;
-                    const allDone =
-                      dayTasks.length > 0 && dayDone === dayTasks.length;
-                    return (
-                      <td
-                        key={d.date}
-                        className={cellClass(
-                          styles.dataCell,
-                          styles.taskCell,
-                          d.isFuture && styles.cellFuture,
-                          d.isToday && styles.cellToday,
-                          allDone && styles.taskCellDone,
-                        )}
-                      >
-                        {dayTasks.length === 0 ? (
-                          <span className={styles.emptyMark}>—</span>
-                        ) : (
-                          <span className={styles.taskFraction}>
-                            {dayDone}/{dayTasks.length}
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <TotalCell
-                    value={done}
-                    total={total || null}
-                    muted={total === 0}
-                    mutedLabel={total === 0 ? "—" : undefined}
-                    highlight={total > 0 && done === total}
-                  />
-                </tr>
-              ))
-            )}
-
-            <SectionRow label="Dagbok" colSpan={colSpan} />
-
-            <tr>
-              <RowLabel sticky icon="📓" label="Dagbok" />
-              {week.days.map((d) => {
-                const dayJournal = journalByDate.get(d.date);
-                const entries = dayJournal?.entries ?? [];
-                const href = d.isToday ? "/" : `/day/${d.date}`;
-                return (
-                  <td
-                    key={d.date}
-                    className={cellClass(
-                      styles.dataCell,
-                      styles.journalCell,
-                      d.isFuture && styles.cellFuture,
-                      d.isToday && styles.cellToday,
-                      entries.length > 0 && styles.journalCellHasEntries,
-                    )}
-                  >
-                    {d.isFuture ? null : entries.length === 0 ? (
-                      <span className={styles.emptyMark}>—</span>
+                {section === "tasks" ? (
+                  <>
+                    <SectionRow
+                      label={WEEK_PROGRESS_SECTION_LABEL.tasks}
+                      colSpan={colSpan}
+                    />
+                    {taskGroups.length === 0 ? (
+                      <tr>
+                        <RowLabel sticky icon="📋" label="Veckouppgifter" />
+                        {week.days.map((d) => (
+                          <td
+                            key={d.date}
+                            className={cellClass(
+                              styles.dataCell,
+                              styles.taskCell,
+                              d.isFuture && styles.cellFuture,
+                              d.isToday && styles.cellToday,
+                            )}
+                          >
+                            <span className={styles.emptyMark}>—</span>
+                          </td>
+                        ))}
+                        <TotalCell
+                          value={null}
+                          total={null}
+                          muted
+                          mutedLabel="—"
+                        />
+                      </tr>
                     ) : (
-                      <Link href={href} className={styles.journalLink} title={dayJournal?.narrative ?? dayJournal?.preview ?? ""}>
-                        <span className={styles.journalCount}>{entries.length}</span>
-                        {dayJournal?.narrative || dayJournal?.preview ? (
-                          <span className={styles.journalPreview}>
-                            {dayJournal.narrative || dayJournal.preview}
-                          </span>
-                        ) : null}
-                      </Link>
+                      taskGroups.map(({ category, byWeekday, done, total }) => (
+                        <tr key={category?.id ?? "uncategorized"}>
+                          <RowLabel
+                            sticky
+                            icon={category?.icon ?? "📋"}
+                            label={category?.name ?? "Övrigt"}
+                          />
+                          {week.days.map((d) => {
+                            const weekday = isoWeekdayFromLocalISO(d.date);
+                            const dayTasks = byWeekday.get(weekday) ?? [];
+                            const dayDone = dayTasks.filter(
+                              (t) => t.placement?.doneAt,
+                            ).length;
+                            const allDone =
+                              dayTasks.length > 0 &&
+                              dayDone === dayTasks.length;
+                            return (
+                              <td
+                                key={d.date}
+                                className={cellClass(
+                                  styles.dataCell,
+                                  styles.taskCell,
+                                  d.isFuture && styles.cellFuture,
+                                  d.isToday && styles.cellToday,
+                                  allDone && styles.taskCellDone,
+                                )}
+                              >
+                                {dayTasks.length === 0 ? (
+                                  <span className={styles.emptyMark}>—</span>
+                                ) : (
+                                  <span className={styles.taskFraction}>
+                                    {dayDone}/{dayTasks.length}
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
+                          <TotalCell
+                            value={done}
+                            total={total || null}
+                            muted={total === 0}
+                            mutedLabel={total === 0 ? "—" : undefined}
+                            highlight={total > 0 && done === total}
+                          />
+                        </tr>
+                      ))
                     )}
-                  </td>
-                );
-              })}
-              <td
-                className={cellClass(
-                  styles.totalCell,
-                  journalWeek.days.some((d) => d.entryCount > 0) && styles.totalCellDone,
-                )}
-              >
-                {(() => {
-                  const total = journalWeek.days.reduce((sum, d) => sum + d.entryCount, 0);
-                  return total > 0 ? (
-                    <span className={styles.totalValue}>{total}</span>
-                  ) : (
-                    <span className={styles.emptyMark}>—</span>
-                  );
-                })()}
-              </td>
-            </tr>
+                  </>
+                ) : null}
+
+                {section === "journal" ? (
+                  <>
+                    <SectionRow
+                      label={WEEK_PROGRESS_SECTION_LABEL.journal}
+                      colSpan={colSpan}
+                    />
+                    <WeekJournalRow
+                      days={week.days}
+                      journalWeek={journalWeek}
+                    />
+                  </>
+                ) : null}
+              </Fragment>
+            ))}
           </tbody>
           <tfoot>
             <tr className={styles.footerRow}>
@@ -486,6 +364,110 @@ export function WeekProgressBoard({
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+interface TrainingRowContext {
+  week: WeekSummary;
+  gymByWeekday: Map<number, GymSessionForWeek[]>;
+  cardioByWeekday: Map<number, CardioSessionForWeek[]>;
+  sportByWeekday: Map<number, SportSessionForWeek[]>;
+  bathingByWeekday: Map<number, BathingSessionForWeek[]>;
+  gymDone: number;
+  placedGym: GymSessionForWeek[];
+  cardioDone: number;
+  placedCardio: CardioSessionForWeek[];
+  sportDone: number;
+  placedSport: SportSessionForWeek[];
+  bathingDone: number;
+  placedBathing: BathingSessionForWeek[];
+}
+
+function renderTrainingRow(
+  key: WeekProgressTrainingKey,
+  ctx: TrainingRowContext,
+) {
+  const meta = WEEK_PROGRESS_TRAINING_META[key];
+
+  switch (key) {
+    case "gym":
+      return (
+        <TrainingRow
+          icon={meta.icon}
+          label={meta.label}
+          days={ctx.week.days}
+          byWeekday={ctx.gymByWeekday}
+          done={ctx.gymDone}
+          total={ctx.placedGym.length}
+          renderSession={(s) => ({
+            icon: s.icon,
+            done: Boolean(s.placement.doneAt),
+            title: s.placement.warmup
+              ? `${s.label} · ${GYM_WARMUP_LABEL[s.placement.warmup]}`
+              : s.label,
+            warmupIcon:
+              s.placement.doneAt && s.placement.warmup
+                ? GYM_WARMUP_ICON[s.placement.warmup]
+                : undefined,
+          })}
+        />
+      );
+    case "cardio":
+      return (
+        <TrainingRow
+          icon={meta.icon}
+          label={meta.label}
+          days={ctx.week.days}
+          byWeekday={ctx.cardioByWeekday}
+          done={ctx.cardioDone}
+          total={ctx.placedCardio.length}
+          chipClass={styles.cardioChip}
+          renderSession={(s) => ({
+            icon: s.icon,
+            done: Boolean(s.placement.doneAt),
+            title: s.placement.note ? `${s.label}: ${s.placement.note}` : s.label,
+          })}
+        />
+      );
+    case "sport":
+      return (
+        <TrainingRow
+          icon={meta.icon}
+          label={meta.label}
+          days={ctx.week.days}
+          byWeekday={ctx.sportByWeekday}
+          done={ctx.sportDone}
+          total={ctx.placedSport.length}
+          chipClass={styles.sportChip}
+          renderSession={(s) => ({
+            icon: s.icon,
+            done: Boolean(s.placement.doneAt),
+            title: formatSportDetail(s.placement) ?? s.label,
+          })}
+        />
+      );
+    case "bathing":
+      return (
+        <TrainingRow
+          icon={meta.icon}
+          label={meta.label}
+          days={ctx.week.days}
+          byWeekday={ctx.bathingByWeekday}
+          done={ctx.bathingDone}
+          total={ctx.placedBathing.length}
+          chipClass={styles.bathingChip}
+          renderSession={(s) => ({
+            icon: s.icon,
+            done: Boolean(s.placement.doneAt),
+            title:
+              s.placement.waterTempC != null
+                ? `${s.label}: ${formatWaterTemp(s.placement.waterTempC)}`
+                : s.description
+                  ? `${s.label}: ${s.description}`
+                  : s.label,
+          })}
+        />
+      );
+  }
+}
 
 interface TaskGroupRecap {
   category: TaskCategory | null;
@@ -1060,31 +1042,12 @@ function DayScore({
   );
 }
 
-function StatusMark({ status }: { status: HabitStatus | null }) {
-  const resolved = status ?? "empty";
-  const label = HABIT_STATUS_LABEL[resolved];
-  return (
-    <span className={cellClass(styles.statusMark, styles[`statusMark_${resolved}`])} aria-label={label}>
-      {resolved === "yes" ? "✓" : resolved === "half" ? "½" : resolved === "no" ? "✗" : "·"}
-    </span>
-  );
-}
-
 function StatusSwatch({ status }: { status: HabitStatus | "empty" }) {
   return (
     <span
       className={cellClass(styles.swatch, styles[`swatch_${status}`])}
       aria-hidden
     />
-  );
-}
-
-function WaterMark({ status }: { status: WaterDayStatus }) {
-  if (status === "future") return null;
-  return (
-    <span className={cellClass(styles.waterMark, styles[`waterMark_${status}`])} aria-hidden>
-      {status === "good" ? "✓" : status === "almost" ? "~" : "!"}
-    </span>
   );
 }
 

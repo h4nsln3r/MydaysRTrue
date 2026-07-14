@@ -15,6 +15,7 @@ export interface Database {
           daily_steps_goal: number;
           daily_activity_hours_goal: number;
           default_weight_weekday: number | null;
+          week_progress_layout: Json | null;
           created_at: string;
           updated_at: string;
         };
@@ -25,6 +26,7 @@ export interface Database {
           daily_steps_goal?: number;
           daily_activity_hours_goal?: number;
           default_weight_weekday?: number | null;
+          week_progress_layout?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -35,6 +37,7 @@ export interface Database {
           daily_steps_goal?: number;
           daily_activity_hours_goal?: number;
           default_weight_weekday?: number | null;
+          week_progress_layout?: Json | null;
           created_at?: string;
           updated_at?: string;
         };

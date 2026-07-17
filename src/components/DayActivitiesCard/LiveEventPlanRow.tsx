@@ -65,7 +65,7 @@ export function LiveEventPlanRow({
   const [, startTransition] = useTransition();
 
   const detail = done
-    ? liveEventDetail(event)
+    ? [liveEventDetail(event), event.note?.trim()].filter(Boolean).join(" · ")
     : `${LIVE_EVENT_KIND_LABEL[event.kind]} · ${event.eventDate}${event.location ? ` · ${event.location}` : ""}${overdue ? " · Passerat" : ""}`;
 
   const attend = () => {
@@ -211,14 +211,19 @@ export function LiveEventPlanRow({
               </Button>
             </>
           ) : (
-            <button
-              type="button"
-              className={styles.undoBtn}
-              onClick={clear}
-              disabled={pending}
-            >
-              Ångra
-            </button>
+            <>
+              {event.note?.trim() ? (
+                <p className={rowStyles.prompt}>{event.note.trim()}</p>
+              ) : null}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={clear}
+                disabled={pending}
+              >
+                Ångra
+              </button>
+            </>
           )}
         </div>
       ) : null}

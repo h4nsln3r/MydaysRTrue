@@ -283,8 +283,8 @@ export async function getDailyHabits(
       .from("live_events")
       .select("id")
       .eq("user_id", userId)
-      .gte("attended_at", `${localDate}T00:00:00.000Z`)
-      .lte("attended_at", `${localDate}T23:59:59.999Z`),
+      .eq("event_date", localDate)
+      .not("attended_at", "is", null),
     supabase
       .from("smoke_free_daily_logs")
       .select("nicotine_status, cannabis_status")
@@ -650,11 +650,11 @@ export async function getMonthSummary(
       .lte("local_date", endISO),
     supabase
       .from("live_events")
-      .select("attended_at")
+      .select("event_date")
       .eq("user_id", userId)
       .not("attended_at", "is", null)
-      .gte("attended_at", `${startISO}T00:00:00.000Z`)
-      .lte("attended_at", `${endISO}T23:59:59.999Z`),
+      .gte("event_date", startISO)
+      .lte("event_date", endISO),
     supabase
       .from("smoke_free_daily_logs")
       .select("local_date, nicotine_status, cannabis_status")
@@ -758,7 +758,7 @@ export async function getMonthSummary(
 
   const liveAttendedByDate = new Set<string>();
   for (const r of liveAttendedRes.data ?? []) {
-    if (r.attended_at) liveAttendedByDate.add(r.attended_at.slice(0, 10));
+    liveAttendedByDate.add(r.event_date);
   }
 
   const today = todayLocalISO();
@@ -971,11 +971,11 @@ export async function getWeekHabitSummary(
       .lte("local_date", weekEnd),
     supabase
       .from("live_events")
-      .select("attended_at")
+      .select("event_date")
       .eq("user_id", userId)
       .not("attended_at", "is", null)
-      .gte("attended_at", `${weekStart}T00:00:00.000Z`)
-      .lte("attended_at", `${weekEnd}T23:59:59.999Z`),
+      .gte("event_date", weekStart)
+      .lte("event_date", weekEnd),
     supabase
       .from("smoke_free_daily_logs")
       .select("local_date, nicotine_status, cannabis_status")
@@ -1077,7 +1077,7 @@ export async function getWeekHabitSummary(
 
   const liveAttendedByDate = new Set<string>();
   for (const r of liveAttendedWeekRes.data ?? []) {
-    if (r.attended_at) liveAttendedByDate.add(r.attended_at.slice(0, 10));
+    liveAttendedByDate.add(r.event_date);
   }
 
   const today = todayLocalISO();

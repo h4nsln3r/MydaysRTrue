@@ -357,7 +357,7 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
     entries.push(entry);
   }
 
-  for (const t of journalMonthlyTasksForDate(ctx.monthlyTasks ?? [], ctx.localDate)) {
+  for (const t of journalMonthlyTasksForDate(ctx.monthlyTasks ?? [])) {
     const completion = t.completion!;
     const detail = formatMonthlyTaskDetail(t, completion);
     entries.push({
@@ -491,14 +491,15 @@ function sessionsForDate<T extends { placement: { weekday: number | null } }>(
   );
 }
 
-/** Weekly tasks checked off on this calendar day. */
+/** Weekly tasks planned for this calendar day and marked done (even if late). */
 function journalWeeklyTasksForDate(
   tasks: WeeklyTaskForWeek[],
   localDate: string,
 ): WeeklyTaskForWeek[] {
   return tasks.filter((t) => {
-    const doneAt = t.placement?.doneAt;
-    return doneAt != null && doneAt.slice(0, 10) === localDate;
+    const placement = t.placement;
+    if (!placement?.doneAt || placement.weekday == null) return false;
+    return addDaysISO(placement.weekStart, placement.weekday - 1) === localDate;
   });
 }
 
@@ -534,15 +535,11 @@ function journalChecklistCompletionsForDate(
   return entries;
 }
 
-/** Monthly tasks checked off on this calendar day. */
+/** Monthly tasks for this day that are done (callers already scope by scheduled day). */
 function journalMonthlyTasksForDate(
   tasks: MonthlyTaskForMonth[],
-  localDate: string,
 ): MonthlyTaskForMonth[] {
-  return tasks.filter((t) => {
-    const doneAt = t.completion?.doneAt;
-    return doneAt != null && doneAt.slice(0, 10) === localDate;
-  });
+  return tasks.filter((t) => t.completion?.doneAt != null);
 }
 
 function monthlyTasksForDate(

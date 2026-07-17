@@ -73,9 +73,7 @@ export async function getDailyLiveEvents(
 ): Promise<DailyLiveEventsContext> {
   const year = yearFromLocalISO(localDate);
   const { events } = await getYearLiveEvents(userId, year);
-  const dueEvents = events.filter(
-    (e) => !e.attendedAt && e.eventDate <= localDate,
-  );
+  const dueEvents = events.filter((e) => e.eventDate === localDate);
 
   return { localDate, year, dueEvents };
 }
@@ -103,7 +101,7 @@ export async function getMonthLiveEvents(
   };
 }
 
-/** Dates (YYYY-MM-DD) when user attended at least one live event. */
+/** Event dates (YYYY-MM-DD) when user attended at least one live event. */
 export async function getLiveAttendanceDates(
   userId: string,
   startISO: string,
@@ -112,16 +110,15 @@ export async function getLiveAttendanceDates(
   const supabase = await createClient();
   const { data } = await supabase
     .from("live_events")
-    .select("attended_at")
+    .select("event_date")
     .eq("user_id", userId)
     .not("attended_at", "is", null)
-    .gte("attended_at", `${startISO}T00:00:00.000Z`)
-    .lte("attended_at", `${endISO}T23:59:59.999Z`);
+    .gte("event_date", startISO)
+    .lte("event_date", endISO);
 
   const dates = new Set<string>();
   for (const row of data ?? []) {
-    if (!row.attended_at) continue;
-    dates.add(row.attended_at.slice(0, 10));
+    dates.add(row.event_date);
   }
   return dates;
 }

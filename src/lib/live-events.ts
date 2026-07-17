@@ -41,7 +41,7 @@ export interface LiveEvent {
 export interface DailyLiveEventsContext {
   localDate: string;
   year: number;
-  /** Due today or overdue, not yet attended. */
+  /** Events scheduled on this local date (pending or attended). */
   dueEvents: LiveEvent[];
 }
 
@@ -70,7 +70,7 @@ export function isLiveEventAttended(event: LiveEvent): boolean {
 
 export function isLiveEventDue(event: LiveEvent, localDate: string): boolean {
   if (event.attendedAt) return false;
-  return event.eventDate <= localDate;
+  return event.eventDate === localDate;
 }
 
 export function liveEventDetail(event: LiveEvent): string {

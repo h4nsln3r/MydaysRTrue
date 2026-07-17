@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setHabitStatusAction } from "@/app/(app)/actions";
+import { useSyncNavPending } from "@/components/NavProgress/NavProgress";
 import {
   groupByCategory,
   type TaskCategory,
@@ -37,6 +38,8 @@ export function HabitChecks({ date, habits, categories = [] }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  useSyncNavPending(pendingId != null, habits);
 
   if (triState.length === 0) {
     return (

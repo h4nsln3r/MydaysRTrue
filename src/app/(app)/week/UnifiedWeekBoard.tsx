@@ -97,6 +97,7 @@ import {
   type WeekPlanItem,
   type WeekPlanTaskItem,
 } from "@/lib/week-plan";
+import { useSyncNavPending } from "@/components/NavProgress/NavProgress";
 import styles from "./weekly-tasks.module.scss";
 
 interface Props {
@@ -117,6 +118,8 @@ export function UnifiedWeekBoard({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useSyncNavPending(pending || pendingId != null, plan.items);
 
   useEffect(() => {
     if (draggingId != null || pending || pendingId != null) return;

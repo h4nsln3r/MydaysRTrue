@@ -26,6 +26,44 @@ export function useNavPending() {
   return ctx;
 }
 
+/**
+ * Mirrors a local busy flag onto the global overlay.
+ * Stays visible until `settleKey` changes after busy ends (covers router.refresh()).
+ */
+export function useSyncNavPending(busy: boolean, settleKey: unknown) {
+  const { setPending } = useNavPending();
+  const [holding, setHolding] = useState(false);
+  const keyAtBusyStart = useRef(settleKey);
+  const settleKeyRef = useRef(settleKey);
+  settleKeyRef.current = settleKey;
+
+  useEffect(() => {
+    if (!busy) return;
+    keyAtBusyStart.current = settleKeyRef.current;
+    setHolding(true);
+  }, [busy]);
+
+  useEffect(() => {
+    if (!holding || busy) return;
+    if (settleKey === keyAtBusyStart.current) return;
+    setHolding(false);
+  }, [settleKey, holding, busy]);
+
+  useEffect(() => {
+    if (!holding || busy) return;
+    const id = window.setTimeout(() => setHolding(false), 2500);
+    return () => window.clearTimeout(id);
+  }, [holding, busy, settleKey]);
+
+  const show = busy || holding;
+
+  useEffect(() => {
+    if (!show) return;
+    setPending(true);
+    return () => setPending(false);
+  }, [show, setPending]);
+}
+
 export function NavPendingProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [pending, setPendingState] = useState(false);
@@ -47,6 +85,17 @@ export function NavPendingProvider({ children }: { children: ReactNode }) {
         className={[styles.bar, pending ? styles.active : ""].filter(Boolean).join(" ")}
         aria-hidden
       />
+      {pending ? (
+        <div
+          className={styles.overlay}
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label="Laddar"
+        >
+          <span className={styles.spinner} aria-hidden />
+        </div>
+      ) : null}
       {children}
     </NavPendingContext.Provider>
   );

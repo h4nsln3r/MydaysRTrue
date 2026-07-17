@@ -5,7 +5,7 @@
     top: 0;
     left: 0;
     right: 0;
-    z-index: 100;
+    z-index: 130;
     height: 2px;
     pointer-events: none;
     opacity: 0;
@@ -29,5 +29,41 @@
     }
     100% {
         transform: scaleX(0.96);
+    }
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: grid;
+    place-items: center;
+    background: rgba(10, 10, 10, 0.45);
+    backdrop-filter: blur(2px);
+    cursor: wait;
+    animation: overlayIn 140ms $ease-out;
+}
+
+.spinner {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid rgba(246, 239, 225, 0.22);
+    border-top-color: $color-orange-bright;
+    animation: spin 0.75s linear infinite;
+}
+
+@keyframes overlayIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }

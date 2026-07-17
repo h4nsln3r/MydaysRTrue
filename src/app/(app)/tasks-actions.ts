@@ -22,10 +22,12 @@ import {
   isMusicRepTask,
   MUSIC_BANDS,
   type MusicBand,
+  type MusicLogKind,
   type TaskScope,
   type Weekday,
   type WeeklyTaskCompletionKind,
 } from "@/lib/tasks";
+import { yearFromLocalISO, GIG_RATING_MAX, GIG_RATING_MIN } from "@/lib/gigs";
 import { UTGIFTER_CATEGORY_NAME } from "@/lib/expenses";
 import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
 
@@ -787,6 +789,13 @@ export async function completeWeeklyTaskAction(input: {
   shopAmount?: number;
   laundryLoads?: number;
   band?: string;
+  /** Music only: register as own-band gig or attended live concert. */
+  musicLogKind?: MusicLogKind | null;
+  /** Required when musicLogKind is gig or live. */
+  musicTitle?: string;
+  /** Venue (gig) or location (live). */
+  musicPlace?: string;
+  musicRating?: number | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -811,6 +820,10 @@ export async function completeWeeklyTaskAction(input: {
   const note = (input.note ?? "").trim();
   const shopLocation = (input.shopLocation ?? "").trim();
   const bandInput = (input.band ?? "").trim();
+  const musicLogKind = input.musicLogKind ?? null;
+  const musicTitle = (input.musicTitle ?? "").trim();
+  const musicPlace = (input.musicPlace ?? "").trim().slice(0, 120) || null;
+  const eventNote = note.slice(0, 280);
 
   const { data: existing } = await supabase
     .from("weekly_task_placements")
@@ -833,6 +846,9 @@ export async function completeWeeklyTaskAction(input: {
   let completionNote: string | null = null;
   let laundryLoads: number | null = null;
   let band: MusicBand | null = null;
+  let resolvedMusicLogKind: MusicLogKind | null = null;
+  let gigId: string | null = null;
+  let liveEventId: string | null = null;
 
   if (kind === "shop" || kind === "expense") {
     if (!shopLocation) {
@@ -870,18 +886,126 @@ export async function completeWeeklyTaskAction(input: {
     }
     laundryLoads = loads;
   } else if (kind === "music") {
-    if (!note) {
-      return { ok: false, error: "Skriv en kommentar om vad du gjorde." };
+    if (musicLogKind != null && musicLogKind !== "gig" && musicLogKind !== "live") {
+      return { ok: false, error: "Ogiltig musikttyp." };
     }
-    if (note.length > 500) {
-      return { ok: false, error: "Håll kommentaren under 500 tecken." };
-    }
-    completionNote = note;
-    if (isMusicRepTask(task.key)) {
-      if (!bandInput || !MUSIC_BANDS.includes(bandInput as MusicBand)) {
-        return { ok: false, error: "Välj vilket band du repade med." };
+
+    if (musicLogKind === "gig" || musicLogKind === "live") {
+      if (!musicTitle) {
+        return { ok: false, error: "Skriv en titel." };
       }
-      band = bandInput as MusicBand;
+      if (musicTitle.length > 120) {
+        return { ok: false, error: "Håll titeln under 120 tecken." };
+      }
+      if (note.length > 280) {
+        return { ok: false, error: "Håll kommentaren under 280 tecken." };
+      }
+
+      const rating = input.musicRating;
+      if (
+        rating != null &&
+        (!Number.isInteger(rating) ||
+          rating < GIG_RATING_MIN ||
+          rating > GIG_RATING_MAX)
+      ) {
+        return { ok: false, error: "Betyget måste vara 1–10." };
+      }
+
+      const eventDate = addDaysISO(input.weekStart, existing.weekday - 1);
+      const year = yearFromLocalISO(eventDate);
+      const nowIso = new Date().toISOString();
+
+      if (musicLogKind === "gig") {
+        if (!bandInput || !MUSIC_BANDS.includes(bandInput as MusicBand)) {
+          return { ok: false, error: "Välj vilket band som spelade." };
+        }
+        band = bandInput as MusicBand;
+
+        const { data: last } = await supabase
+          .from("gigs")
+          .select("sort_order")
+          .eq("user_id", user.id)
+          .eq("year", year)
+          .is("archived_at", null)
+          .order("sort_order", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const { data: gig, error: gigError } = await supabase
+          .from("gigs")
+          .insert({
+            user_id: user.id,
+            year,
+            band,
+            title: musicTitle,
+            event_date: eventDate,
+            venue: musicPlace,
+            note: eventNote || null,
+            rating: rating ?? null,
+            played_at: nowIso,
+            sort_order: (last?.sort_order ?? -1) + 1,
+          })
+          .select("id")
+          .single();
+        if (gigError || !gig) {
+          return {
+            ok: false,
+            error: gigError?.message ?? "Kunde inte spara spelningen.",
+          };
+        }
+        gigId = gig.id;
+      } else {
+        const { data: last } = await supabase
+          .from("live_events")
+          .select("sort_order")
+          .eq("user_id", user.id)
+          .eq("year", year)
+          .is("archived_at", null)
+          .order("sort_order", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const { data: liveEvent, error: liveError } = await supabase
+          .from("live_events")
+          .insert({
+            user_id: user.id,
+            year,
+            kind: "concert",
+            title: musicTitle,
+            event_date: eventDate,
+            location: musicPlace,
+            note: eventNote || null,
+            rating: rating ?? null,
+            attended_at: nowIso,
+            sort_order: (last?.sort_order ?? -1) + 1,
+          })
+          .select("id")
+          .single();
+        if (liveError || !liveEvent) {
+          return {
+            ok: false,
+            error: liveError?.message ?? "Kunde inte spara live-spelningen.",
+          };
+        }
+        liveEventId = liveEvent.id;
+      }
+
+      resolvedMusicLogKind = musicLogKind;
+      completionNote = musicTitle;
+    } else {
+      if (!note) {
+        return { ok: false, error: "Skriv en kommentar om vad du gjorde." };
+      }
+      if (note.length > 500) {
+        return { ok: false, error: "Håll kommentaren under 500 tecken." };
+      }
+      completionNote = note;
+      if (isMusicRepTask(task.key)) {
+        if (!bandInput || !MUSIC_BANDS.includes(bandInput as MusicBand)) {
+          return { ok: false, error: "Välj vilket band du repade med." };
+        }
+        band = bandInput as MusicBand;
+      }
     }
   }
 
@@ -903,12 +1027,29 @@ export async function completeWeeklyTaskAction(input: {
         kind === "shop" || kind === "expense" ? shopAmount : null,
       laundry_loads: laundryLoads,
       band: kind === "music" ? band : null,
+      music_log_kind: kind === "music" ? resolvedMusicLogKind : null,
+      gig_id: kind === "music" ? gigId : null,
+      live_event_id: kind === "music" ? liveEventId : null,
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    if (gigId) {
+      await supabase.from("gigs").delete().eq("id", gigId).eq("user_id", user.id);
+    }
+    if (liveEventId) {
+      await supabase
+        .from("live_events")
+        .delete()
+        .eq("id", liveEventId)
+        .eq("user_id", user.id);
+    }
+    return { ok: false, error: error.message };
+  }
 
   revalidatePath("/", "layout");
+  revalidatePath("/year", "page");
+  revalidatePath("/month", "page");
   return { ok: true };
 }
 
@@ -927,6 +1068,15 @@ export async function uncompleteWeeklyTaskAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
+  const { data: existing } = await supabase
+    .from("weekly_task_placements")
+    .select("id, gig_id, live_event_id")
+    .eq("user_id", user.id)
+    .eq("task_id", input.taskId)
+    .eq("week_start", input.weekStart)
+    .maybeSingle();
+  if (!existing) return { ok: false, error: "Uppgiften hittades inte." };
+
   const { error } = await supabase
     .from("weekly_task_placements")
     .update({
@@ -936,13 +1086,32 @@ export async function uncompleteWeeklyTaskAction(input: {
       shop_amount: null,
       laundry_loads: null,
       band: null,
+      music_log_kind: null,
+      gig_id: null,
+      live_event_id: null,
     })
-    .eq("user_id", user.id)
-    .eq("task_id", input.taskId)
-    .eq("week_start", input.weekStart);
+    .eq("id", existing.id)
+    .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
 
+  if (existing.gig_id) {
+    await supabase
+      .from("gigs")
+      .delete()
+      .eq("id", existing.gig_id)
+      .eq("user_id", user.id);
+  }
+  if (existing.live_event_id) {
+    await supabase
+      .from("live_events")
+      .delete()
+      .eq("id", existing.live_event_id)
+      .eq("user_id", user.id);
+  }
+
   revalidatePath("/", "layout");
+  revalidatePath("/year", "page");
+  revalidatePath("/month", "page");
   return { ok: true };
 }
 

@@ -36,6 +36,7 @@ import type { DailyMediaContext } from "@/lib/media";
 import type { DailyLiveEventsContext } from "@/lib/live-events";
 import type { WorkDailyLog } from "@/lib/work";
 import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
+import { useSyncNavPending } from "@/components/NavProgress/NavProgress";
 import { DayActivityRow } from "./DayActivityRow";
 import { PlanSortableRow } from "./PlanSortableRow";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
@@ -163,6 +164,8 @@ export function DayActivitiesCard({
       savedOrder,
     ],
   );
+
+  useSyncNavPending(pending || pendingKey != null, builtItems);
 
   const [localItems, setLocalItems] = useState(builtItems);
 

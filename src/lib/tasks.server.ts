@@ -17,6 +17,7 @@ import {
   type WeeklyTaskChecklistCompletion,
   type WeeklyTaskForWeek,
   type MusicBand,
+  type MusicLogKind,
 } from "@/lib/tasks";
 import {
   balancesFromSnapshotRow,
@@ -217,6 +218,9 @@ interface WeeklyPlacementRow {
   shop_amount: number | null;
   laundry_loads: number | null;
   band: string | null;
+  music_log_kind: string | null;
+  gig_id: string | null;
+  live_event_id: string | null;
   on_hold: boolean;
 }
 
@@ -234,6 +238,9 @@ function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
     shopAmount: r.shop_amount != null ? Number(r.shop_amount) : null,
     laundryLoads: r.laundry_loads,
     band: (r.band as MusicBand | null) ?? null,
+    musicLogKind: (r.music_log_kind as MusicLogKind | null) ?? null,
+    gigId: r.gig_id,
+    liveEventId: r.live_event_id,
     onHold: r.on_hold ?? false,
   };
 }
@@ -295,7 +302,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band, on_hold";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band, music_log_kind, gig_id, live_event_id, on_hold";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 

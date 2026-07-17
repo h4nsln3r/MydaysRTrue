@@ -125,6 +125,9 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
                 shopAmount: t.placement?.shopAmount ?? null,
                 laundryLoads: t.placement?.laundryLoads ?? null,
                 band: t.placement?.band ?? null,
+                musicLogKind: t.placement?.musicLogKind ?? null,
+                gigId: t.placement?.gigId ?? null,
+                liveEventId: t.placement?.liveEventId ?? null,
                 onHold: false,
               },
             }

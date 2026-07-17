@@ -22,8 +22,10 @@ import {
   formatWeeklyTaskDetail,
   isMusicRepTask,
   MUSIC_BANDS,
+  MUSIC_LOG_KIND_LABEL,
   sortWeeklyDayTasks,
   type MusicBand,
+  type MusicLogKind,
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   WEEKDAYS,
@@ -31,6 +33,7 @@ import {
   type Weekday,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import { GIG_RATING_MAX, GIG_RATING_MIN } from "@/lib/gigs";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import { taskCategory } from "@/lib/activity-category";
@@ -382,6 +385,14 @@ export function WeeklyTaskRow({
   const [band, setBand] = useState<MusicBand | null>(
     placement?.band ?? null,
   );
+  const [musicLogKind, setMusicLogKind] = useState<MusicLogKind | null>(
+    placement?.musicLogKind ?? null,
+  );
+  const [musicTitle, setMusicTitle] = useState(
+    placement?.musicLogKind ? (placement.note ?? "") : "",
+  );
+  const [musicPlace, setMusicPlace] = useState("");
+  const [musicRating, setMusicRating] = useState("");
 
   const detail = placement ? formatWeeklyTaskDetail(placement) : null;
   const planNote = placement?.planNote?.trim() ?? "";
@@ -418,6 +429,13 @@ export function WeeklyTaskRow({
         laundryLoads:
           laundryLoads.trim() === "" ? undefined : Number(laundryLoads),
         band: band ?? undefined,
+        musicLogKind,
+        musicTitle: musicLogKind ? musicTitle : undefined,
+        musicPlace: musicLogKind ? musicPlace : undefined,
+        musicRating:
+          musicLogKind && musicRating.trim() !== ""
+            ? Number(musicRating)
+            : null,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -439,6 +457,10 @@ export function WeeklyTaskRow({
       setShopAmount("");
       setLaundryLoads("");
       setBand(null);
+      setMusicLogKind(null);
+      setMusicTitle("");
+      setMusicPlace("");
+      setMusicRating("");
       onPendingId(null);
       onDone();
     });
@@ -726,38 +748,163 @@ export function WeeklyTaskRow({
               ) : null}
               {task.completionKind === "music" ? (
                 <>
-                  {isMusicRepTask(task.key) ? (
-                    <div className={styles.bandPicker}>
-                      <span className={styles.bandLabel}>Vilket band?</span>
-                      <div className={styles.bandBtns}>
-                        {MUSIC_BANDS.map((b) => (
+                  <div className={styles.bandPicker}>
+                    <span className={styles.bandLabel}>Typ</span>
+                    <div className={styles.bandBtns}>
+                      <button
+                        type="button"
+                        className={[
+                          styles.bandBtn,
+                          musicLogKind == null ? styles.bandBtnActive : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        aria-pressed={musicLogKind == null}
+                        disabled={pending}
+                        onClick={() => setMusicLogKind(null)}
+                      >
+                        Övning
+                      </button>
+                      {(Object.keys(MUSIC_LOG_KIND_LABEL) as MusicLogKind[]).map(
+                        (k) => (
                           <button
-                            key={b}
+                            key={k}
                             type="button"
                             className={[
                               styles.bandBtn,
-                              band === b ? styles.bandBtnActive : "",
+                              musicLogKind === k ? styles.bandBtnActive : "",
                             ]
                               .filter(Boolean)
                               .join(" ")}
-                            aria-pressed={band === b}
+                            aria-pressed={musicLogKind === k}
                             disabled={pending}
-                            onClick={() => setBand(b)}
+                            onClick={() => setMusicLogKind(k)}
                           >
-                            {b}
+                            {MUSIC_LOG_KIND_LABEL[k]}
                           </button>
-                        ))}
-                      </div>
+                        ),
+                      )}
                     </div>
-                  ) : null}
-                  <Input
-                    label="Kommentar"
-                    value={taskNote}
-                    onChange={(e) => setTaskNote(e.target.value)}
-                    placeholder="Vad gjorde du?"
-                    maxLength={500}
-                    disabled={pending}
-                  />
+                  </div>
+
+                  {musicLogKind == null ? (
+                    <>
+                      {isMusicRepTask(task.key) ? (
+                        <div className={styles.bandPicker}>
+                          <span className={styles.bandLabel}>Vilket band?</span>
+                          <div className={styles.bandBtns}>
+                            {MUSIC_BANDS.map((b) => (
+                              <button
+                                key={b}
+                                type="button"
+                                className={[
+                                  styles.bandBtn,
+                                  band === b ? styles.bandBtnActive : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                                aria-pressed={band === b}
+                                disabled={pending}
+                                onClick={() => setBand(b)}
+                              >
+                                {b}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      <Input
+                        label="Kommentar"
+                        value={taskNote}
+                        onChange={(e) => setTaskNote(e.target.value)}
+                        placeholder="Vad gjorde du?"
+                        maxLength={500}
+                        disabled={pending}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      {musicLogKind === "gig" ? (
+                        <div className={styles.bandPicker}>
+                          <span className={styles.bandLabel}>Vilket band?</span>
+                          <div className={styles.bandBtns}>
+                            {MUSIC_BANDS.map((b) => (
+                              <button
+                                key={b}
+                                type="button"
+                                className={[
+                                  styles.bandBtn,
+                                  band === b ? styles.bandBtnActive : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                                aria-pressed={band === b}
+                                disabled={pending}
+                                onClick={() => setBand(b)}
+                              >
+                                {b}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      <Input
+                        label="Titel"
+                        value={musicTitle}
+                        onChange={(e) => setMusicTitle(e.target.value)}
+                        placeholder={
+                          musicLogKind === "gig"
+                            ? "t.ex. EKenäsfestivalen, Kvarteret"
+                            : "t.ex. Artist / band på scen"
+                        }
+                        maxLength={120}
+                        disabled={pending}
+                      />
+                      <Input
+                        label="Plats (valfritt)"
+                        value={musicPlace}
+                        onChange={(e) => setMusicPlace(e.target.value)}
+                        placeholder={
+                          musicLogKind === "gig"
+                            ? "t.ex. Debaser, Malmö"
+                            : "t.ex. Annexet, Stockholm"
+                        }
+                        maxLength={120}
+                        disabled={pending}
+                      />
+                      <Input
+                        label="Kommentar (valfritt)"
+                        value={taskNote}
+                        onChange={(e) => setTaskNote(e.target.value)}
+                        placeholder={
+                          musicLogKind === "gig"
+                            ? "t.ex. Bra publik, lite nervös i början"
+                            : "t.ex. Fantastisk stämning, bra setlista!"
+                        }
+                        maxLength={280}
+                        disabled={pending}
+                      />
+                      <label className={styles.ratingField}>
+                        <span className={styles.ratingLabel}>Betyg</span>
+                        <select
+                          className={styles.ratingSelect}
+                          value={musicRating}
+                          onChange={(e) => setMusicRating(e.target.value)}
+                          disabled={pending}
+                        >
+                          <option value="">–</option>
+                          {Array.from(
+                            { length: GIG_RATING_MAX - GIG_RATING_MIN + 1 },
+                            (_, i) => GIG_RATING_MIN + i,
+                          ).map((n) => (
+                            <option key={n} value={n}>
+                              {n}/10
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
+                  )}
                 </>
               ) : null}
               <Button

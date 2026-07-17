@@ -670,6 +670,9 @@ export interface Database {
           shop_amount: number | null;
           laundry_loads: number | null;
           band: string | null;
+          music_log_kind: "gig" | "live" | null;
+          gig_id: string | null;
+          live_event_id: string | null;
           on_hold: boolean;
           created_at: string;
           updated_at: string;
@@ -688,6 +691,9 @@ export interface Database {
           shop_amount?: number | null;
           laundry_loads?: number | null;
           band?: string | null;
+          music_log_kind?: "gig" | "live" | null;
+          gig_id?: string | null;
+          live_event_id?: string | null;
           on_hold?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -706,6 +712,9 @@ export interface Database {
           shop_amount?: number | null;
           laundry_loads?: number | null;
           band?: string | null;
+          music_log_kind?: "gig" | "live" | null;
+          gig_id?: string | null;
+          live_event_id?: string | null;
           on_hold?: boolean;
           created_at?: string;
           updated_at?: string;

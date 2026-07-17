@@ -52,6 +52,14 @@ export type WeeklyTaskCompletionKind =
 export const MUSIC_BANDS = ["Totes", "Bojeng"] as const;
 export type MusicBand = (typeof MUSIC_BANDS)[number];
 
+/** How a music weekly task was logged when completed. */
+export type MusicLogKind = "gig" | "live";
+
+export const MUSIC_LOG_KIND_LABEL: Record<MusicLogKind, string> = {
+  gig: "Spelning",
+  live: "Live spelning",
+};
+
 export function isMusicRepTask(key: string | null): boolean {
   return key?.startsWith("music_rep_") ?? false;
 }
@@ -149,6 +157,12 @@ export interface WeeklyPlacement {
   laundryLoads: number | null;
   /** Band name for music rep tasks (Totes / Bojeng). */
   band: MusicBand | null;
+  /** When set, completion also registered a gig or attended live concert. */
+  musicLogKind: MusicLogKind | null;
+  /** Linked own-band gig created from this completion. */
+  gigId: string | null;
+  /** Linked live event created from this completion. */
+  liveEventId: string | null;
   /** Paused for this week — hidden from backlog/days until placed again. */
   onHold: boolean;
 }
@@ -210,6 +224,12 @@ export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | nul
   if (placement.laundryLoads != null) {
     const time = placement.planNote ? `${placement.planNote} · ` : "";
     return `${time}${placement.laundryLoads} tvättar`;
+  }
+  if (placement.musicLogKind) {
+    const parts = [MUSIC_LOG_KIND_LABEL[placement.musicLogKind]];
+    if (placement.band) parts.push(placement.band);
+    if (placement.note) parts.push(placement.note);
+    return parts.join(" · ");
   }
   if (placement.band && placement.note) {
     return `${placement.band} · ${placement.note}`;

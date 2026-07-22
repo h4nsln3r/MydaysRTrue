@@ -164,7 +164,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
             <DayActivitiesCard
               weekStart={weeklyTasksDay.weekStart}
               tasks={weeklyTasksDay.tasks}
-              onHoldTasks={weeklyTasksDay.onHoldTasks}
               monthlyTasks={monthlyTasksDay.tasks}
               monthStart={monthlyTasksDay.monthStart}
               gymSessions={gymDay.sessions}
@@ -262,7 +261,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
             <DayActivitiesCard
               weekStart={weeklyTasksDay.weekStart}
               tasks={weeklyTasksDay.tasks}
-              onHoldTasks={weeklyTasksDay.onHoldTasks}
               monthlyTasks={monthlyTasksDay.tasks}
               monthStart={monthlyTasksDay.monthStart}
               gymSessions={gymDay.sessions}

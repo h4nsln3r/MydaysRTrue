@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LeaveYearCalendar } from "@/components/LeaveYearCalendar/LeaveYearCalendar";
 import { RestaurantsYearBoard } from "@/components/RestaurantsYearBoard/RestaurantsYearBoard";
 import { MediaYearBoard } from "@/components/MediaYearBoard/MediaYearBoard";
 import { MediaYearProgress } from "@/components/MediaYearProgress/MediaYearProgress";
@@ -8,6 +9,7 @@ import { getAuthUser } from "@/lib/auth.server";
 import { getYearMedia } from "@/lib/media.server";
 import { getYearLiveEvents } from "@/lib/live-events.server";
 import { getYearGigs } from "@/lib/gigs.server";
+import { getYearLeave } from "@/lib/leave.server";
 import { LiveEventsYearBoard } from "@/components/LiveEventsYearBoard/LiveEventsYearBoard";
 import { LiveEventsYearProgress } from "@/components/LiveEventsYearProgress/LiveEventsYearProgress";
 import { GigsYearBoard } from "@/components/GigsYearBoard/GigsYearBoard";
@@ -45,6 +47,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
   const yearLive = await getYearLiveEvents(user.id, year);
   const yearGigs = await getYearGigs(user.id, year);
   const yearRestaurants = await getYearRestaurantMeals(user.id, year);
+  const yearLeave = await getYearLeave(user.id, year);
   const isCurrent = year === currentYear;
   const canGoForward = year < currentYear;
 
@@ -91,6 +94,18 @@ export default async function YearPage({ searchParams }: YearPageProps) {
         progressHref={yearNavHref(year, "progress")}
         planHref={yearNavHref(year, "plan")}
       />
+
+      <section className={styles.section}>
+        <header className={styles.sectionHeader}>
+          <h2 className={styles.h2}>Semester & ledighet</h2>
+          <span className={styles.muted}>hoppar över jobb</span>
+        </header>
+
+        <LeaveYearCalendar
+          yearLeave={yearLeave}
+          readOnly={view === "progress"}
+        />
+      </section>
 
       <section className={styles.section}>
         <header className={styles.sectionHeader}>

@@ -11,17 +11,16 @@ import { Button } from "@/components/Button/Button";
 import { Card } from "@/components/Card/Card";
 import { Input } from "@/components/Input/Input";
 import { formatTime } from "@/lib/date";
-import { isWorkday, type WorkDailyLog } from "@/lib/work";
+import { shouldShowWork, type WorkDailyLog } from "@/lib/work";
 import styles from "./WorkDayCard.module.scss";
 
 interface Props {
   date: string;
   work: WorkDailyLog;
+  onLeave?: boolean;
 }
 
-export function WorkDayCard({ date, work }: Props) {
-  if (!isWorkday(date)) return null;
-
+export function WorkDayCard({ date, work, onLeave = false }: Props) {
   const router = useRouter();
   const [startNote, setStartNote] = useState(work.startNote ?? "");
   const [endNote, setEndNote] = useState(work.endNote ?? "");
@@ -32,6 +31,8 @@ export function WorkDayCard({ date, work }: Props) {
     setStartNote(work.startNote ?? "");
     setEndNote(work.endNote ?? "");
   }, [work.startNote, work.endNote]);
+
+  if (!shouldShowWork(date, onLeave)) return null;
 
   const started = Boolean(work.startedAt);
   const ended = Boolean(work.endedAt);

@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { JournalEntrySource } from "@/lib/journal";
+import {
+  saveJournalEntryEdit,
+  saveJournalEntryOrder,
+} from "@/lib/journal.server";
 
 export interface ActionResult {
   ok: boolean;
@@ -52,8 +57,13 @@ export async function addJournalEntryAction(input: {
 export async function updateJournalEntryAction(input: {
   id: string;
   body: string;
+  localDate: string;
+  source: JournalEntrySource;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Saknar id." };
+  if (!ISO_DATE_RE.test(input.localDate)) {
+    return { ok: false, error: "Ogiltigt datum." };
+  }
 
   const validated = validateBody(input.body);
   if (!validated.ok) return validated;
@@ -65,12 +75,22 @@ export async function updateJournalEntryAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
-  const { error } = await supabase
-    .from("journal_entries")
-    .update({ body })
-    .eq("id", input.id)
-    .eq("user_id", user.id);
-  if (error) return { ok: false, error: error.message };
+  if (input.source === "manual") {
+    const { error } = await supabase
+      .from("journal_entries")
+      .update({ body })
+      .eq("id", input.id)
+      .eq("user_id", user.id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const result = await saveJournalEntryEdit(
+      user.id,
+      input.localDate,
+      input.id,
+      body,
+    );
+    if (!result.ok) return result;
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -91,6 +111,34 @@ export async function deleteJournalEntryAction(id: string): Promise<ActionResult
     .eq("id", id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function reorderJournalEntriesAction(input: {
+  localDate: string;
+  orderedIds: string[];
+}): Promise<ActionResult> {
+  if (!ISO_DATE_RE.test(input.localDate)) {
+    return { ok: false, error: "Ogiltigt datum." };
+  }
+  if (input.orderedIds.some((id) => !id.trim())) {
+    return { ok: false, error: "Ogiltig ordning." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const result = await saveJournalEntryOrder(
+    user.id,
+    input.localDate,
+    input.orderedIds,
+  );
+  if (!result.ok) return result;
 
   revalidatePath("/", "layout");
   return { ok: true };

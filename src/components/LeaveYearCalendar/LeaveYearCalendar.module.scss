@@ -1,0 +1,273 @@
+@use "abstracts" as *;
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.hint {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.85rem;
+}
+
+.summary {
+    margin: 0;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-3;
+}
+
+.legendItem {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    color: $color-fog;
+    font-size: 0.75rem;
+}
+
+.swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: $radius-xs;
+    border: 1px solid $color-line;
+}
+
+.swatchVacation {
+    background: rgba(95, 182, 255, 0.45);
+    border-color: $color-water;
+}
+
+.swatchDayOff {
+    background: rgba(110, 231, 163, 0.4);
+    border-color: $color-success;
+}
+
+.swatchSelected {
+    background: rgba(255, 122, 26, 0.45);
+    border-color: $color-orange;
+}
+
+.yearGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-4 $space-3;
+
+    @media (min-width: $bp-md) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.month {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-2;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+}
+
+.monthTitle {
+    margin: 0;
+    font-family: $font-display;
+    font-size: 0.95rem;
+    color: $color-cream;
+    text-align: center;
+}
+
+.weekdayRow,
+.days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
+}
+
+.weekdayLabel {
+    text-align: center;
+    font-size: 0.65rem;
+    color: $color-fog;
+    font-family: $font-mono;
+}
+
+.dayEmpty {
+    aspect-ratio: 1;
+}
+
+.day {
+    aspect-ratio: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: $radius-xs;
+    background: transparent;
+    color: $color-cream-dim;
+    font-size: 0.7rem;
+    font-family: $font-mono;
+    line-height: 1;
+    padding: 0;
+    min-width: 0;
+
+    &:hover {
+        border-color: $color-line;
+        color: $color-cream;
+    }
+}
+
+button.day {
+    cursor: pointer;
+}
+
+.dayToday {
+    box-shadow: inset 0 0 0 1px $color-orange;
+    color: $color-orange-bright;
+}
+
+.dayVacation {
+    background: rgba(95, 182, 255, 0.35);
+    color: $color-cream;
+}
+
+.dayOff {
+    background: rgba(110, 231, 163, 0.3);
+    color: $color-cream;
+}
+
+.daySelected {
+    background: rgba(255, 122, 26, 0.5) !important;
+    border-color: $color-orange;
+    color: $color-cream;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-elevated;
+    border: 1px solid $color-orange;
+}
+
+.kindRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+}
+
+.kindBtn {
+    padding: 6px 10px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-size: 0.78rem;
+
+    &[aria-pressed="true"],
+    &[aria-checked="true"] {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+        background: rgba(255, 122, 26, 0.12);
+    }
+}
+
+.formActions {
+    display: flex;
+    gap: $space-2;
+    justify-content: flex-end;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-2 $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+}
+
+.itemEditing {
+    border-color: $color-orange;
+    background: $color-ink-elevated;
+}
+
+.editForm {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.itemIcon {
+    font-size: 1.1rem;
+}
+
+.itemMeta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.itemTitle {
+    font-weight: 600;
+    color: $color-cream;
+}
+
+.itemSub {
+    font-size: 0.78rem;
+    color: $color-fog;
+}
+
+.itemNote {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-style: italic;
+}
+
+.editBtn,
+.removeBtn {
+    padding: 4px 8px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-size: 0.72rem;
+}
+
+.removeBtn {
+    color: $color-danger;
+}
+
+.empty {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.85rem;
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.85rem;
+}

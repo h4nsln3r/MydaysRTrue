@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addJournalEntryAction,
   deleteJournalEntryAction,
+  reorderJournalEntriesAction,
   updateJournalEntryAction,
 } from "@/app/(app)/journal-actions";
 import { Button } from "@/components/Button/Button";
 import { Card } from "@/components/Card/Card";
+import { useSyncNavPending } from "@/components/NavProgress/NavProgress";
 import { formatTime } from "@/lib/date";
 import {
   JOURNAL_SOURCE_LABEL,
+  buildJournalNarrative,
   type DailyJournal,
   type JournalDisplayEntry,
 } from "@/lib/journal";
@@ -26,8 +29,18 @@ export function JournalDaySection({ date, journal }: Props) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
   const [showDetails, setShowDetails] = useState(false);
+  const [entries, setEntries] = useState(journal.entries);
+  const [narrative, setNarrative] = useState(journal.narrative);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [reorderBusy, setReorderBusy] = useState(false);
+
+  useSyncNavPending(pending || reorderBusy, journal);
+
+  useEffect(() => {
+    setEntries(journal.entries);
+    setNarrative(journal.narrative);
+  }, [journal]);
 
   const addEntry = () => {
     setError(null);
@@ -42,13 +55,60 @@ export function JournalDaySection({ date, journal }: Props) {
     });
   };
 
+  const moveEntry = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= entries.length || reorderBusy) return;
+
+    const previousEntries = entries;
+    const previousNarrative = narrative;
+    const next = [...entries];
+    const tmp = next[index];
+    next[index] = next[nextIndex];
+    next[nextIndex] = tmp;
+
+    setEntries(next);
+    setNarrative(buildJournalNarrative(next));
+    setError(null);
+    setReorderBusy(true);
+
+    startTransition(async () => {
+      const res = await reorderJournalEntriesAction({
+        localDate: date,
+        orderedIds: next.map((entry) => entry.id),
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte ändra ordning.");
+        setEntries(previousEntries);
+        setNarrative(previousNarrative);
+        setReorderBusy(false);
+        return;
+      }
+      router.refresh();
+      setReorderBusy(false);
+    });
+  };
+
+  const onBodySaved = (id: string, body: string) => {
+    const next = entries.map((entry) =>
+      entry.id === id
+        ? {
+            ...entry,
+            body,
+            customBody: entry.source === "manual" ? entry.customBody : true,
+          }
+        : entry,
+    );
+    setEntries(next);
+    setNarrative(buildJournalNarrative(next));
+  };
+
   return (
     <section className={styles.section}>
       <header className={styles.header}>
         <div className={styles.headerText}>
           <h2 className={styles.title}>Dagbok</h2>
           <p className={styles.subtitle}>
-            {journal.narrative
+            {narrative
               ? "Din dag i löpande text"
               : "Skriv anteckningar — gym, jobb och uppgifter vävs in automatiskt."}
           </p>
@@ -58,9 +118,9 @@ export function JournalDaySection({ date, journal }: Props) {
         </span>
       </header>
 
-      {journal.narrative ? (
+      {narrative ? (
         <Card className={styles.narrativeCard}>
-          <p className={styles.narrative}>{journal.narrative}</p>
+          <p className={styles.narrative}>{narrative}</p>
         </Card>
       ) : (
         <Card className={styles.emptyCard}>
@@ -71,7 +131,7 @@ export function JournalDaySection({ date, journal }: Props) {
         </Card>
       )}
 
-      {journal.entries.length > 0 ? (
+      {entries.length > 0 ? (
         <div className={styles.detailsWrap}>
           <button
             type="button"
@@ -79,14 +139,29 @@ export function JournalDaySection({ date, journal }: Props) {
             onClick={() => setShowDetails((v) => !v)}
             aria-expanded={showDetails}
           >
-            {showDetails ? "Dölj detaljer" : `Visa detaljer (${journal.entries.length})`}
+            {showDetails ? "Dölj detaljer" : `Visa detaljer (${entries.length})`}
           </button>
           {showDetails ? (
-            <ol className={styles.timeline}>
-              {journal.entries.map((entry) => (
-                <JournalEntryRow key={entry.id} entry={entry} />
-              ))}
-            </ol>
+            <>
+              <p className={styles.reorderHint}>
+                Flytta upp eller ner för att ändra ordningen i dagboken.
+              </p>
+              <ol className={styles.timeline}>
+                {entries.map((entry, index) => (
+                  <JournalEntryRow
+                    key={entry.id}
+                    entry={entry}
+                    date={date}
+                    index={index}
+                    total={entries.length}
+                    pending={pending || reorderBusy}
+                    onMoveUp={() => moveEntry(index, -1)}
+                    onMoveDown={() => moveEntry(index, 1)}
+                    onBodySaved={onBodySaved}
+                  />
+                ))}
+              </ol>
+            </>
           ) : null}
         </div>
       ) : null}
@@ -123,22 +198,56 @@ export function JournalDaySection({ date, journal }: Props) {
   );
 }
 
-function JournalEntryRow({ entry }: { entry: JournalDisplayEntry }) {
+interface JournalEntryRowProps {
+  entry: JournalDisplayEntry;
+  date: string;
+  index: number;
+  total: number;
+  pending: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onBodySaved: (id: string, body: string) => void;
+}
+
+function JournalEntryRow({
+  entry,
+  date,
+  index,
+  total,
+  pending,
+  onMoveUp,
+  onMoveDown,
+  onBodySaved,
+}: JournalEntryRowProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(entry.body);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [rowPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setBody(entry.body);
+  }, [entry.body]);
+
+  useSyncNavPending(rowPending, entry.body);
 
   const save = () => {
     setError(null);
     startTransition(async () => {
-      const res = await updateJournalEntryAction({ id: entry.id, body });
+      const res = await updateJournalEntryAction({
+        id: entry.id,
+        body,
+        localDate: date,
+        source: entry.source,
+      });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
         return;
       }
+      const trimmed = body.trim();
+      onBodySaved(entry.id, trimmed);
+      setBody(trimmed);
       setEditing(false);
       router.refresh();
     });
@@ -158,6 +267,7 @@ function JournalEntryRow({ entry }: { entry: JournalDisplayEntry }) {
   };
 
   const sourceLabel = JOURNAL_SOURCE_LABEL[entry.source];
+  const busy = pending || rowPending;
 
   return (
     <li
@@ -168,6 +278,29 @@ function JournalEntryRow({ entry }: { entry: JournalDisplayEntry }) {
         .filter(Boolean)
         .join(" ")}
     >
+      <div className={styles.reorderControls}>
+        <button
+          type="button"
+          className={styles.reorderBtn}
+          onClick={onMoveUp}
+          disabled={busy || index === 0}
+          aria-label={`Flytta upp ${entry.title}`}
+          title="Flytta upp"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          className={styles.reorderBtn}
+          onClick={onMoveDown}
+          disabled={busy || index === total - 1}
+          aria-label={`Flytta ner ${entry.title}`}
+          title="Flytta ner"
+        >
+          ↓
+        </button>
+      </div>
+
       <div className={styles.entryRail} aria-hidden>
         <span className={styles.entryDot} />
       </div>
@@ -192,7 +325,7 @@ function JournalEntryRow({ entry }: { entry: JournalDisplayEntry }) {
               onChange={(e) => setBody(e.target.value)}
               rows={3}
               maxLength={2000}
-              disabled={pending}
+              disabled={busy}
             />
             {error ? <p className={styles.error}>{error}</p> : null}
             <div className={styles.entryActions}>
@@ -205,7 +338,7 @@ function JournalEntryRow({ entry }: { entry: JournalDisplayEntry }) {
                   setBody(entry.body);
                   setError(null);
                 }}
-                disabled={pending}
+                disabled={busy}
               >
                 Avbryt
               </Button>
@@ -214,7 +347,8 @@ function JournalEntryRow({ entry }: { entry: JournalDisplayEntry }) {
                 variant="primary"
                 size="md"
                 onClick={save}
-                loading={pending}
+                loading={rowPending}
+                disabled={!body.trim()}
               >
                 Spara
               </Button>
@@ -224,52 +358,52 @@ function JournalEntryRow({ entry }: { entry: JournalDisplayEntry }) {
           <>
             <p className={styles.entryText}>{entry.body || "—"}</p>
             {error ? <p className={styles.error}>{error}</p> : null}
-            {entry.editable ? (
-              <div className={styles.entryActions}>
-                {confirmDelete ? (
-                  <>
-                    <span className={styles.confirmLabel}>Ta bort?</span>
-                    <button
-                      type="button"
-                      className={styles.linkBtnDanger}
-                      onClick={remove}
-                      disabled={pending}
-                    >
-                      Ja
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.linkBtn}
-                      onClick={() => setConfirmDelete(false)}
-                      disabled={pending}
-                    >
-                      Nej
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className={styles.linkBtn}
-                      onClick={() => setEditing(true)}
-                      disabled={pending}
-                    >
-                      Redigera
-                    </button>
+            <div className={styles.entryActions}>
+              {confirmDelete ? (
+                <>
+                  <span className={styles.confirmLabel}>Ta bort?</span>
+                  <button
+                    type="button"
+                    className={styles.linkBtnDanger}
+                    onClick={remove}
+                    disabled={busy}
+                  >
+                    Ja
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.linkBtn}
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={busy}
+                  >
+                    Nej
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={styles.linkBtn}
+                    onClick={() => setEditing(true)}
+                    disabled={busy}
+                  >
+                    Redigera
+                  </button>
+                  {entry.editable ? (
                     <button
                       type="button"
                       className={styles.linkBtnDanger}
                       onClick={() => setConfirmDelete(true)}
-                      disabled={pending}
+                      disabled={busy}
                     >
                       Ta bort
                     </button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <span className={styles.autoTag}>Automatisk</span>
-            )}
+                  ) : (
+                    <span className={styles.autoTag}>Automatisk</span>
+                  )}
+                </>
+              )}
+            </div>
           </>
         )}
       </div>

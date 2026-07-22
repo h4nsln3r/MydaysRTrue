@@ -60,7 +60,10 @@ export interface JournalDisplayEntry {
   title: string;
   body: string;
   at: string;
+  /** Manual note — can be deleted from the journal list. */
   editable: boolean;
+  /** Body was customized in the journal — use as-is in the narrative. */
+  customBody?: boolean;
 }
 
 export interface DailyJournal {
@@ -146,6 +149,10 @@ function mergeWorkPhrases(start: JournalDisplayEntry, end: JournalDisplayEntry):
 }
 
 function phraseEntry(entry: JournalDisplayEntry): string {
+  if (entry.customBody) {
+    return ensureSentence(entry.body);
+  }
+
   switch (entry.source) {
     case "gym":
       return phraseGym(entry);
@@ -238,20 +245,55 @@ function phraseEntry(entry: JournalDisplayEntry): string {
   }
 }
 
+/** Apply saved body overrides for auto (and optionally manual) entries. */
+export function applyJournalEntryEdits(
+  entries: JournalDisplayEntry[],
+  edits?: Map<string, string> | null,
+): JournalDisplayEntry[] {
+  if (!edits || edits.size === 0) return entries;
+  return entries.map((entry) => {
+    const body = edits.get(entry.id);
+    return body != null ? { ...entry, body, customBody: true } : entry;
+  });
+}
+
+/** Apply a saved custom order; unknown ids keep relative time order at the end. */
+export function applyJournalEntryOrder(
+  entries: JournalDisplayEntry[],
+  savedOrder?: Map<string, number> | null,
+): JournalDisplayEntry[] {
+  const byTime = [...entries].sort(
+    (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
+  );
+  if (!savedOrder || savedOrder.size === 0) return byTime;
+
+  const maxSaved = Math.max(...savedOrder.values());
+  let fallback = maxSaved + 1;
+  const ranked = byTime.map((entry) => {
+    const saved = savedOrder.get(entry.id);
+    const order = saved ?? fallback++;
+    return { entry, order, at: new Date(entry.at).getTime() };
+  });
+  ranked.sort((a, b) => a.order - b.order || a.at - b.at);
+  return ranked.map((r) => r.entry);
+}
+
+/** Build narrative from entries in the given order (caller decides sort). */
 export function buildJournalNarrative(entries: JournalDisplayEntry[]): string {
   if (entries.length === 0) return "";
 
-  const sorted = [...entries].sort(
-    (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
-  );
-
   const sentences: string[] = [];
   let i = 0;
-  while (i < sorted.length) {
-    const current = sorted[i];
-    const next = sorted[i + 1];
+  while (i < entries.length) {
+    const current = entries[i];
+    const next = entries[i + 1];
 
-    if (current.source === "work_start" && next?.source === "work_end") {
+    if (
+      current.source === "work_start" &&
+      next?.source === "work_end" &&
+      !current.customBody &&
+      !next.customBody
+    ) {
       sentences.push(mergeWorkPhrases(current, next));
       i += 2;
       continue;

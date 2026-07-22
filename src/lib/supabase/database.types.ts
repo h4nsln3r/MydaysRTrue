@@ -262,6 +262,42 @@ export interface Database {
         };
         Relationships: [];
       };
+      leave_periods: {
+        Row: {
+          id: string;
+          user_id: string;
+          kind: "vacation" | "day_off";
+          start_date: string;
+          end_date: string;
+          note: string | null;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          kind: "vacation" | "day_off";
+          start_date: string;
+          end_date: string;
+          note?: string | null;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          kind?: "vacation" | "day_off";
+          start_date?: string;
+          end_date?: string;
+          note?: string | null;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       live_events: {
         Row: {
           id: string;
@@ -556,6 +592,51 @@ export interface Database {
           local_date?: string;
           item_key?: string;
           sort_order?: number;
+        };
+        Relationships: [];
+      };
+      journal_entry_orders: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          entry_id: string;
+          sort_order: number;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          entry_id: string;
+          sort_order?: number;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          entry_id?: string;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
+      journal_entry_edits: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          entry_id: string;
+          body: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          entry_id: string;
+          body: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          entry_id?: string;
+          body?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

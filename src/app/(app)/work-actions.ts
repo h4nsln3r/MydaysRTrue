@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isUserOnLeave } from "@/lib/leave.server";
 import { isWorkday } from "@/lib/work";
 
 export interface ActionResult {
@@ -40,6 +41,10 @@ export async function logWorkStartAction(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
+
+  if (await isUserOnLeave(user.id, input.localDate)) {
+    return { ok: false, error: "Du är ledig den här dagen." };
+  }
 
   const { data: existing } = await supabase
     .from("work_daily_logs")
@@ -88,6 +93,10 @@ export async function logWorkEndAction(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
+
+  if (await isUserOnLeave(user.id, input.localDate)) {
+    return { ok: false, error: "Du är ledig den här dagen." };
+  }
 
   const { data: existing } = await supabase
     .from("work_daily_logs")

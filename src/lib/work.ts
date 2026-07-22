@@ -15,6 +15,14 @@ export function isWorkday(localDate: string): boolean {
   return weekday >= 1 && weekday <= 5;
 }
 
+/** Weekday and not marked as leave (semester/ledig). */
+export function shouldShowWork(
+  localDate: string,
+  onLeave = false,
+): boolean {
+  return isWorkday(localDate) && !onLeave;
+}
+
 export function emptyWorkLog(localDate: string): WorkDailyLog {
   return {
     localDate,

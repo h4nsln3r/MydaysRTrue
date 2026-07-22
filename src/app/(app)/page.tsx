@@ -20,6 +20,7 @@ import { getDailyMood } from "@/lib/mood.server";
 import { getDailySmokeFree } from "@/lib/smoke-free.server";
 import { getDailyJournal } from "@/lib/journal.server";
 import { getWorkDailyLog } from "@/lib/work.server";
+import { isUserOnLeave } from "@/lib/leave.server";
 import { getDailyMedia } from "@/lib/media.server";
 import { getDailyLiveEvents } from "@/lib/live-events.server";
 import { getBathingSessionsForDate } from "@/lib/bathing.server";
@@ -92,6 +93,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
   ]);
 
   const work = await getWorkDailyLog(user.id, today);
+  const onLeave = await isUserOnLeave(user.id, today);
   const savedOrder = await getDailyPlanOrder(user.id, today);
   const savedRestaurants = await getMealRestaurants(user.id);
   const mealBoxStock = await getMealBoxStock(user.id);
@@ -167,6 +169,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               mealBoxStock={mealBoxStock}
               intake={intake}
               work={work}
+              onLeave={onLeave}
               activityLog={activityLog}
               goals={dayPlan.goals}
               media={media}
@@ -235,6 +238,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               mealBoxStock={mealBoxStock}
               intake={intake}
               work={work}
+              onLeave={onLeave}
               activityLog={activityLog}
               goals={dayPlan.goals}
               media={media}

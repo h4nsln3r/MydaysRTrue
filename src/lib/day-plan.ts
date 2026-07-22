@@ -28,7 +28,7 @@ import type {
   WeeklyTaskChecklistItem,
   WeeklyTaskForWeek,
 } from "@/lib/tasks";
-import { isWorkday, type WorkDailyLog } from "@/lib/work";
+import { shouldShowWork, type WorkDailyLog } from "@/lib/work";
 import type { WeightDayContext } from "@/lib/weight";
 import {
   hasMediaDayActivity,
@@ -272,6 +272,8 @@ export interface DayPlanInput {
   snacks: DailySnacks;
   intake: Record<IntakeKind, IntakeEntry | null>;
   work: WorkDailyLog;
+  /** When true, Jobb start/slut are omitted from the day plan. */
+  onLeave?: boolean;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
   media?: DailyMediaContext;
@@ -599,7 +601,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     });
   }
 
-  if (isWorkday(input.date)) {
+  if (shouldShowWork(input.date, input.onLeave === true)) {
     items.push({
       kind: "work_start",
       id: "start",

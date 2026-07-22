@@ -20,7 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Card } from "@/components/Card/Card";
 import { BathingExtraBath } from "@/components/BathingDayCard/BathingDayCard";
-import { WeeklyTaskQuickAdd, WeeklyOnHoldSection } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
+import { WeeklyTaskQuickAdd } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import { buildDayPlanItems } from "@/lib/day-plan";
@@ -44,7 +44,6 @@ import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.sc
 interface Props {
   weekStart: string;
   tasks: WeeklyTaskForWeek[];
-  onHoldTasks?: WeeklyTaskForWeek[];
   monthlyTasks?: MonthlyTaskForMonth[];
   monthStart?: string;
   gymSessions: GymSessionForWeek[];
@@ -59,6 +58,8 @@ interface Props {
   mealBoxStock?: MealBoxStockItem[];
   intake: Record<IntakeKind, IntakeEntry | null>;
   work: WorkDailyLog;
+  /** When true, Jobb start/slut are omitted from the day plan. */
+  onLeave?: boolean;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
   media?: DailyMediaContext;
@@ -80,7 +81,6 @@ interface Props {
 export function DayActivitiesCard({
   weekStart,
   tasks,
-  onHoldTasks = [],
   monthlyTasks = [],
   monthStart,
   gymSessions,
@@ -95,6 +95,7 @@ export function DayActivitiesCard({
   mealBoxStock = [],
   intake,
   work,
+  onLeave = false,
   activityLog,
   goals,
   media,
@@ -136,6 +137,7 @@ export function DayActivitiesCard({
         snacks,
         intake,
         work,
+        onLeave,
         activityLog,
         goals,
         media,
@@ -157,6 +159,7 @@ export function DayActivitiesCard({
       snacks,
       intake,
       work,
+      onLeave,
       activityLog,
       goals,
       media,
@@ -245,35 +248,39 @@ export function DayActivitiesCard({
   };
 
   if (localItems.length === 0) {
-    if (hideWhenEmpty && onHoldTasks.length === 0) {
-      if (!quickAdd && !extraBath) return null;
+    if (hideWhenEmpty) {
+      if (!quickAdd && !extraBath && !onLeave) return null;
       return (
         <Card className={styles.card}>
+          {onLeave ? (
+            <p className={styles.planHint}>
+              Ledig idag — Jobb start/slut visas inte.{" "}
+              <Link href="/year?view=plan" className={styles.weekLink}>
+                Årskalender →
+              </Link>
+            </p>
+          ) : null}
           {quickAdd}
           {extraBath}
-          <WeeklyOnHoldSection
-            tasks={onHoldTasks}
-            weekStart={weekStart}
-            categories={categories}
-            onDone={() => router.refresh()}
-          />
         </Card>
       );
     }
 
     return (
       <Card className={styles.card}>
+        {onLeave ? (
+          <p className={styles.planHint}>
+            Ledig idag — Jobb start/slut visas inte.{" "}
+            <Link href="/year?view=plan" className={styles.weekLink}>
+              Årskalender →
+            </Link>
+          </p>
+        ) : null}
         {localItems.length === 0 ? (
           <p className={styles.empty}>Inget planerat idag.</p>
         ) : null}
         {quickAdd}
         {extraBath}
-        <WeeklyOnHoldSection
-          tasks={onHoldTasks}
-          weekStart={weekStart}
-          categories={categories}
-          onDone={() => router.refresh()}
-        />
         {showWeekLink ? (
           <Link
             href={`/week?start=${weekStart}&view=plan`}
@@ -307,10 +314,17 @@ export function DayActivitiesCard({
           </span>
         </div>
         <p className={styles.planHint}>
-          {planningMode
-            ? "Dra ⠿ för att planera ordningen inför dagen"
-            : "Dra ⠿ för att ändra ordning idag"}
+          {onLeave
+            ? "Ledig idag — Jobb start/slut visas inte."
+            : planningMode
+              ? "Dra ⠿ för att planera ordningen inför dagen"
+              : "Dra ⠿ för att ändra ordning idag"}
         </p>
+        {onLeave ? (
+          <Link href="/year?view=plan" className={styles.weekLink}>
+            Årskalender →
+          </Link>
+        ) : null}
         {showWeekLink || planningMode ? (
           <Link
             href={`/week?start=${weekStart}&view=plan`}
@@ -372,12 +386,6 @@ export function DayActivitiesCard({
 
       {quickAdd}
       {extraBath}
-      <WeeklyOnHoldSection
-        tasks={onHoldTasks}
-        weekStart={weekStart}
-        categories={categories}
-        onDone={() => router.refresh()}
-      />
     </Card>
   );
 }

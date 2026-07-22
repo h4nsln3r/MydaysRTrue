@@ -94,6 +94,12 @@
     }
 }
 
+.reorderHint {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.78rem;
+}
+
 .timeline {
     list-style: none;
     margin: 0;
@@ -105,9 +111,42 @@
 
 .entry {
     display: grid;
-    grid-template-columns: 16px 1fr;
+    grid-template-columns: auto 16px 1fr;
     gap: $space-3;
     align-items: stretch;
+}
+
+.reorderControls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 8px;
+}
+
+.reorderBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+    }
+
+    &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
 }
 
 .entryRail {

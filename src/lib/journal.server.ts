@@ -9,6 +9,8 @@ import { addDaysISO, isoWeekdayFromLocalISO } from "@/lib/date";
 import type { GymSessionForWeek } from "@/lib/gym";
 import { GYM_WARMUP_LABEL } from "@/lib/gym";
 import {
+  applyJournalEntryEdits,
+  applyJournalEntryOrder,
   buildJournalNarrative,
   buildJournalPreview,
   type DailyJournal,
@@ -431,6 +433,139 @@ function mergeJournalEntries(
   );
 }
 
+export async function getJournalEntryOrder(
+  userId: string,
+  localDate: string,
+): Promise<Map<string, number>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("journal_entry_orders")
+    .select("entry_id, sort_order")
+    .eq("user_id", userId)
+    .eq("local_date", localDate)
+    .order("sort_order", { ascending: true });
+
+  const map = new Map<string, number>();
+  for (const row of data ?? []) {
+    map.set(row.entry_id, row.sort_order);
+  }
+  return map;
+}
+
+export async function getJournalEntryOrdersForWeek(
+  userId: string,
+  weekStart: string,
+): Promise<Map<string, Map<string, number>>> {
+  const weekEnd = addDaysISO(weekStart, 6);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("journal_entry_orders")
+    .select("local_date, entry_id, sort_order")
+    .eq("user_id", userId)
+    .gte("local_date", weekStart)
+    .lte("local_date", weekEnd)
+    .order("sort_order", { ascending: true });
+
+  const byDate = new Map<string, Map<string, number>>();
+  for (const row of data ?? []) {
+    const map = byDate.get(row.local_date) ?? new Map<string, number>();
+    map.set(row.entry_id, row.sort_order);
+    byDate.set(row.local_date, map);
+  }
+  return byDate;
+}
+
+export async function saveJournalEntryOrder(
+  userId: string,
+  localDate: string,
+  orderedIds: string[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+
+  const { error: deleteError } = await supabase
+    .from("journal_entry_orders")
+    .delete()
+    .eq("user_id", userId)
+    .eq("local_date", localDate);
+  if (deleteError) return { ok: false, error: deleteError.message };
+
+  if (orderedIds.length === 0) return { ok: true };
+
+  const rows = orderedIds.map((entry_id, sort_order) => ({
+    user_id: userId,
+    local_date: localDate,
+    entry_id,
+    sort_order,
+  }));
+
+  const { error: insertError } = await supabase
+    .from("journal_entry_orders")
+    .insert(rows);
+  if (insertError) return { ok: false, error: insertError.message };
+
+  return { ok: true };
+}
+
+export async function getJournalEntryEdits(
+  userId: string,
+  localDate: string,
+): Promise<Map<string, string>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("journal_entry_edits")
+    .select("entry_id, body")
+    .eq("user_id", userId)
+    .eq("local_date", localDate);
+
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    map.set(row.entry_id, row.body);
+  }
+  return map;
+}
+
+export async function getJournalEntryEditsForWeek(
+  userId: string,
+  weekStart: string,
+): Promise<Map<string, Map<string, string>>> {
+  const weekEnd = addDaysISO(weekStart, 6);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("journal_entry_edits")
+    .select("local_date, entry_id, body")
+    .eq("user_id", userId)
+    .gte("local_date", weekStart)
+    .lte("local_date", weekEnd);
+
+  const byDate = new Map<string, Map<string, string>>();
+  for (const row of data ?? []) {
+    const map = byDate.get(row.local_date) ?? new Map<string, string>();
+    map.set(row.entry_id, row.body);
+    byDate.set(row.local_date, map);
+  }
+  return byDate;
+}
+
+export async function saveJournalEntryEdit(
+  userId: string,
+  localDate: string,
+  entryId: string,
+  body: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("journal_entry_edits").upsert(
+    {
+      user_id: userId,
+      local_date: localDate,
+      entry_id: entryId,
+      body,
+    },
+    { onConflict: "user_id,local_date,entry_id" },
+  );
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export async function getManualJournalEntries(
   userId: string,
   localDate: string,
@@ -570,8 +705,16 @@ function weightForDate(weightPlan: WeightWeekPlan, localDate: string): number | 
 export function buildDailyJournal(
   manual: ManualJournalEntry[],
   ctx: JournalDayContext,
+  savedOrder?: Map<string, number> | null,
+  savedEdits?: Map<string, string> | null,
 ): DailyJournal {
-  const entries = mergeJournalEntries(manual, buildAutoEntries(ctx));
+  const entries = applyJournalEntryOrder(
+    applyJournalEntryEdits(
+      mergeJournalEntries(manual, buildAutoEntries(ctx)),
+      savedEdits,
+    ),
+    savedOrder,
+  );
   const narrative = buildJournalNarrative(entries);
   return {
     localDate: ctx.localDate,
@@ -584,28 +727,33 @@ export async function getDailyJournal(
   userId: string,
   ctx: JournalDayContext,
 ): Promise<DailyJournal> {
-  const [manual, trackers] = await Promise.all([
+  const [manual, trackers, savedOrder, savedEdits] = await Promise.all([
     getManualJournalEntries(userId, ctx.localDate),
     ctx.trackers
       ? Promise.resolve(ctx.trackers)
       : getJournalTrackersForDate(userId, ctx.localDate),
+    getJournalEntryOrder(userId, ctx.localDate),
+    getJournalEntryEdits(userId, ctx.localDate),
   ]);
-  return buildDailyJournal(manual, { ...ctx, trackers });
+  return buildDailyJournal(manual, { ...ctx, trackers }, savedOrder, savedEdits);
 }
 
 export async function getWeekJournalSummary(
   userId: string,
   context: WeekJournalContext,
 ): Promise<WeekJournalSummary> {
-  const [manualEntries, moods, trackersByDate] = await Promise.all([
-    getManualJournalEntriesForWeek(userId, context.weekStart),
-    getMoodsForWeek(userId, context.weekStart),
-    getJournalTrackersForWeek(
-      userId,
-      context.weekStart,
-      addDaysISO(context.weekStart, 6),
-    ),
-  ]);
+  const [manualEntries, moods, trackersByDate, ordersByDate, editsByDate] =
+    await Promise.all([
+      getManualJournalEntriesForWeek(userId, context.weekStart),
+      getMoodsForWeek(userId, context.weekStart),
+      getJournalTrackersForWeek(
+        userId,
+        context.weekStart,
+        addDaysISO(context.weekStart, 6),
+      ),
+      getJournalEntryOrdersForWeek(userId, context.weekStart),
+      getJournalEntryEditsForWeek(userId, context.weekStart),
+    ]);
 
   const manualByDate = new Map<string, ManualJournalEntry[]>();
   for (const entry of manualEntries) {
@@ -633,7 +781,13 @@ export async function getWeekJournalSummary(
       trackers: trackersByDate.get(localDate),
     };
     const manual = manualByDate.get(localDate) ?? [];
-    const entries = mergeJournalEntries(manual, buildAutoEntries(dayCtx));
+    const entries = applyJournalEntryOrder(
+      applyJournalEntryEdits(
+        mergeJournalEntries(manual, buildAutoEntries(dayCtx)),
+        editsByDate.get(localDate),
+      ),
+      ordersByDate.get(localDate),
+    );
     const narrative = buildJournalNarrative(entries);
     days.push({
       localDate,

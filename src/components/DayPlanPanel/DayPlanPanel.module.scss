@@ -126,6 +126,13 @@
     font-family: $font-mono;
 }
 
+.toggleGroup {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    flex-shrink: 0;
+}
+
 .toggle {
     width: 44px;
     height: 26px;
@@ -148,6 +155,31 @@
     .toggleKnob {
         transform: translateX(18px);
     }
+}
+
+.toggleLeave {
+    width: 36px;
+    height: 26px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.45;
+}
+
+.toggleLeaveOn {
+    opacity: 1;
+    background: rgba(95, 182, 255, 0.25);
+    border-color: $color-water;
+}
+
+.toggleLeaveIcon {
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.trackerItemDisabled {
+    opacity: 0.55;
 }
 
 .toggleKnob {

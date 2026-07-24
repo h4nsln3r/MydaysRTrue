@@ -254,7 +254,8 @@ export function DayActivitiesCard({
         <Card className={styles.card}>
           {onLeave ? (
             <p className={styles.planHint}>
-              Ledig idag — Jobb start/slut visas inte.{" "}
+              Ledig idag — Jobb och spårare som är avstängda för ledighet visas
+              inte.{" "}
               <Link href="/year?view=plan" className={styles.weekLink}>
                 Årskalender →
               </Link>
@@ -270,7 +271,8 @@ export function DayActivitiesCard({
       <Card className={styles.card}>
         {onLeave ? (
           <p className={styles.planHint}>
-            Ledig idag — Jobb start/slut visas inte.{" "}
+            Ledig idag — Jobb och spårare som är avstängda för ledighet visas
+            inte.{" "}
             <Link href="/year?view=plan" className={styles.weekLink}>
               Årskalender →
             </Link>
@@ -315,7 +317,7 @@ export function DayActivitiesCard({
         </div>
         <p className={styles.planHint}>
           {onLeave
-            ? "Ledig idag — Jobb start/slut visas inte."
+            ? "Ledig idag — Jobb och spårare som är avstängda för ledighet visas inte."
             : planningMode
               ? "Dra ⠿ för att planera ordningen inför dagen"
               : "Dra ⠿ för att ändra ordning idag"}

@@ -5,6 +5,7 @@ import {
   MEAL_LABEL,
   SNACK_ICON,
   SNACK_LABEL,
+  habitVisibleOnLeaveDay,
   type DailyHabit,
   type DailySnacks,
   type HabitKind,
@@ -442,8 +443,12 @@ function applySavedOrder(items: DayPlanItem[], savedOrder: Map<string, number>):
 /** Build all Dagens plan rows for one day. */
 export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
   const items: DayPlanItem[] = [];
-  const enabledKinds = new Set(input.habits.map((h) => h.kind));
-  const slots = habitSortSlots(input.habits);
+  const onLeave = input.onLeave === true;
+  const planHabits = input.habits.filter((h) =>
+    habitVisibleOnLeaveDay(h, onLeave),
+  );
+  const enabledKinds = new Set(planHabits.map((h) => h.kind));
+  const slots = habitSortSlots(planHabits);
 
   for (const task of input.tasks) {
     items.push({
@@ -583,7 +588,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     }
   }
 
-  for (const habit of input.habits) {
+  for (const habit of planHabits) {
     if (!DAY_PLAN_ONLY_HABIT_KEYS.has(habit.key)) continue;
     items.push({
       kind: "habit",
@@ -601,7 +606,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     });
   }
 
-  if (shouldShowWork(input.date, input.onLeave === true)) {
+  if (shouldShowWork(input.date, onLeave)) {
     items.push({
       kind: "work_start",
       id: "start",
@@ -649,7 +654,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
   }
 
   if (enabledKinds.has("media") && input.media) {
-    const mediaHabit = input.habits.find((h) => h.kind === "media");
+    const mediaHabit = planHabits.find((h) => h.kind === "media");
     const hasLog = hasMediaDayActivity(input.media.dayLogs);
     items.push({
       kind: "media",

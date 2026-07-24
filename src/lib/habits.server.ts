@@ -60,7 +60,11 @@ interface HabitRow {
   sort_order: number;
   category_id: string | null;
   enabled: boolean;
+  show_on_leave: boolean | null;
 }
+
+const HABIT_COLUMNS =
+  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_leave";
 
 function rowToHabit(r: HabitRow): Habit {
   return {
@@ -73,6 +77,7 @@ function rowToHabit(r: HabitRow): Habit {
     sortOrder: r.sort_order,
     categoryId: r.category_id,
     enabled: r.enabled ?? true,
+    showOnLeave: r.show_on_leave ?? true,
   };
 }
 
@@ -99,9 +104,7 @@ export async function getDayPlanSettings(userId: string): Promise<DayPlanSetting
   const [habitsRes, profileRes] = await Promise.all([
     supabase
       .from("habits")
-      .select(
-        "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
-      )
+      .select(HABIT_COLUMNS)
       .eq("user_id", userId)
       .is("archived_at", null)
       .order("sort_order", { ascending: true }),
@@ -176,9 +179,7 @@ export async function getHabits(userId: string): Promise<Habit[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("habits")
-    .select(
-      "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
-    )
+    .select(HABIT_COLUMNS)
     .eq("user_id", userId)
     .is("archived_at", null)
     .order("sort_order", { ascending: true });
@@ -217,9 +218,7 @@ export async function getDailyHabits(
   ] = await Promise.all([
     supabase
       .from("habits")
-      .select(
-        "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
-      )
+      .select(HABIT_COLUMNS)
       .eq("user_id", userId)
       .is("archived_at", null)
       .eq("enabled", true)
@@ -580,9 +579,7 @@ export async function getMonthSummary(
   ] = await Promise.all([
     supabase
       .from("habits")
-      .select(
-        "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
-      )
+      .select(HABIT_COLUMNS)
       .eq("user_id", userId)
       .is("archived_at", null)
       .eq("enabled", true)
@@ -901,9 +898,7 @@ export async function getWeekHabitSummary(
   ] = await Promise.all([
     supabase
       .from("habits")
-      .select(
-        "id, key, label, kind, icon, accent, sort_order, category_id, enabled",
-      )
+      .select(HABIT_COLUMNS)
       .eq("user_id", userId)
       .is("archived_at", null)
       .eq("enabled", true)

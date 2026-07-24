@@ -446,6 +446,30 @@ export async function setHabitEnabledAction(input: {
   return { ok: true };
 }
 
+/** Whether a daily tracker appears on leave/vacation days. */
+export async function setHabitShowOnLeaveAction(input: {
+  habitId: string;
+  showOnLeave: boolean;
+}): Promise<ActionResult> {
+  if (!input.habitId) return { ok: false, error: "Missing habit id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("habits")
+    .update({ show_on_leave: input.showOnLeave })
+    .eq("id", input.habitId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Update daily goals for water, steps and activity hours. */
 export async function updateDailyTrackerGoalsAction(input: {
   waterGoalMl?: number;

@@ -21,6 +21,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   reorderHabitsAction,
   setHabitEnabledAction,
+  setHabitShowOnLeaveAction,
   updateDailyTrackerGoalsAction,
 } from "@/app/(app)/actions";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
@@ -73,9 +74,37 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
 
   const toggle = (habitId: string, enabled: boolean) => {
     setError(null);
+    setLocalHabits((prev) =>
+      prev.map((h) => (h.id === habitId ? { ...h, enabled: !enabled } : h)),
+    );
     startTransition(async () => {
       const res = await setHabitEnabledAction({ habitId, enabled: !enabled });
-      if (!res.ok) setError(res.error ?? "Kunde inte uppdatera.");
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte uppdatera.");
+        setLocalHabits(habits);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const toggleLeave = (habitId: string, showOnLeave: boolean) => {
+    setError(null);
+    setLocalHabits((prev) =>
+      prev.map((h) =>
+        h.id === habitId ? { ...h, showOnLeave: !showOnLeave } : h,
+      ),
+    );
+    startTransition(async () => {
+      const res = await setHabitShowOnLeaveAction({
+        habitId,
+        showOnLeave: !showOnLeave,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte uppdatera.");
+        setLocalHabits(habits);
+        return;
+      }
       router.refresh();
     });
   };
@@ -109,7 +138,7 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
         <header className={styles.sectionHeader}>
           <h2 className={styles.h2}>Dagliga spårare</h2>
           <p className={styles.sub}>
-            Dra för ordning · slå på/av det du vill följa
+            Dra för ordning · aktiv · visa under ledighet
           </p>
         </header>
 
@@ -130,6 +159,7 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
                   goals={goals}
                   pending={pending}
                   onToggle={toggle}
+                  onToggleLeave={toggleLeave}
                   onGoalError={setError}
                 />
               ))}
@@ -150,6 +180,7 @@ interface SortableTrackerRowProps {
   goals: DailyTrackerGoals;
   pending: boolean;
   onToggle: (habitId: string, enabled: boolean) => void;
+  onToggleLeave: (habitId: string, showOnLeave: boolean) => void;
   onGoalError: (message: string | null) => void;
 }
 
@@ -158,6 +189,7 @@ function SortableTrackerRow({
   goals,
   pending,
   onToggle,
+  onToggleLeave,
   onGoalError,
 }: SortableTrackerRowProps) {
   const {
@@ -183,6 +215,7 @@ function SortableTrackerRow({
       className={[
         styles.trackerItem,
         isDragging ? styles.trackerItemDragging : "",
+        !habit.enabled ? styles.trackerItemDisabled : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -225,22 +258,53 @@ function SortableTrackerRow({
             {KIND_HINT[habit.kind] ?? "Daglig uppföljning"}
           </span>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={habit.enabled}
-          aria-label={`${habit.enabled ? "Stäng av" : "Slå på"} ${habit.label}`}
-          className={[
-            styles.toggle,
-            habit.enabled ? styles.toggleOn : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          onClick={() => onToggle(habit.id, habit.enabled)}
-          disabled={pending}
-        >
-          <span className={styles.toggleKnob} aria-hidden />
-        </button>
+        <div className={styles.toggleGroup}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={habit.enabled}
+            aria-label={`${habit.enabled ? "Stäng av" : "Slå på"} ${habit.label}`}
+            title={habit.enabled ? "Aktiv" : "Av"}
+            className={[
+              styles.toggle,
+              habit.enabled ? styles.toggleOn : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => onToggle(habit.id, habit.enabled)}
+            disabled={pending}
+          >
+            <span className={styles.toggleKnob} aria-hidden />
+          </button>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={habit.showOnLeave}
+            aria-label={
+              habit.showOnLeave
+                ? `Dölj ${habit.label} under ledighet`
+                : `Visa ${habit.label} under ledighet`
+            }
+            title={
+              habit.showOnLeave
+                ? "Visas under ledighet"
+                : "Döljs under ledighet"
+            }
+            className={[
+              styles.toggle,
+              styles.toggleLeave,
+              habit.showOnLeave ? styles.toggleLeaveOn : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => onToggleLeave(habit.id, habit.showOnLeave)}
+            disabled={pending}
+          >
+            <span className={styles.toggleLeaveIcon} aria-hidden>
+              🏖
+            </span>
+          </button>
+        </div>
       </div>
 
       {hasGoal ? (

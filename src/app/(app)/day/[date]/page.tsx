@@ -164,6 +164,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
             <DayActivitiesCard
               weekStart={weeklyTasksDay.weekStart}
               tasks={weeklyTasksDay.tasks}
+              onHoldTasks={weeklyTasksDay.onHoldTasks}
               monthlyTasks={monthlyTasksDay.tasks}
               monthStart={monthlyTasksDay.monthStart}
               gymSessions={gymDay.sessions}
@@ -223,6 +224,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               mobileGames={mobileGames}
               mood={mood}
               smokeFree={smokeFree}
+              onLeave={onLeave}
               waterPlusHref={`/water?date=${date}`}
               waterPlusLabel="Lägg till vatten"
             />
@@ -256,47 +258,11 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
           ) : null}
         </>
       ) : (
-        <>
-          <section className={styles.section}>
-            <DayActivitiesCard
-              weekStart={weeklyTasksDay.weekStart}
-              tasks={weeklyTasksDay.tasks}
-              monthlyTasks={monthlyTasksDay.tasks}
-              monthStart={monthlyTasksDay.monthStart}
-              gymSessions={gymDay.sessions}
-              cardioSessions={cardioDay.sessions}
-              sportSessions={sportDay.sessions}
-              bathingSessions={bathingDay.sessions}
-              weight={weightDay}
-              habits={habits}
-              meals={meals}
-              snacks={snacks}
-              savedRestaurants={savedRestaurants}
-              mealBoxStock={mealBoxStock}
-              intake={intake}
-              work={work}
-              onLeave={onLeave}
-              activityLog={activityLog}
-              goals={dayPlan.goals}
-              media={media}
-              liveEvents={liveEvents}
-              savedOrder={savedOrder}
-              categories={weeklyTasksDay.categories}
-              date={date}
-              today={today}
-              title="Dagens plan"
-              hideWhenEmpty
-              showWeekLink={false}
-              planningMode={isUpcoming}
-              bathingWeekday={bathingDay.weekday}
-            />
-          </section>
-          <DayPlanPanel
-            habits={dayPlan.habits}
-            goals={dayPlan.goals}
-            categories={allCategories}
-          />
-        </>
+        <DayPlanPanel
+          habits={dayPlan.habits}
+          goals={dayPlan.goals}
+          categories={allCategories}
+        />
       )}
     </main>
   );

@@ -9,6 +9,7 @@ import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import { DAY_PLAN_HABIT_KINDS, isDayPlanOnlyHabit } from "@/lib/day-plan";
 import {
   sortOtherDailyTrackersIncompleteFirst,
+  habitVisibleOnLeaveDay,
   type DailyHabit,
   type DailySnacks,
   type HabitKind,
@@ -41,6 +42,8 @@ interface Props {
   mobileGames: DailyMobileGamesContext;
   mood: DailyMoodContext;
   smokeFree: DailySmokeFreeContext;
+  /** When true, habits with showOnLeave=false are hidden. */
+  onLeave?: boolean;
   waterPlusHref?: string;
   waterPlusLabel?: string;
 }
@@ -59,18 +62,23 @@ export function DailyTrackersBoard({
   mobileGames,
   mood,
   smokeFree,
+  onLeave = false,
   waterPlusHref,
   waterPlusLabel,
 }: Props) {
-  if (habits.length === 0) {
+  const dayHabits = habits.filter((h) => habitVisibleOnLeaveDay(h, onLeave));
+
+  if (dayHabits.length === 0) {
     return (
       <p className={styles.empty}>
-        Inga spårare aktiva. Slå på några under Planera.
+        {onLeave
+          ? "Inga spårare visas under ledighet. Justera under Planera."
+          : "Inga spårare aktiva. Slå på några under Planera."}
       </p>
     );
   }
 
-  const boardHabits = habits.filter(
+  const boardHabits = dayHabits.filter(
     (h) => !DAY_PLAN_HABIT_KINDS.has(h.kind) && !isDayPlanOnlyHabit(h),
   );
 

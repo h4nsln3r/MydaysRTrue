@@ -143,6 +143,17 @@ export interface Habit {
   categoryId: string | null;
   /** When false the tracker is hidden from daily progress views. */
   enabled: boolean;
+  /** When false the tracker is hidden on leave/vacation days. */
+  showOnLeave: boolean;
+}
+
+/** Whether a habit should appear for this day given leave status. */
+export function habitVisibleOnLeaveDay(
+  habit: { showOnLeave: boolean },
+  onLeave: boolean,
+): boolean {
+  if (!onLeave) return true;
+  return habit.showOnLeave;
 }
 
 export interface DailyHabit extends Habit {

@@ -150,6 +150,7 @@ export interface Database {
           sort_order: number;
           category_id: string | null;
           enabled: boolean;
+          show_on_leave: boolean;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -176,6 +177,7 @@ export interface Database {
           sort_order?: number;
           category_id?: string | null;
           enabled?: boolean;
+          show_on_leave?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -202,6 +204,7 @@ export interface Database {
           sort_order?: number;
           category_id?: string | null;
           enabled?: boolean;
+          show_on_leave?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;

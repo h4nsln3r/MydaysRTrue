@@ -791,7 +791,9 @@ export function WeeklyTaskRow({
                     <>
                       {isMusicRepTask(task.key) ? (
                         <div className={styles.bandPicker}>
-                          <span className={styles.bandLabel}>Vilket band?</span>
+                          <span className={styles.bandLabel}>
+                            Vilket band? (valfritt)
+                          </span>
                           <div className={styles.bandBtns}>
                             {MUSIC_BANDS.map((b) => (
                               <button
@@ -805,7 +807,9 @@ export function WeeklyTaskRow({
                                   .join(" ")}
                                 aria-pressed={band === b}
                                 disabled={pending}
-                                onClick={() => setBand(b)}
+                                onClick={() =>
+                                  setBand((prev) => (prev === b ? null : b))
+                                }
                               >
                                 {b}
                               </button>

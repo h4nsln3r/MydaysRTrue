@@ -1000,9 +1000,9 @@ export async function completeWeeklyTaskAction(input: {
         return { ok: false, error: "Håll kommentaren under 500 tecken." };
       }
       completionNote = note;
-      if (isMusicRepTask(task.key)) {
-        if (!bandInput || !MUSIC_BANDS.includes(bandInput as MusicBand)) {
-          return { ok: false, error: "Välj vilket band du repade med." };
+      if (isMusicRepTask(task.key) && bandInput) {
+        if (!MUSIC_BANDS.includes(bandInput as MusicBand)) {
+          return { ok: false, error: "Ogiltigt band." };
         }
         band = bandInput as MusicBand;
       }

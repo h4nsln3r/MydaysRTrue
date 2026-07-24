@@ -6,7 +6,6 @@
 ██║ ╚═╝ ██║   ██║   ██████╔╝██║  ██║   ██║   ███████║
 ╚═╝     ╚═╝   ╚═╝   ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝
         » R  T R U E «  ·  a retro life-tracker
-                  ~ ~ ~   day 1: water   ~ ~ ~
 ```
 
 # MyDays R True
@@ -29,6 +28,7 @@ Built with **Next.js 16 (App Router) + TypeScript + Supabase**, styled with **SC
 - [Setup](#setup)
 - [Scripts](#scripts)
 - [Conventions](#conventions)
+- [Roadmap](#roadmap)
 
 ---
 
@@ -47,52 +47,17 @@ Built with **Next.js 16 (App Router) + TypeScript + Supabase**, styled with **SC
 
 ## Feature tour
 
-The app is organized around **time horizons** — every domain rolls up from a single day into week, month and year views, each with a **Progress** (what happened) and a **Plan** (what's coming) tab.
+The app is organized around **time horizons** — everything rolls up from a single day into week, month and year views, each with a **Progress** tab (what happened) and a **Plan** tab (what's coming).
 
-### Hydration & nutrition
-- **Water** — one-tap quick-adds or a full manual form; an animated SVG bottle fills toward your daily goal with progress markers.
-- **Meals** — breakfast / lunch / dinner with cooking metadata (cooked-by, restaurant, or meal box).
-- **Snacks** — two daily slots.
-- **Intake** — fruit, creatine, vitamins and protein shake checks.
-- **Meal boxes** — a fridge stock counter for prepped portions.
-- **Restaurants** — a yearly log of restaurant visits.
+At a high level you can track:
 
-### Health & fitness
-- **Gym** — session templates with warmups, planned across the week.
-- **Cardio** — running, cycling and swimming sessions.
-- **Sport** — configurable sport sessions.
-- **Bathing / sauna** — bad & bastu sessions with water temperature, repeatable.
-- **Weight** — morning / day / evening logs against a weekly plan.
-- **Steps & activity hours** — daily activity trackers with goals.
-- **Smoke-free** — nicotine & cannabis tri-state (both "yes" = fully smoke-free).
-- **Sugar-free / light cleaning** — simple daily habits.
+- **Hydration & nutrition** — water, meals, snacks and daily intake.
+- **Health & fitness** — training sessions, weight, activity and everyday habits.
+- **Mind & lifestyle** — mood, media, games and live events.
+- **Tasks & finance** — recurring and one-off tasks plus bills, savings and expenses.
+- **Work & leave** — work hours and vacation/day-off periods.
 
-### Mind & lifestyle
-- **Mood** — pick one of six emoji moods per day.
-- **Mobile games** — Chess, Duolingo and Pokémon GO daily checks.
-- **Media** — a yearly plan for books, series and movies with notes, ratings, credits and daily progress logs.
-- **Live events** — concerts, sport, races, birthdays, weddings and more.
-- **Gigs** — band gigs (Totes, Bojeng) with ratings.
-
-### Tasks & finance
-- **Weekly tasks** — recurring and one-off tasks with categories, checklists, music prep (gig/live), on-hold parking, and drag-to-day planning.
-- **Monthly tasks** — bills (Räkningar), salary, savings, car pay, and a monthly finance-accounts snapshot (LF, ISK, crypto…).
-- **Expenses (Utgifter)** — aggregated expense tracking derived from tasks.
-- **Templates** — enable / disable recurring task templates per category in settings.
-
-### Work & leave
-- **Work** — start/end time logging on weekdays.
-- **Leave periods** — vacations and days off render on a year calendar and automatically skip work logging.
-
-### Journal & planning UX
-- **Journal** — an auto-generated day narrative built from all your tracked activity, plus manual entries you can reorder and edit.
-- **Day plan** — a unified drag-and-drop list merging tasks, training, media and habits into one ordered plan.
-- **Week board** — a unified drag-and-drop week planner grouped by category and training.
-- **Reschedule after 8pm** — overdue items can be pushed to another day late in the evening.
-- **Customizable week layout** — arrange the sections/rows of your week progress board.
-
-### Account
-- Email/password **register / login**, **profile** (display name + daily water goal), and a **settings** hub for habits, categories, templates and layout.
+On top of the tracking sits a **planning layer**: a drag-and-drop day and week planner, a customizable week layout, and an **auto-generated journal** that turns everything you logged into a readable day narrative. Accounts are email/password, with a profile and a settings hub for tuning habits, categories and templates.
 
 ---
 
@@ -168,27 +133,9 @@ supabase/
 
 ## Data model
 
-Everything lives in Supabase Postgres with RLS. Migrations run in order (`0001` → `0063`) and are safe to re-run.
+Everything lives in **Supabase Postgres** with **Row Level Security**, so every user only ever reads and writes their own rows. Each domain (water, habits, meals, tasks, training, media, journal, work/leave…) has its own set of tables, and most follow the same shape: a **definition/plan** table and a matching **daily log** table.
 
-| Domain | Core tables |
-|---|---|
-| Auth & profile | `profiles` (water goal, week-progress layout) |
-| Water | `water_logs` |
-| Habits | `habits`, `habit_checks` |
-| Meals & snacks | `meal_entries`, `snack_checks`, `meal_restaurants`, `meal_box_stock` |
-| Intake | `intake_entries` |
-| Daily trackers | `daily_activity_logs` (steps, activity hours) |
-| Tasks | `task_categories`, `weekly_tasks`, `weekly_task_placements`, `monthly_tasks`, `monthly_task_completions`, `weekly_task_checklist_items`, `weekly_task_checklist_completions` |
-| Finance | `monthly_finance_snapshots` (+ bills/salary/savings/car pay/expenses via tasks) |
-| Training | `gym_*`, `cardio_*`, `sport_*`, `bathing_*` (session templates + week placements) |
-| Weight | `weight_week_plans`, `weight_logs` |
-| Reading & games | `reading_books`, `reading_daily_logs`, `mobile_game_daily_logs` |
-| Media | `media_items`, `media_daily_logs` |
-| Live events / gigs | `live_events`, `gigs` |
-| Mood / smoke-free | `mood_daily_logs`, `smoke_free_daily_logs` |
-| Journal | `journal_entries`, `journal_entry_orders`, `journal_entry_edits` |
-| Work / leave | `work_daily_logs`, `leave_periods` |
-| Planning order | `daily_plan_orders` |
+Schema changes are shipped as ordered, idempotent SQL migrations in `supabase/migrations/` — safe to re-run and applied in sequence.
 
 ---
 
@@ -264,6 +211,24 @@ npm run typecheck  # tsc --noEmit
 - All writes go through **Server Actions**; components refresh via `router.refresh()`.
 - Dates are handled as local `YYYY-MM-DD` strings (see `lib/date.ts`) to avoid timezone drift.
 - New migrations are additive and numbered sequentially.
+
+---
+
+## Roadmap
+
+### User-customizable tasks
+
+Today the recurring tasks come from a fixed set of templates that each user can only turn **on or off** per category. The goal is to let every user shape their own tasks around their own life, without touching code.
+
+The idea, roughly:
+
+- **User-owned task definitions.** A `task_definitions` table where each user creates their own tasks: title, category, an icon/color, and an optional checklist. The built-in templates become just default seeds — everything is editable and deletable from there.
+- **Custom categories.** Let users add, rename, reorder and color their own categories, instead of the current fixed list.
+- **Flexible recurrence.** Store a small recurrence rule per task (e.g. daily, every N days, specific weekdays, monthly on day X, or one-off). A lightweight "recurrence engine" then materializes the right task instances into each day / week / month view.
+- **A task builder UI.** A dedicated screen in settings to create and edit these definitions, reusing the drag-and-drop planning the app already has.
+- **Sharing (later).** Optionally let users publish a task or a whole category as a shareable template others can import.
+
+This keeps the current structure intact — the planning, journal and progress views would simply read from user-defined tasks instead of hardcoded templates.
 
 ---
 

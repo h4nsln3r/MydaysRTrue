@@ -30,8 +30,12 @@ import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_TIME_LABEL } from "@/lib/weight";
 import type { WeekMealsSummary } from "@/lib/meal-box.server";
+import type { WeekMediaSummary } from "@/lib/media.server";
 import { WeekDailyHabitRows } from "./WeekDailyHabitRows";
 import { WeekJournalRow } from "./WeekJournalRow";
+import { WeekTrainingChip } from "./WeekTrainingChip";
+import type { AnyTrainingSession } from "./WeekTrainingLogDialog";
+import { WeekMusicChip } from "./WeekMusicChip";
 import {
   WEEK_PROGRESS_SECTION_LABEL,
   WEEK_PROGRESS_TRAINING_META,
@@ -44,6 +48,7 @@ interface Props {
   week: WeekSummary;
   habitWeek: WeekHabitSummary;
   mealsWeek: WeekMealsSummary;
+  mediaWeek: WeekMediaSummary;
   gymSessions: GymSessionForWeek[];
   cardioSessions: CardioSessionForWeek[];
   sportSessions: SportSessionForWeek[];
@@ -61,6 +66,7 @@ export function WeekProgressBoard({
   week,
   habitWeek,
   mealsWeek,
+  mediaWeek,
   gymSessions,
   cardioSessions,
   sportSessions,
@@ -161,6 +167,7 @@ export function WeekProgressBoard({
                       week={week}
                       habitWeek={habitWeek}
                       mealsWeek={mealsWeek}
+                      mediaWeek={mediaWeek}
                       dailyRows={layout.dailyRows}
                     />
                   </>
@@ -391,6 +398,7 @@ function renderTrainingRow(
     case "gym":
       return (
         <TrainingRow
+          type="gym"
           icon={meta.icon}
           label={meta.label}
           days={ctx.week.days}
@@ -413,6 +421,7 @@ function renderTrainingRow(
     case "cardio":
       return (
         <TrainingRow
+          type="cardio"
           icon={meta.icon}
           label={meta.label}
           days={ctx.week.days}
@@ -430,6 +439,7 @@ function renderTrainingRow(
     case "sport":
       return (
         <TrainingRow
+          type="sport"
           icon={meta.icon}
           label={meta.label}
           days={ctx.week.days}
@@ -447,6 +457,7 @@ function renderTrainingRow(
     case "bathing":
       return (
         <TrainingRow
+          type="bathing"
           icon={meta.icon}
           label={meta.label}
           days={ctx.week.days}
@@ -582,6 +593,11 @@ function CategoryRecapCard({
                 ) : (
                   dayTasks.map((t) => {
                     const taskDone = Boolean(t.placement?.doneAt);
+                    if (t.completionKind === "music") {
+                      return (
+                        <WeekMusicChip key={t.id} task={t} localDate={d.date} />
+                      );
+                    }
                     return (
                       <li
                         key={t.id}
@@ -888,6 +904,7 @@ function TotalCell({
 }
 
 function TrainingRow<T extends { id: string; placement: { weekday: number | null; doneAt: string | null } }>({
+  type,
   icon,
   label,
   days,
@@ -897,6 +914,7 @@ function TrainingRow<T extends { id: string; placement: { weekday: number | null
   chipClass,
   renderSession,
 }: {
+  type: WeekProgressTrainingKey;
   icon: string;
   label: string;
   days: WeekDay[];
@@ -933,31 +951,13 @@ function TrainingRow<T extends { id: string; placement: { weekday: number | null
                 {sessions.map((s) => {
                   const meta = renderSession(s);
                   return (
-                    <li
+                    <WeekTrainingChip
                       key={s.id}
-                      className={cellClass(
-                        styles.sessionChip,
-                        chipClass,
-                        meta.done && styles.sessionChipDone,
-                      )}
-                      title={meta.title}
-                    >
-                      <span aria-hidden>{meta.icon}</span>
-                      {meta.warmupIcon ? (
-                        <span className={styles.warmupCorner} aria-hidden>
-                          {meta.warmupIcon}
-                        </span>
-                      ) : null}
-                      {meta.done ? (
-                        <span className={styles.sessionCheck} aria-hidden>
-                          ✓
-                        </span>
-                      ) : (
-                        <span className={styles.sessionPending} aria-hidden>
-                          ○
-                        </span>
-                      )}
-                    </li>
+                      type={type}
+                      session={s as unknown as AnyTrainingSession}
+                      meta={meta}
+                      chipClass={chipClass}
+                    />
                   );
                 })}
               </ul>

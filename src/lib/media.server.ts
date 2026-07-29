@@ -1,10 +1,13 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { addDaysISO, todayLocalISO } from "@/lib/date";
 import {
   isMediaCompleted,
   isMediaDayLogDone,
+  mediaDaySummary,
   yearFromLocalISO,
   type DailyMediaContext,
+  type MediaDayLog,
   type MediaItem,
   type MediaKind,
   type MonthMediaContext,
@@ -156,6 +159,107 @@ export async function getDailyMedia(
     loggedToday,
     allCompleted: items.length > 0 && activeItems.length === 0,
   };
+}
+
+export interface WeekMediaDay {
+  date: string;
+  isFuture: boolean;
+  isToday: boolean;
+  /** Full logging context for the day — feeds the week log dialog. */
+  context: DailyMediaContext;
+  /** One-line summary of what was read/watched that day, if anything. */
+  summary: string | null;
+}
+
+export interface WeekMediaSummary {
+  weekStart: string;
+  weekEnd: string;
+  /** Year of the week start — used for the "årsvyn" link. */
+  year: number;
+  days: WeekMediaDay[];
+  /** Whether the user has any titles in their library for the week's year(s). */
+  hasLibrary: boolean;
+}
+
+/** Per-day media logging state for the whole week (Mon–Sun). */
+export async function getWeekMediaSummary(
+  userId: string,
+  weekStart: string,
+): Promise<WeekMediaSummary> {
+  const weekEnd = addDaysISO(weekStart, 6);
+  const today = todayLocalISO();
+
+  const startYear = yearFromLocalISO(weekStart);
+  const endYear = yearFromLocalISO(weekEnd);
+  const years = startYear === endYear ? [startYear] : [startYear, endYear];
+
+  const itemsByYear = new Map<number, MediaItem[]>();
+  for (const y of years) {
+    const { items } = await getYearMedia(userId, y);
+    itemsByYear.set(y, items);
+  }
+
+  const supabase = await createClient();
+  const { data: logRows } = await supabase
+    .from("media_daily_logs")
+    .select("local_date, media_item_id, position, did_consume")
+    .eq("user_id", userId)
+    .gte("local_date", weekStart)
+    .lte("local_date", weekEnd);
+
+  const logsByDate = new Map<string, MediaDayLog[]>();
+  for (const row of logRows ?? []) {
+    const arr = logsByDate.get(row.local_date) ?? [];
+    arr.push({
+      mediaItemId: row.media_item_id,
+      position: row.position,
+      didConsume: row.did_consume,
+    });
+    logsByDate.set(row.local_date, arr);
+  }
+
+  let hasLibrary = false;
+  for (const items of itemsByYear.values()) {
+    if (items.length > 0) hasLibrary = true;
+  }
+
+  const days: WeekMediaDay[] = [];
+  for (let i = 0; i < 7; i += 1) {
+    const date = addDaysISO(weekStart, i);
+    const year = yearFromLocalISO(date);
+    const items = itemsByYear.get(year) ?? [];
+    const dayLogs = logsByDate.get(date) ?? [];
+
+    const loggedIds = new Set(dayLogs.map((l) => l.mediaItemId));
+    const activeItems = items.filter((item) => !item.completed);
+    const availableItems = activeItems.filter((item) => !loggedIds.has(item.id));
+
+    const loggedToday: MediaDayLogEntry[] = [];
+    for (const log of dayLogs) {
+      if (!isMediaDayLogDone(log)) continue;
+      const item = items.find((it) => it.id === log.mediaItemId);
+      if (item) loggedToday.push({ log, item });
+    }
+
+    const context: DailyMediaContext = {
+      localDate: date,
+      year,
+      items: availableItems,
+      dayLogs,
+      loggedToday,
+      allCompleted: items.length > 0 && activeItems.length === 0,
+    };
+
+    days.push({
+      date,
+      isFuture: date > today,
+      isToday: date === today,
+      context,
+      summary: mediaDaySummary(loggedToday),
+    });
+  }
+
+  return { weekStart, weekEnd, year: startYear, days, hasLibrary };
 }
 
 function monthEndFromStart(monthStart: string): string {

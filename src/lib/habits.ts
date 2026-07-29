@@ -38,6 +38,7 @@ export const WEEK_PROGRESS_HABIT_KEYS = [
   "smoke_free",
   "sugar_free",
   "mobile_games",
+  "media",
   "mood",
 ] as const;
 

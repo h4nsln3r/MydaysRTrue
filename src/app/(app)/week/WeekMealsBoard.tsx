@@ -8,11 +8,14 @@ import {
   MEAL_ICON,
   MEAL_ORDER,
   mealCookedByDisplay,
+  type MealEntry,
   type MealKey,
+  type MealRestaurant,
 } from "@/lib/habits";
 import type { WeekMealsSummary } from "@/lib/meal-box.server";
 import { formatDayShort, isoWeekdayFromLocalISO } from "@/lib/date";
 import { WEEKDAY_SHORT, type Weekday } from "@/lib/tasks";
+import { WeekMealLogDialog } from "./WeekMealLogDialog";
 import styles from "./week-meals.module.scss";
 
 const MEAL_LABEL_SV: Record<MealKey, string> = {
@@ -23,14 +26,20 @@ const MEAL_LABEL_SV: Record<MealKey, string> = {
 
 interface Props {
   summary: WeekMealsSummary;
+  savedRestaurants?: MealRestaurant[];
 }
 
-export function WeekMealsBoard({ summary }: Props) {
+export function WeekMealsBoard({ summary, savedRestaurants = [] }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [picker, setPicker] = useState<{ date: string; meal: MealKey } | null>(
     null,
   );
+  const [logging, setLogging] = useState<{
+    date: string;
+    meal: MealKey;
+    initial: MealEntry | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const stockTotal = summary.stock.reduce((sum, s) => sum + s.remaining, 0);
@@ -154,17 +163,33 @@ export function WeekMealsBoard({ summary }: Props) {
                         .join(" ")}
                     >
                       {entry ? (
-                        <MealCell entry={entry} date={day.date} />
+                        <MealCell
+                          entry={entry}
+                          onEdit={() =>
+                            setLogging({
+                              date: day.date,
+                              meal: mealKey,
+                              initial: entry,
+                            })
+                          }
+                        />
                       ) : day.isFuture ? (
                         <span className={styles.cellEmpty}>—</span>
                       ) : (
                         <div className={styles.cellActions}>
-                          <Link
-                            href={`/day/${day.date}`}
+                          <button
+                            type="button"
                             className={styles.logLink}
+                            onClick={() =>
+                              setLogging({
+                                date: day.date,
+                                meal: mealKey,
+                                initial: null,
+                              })
+                            }
                           >
                             Logga
-                          </Link>
+                          </button>
                           {summary.stock.length > 0 ? (
                             <>
                               <button
@@ -215,16 +240,27 @@ export function WeekMealsBoard({ summary }: Props) {
           </tbody>
         </table>
       </div>
+
+      {logging ? (
+        <WeekMealLogDialog
+          date={logging.date}
+          meal={logging.meal}
+          initial={logging.initial}
+          savedRestaurants={savedRestaurants}
+          mealBoxStock={summary.stock}
+          onClose={() => setLogging(null)}
+        />
+      ) : null}
     </section>
   );
 }
 
 function MealCell({
   entry,
-  date,
+  onEdit,
 }: {
   entry: NonNullable<WeekMealsSummary["days"][number]["meals"][MealKey]>;
-  date: string;
+  onEdit: () => void;
 }) {
   const cookedLabel = mealCookedByDisplay(
     entry.cookedBy,
@@ -234,9 +270,9 @@ function MealCell({
 
   return (
     <div className={styles.mealCell}>
-      <Link href={`/day/${date}`} className={styles.mealDesc}>
+      <button type="button" onClick={onEdit} className={styles.mealDesc}>
         {entry.description}
-      </Link>
+      </button>
       <div className={styles.mealMeta}>
         {entry.fromMealBox ? (
           <span className={styles.badgeBox}>Matlåda</span>

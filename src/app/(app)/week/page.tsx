@@ -22,6 +22,8 @@ import { getWorkLogsForWeek } from "@/lib/work.server";
 
 import { getUnifiedWeekPlan } from "@/lib/week-plan.server";
 import { getWeekMealsSummary } from "@/lib/meal-box.server";
+import { getMealRestaurants } from "@/lib/meals.server";
+import { getWeekMediaSummary } from "@/lib/media.server";
 import { getWeekProgressLayout } from "@/lib/week-progress-layout.server";
 import { WEEK_PROGRESS_HABIT_KEYS } from "@/lib/habits";
 
@@ -86,6 +88,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     weightPlan,
     unifiedPlan,
     mealsWeek,
+    mealRestaurants,
+    mediaWeek,
     weekProgressLayout,
   ] = await Promise.all([
     getWeeklySummary(user.id, start),
@@ -99,6 +103,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getWeightWeekPlan(user.id, start),
     getUnifiedWeekPlan(user.id, start),
     getWeekMealsSummary(user.id, start),
+    getMealRestaurants(user.id),
+    getWeekMediaSummary(user.id, start),
     getWeekProgressLayout(user.id, [...WEEK_PROGRESS_HABIT_KEYS]),
   ]);
 
@@ -128,12 +134,13 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
       {view === "progress" ? (
         <>
-          <WeekMealsBoard summary={mealsWeek} />
+          <WeekMealsBoard summary={mealsWeek} savedRestaurants={mealRestaurants} />
           <WeekProgressBoard
           key={start}
           week={week}
           habitWeek={habitWeek}
           mealsWeek={mealsWeek}
+          mediaWeek={mediaWeek}
           gymSessions={gymWeek.sessions}
           cardioSessions={cardioWeek.sessions}
           sportSessions={sportWeek.sessions}

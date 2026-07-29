@@ -23,12 +23,15 @@ import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
 import { MOOD_ICON, MOOD_LABEL } from "@/lib/mood";
 import { SMOKE_FREE_SUBSTANCES } from "@/lib/smoke-free";
 import type { WeekMealsSummary } from "@/lib/meal-box.server";
+import type { WeekMediaSummary } from "@/lib/media.server";
 import type { WeekDay, WeekSummary } from "@/lib/water.server";
 import { formatMl, waterDayStatus } from "@/lib/water";
 import {
   parseDailyRowKey,
   type WeekProgressDailyRowKey,
 } from "@/lib/week-progress-layout";
+import { WeekMediaLogDialog } from "./WeekMediaLogDialog";
+import { WeekMoodLogDialog } from "./WeekMoodLogDialog";
 import styles from "./week-progress.module.scss";
 
 const MEAL_LABEL_SV: Record<MealKey, string> = {
@@ -73,6 +76,7 @@ interface Props {
   week: WeekSummary;
   habitWeek: WeekHabitSummary;
   mealsWeek: WeekMealsSummary;
+  mediaWeek: WeekMediaSummary;
   dailyRows: WeekProgressDailyRowKey[];
 }
 
@@ -80,12 +84,23 @@ export function WeekDailyHabitRows({
   week,
   habitWeek,
   mealsWeek,
+  mediaWeek,
   dailyRows,
 }: Props) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [openMediaDate, setOpenMediaDate] = useState<string | null>(null);
+  const [openMoodDate, setOpenMoodDate] = useState<string | null>(null);
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
   const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
   const mealDayByDate = new Map(mealsWeek.days.map((d) => [d.date, d]));
+  const mediaDayByDate = new Map(mediaWeek.days.map((d) => [d.date, d]));
+
+  const openMediaDay = openMediaDate
+    ? mediaDayByDate.get(openMediaDate)
+    : null;
+  const openMoodValue = openMoodDate
+    ? (habitDayByDate.get(openMoodDate)?.mood ?? null)
+    : null;
 
   const toggle = (key: string) => {
     setExpandedKey((prev) => (prev === key ? null : key));
@@ -147,6 +162,13 @@ export function WeekDailyHabitRows({
             mealDayByDate={mealDayByDate}
             pastDays={pastDays}
             habit={habit}
+            onCellActivate={
+              habit.kind === "media"
+                ? (date) => setOpenMediaDate(date)
+                : habit.kind === "mood"
+                  ? (date) => setOpenMoodDate(date)
+                  : undefined
+            }
             renderSummary={(d) => {
               const habitDay = habitDayByDate.get(d.date);
               const status = habitDay?.statuses[habit.id] ?? null;
@@ -174,6 +196,22 @@ export function WeekDailyHabitRows({
           />
         );
       })}
+
+      {openMediaDay ? (
+        <WeekMediaLogDialog
+          date={openMediaDay.date}
+          context={openMediaDay.context}
+          onClose={() => setOpenMediaDate(null)}
+        />
+      ) : null}
+
+      {openMoodDate ? (
+        <WeekMoodLogDialog
+          date={openMoodDate}
+          currentMood={openMoodValue}
+          onClose={() => setOpenMoodDate(null)}
+        />
+      ) : null}
     </>
   );
 }
@@ -193,6 +231,7 @@ function HabitRowGroup({
   total,
   habit,
   isWater,
+  onCellActivate,
 }: {
   rowKey: string;
   icon: string;
@@ -215,6 +254,8 @@ function HabitRowGroup({
   total: { value: number; total: number; highlight?: boolean };
   habit?: Habit;
   isWater?: boolean;
+  /** When set, double-clicking a non-future cell logs that day directly. */
+  onCellActivate?: (date: string) => void;
 }) {
   const expanded = expandedKey === rowKey;
   const canExpand = subRows.length > 0;
@@ -231,6 +272,7 @@ function HabitRowGroup({
         />
         {week.days.map((d) => {
           const summary = renderSummary(d);
+          const interactive = Boolean(onCellActivate) && !d.isFuture;
           return (
             <td
               key={d.date}
@@ -238,6 +280,7 @@ function HabitRowGroup({
                 styles.dataCell,
                 d.isFuture && styles.cellFuture,
                 d.isToday && styles.cellToday,
+                interactive && styles.cellInteractive,
                 isWater &&
                   !d.isFuture &&
                   styles[`waterCell_${summary.waterStatus}`],
@@ -246,7 +289,14 @@ function HabitRowGroup({
                   !d.isFuture &&
                   styles[`habitCell_${summary.status ?? "empty"}`],
               )}
-              title={summary.title}
+              title={
+                interactive
+                  ? `${summary.title} · Dubbelklicka för att logga`
+                  : summary.title
+              }
+              onDoubleClick={
+                interactive ? () => onCellActivate!(d.date) : undefined
+              }
             >
               {!d.isFuture ? (
                 isWater && summary.waterStatus ? (

@@ -1,0 +1,183 @@
+@use "abstracts" as *;
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $space-4;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+.modal {
+    display: flex;
+    flex-direction: column;
+    width: min(420px, 100%);
+    max-height: min(88vh, 640px);
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    box-shadow: $shadow-soft;
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+    padding: $space-4 $space-4 $space-3;
+    border-bottom: 1px solid $color-line;
+    background: rgba(251, 191, 36, 0.08);
+}
+
+.headerText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.kicker {
+    margin: 0;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.title {
+    margin: 0;
+    font-family: $font-display;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: $color-cream;
+}
+
+.closeBtn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 120ms $ease-out, border-color 120ms $ease-out;
+
+    &:hover {
+        color: $color-cream;
+        border-color: #fbbf24;
+    }
+}
+
+.body {
+    flex: 1;
+    overflow-y: auto;
+    padding: $space-4;
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.prompt {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.9rem;
+}
+
+.options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: $space-2;
+}
+
+.option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: $space-3 $space-2;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    cursor: pointer;
+    transition: border-color 120ms $ease-out, background 120ms $ease-out,
+        color 120ms $ease-out;
+
+    &:hover:not(:disabled) {
+        border-color: rgba(251, 191, 36, 0.55);
+        color: $color-cream;
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+}
+
+.optionActive {
+    border-color: #fbbf24;
+    background: rgba(251, 191, 36, 0.14);
+    color: $color-cream;
+}
+
+.optionIcon {
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.optionLabel {
+    font-size: 0.74rem;
+    font-weight: 600;
+}
+
+.clearBtn {
+    align-self: flex-start;
+    padding: 6px 12px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: transparent;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-cream-dim;
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.85rem;
+}
+
+@media (max-width: $bp-sm) {
+    .backdrop {
+        padding: $space-2;
+        align-items: flex-end;
+    }
+
+    .modal {
+        max-height: 92vh;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+}

@@ -1,0 +1,204 @@
+@use "abstracts" as *;
+
+$music-accent: #f472b6;
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $space-4;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+.modal {
+    display: flex;
+    flex-direction: column;
+    width: min(480px, 100%);
+    max-height: min(88vh, 760px);
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    box-shadow: $shadow-soft;
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+    padding: $space-4 $space-4 $space-3;
+    border-bottom: 1px solid $color-line;
+    background: rgba(244, 114, 182, 0.08);
+}
+
+.headerText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.kicker {
+    margin: 0;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.title {
+    margin: 0;
+    font-family: $font-display;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: $color-cream;
+}
+
+.closeBtn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 120ms $ease-out, border-color 120ms $ease-out;
+
+    &:hover {
+        color: $color-cream;
+        border-color: $music-accent;
+    }
+}
+
+.body {
+    flex: 1;
+    overflow-y: auto;
+    padding: $space-4;
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.divider {
+    height: 1px;
+    background: $color-line;
+    margin: $space-1 0;
+}
+
+.bandPicker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bandLabel {
+    color: $color-cream-dim;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.bandBtns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+}
+
+.bandBtn {
+    padding: $space-2 $space-3;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 120ms $ease-out, border-color 120ms $ease-out,
+        background 120ms $ease-out;
+
+    &:hover {
+        color: $color-cream;
+        border-color: $music-accent;
+    }
+}
+
+.bandBtnActive {
+    color: $color-ink;
+    background: $music-accent;
+    border-color: $music-accent;
+
+    &:hover {
+        color: $color-ink;
+    }
+}
+
+.ratingField {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ratingSelect {
+    padding: $space-2 $space-3;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+    color: $color-cream;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+
+.hint {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.8rem;
+}
+
+.undoBtn {
+    align-self: center;
+    padding: $space-2 $space-3;
+    background: none;
+    border: none;
+    color: $color-fog;
+    font-family: inherit;
+    font-size: 0.82rem;
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover {
+        color: $color-cream;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.85rem;
+}
+
+@media (max-width: $bp-sm) {
+    .backdrop {
+        padding: $space-2;
+        align-items: flex-end;
+    }
+
+    .modal {
+        max-height: 92vh;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+}

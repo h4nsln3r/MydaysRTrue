@@ -32,6 +32,89 @@ function validateWaterTemp(key: BathingKey | string, waterTempC: number | undefi
   return null;
 }
 
+/**
+ * Resolve the repeatable "bad" template. Handles DBs that never got migration
+ * 0016 (still on bad_1/bad_2/bad_3) and users with no bathing templates at all.
+ */
+async function ensureBadTemplate(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<{ id: string } | null> {
+  const { data: canonical } = await supabase
+    .from("bathing_session_templates")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("key", "bad")
+    .is("archived_at", null)
+    .maybeSingle();
+  if (canonical) return canonical;
+
+  // Reactivate an archived "bad" if present (unique on user_id+key).
+  const { data: archived } = await supabase
+    .from("bathing_session_templates")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("key", "bad")
+    .not("archived_at", "is", null)
+    .maybeSingle();
+  if (archived) {
+    const { error } = await supabase
+      .from("bathing_session_templates")
+      .update({
+        archived_at: null,
+        label: "Bad",
+        description: "Dra in hur många bad du vill den här veckan.",
+        sort_order: 0,
+      })
+      .eq("id", archived.id)
+      .eq("user_id", userId);
+    if (!error) return { id: archived.id };
+  }
+
+  // Legacy seed: bad_1 / bad_2 / bad_3 — promote the first active one.
+  const { data: legacy } = await supabase
+    .from("bathing_session_templates")
+    .select("id")
+    .eq("user_id", userId)
+    .like("key", "bad_%")
+    .is("archived_at", null)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (legacy) {
+    const { error } = await supabase
+      .from("bathing_session_templates")
+      .update({
+        key: "bad",
+        label: "Bad",
+        description: "Dra in hur många bad du vill den här veckan.",
+        sort_order: 0,
+      })
+      .eq("id", legacy.id)
+      .eq("user_id", userId);
+    if (error) return null;
+    return { id: legacy.id };
+  }
+
+  const { data: created, error } = await supabase
+    .from("bathing_session_templates")
+    .insert({
+      user_id: userId,
+      key: "bad",
+      label: "Bad",
+      description: "Dra in hur många bad du vill den här veckan.",
+      icon: "🛁",
+      accent: "#38bdf8",
+      sort_order: 0,
+      default_weekday: 1,
+    })
+    .select("id")
+    .maybeSingle();
+  if (error || !created) return null;
+  return created;
+}
+
 /** Add a new bathing instance from the backlog onto a weekday. */
 export async function addBathingPlacementAction(input: {
   templateId: string;
@@ -172,13 +255,7 @@ export async function logExtraBathAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
-  const { data: template } = await supabase
-    .from("bathing_session_templates")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("key", "bad")
-    .is("archived_at", null)
-    .maybeSingle();
+  const template = await ensureBadTemplate(supabase, user.id);
   if (!template) return { ok: false, error: "Badpasset hittades inte." };
 
   const tempError = validateWaterTemp("bad", input.waterTempC);

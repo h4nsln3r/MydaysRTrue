@@ -498,6 +498,7 @@ export interface Database {
           user_id: string;
           local_date: string;
           mood: "angry" | "sad" | "stressed" | "tired" | "happy" | "joyful";
+          note: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -505,6 +506,7 @@ export interface Database {
           user_id: string;
           local_date: string;
           mood: "angry" | "sad" | "stressed" | "tired" | "happy" | "joyful";
+          note?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -512,6 +514,7 @@ export interface Database {
           user_id?: string;
           local_date?: string;
           mood?: "angry" | "sad" | "stressed" | "tired" | "happy" | "joyful";
+          note?: string | null;
           created_at?: string;
           updated_at?: string;
         };

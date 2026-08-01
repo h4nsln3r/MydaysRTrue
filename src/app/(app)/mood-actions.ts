@@ -10,10 +10,19 @@ export interface ActionResult {
 }
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const NOTE_MAX = 280;
+
+function normalizeNote(note: string | null | undefined): string | null {
+  if (note == null) return null;
+  const trimmed = note.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, NOTE_MAX);
+}
 
 export async function saveMoodDailyLogAction(input: {
   localDate: string;
   mood: MoodKey | null;
+  note?: string | null;
 }): Promise<ActionResult> {
   if (!ISO_DATE_RE.test(input.localDate)) {
     return { ok: false, error: "Ogiltigt datum." };
@@ -42,6 +51,7 @@ export async function saveMoodDailyLogAction(input: {
         user_id: user.id,
         local_date: input.localDate,
         mood: input.mood,
+        note: normalizeNote(input.note),
       },
       { onConflict: "user_id,local_date" },
     );

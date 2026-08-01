@@ -58,6 +58,10 @@ function parseMediaRating(
   return { ok: true, rating: value };
 }
 
+export interface CreateMediaItemResult extends ActionResult {
+  id?: string;
+}
+
 export async function createMediaItemAction(input: {
   year: number;
   kind: MediaKind;
@@ -66,7 +70,7 @@ export async function createMediaItemAction(input: {
   director?: string;
   actors?: string;
   totalLength?: number | null;
-}): Promise<ActionResult> {
+}): Promise<CreateMediaItemResult> {
   const title = input.title.trim();
   if (!title) return { ok: false, error: "Skriv en titel." };
   if (!Number.isInteger(input.year) || input.year < 1970 || input.year > 2100) {
@@ -120,25 +124,29 @@ export async function createMediaItemAction(input: {
     .limit(1)
     .maybeSingle();
 
-  const { error } = await supabase.from("media_items").insert({
-    user_id: user.id,
-    year: input.year,
-    kind: input.kind,
-    title,
-    author: authorResult.credit,
-    director: directorResult.credit,
-    actors: actorsResult.credit,
-    note: null,
-    rating: null,
-    total_length:
-      input.kind === "movie" ? null : (input.totalLength ?? null),
-    sort_order: (last?.sort_order ?? -1) + 1,
-  });
+  const { data, error } = await supabase
+    .from("media_items")
+    .insert({
+      user_id: user.id,
+      year: input.year,
+      kind: input.kind,
+      title,
+      author: authorResult.credit,
+      director: directorResult.credit,
+      actors: actorsResult.credit,
+      note: null,
+      rating: null,
+      total_length:
+        input.kind === "movie" ? null : (input.totalLength ?? null),
+      sort_order: (last?.sort_order ?? -1) + 1,
+    })
+    .select("id")
+    .single();
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
   revalidatePath("/year", "page");
-  return { ok: true };
+  return { ok: true, id: data.id };
 }
 
 export async function updateMediaItemAction(input: {

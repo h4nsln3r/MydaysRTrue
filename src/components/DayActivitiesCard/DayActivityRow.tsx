@@ -133,7 +133,7 @@ export function DayActivityRow(props: Props) {
         onPendingKey={(active) =>
           props.onPendingId(active ? item.itemKey : null)
         }
-        onDone={props.onDone}
+        onRefresh={onRefresh}
         planningMode={planningMode}
         dragHandle={props.dragHandle}
         sortableRef={props.sortableRef}

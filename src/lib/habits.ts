@@ -231,6 +231,21 @@ export function numericGoalStatus(
   return "no";
 }
 
+/** Points toward a habit summary: Ja = 1, ½ = 0.5, else 0. */
+export function habitStatusPoints(
+  status: HabitStatus | null | undefined,
+): number {
+  if (status === "yes") return 1;
+  if (status === "half") return 0.5;
+  return 0;
+}
+
+/** Format hit counts that may include half-points (e.g. 3.5). */
+export function formatHabitPoints(value: number): string {
+  const rounded = Math.round(value * 2) / 2;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 /** Unfilled tracker on a past day counts as missed; today and future stay open. */
 export function statusOrMissedOnPastDay(
   status: HabitStatus | null,

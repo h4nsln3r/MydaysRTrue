@@ -9,7 +9,7 @@ export async function getDailyMood(
   const supabase = await createClient();
   const { data } = await supabase
     .from("mood_daily_logs")
-    .select("mood")
+    .select("mood, note")
     .eq("user_id", userId)
     .eq("local_date", localDate)
     .maybeSingle();
@@ -20,5 +20,6 @@ export async function getDailyMood(
   return {
     localDate,
     mood,
+    note: mood ? (data?.note?.trim() || null) : null,
   };
 }

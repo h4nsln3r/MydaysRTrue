@@ -1,4 +1,5 @@
 import type { HabitStatus } from "@/lib/habits";
+import { habitStatusPoints } from "@/lib/habits";
 import { waterDayStatus } from "@/lib/water";
 
 export type WeekDayScoreBand = "good" | "mid" | "low" | "future";
@@ -23,7 +24,7 @@ export interface WeekDayJumpDayStatus {
 export function computeWeekDayScore(input: {
   isFuture: boolean;
   water: { goalMet: boolean; progress: number };
-  /** One entry per counted habit; `"yes"` counts as a hit. */
+  /** One entry per counted habit; `"yes"` = 1, `"half"` = 0.5. */
   habitStatuses: Array<HabitStatus | null | undefined>;
   /** One entry per training/bathing session on that day; true = done. */
   sessionsDone: boolean[];
@@ -52,7 +53,7 @@ export function computeWeekDayScore(input: {
 
   for (const status of input.habitStatuses) {
     total += 1;
-    if (status === "yes") hit += 1;
+    hit += habitStatusPoints(status);
   }
 
   for (const done of input.sessionsDone) {

@@ -10,6 +10,7 @@ import {
   type MealEntry,
   type MealKey,
   type SnackSlot,
+  habitStatusPoints,
   mealStatusFor,
   numericGoalStatus,
   snackStatusFor,
@@ -274,7 +275,7 @@ export async function getDailyHabits(
       .maybeSingle(),
     supabase
       .from("mood_daily_logs")
-      .select("mood")
+      .select("mood, note")
       .eq("user_id", userId)
       .eq("local_date", localDate)
       .maybeSingle(),
@@ -334,7 +335,11 @@ export async function getDailyHabits(
     moodRes.data?.mood && isMoodKey(moodRes.data.mood)
       ? (moodRes.data.mood as MoodKey)
       : null;
-  const moodCtx = { localDate, mood: moodKey };
+  const moodCtx = {
+    localDate,
+    mood: moodKey,
+    note: moodKey ? (moodRes.data?.note?.trim() || null) : null,
+  };
   const smokeFreeCtx = smokeFreeContextFromRow(
     localDate,
     smokeFreeRes.data?.nicotine_status,
@@ -805,7 +810,11 @@ export async function getMonthSummary(
           status = smoke ? smokeFreeStatusFor(smoke, false) : null;
         } else if (h.kind === "mood") {
           status = moodStatusFor(
-            { localDate: date, mood: moodByDate.get(date) ?? null },
+            {
+              localDate: date,
+              mood: moodByDate.get(date) ?? null,
+              note: null,
+            },
             false,
           );
         } else if (h.kind === "media") {
@@ -815,7 +824,7 @@ export async function getMonthSummary(
         } else {
           status = checkMap.get(`${h.id}|${date}`) ?? null;
         }
-        if (status === "yes") yesByHabit[h.id] += 1;
+        if (status) yesByHabit[h.id] += habitStatusPoints(status);
       }
       statuses[h.id] = status;
     }
@@ -856,6 +865,8 @@ export interface WeekHabitDay {
   statuses: Record<string, HabitStatus | null>;
   /** Selected mood for the day, when logged. */
   mood: MoodKey | null;
+  /** Optional comment on the day's mood. */
+  moodNote: string | null;
   /** Sub-item breakdown for expandable week rows. */
   details: WeekHabitDayDetails;
 }
@@ -954,7 +965,7 @@ export async function getWeekHabitSummary(
       .lte("local_date", weekEnd),
     supabase
       .from("mood_daily_logs")
-      .select("local_date, mood")
+      .select("local_date, mood, note")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
@@ -1055,8 +1066,12 @@ export async function getWeekHabitSummary(
   }
 
   const moodByDate = new Map<string, MoodKey>();
+  const moodNoteByDate = new Map<string, string | null>();
   for (const r of moodRes.data ?? []) {
-    if (isMoodKey(r.mood)) moodByDate.set(r.local_date, r.mood);
+    if (isMoodKey(r.mood)) {
+      moodByDate.set(r.local_date, r.mood);
+      moodNoteByDate.set(r.local_date, r.note?.trim() || null);
+    }
   }
 
   const mediaLogByDate = new Map<string, MediaDayLog[]>();
@@ -1120,7 +1135,11 @@ export async function getWeekHabitSummary(
           status = smoke ? smokeFreeStatusFor(smoke, false) : null;
         } else if (h.kind === "mood") {
           status = moodStatusFor(
-            { localDate: date, mood: moodByDate.get(date) ?? null },
+            {
+              localDate: date,
+              mood: moodByDate.get(date) ?? null,
+              note: null,
+            },
             false,
           );
         } else if (h.kind === "media") {
@@ -1130,7 +1149,7 @@ export async function getWeekHabitSummary(
         } else {
           status = checkMap.get(`${h.id}|${date}`) ?? null;
         }
-        if (status === "yes") yesByHabit[h.id] += 1;
+        if (status) yesByHabit[h.id] += habitStatusPoints(status);
       }
       statuses[h.id] = statusOrMissedOnPastDay(status, dayCtx);
     }
@@ -1146,6 +1165,7 @@ export async function getWeekHabitSummary(
       weekday: isoWeekdayFromLocalISO(date),
       statuses,
       mood: isFuture ? null : (moodByDate.get(date) ?? null),
+      moodNote: isFuture ? null : (moodNoteByDate.get(date) ?? null),
       details: {
         water: { totalMl: waterByDate.get(date) ?? 0, goalMl: goalMl },
         intake: Object.fromEntries(

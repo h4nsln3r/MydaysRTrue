@@ -85,6 +85,7 @@ export interface JournalDayContext {
   tasks: WeeklyTaskForWeek[];
   monthlyTasks?: MonthlyTaskForMonth[];
   mood: MoodKey | null;
+  moodNote: string | null;
   weightKg: number | null;
   work: WorkDailyLog | null;
   trackers?: JournalDailyTrackers;
@@ -374,12 +375,13 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
   }
 
   if (ctx.mood) {
+    const note = ctx.moodNote?.trim();
     entries.push({
       id: `mood-${ctx.localDate}`,
       source: "mood",
       icon: MOOD_ICON[ctx.mood],
       title: "Dagskänsla",
-      body: MOOD_LABEL[ctx.mood],
+      body: note ? `${MOOD_LABEL[ctx.mood]} — ${note}` : MOOD_LABEL[ctx.mood],
       at: `${ctx.localDate}T12:00:00.000Z`,
       editable: false,
     });
@@ -599,19 +601,24 @@ export async function getManualJournalEntriesForWeek(
 async function getMoodsForWeek(
   userId: string,
   weekStart: string,
-): Promise<Map<string, MoodKey>> {
+): Promise<Map<string, { mood: MoodKey; note: string | null }>> {
   const weekEnd = addDaysISO(weekStart, 6);
   const supabase = await createClient();
   const { data } = await supabase
     .from("mood_daily_logs")
-    .select("local_date, mood")
+    .select("local_date, mood, note")
     .eq("user_id", userId)
     .gte("local_date", weekStart)
     .lte("local_date", weekEnd);
 
-  const map = new Map<string, MoodKey>();
+  const map = new Map<string, { mood: MoodKey; note: string | null }>();
   for (const row of data ?? []) {
-    if (isMoodKey(row.mood)) map.set(row.local_date, row.mood);
+    if (isMoodKey(row.mood)) {
+      map.set(row.local_date, {
+        mood: row.mood,
+        note: row.note?.trim() || null,
+      });
+    }
   }
   return map;
 }
@@ -775,7 +782,8 @@ export async function getWeekJournalSummary(
       monthlyTasks: context.monthlyBillsWeek
         ? monthlyTasksForDate(context.monthlyBillsWeek, localDate)
         : undefined,
-      mood: moods.get(localDate) ?? null,
+      mood: moods.get(localDate)?.mood ?? null,
+      moodNote: moods.get(localDate)?.note ?? null,
       weightKg: weightForDate(context.weightPlan, localDate),
       work: context.workByDate.get(localDate) ?? null,
       trackers: trackersByDate.get(localDate),

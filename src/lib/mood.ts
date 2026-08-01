@@ -28,6 +28,7 @@ export const MOOD_ICON: Record<MoodKey, string> = Object.fromEntries(
 export interface DailyMoodContext {
   localDate: string;
   mood: MoodKey | null;
+  note: string | null;
 }
 
 export function isMoodKey(value: string): value is MoodKey {

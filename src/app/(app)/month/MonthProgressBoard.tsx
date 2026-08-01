@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Habit, HabitStatus } from "@/lib/habits";
+import { formatHabitPoints, habitStatusPoints } from "@/lib/habits";
 import type { MonthDay, MonthSummary } from "@/lib/habits.server";
 import {
   formatMonthlyTaskDetail,
@@ -439,7 +440,7 @@ function TotalCell({
     >
       {total != null ? (
         <span className={styles.totalFraction}>
-          <span className={styles.totalValue}>{value}</span>
+          <span className={styles.totalValue}>{formatHabitPoints(value)}</span>
           <span className={styles.totalSlash}>/{total}</span>
         </span>
       ) : (
@@ -463,7 +464,7 @@ function DayScore({
 
   for (const h of habits) {
     total += 1;
-    if (day.statuses[h.id] === "yes") hit += 1;
+    hit += habitStatusPoints(day.statuses[h.id]);
   }
 
   for (const task of monthlyTasks) {
@@ -491,7 +492,7 @@ function DayScore({
         pct >= 50 && pct < 80 && styles.dayScoreMid,
         pct < 50 && styles.dayScoreLow,
       )}
-      title={`${hit}/${total} klart (${pct}%)`}
+      title={`${formatHabitPoints(hit)}/${total} klart (${pct}%)`}
     >
       {pct}%
     </span>
@@ -527,5 +528,5 @@ function monthTotalScore(
   const hit = habitYes + monthlyDone;
   const total = habitTotal + monthlyTotal;
   if (total === 0) return "—";
-  return `${hit}/${total}`;
+  return `${formatHabitPoints(hit)}/${total}`;
 }

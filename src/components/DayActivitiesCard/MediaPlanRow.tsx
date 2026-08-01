@@ -20,7 +20,8 @@ interface RowProps extends PlanSortableProps {
   onToggleExpand: () => void;
   onError: (msg: string | null) => void;
   onPendingKey: (active: boolean) => void;
-  onDone: () => void;
+  /** Refresh data without collapsing the row (so more titles can be logged). */
+  onRefresh: () => void;
   planningMode?: boolean;
 }
 
@@ -34,7 +35,7 @@ export function MediaPlanRow(props: RowProps) {
     onToggleExpand,
     onError,
     onPendingKey,
-    onDone,
+    onRefresh,
     planningMode = false,
   } = props;
 
@@ -55,7 +56,7 @@ export function MediaPlanRow(props: RowProps) {
       });
       if (!res.ok) onError(res.error ?? "Kunde inte stänga av.");
       onPendingKey(false);
-      onDone();
+      onRefresh();
     });
   };
 
@@ -138,7 +139,7 @@ export function MediaPlanRow(props: RowProps) {
             pending={pending && busy}
             onError={onError}
             onPendingChange={onPendingKey}
-            onDone={onDone}
+            onDone={onRefresh}
           />
 
           {done
@@ -153,7 +154,7 @@ export function MediaPlanRow(props: RowProps) {
                     note={loggedItem.note}
                     rating={loggedItem.rating}
                     compact
-                    onDismiss={onDone}
+                    onDismiss={onRefresh}
                   />
                 ) : null,
               )

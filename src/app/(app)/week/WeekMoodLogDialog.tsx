@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { saveMoodDailyLogAction } from "@/app/(app)/mood-actions";
+import { Button } from "@/components/Button/Button";
+import { Input } from "@/components/Input/Input";
 import { MOOD_OPTIONS, type MoodKey } from "@/lib/mood";
 import { formatDayShort, formatWeekdayShort } from "@/lib/date";
 import styles from "./week-mood-modal.module.scss";
@@ -11,14 +13,29 @@ import styles from "./week-mood-modal.module.scss";
 interface Props {
   date: string;
   currentMood: MoodKey | null;
+  currentNote: string | null;
   onClose: () => void;
 }
 
-export function WeekMoodLogDialog({ date, currentMood, onClose }: Props) {
+export function WeekMoodLogDialog({
+  date,
+  currentMood,
+  currentNote,
+  onClose,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<MoodKey | null>(currentMood);
+  const [note, setNote] = useState(currentNote ?? "");
+  const [drafting, setDrafting] = useState(false);
   const close = useCallback(() => onClose(), [onClose]);
+
+  useEffect(() => {
+    setSelected(currentMood);
+    setNote(currentNote ?? "");
+    setDrafting(false);
+  }, [currentMood, currentNote, date]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -33,10 +50,14 @@ export function WeekMoodLogDialog({ date, currentMood, onClose }: Props) {
     };
   }, [close]);
 
-  const save = (mood: MoodKey | null) => {
+  const persist = (mood: MoodKey | null, nextNote: string | null) => {
     setError(null);
     startTransition(async () => {
-      const res = await saveMoodDailyLogAction({ localDate: date, mood });
+      const res = await saveMoodDailyLogAction({
+        localDate: date,
+        mood,
+        note: mood ? nextNote : null,
+      });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
         return;
@@ -46,7 +67,41 @@ export function WeekMoodLogDialog({ date, currentMood, onClose }: Props) {
     });
   };
 
+  const pick = (key: MoodKey) => {
+    if (pending) return;
+
+    if (drafting && selected === key) {
+      setSelected(currentMood);
+      setNote(currentNote ?? "");
+      setDrafting(false);
+      setError(null);
+      return;
+    }
+
+    if (!drafting && selected === key && currentMood === key) {
+      // Keep selection; user can still edit note or clear via button.
+      return;
+    }
+
+    setSelected(key);
+    setDrafting(true);
+    setError(null);
+    if (currentMood === key && currentNote) {
+      setNote(currentNote);
+    } else if (!currentNote) {
+      setNote("");
+    } else {
+      setNote(currentNote);
+    }
+  };
+
   const title = `${formatWeekdayShort(date)} ${formatDayShort(date)}`;
+  const showComment = selected != null;
+  const savedNoteDirty =
+    !drafting &&
+    selected != null &&
+    currentMood === selected &&
+    note.trim() !== (currentNote ?? "").trim();
 
   return createPortal(
     <div className={styles.backdrop} onClick={close}>
@@ -75,14 +130,16 @@ export function WeekMoodLogDialog({ date, currentMood, onClose }: Props) {
         </header>
 
         <div className={styles.body}>
-          <p className={styles.prompt}>Hur kändes dagen?</p>
+          <p className={styles.prompt}>
+            {drafting ? "Hur kändes dagen? Lägg till en kommentar?" : "Hur kändes dagen?"}
+          </p>
           <div
             className={styles.options}
             role="radiogroup"
             aria-label="Dagskänsla"
           >
             {MOOD_OPTIONS.map((option) => {
-              const active = currentMood === option.key;
+              const active = selected === option.key;
               return (
                 <button
                   key={option.key}
@@ -94,7 +151,7 @@ export function WeekMoodLogDialog({ date, currentMood, onClose }: Props) {
                   className={[styles.option, active ? styles.optionActive : ""]
                     .filter(Boolean)
                     .join(" ")}
-                  onClick={() => save(active ? null : option.key)}
+                  onClick={() => pick(option.key)}
                   disabled={pending}
                 >
                   <span className={styles.optionIcon} aria-hidden>
@@ -106,11 +163,65 @@ export function WeekMoodLogDialog({ date, currentMood, onClose }: Props) {
             })}
           </div>
 
-          {currentMood ? (
+          {showComment ? (
+            <div className={styles.comment}>
+              <Input
+                label="Kommentar (valfritt)"
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="t.ex. Jobbigt möte, men fin kväll"
+                maxLength={280}
+                disabled={pending}
+              />
+              {drafting ? (
+                <div className={styles.actions}>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    fullWidth
+                    loading={pending}
+                    disabled={pending}
+                    onClick={() => selected && persist(selected, note)}
+                  >
+                    Spara
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="md"
+                    fullWidth
+                    disabled={pending}
+                    onClick={() => selected && persist(selected, null)}
+                  >
+                    Hoppa över
+                  </Button>
+                </div>
+              ) : null}
+              {savedNoteDirty ? (
+                <div className={styles.actions}>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    fullWidth
+                    loading={pending}
+                    disabled={pending}
+                    onClick={() => selected && persist(selected, note)}
+                  >
+                    Spara kommentar
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {currentMood && !drafting ? (
             <button
               type="button"
               className={styles.clearBtn}
-              onClick={() => save(null)}
+              onClick={() => persist(null, null)}
               disabled={pending}
             >
               Ta bort dagskänsla

@@ -169,6 +169,18 @@
     font-size: 0.85rem;
 }
 
+.comment {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
 @media (max-width: $bp-sm) {
     .backdrop {
         padding: $space-2;

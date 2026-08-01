@@ -130,3 +130,16 @@
     color: $color-danger;
     font-size: 0.85rem;
 }
+
+.comment {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+    align-items: center;
+}

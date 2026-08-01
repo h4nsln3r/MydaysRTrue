@@ -11,6 +11,7 @@ import {
   type GymSessionForWeek,
 } from "@/lib/gym";
 import type { Habit, HabitStatus } from "@/lib/habits";
+import { formatHabitPoints } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekJournalSummary } from "@/lib/journal";
 import type { WeekSummary, WeekDay } from "@/lib/water.server";
@@ -1020,7 +1021,7 @@ function DayScore({
         band === "mid" && styles.dayScoreMid,
         band === "low" && styles.dayScoreLow,
       )}
-      title={`${hit}/${total} klart (${pct}%)`}
+      title={`${formatHabitPoints(hit)}/${total} klart (${pct}%)`}
     >
       {pct}%
     </span>
@@ -1126,5 +1127,5 @@ function summaryScore(parts: {
     parts.habitTotal +
     parts.weightTotal;
   if (total === 0) return "—";
-  return `${hit}/${total}`;
+  return `${formatHabitPoints(hit)}/${total}`;
 }

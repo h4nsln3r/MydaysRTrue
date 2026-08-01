@@ -5,6 +5,8 @@ import { formatDayShort } from "@/lib/date";
 import {
   MEAL_ICON,
   MEAL_ORDER,
+  formatHabitPoints,
+  habitStatusPoints,
   numericGoalStatus,
   statusOrMissedOnPastDay,
   type Habit,
@@ -101,6 +103,9 @@ export function WeekDailyHabitRows({
   const openMoodValue = openMoodDate
     ? (habitDayByDate.get(openMoodDate)?.mood ?? null)
     : null;
+  const openMoodNote = openMoodDate
+    ? (habitDayByDate.get(openMoodDate)?.moodNote ?? null)
+    : null;
 
   const toggle = (key: string) => {
     setExpandedKey((prev) => (prev === key ? null : key));
@@ -174,15 +179,21 @@ export function WeekDailyHabitRows({
               const status = habitDay?.statuses[habit.id] ?? null;
               const moodKey =
                 habit.kind === "mood" ? (habitDay?.mood ?? null) : null;
+              const mediaDay =
+                habit.kind === "media" ? mediaDayByDate.get(d.date) : null;
+              const mediaCount = mediaDay?.context.loggedToday.length ?? 0;
               return {
                 status,
                 moodKey,
+                mediaCount: habit.kind === "media" ? mediaCount : undefined,
                 title: `${habit.label}, ${formatDayShort(d.date)}: ${
                   d.isFuture
                     ? "Kommande"
                     : moodKey
                       ? MOOD_LABEL[moodKey]
-                      : HABIT_STATUS_LABEL[status ?? "empty"]
+                      : mediaDay?.summary
+                        ? mediaDay.summary
+                        : HABIT_STATUS_LABEL[status ?? "empty"]
                 }`,
               };
             }}
@@ -197,6 +208,13 @@ export function WeekDailyHabitRows({
         );
       })}
 
+      <DailySectionTotalRow
+        week={week}
+        habitWeek={habitWeek}
+        dailyRows={dailyRows}
+        pastDays={pastDays}
+      />
+
       {openMediaDay ? (
         <WeekMediaLogDialog
           date={openMediaDay.date}
@@ -209,10 +227,106 @@ export function WeekDailyHabitRows({
         <WeekMoodLogDialog
           date={openMoodDate}
           currentMood={openMoodValue}
+          currentNote={openMoodNote}
           onClose={() => setOpenMoodDate(null)}
         />
       ) : null}
     </>
+  );
+}
+
+function DailySectionTotalRow({
+  week,
+  habitWeek,
+  dailyRows,
+  pastDays,
+}: {
+  week: WeekSummary;
+  habitWeek: WeekHabitSummary;
+  dailyRows: WeekProgressDailyRowKey[];
+  pastDays: number;
+}) {
+  const habitByKey = new Map(habitWeek.habits.map((h) => [h.key, h]));
+  const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
+
+  const countedHabits = dailyRows
+    .map((key) => parseDailyRowKey(key))
+    .filter((p): p is { type: "habit"; habitKey: string } => p.type === "habit")
+    .map((p) => habitByKey.get(p.habitKey))
+    .filter((h): h is Habit => Boolean(h));
+  const includeWater = dailyRows.some((key) => parseDailyRowKey(key).type === "water");
+  const rowsPerDay = (includeWater ? 1 : 0) + countedHabits.length;
+
+  let weekHit = 0;
+  let weekTotal = 0;
+
+  const dayScores = week.days.map((d) => {
+    if (d.isFuture || rowsPerDay === 0) {
+      return null;
+    }
+
+    const habitDay = habitDayByDate.get(d.date);
+    let hit = 0;
+    if (includeWater) {
+      const w = waterDayStatus(d);
+      if (w === "good") hit += 1;
+      else if (w === "almost") hit += 0.5;
+    }
+    for (const habit of countedHabits) {
+      hit += habitStatusPoints(habitDay?.statuses[habit.id] ?? null);
+    }
+
+    weekHit += hit;
+    weekTotal += rowsPerDay;
+    return { hit, total: rowsPerDay };
+  });
+
+  if (rowsPerDay === 0) return null;
+
+  return (
+    <tr className={styles.sectionTotalRow}>
+      <th
+        className={[styles.rowLabel, styles.stickyCol, styles.sectionTotalLabel].join(
+          " ",
+        )}
+        scope="row"
+      >
+        <span className={styles.rowText}>Dagligt total</span>
+      </th>
+      {week.days.map((d, i) => {
+        const score = dayScores[i];
+        return (
+          <td
+            key={d.date}
+            className={cellClass(
+              styles.dataCell,
+              styles.sectionTotalCell,
+              d.isFuture && styles.cellFuture,
+              d.isToday && styles.cellToday,
+            )}
+          >
+            {score ? (
+              <span
+                className={styles.totalFraction}
+                title={`${formatHabitPoints(score.hit)} av ${score.total} dagliga (½ = 0,5)`}
+              >
+                <span className={styles.totalValue}>
+                  {formatHabitPoints(score.hit)}
+                </span>
+                <span className={styles.totalSlash}>/{score.total}</span>
+              </span>
+            ) : (
+              <span className={styles.emptyMark}>—</span>
+            )}
+          </td>
+        );
+      })}
+      <TotalCell
+        value={weekHit}
+        total={weekTotal || pastDays * rowsPerDay}
+        highlight={weekTotal > 0 && weekHit === weekTotal}
+      />
+    </tr>
   );
 }
 
@@ -248,6 +362,7 @@ function HabitRowGroup({
   renderSummary: (d: WeekDay) => {
     status: HabitStatus | null;
     moodKey?: MoodKey | null;
+    mediaCount?: number;
     waterStatus?: ReturnType<typeof waterDayStatus>;
     title: string;
   };
@@ -307,6 +422,13 @@ function HabitRowGroup({
                     aria-label={MOOD_LABEL[summary.moodKey]}
                   >
                     {MOOD_ICON[summary.moodKey]}
+                  </span>
+                ) : summary.mediaCount != null && summary.mediaCount > 1 ? (
+                  <span
+                    className={styles.mediaCountMark}
+                    aria-label={`${summary.mediaCount} titlar`}
+                  >
+                    {summary.mediaCount}
                   </span>
                 ) : (
                   <StatusMark status={summary.status} />
@@ -395,7 +517,7 @@ function computeSubRowTotal(
     });
     if (content.countable === false) continue;
     total += 1;
-    if (content.status === "yes") value += 1;
+    value += habitStatusPoints(content.status);
   }
 
   return {
@@ -704,7 +826,7 @@ function TotalCell({
       )}
     >
       <span className={styles.totalFraction}>
-        <span className={styles.totalValue}>{value}</span>
+        <span className={styles.totalValue}>{formatHabitPoints(value)}</span>
         <span className={styles.totalSlash}>/{total}</span>
       </span>
     </td>

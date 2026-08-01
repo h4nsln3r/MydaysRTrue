@@ -912,6 +912,22 @@
     line-height: 1;
 }
 
+.mediaCountMark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 4px;
+    border-radius: $radius-pill;
+    background: rgba(167, 139, 250, 0.22);
+    color: #c4b5fd;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
 // Training cells
 .trainingCell {
     padding: 4px 2px;
@@ -1163,6 +1179,31 @@
 .totalSlash {
     color: $color-fog;
     font-size: 0.68rem;
+}
+
+.sectionTotalRow {
+    .sectionTotalLabel,
+    .sectionTotalCell,
+    .totalCell {
+        background: rgba(255, 122, 26, 0.1);
+        border-top: 1px solid rgba(255, 122, 26, 0.28);
+    }
+
+    .sectionTotalLabel {
+        font-family: $font-mono;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: $color-orange-bright;
+        font-weight: 700;
+    }
+
+    .sectionTotalCell {
+        .totalValue {
+            color: $color-orange-bright;
+            font-weight: 800;
+        }
+    }
 }
 
 // Footer totals row

@@ -340,6 +340,7 @@ export function DayActivitiesCard({
       {error ? <p className={styles.error}>{error}</p> : null}
 
       <DndContext
+        id="day-activities-dnd"
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}

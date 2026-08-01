@@ -14,7 +14,8 @@ import type { Habit, HabitStatus } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekJournalSummary } from "@/lib/journal";
 import type { WeekSummary, WeekDay } from "@/lib/water.server";
-import { waterDayStatus, type WaterDayStatus } from "@/lib/water";
+import type { WaterDayStatus } from "@/lib/water";
+import { computeWeekDayScore } from "@/lib/week-day-score";
 import {
   formatWeeklyTaskDetail,
   groupByCategory,
@@ -999,41 +1000,25 @@ function DayScore({
   weightScheduled: boolean;
   weightLogged: boolean;
 }) {
-  let hit = 0;
-  let total = 0;
-
-  if (waterDayStatus(day) === "good") hit += 1;
-  total += 1;
-
-  for (const h of habits) {
-    total += 1;
-    if (habitDay?.statuses[h.id] === "yes") hit += 1;
-  }
-
-  for (const s of [...gym, ...cardio, ...sport, ...bathing]) {
-    total += 1;
-    if (s.placement.doneAt) hit += 1;
-  }
-
-  if (tasks.length > 0) {
-    total += 1;
-    if (tasks.every((t) => t.placement?.doneAt)) hit += 1;
-  }
-
-  if (weightScheduled) {
-    total += 1;
-    if (weightLogged) hit += 1;
-  }
-
-  const pct = total > 0 ? Math.round((hit / total) * 100) : 0;
+  const { hit, total, pct, band } = computeWeekDayScore({
+    isFuture: day.isFuture,
+    water: { goalMet: day.goalMet, progress: day.progress },
+    habitStatuses: habits.map((h) => habitDay?.statuses[h.id] ?? null),
+    sessionsDone: [...gym, ...cardio, ...sport, ...bathing].map((s) =>
+      Boolean(s.placement.doneAt),
+    ),
+    tasksAllDone: tasks.length > 0 ? tasks.every((t) => t.placement?.doneAt) : null,
+    weightScheduled,
+    weightLogged,
+  });
 
   return (
     <span
       className={cellClass(
         styles.dayScore,
-        pct >= 80 && styles.dayScoreGood,
-        pct >= 50 && pct < 80 && styles.dayScoreMid,
-        pct < 50 && styles.dayScoreLow,
+        band === "good" && styles.dayScoreGood,
+        band === "mid" && styles.dayScoreMid,
+        band === "low" && styles.dayScoreLow,
       )}
       title={`${hit}/${total} klart (${pct}%)`}
     >

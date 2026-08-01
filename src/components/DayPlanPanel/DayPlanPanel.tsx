@@ -143,6 +143,7 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
         </header>
 
         <DndContext
+          id="day-plan-trackers-dnd"
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}

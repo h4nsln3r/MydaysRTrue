@@ -2,8 +2,9 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavPending } from "@/components/NavProgress/NavProgress";
+import { WeekDayJump } from "@/components/WeekDayJump/WeekDayJump";
 import styles from "./AppMenu.module.scss";
 
 interface MenuRoute {
@@ -35,6 +36,10 @@ export function AppMenu() {
   const pathname = usePathname();
   const router = useRouter();
   const menuActive = menuRoutes.some((route) => route.isActive(pathname));
+
+  const onWeekJumpOpenChange = useCallback((next: boolean) => {
+    if (next) setOpen(false);
+  }, []);
 
   useEffect(() => {
     for (const route of menuRoutes) {
@@ -69,6 +74,11 @@ export function AppMenu() {
   return (
     <div className={styles.bar}>
       <div className={styles.barInner}>
+        <WeekDayJump
+          onOpenChange={onWeekJumpOpenChange}
+          forceClosed={open}
+        />
+
         <div className={styles.wrap} ref={wrapRef}>
           <button
             type="button"

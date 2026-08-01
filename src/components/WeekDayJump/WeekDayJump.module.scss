@@ -1,0 +1,350 @@
+@use "abstracts" as *;
+
+.slot {
+    width: 62px;
+    height: 36px;
+    flex-shrink: 0;
+}
+
+.wrap {
+    position: relative;
+    z-index: 1;
+}
+
+.trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 36px;
+    padding: 0 11px 0 12px;
+    border-radius: $radius-pill;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    cursor: pointer;
+    transition:
+        border-color 180ms $ease-out,
+        color 180ms $ease-out,
+        background 180ms $ease-out,
+        box-shadow 180ms $ease-out,
+        transform 180ms $ease-bounce;
+
+    &:hover {
+        border-color: $color-orange;
+        color: $color-cream;
+        transform: translateY(-1px);
+    }
+}
+
+.triggerOpen {
+    border-color: $color-orange;
+    color: $color-orange-bright;
+    background: rgba(255, 122, 26, 0.1);
+    box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.12);
+}
+
+.triggerLabel {
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1;
+}
+
+.chevron {
+    font-size: 0.65rem;
+    line-height: 1;
+    opacity: 0.7;
+    transition: transform 220ms $ease-bounce;
+}
+
+.chevronOpen {
+    transform: rotate(180deg);
+}
+
+.panel {
+    position: absolute;
+    top: calc(100% + #{$space-2});
+    left: 0;
+    width: min(calc(100vw - #{$space-5 * 2}), 24rem);
+    padding: $space-2;
+    border-radius: $radius-md;
+    background: rgba(20, 20, 20, 0.98);
+    border: 1px solid $color-line;
+    box-shadow: $shadow-card, 0 12px 40px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(14px);
+    transform-origin: top left;
+    animation: panelIn 280ms $ease-out both;
+
+    @media (min-width: $bp-sm) {
+        width: min(calc(100vw - #{$space-5 * 2}), 28rem);
+    }
+}
+
+.weekBar {
+    display: grid;
+    grid-template-columns: 32px 1fr 32px;
+    align-items: center;
+    gap: $space-1;
+    margin-bottom: $space-2;
+}
+
+.weekBarLabel {
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: center;
+    color: $color-cream-dim;
+}
+
+.weekShift {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 28px;
+    padding: 0;
+    border-radius: $radius-sm;
+    background: transparent;
+    border: 1px solid $color-line;
+    color: $color-cream;
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        border-color 160ms $ease-out,
+        color 160ms $ease-out,
+        background 160ms $ease-out,
+        transform 160ms $ease-bounce;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+        background: rgba(255, 122, 26, 0.08);
+        transform: translateY(-1px);
+    }
+
+    &:disabled {
+        opacity: 0.28;
+        cursor: default;
+    }
+}
+
+.days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: $space-1;
+}
+
+.daysLoading .day {
+    opacity: 0.55;
+}
+
+.day {
+    --i: 0;
+    --pct: 0;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 56px;
+    padding: $space-2 2px;
+    border-radius: $radius-sm;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: $color-cream-dim;
+    text-decoration: none;
+    cursor: pointer;
+    animation: dayIn 320ms $ease-bounce both;
+    animation-delay: calc(40ms + var(--i) * 28ms);
+    transition:
+        border-color 160ms $ease-out,
+        color 160ms $ease-out,
+        transform 160ms $ease-bounce,
+        opacity 160ms $ease-out,
+        box-shadow 160ms $ease-out;
+
+    &:hover {
+        color: $color-cream;
+        border-color: rgba(255, 255, 255, 0.14);
+        transform: translateY(-2px);
+    }
+}
+
+.fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(var(--pct) * 1%);
+    pointer-events: none;
+    z-index: 0;
+    transition: height 420ms $ease-out;
+}
+
+.dayGood {
+    color: #9af5c2;
+    border-color: rgba(110, 231, 163, 0.45);
+
+    .fill {
+        background: linear-gradient(
+            180deg,
+            rgba(110, 231, 163, 0.28),
+            rgba(110, 231, 163, 0.55)
+        );
+    }
+
+    &:hover {
+        color: #b6f8d2;
+        border-color: rgba(110, 231, 163, 0.65);
+    }
+}
+
+.dayMid {
+    color: #ffe07a;
+    border-color: rgba(255, 207, 58, 0.45);
+
+    .fill {
+        background: linear-gradient(
+            180deg,
+            rgba(255, 207, 58, 0.24),
+            rgba(255, 207, 58, 0.5)
+        );
+    }
+
+    &:hover {
+        color: #ffe99a;
+        border-color: rgba(255, 207, 58, 0.65);
+    }
+}
+
+.dayLow {
+    color: #ff958e;
+    border-color: rgba(255, 82, 71, 0.45);
+
+    .fill {
+        background: linear-gradient(
+            180deg,
+            rgba(255, 82, 71, 0.24),
+            rgba(255, 82, 71, 0.5)
+        );
+    }
+
+    &:hover {
+        color: #ffaea8;
+        border-color: rgba(255, 82, 71, 0.65);
+    }
+}
+
+.dayFuture {
+    opacity: 0.45;
+    background: transparent;
+}
+
+.dayActive {
+    cursor: default;
+    box-shadow: 0 0 0 2px $color-orange, 0 6px 16px rgba(255, 122, 26, 0.22);
+
+    &:hover {
+        transform: none;
+    }
+}
+
+.dayActive:not(.dayGood):not(.dayMid):not(.dayLow):not(.dayFuture) {
+    color: $color-ink;
+    background: linear-gradient(160deg, $color-orange-bright, $color-orange);
+    border-color: transparent;
+}
+
+.dayToday:not(.dayActive) {
+    box-shadow: inset 0 0 0 1px rgba(255, 122, 26, 0.65);
+}
+
+.weekday {
+    position: relative;
+    z-index: 1;
+    font-family: $font-mono;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.85;
+    line-height: 1;
+}
+
+.dayGood .weekday,
+.dayMid .weekday,
+.dayLow .weekday,
+.dayActive .weekday {
+    opacity: 0.95;
+    color: inherit;
+}
+
+.dayNum {
+    position: relative;
+    z-index: 1;
+    font-family: $font-sans;
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+.pctBadge {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    z-index: 1;
+    font-family: $font-mono;
+    font-size: 0.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+@keyframes panelIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes dayIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.85);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .trigger,
+    .chevron,
+    .day,
+    .fill {
+        transition: none;
+    }
+
+    .panel,
+    .day {
+        animation: none;
+    }
+
+    .trigger:hover,
+    .day:hover {
+        transform: none;
+    }
+}

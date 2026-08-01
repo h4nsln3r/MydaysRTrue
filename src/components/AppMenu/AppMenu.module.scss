@@ -14,7 +14,9 @@
     max-width: $container-max;
     margin: 0 auto;
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: $space-3;
     pointer-events: auto;
 
     @media (min-width: $bp-md) {
@@ -30,6 +32,7 @@
 
 .wrap {
     position: relative;
+    margin-left: auto;
 }
 
 .menuBtn {

@@ -1,13 +1,22 @@
 import "server-only";
 import { addDaysISO, weekStartISO, parseLocalISO } from "@/lib/date";
-import { collectMonthExpenses, type ExpenseSummary } from "@/lib/expenses";
+import {
+  collectMonthExpenses,
+  collectMonthShopping,
+  type ExpenseSummary,
+} from "@/lib/expenses";
 import { getCategories, getMonthTaskSummary, getWeekSummary } from "@/lib/tasks.server";
 
-/** All logged expenses in a calendar month (weekly + monthly Utgifter tasks). */
-export async function getMonthExpenses(
+export interface MonthSpendSummaries {
+  expenses: ExpenseSummary;
+  shopping: ExpenseSummary;
+}
+
+/** All logged expenses + grocery shopping in a calendar month. */
+export async function getMonthSpendSummaries(
   userId: string,
   monthStart: string,
-): Promise<ExpenseSummary> {
+): Promise<MonthSpendSummaries> {
   const monthEnd = `${monthStart.slice(0, 7)}-31`;
   const firstWeek = weekStartISO(parseLocalISO(monthStart));
   const lastWeek = weekStartISO(parseLocalISO(monthEnd));
@@ -24,11 +33,26 @@ export async function getMonthExpenses(
   ]);
 
   const weeklyTasks = weekSummaries.flatMap((w) => w.tasks);
-
-  return collectMonthExpenses({
+  const shared = {
     weeklyTasks,
-    monthlyTasks: monthTasks.tasks,
     categories,
     monthStart,
-  });
+  };
+
+  return {
+    expenses: collectMonthExpenses({
+      ...shared,
+      monthlyTasks: monthTasks.tasks,
+    }),
+    shopping: collectMonthShopping(shared),
+  };
+}
+
+/** @deprecated Prefer getMonthSpendSummaries — kept for call sites that only need Utgifter. */
+export async function getMonthExpenses(
+  userId: string,
+  monthStart: string,
+): Promise<ExpenseSummary> {
+  const { expenses } = await getMonthSpendSummaries(userId, monthStart);
+  return expenses;
 }

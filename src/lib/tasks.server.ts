@@ -216,6 +216,7 @@ interface WeeklyPlacementRow {
   note: string | null;
   shop_location: string | null;
   shop_amount: number | null;
+  shop_amount_expr: string | null;
   laundry_loads: number | null;
   band: string | null;
   music_log_kind: string | null;
@@ -236,6 +237,7 @@ function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
     note: r.note,
     shopLocation: r.shop_location,
     shopAmount: r.shop_amount != null ? Number(r.shop_amount) : null,
+    shopAmountExpr: r.shop_amount_expr,
     laundryLoads: r.laundry_loads,
     band: (r.band as MusicBand | null) ?? null,
     musicLogKind: (r.music_log_kind as MusicLogKind | null) ?? null,
@@ -302,7 +304,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, laundry_loads, band, music_log_kind, gig_id, live_event_id, on_hold";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, laundry_loads, band, music_log_kind, gig_id, live_event_id, on_hold";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 

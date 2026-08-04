@@ -154,6 +154,8 @@ export interface WeeklyPlacement {
   note: string | null;
   shopLocation: string | null;
   shopAmount: number | null;
+  /** Raw sum text as typed (e.g. "45+120+8,50"); null for legacy rows. */
+  shopAmountExpr: string | null;
   laundryLoads: number | null;
   /** Band name for music rep tasks (Totes / Bojeng). */
   band: MusicBand | null;
@@ -211,12 +213,22 @@ export interface WeeklyTaskForWeek extends WeeklyTask {
   checklistCompletions: WeeklyTaskChecklistCompletion[];
 }
 
+function formatShopAmountLabel(placement: WeeklyPlacement): string {
+  const amount = placement.shopAmount;
+  if (amount == null) return "";
+  const expr = placement.shopAmountExpr?.trim();
+  if (expr && /[+\-]/.test(expr.replace(/\s/g, "").slice(1))) {
+    return `${expr} = ${amount} kr`;
+  }
+  return `${amount} kr`;
+}
+
 export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | null {
   if (placement.shopLocation && placement.shopAmount != null) {
-    return `${placement.shopLocation} · ${placement.shopAmount} kr`;
+    return `${placement.shopLocation} · ${formatShopAmountLabel(placement)}`;
   }
   if (placement.shopAmount != null && !placement.shopLocation) {
-    return `${placement.shopAmount} kr`;
+    return formatShopAmountLabel(placement);
   }
   if (placement.shopLocation?.trim()) {
     return placement.shopLocation.trim();

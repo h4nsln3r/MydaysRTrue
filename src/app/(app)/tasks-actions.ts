@@ -13,6 +13,7 @@ import {
   financeTotal,
   lfTotal,
   TRANSFER_TASK_ACCOUNT,
+  parseShopAmountExpr,
   type EditableFinanceKey,
   type MonthlyFinanceBalances,
 } from "@/lib/monthly-finance";
@@ -786,6 +787,9 @@ export async function completeWeeklyTaskAction(input: {
   planNote?: string;
   note?: string;
   shopLocation?: string;
+  /** Typed sum, e.g. "450" or "45+120+8,50". Preferred over shopAmount. */
+  shopAmountExpr?: string;
+  /** @deprecated Prefer shopAmountExpr; kept for older clients. */
   shopAmount?: number;
   laundryLoads?: number;
   band?: string;
@@ -843,6 +847,7 @@ export async function completeWeeklyTaskAction(input: {
     (input.planNote ?? "").trim() || (existing.plan_note ?? "").trim();
 
   let shopAmount: number | null = null;
+  let shopAmountExpr: string | null = null;
   let completionNote: string | null = null;
   let laundryLoads: number | null = null;
   let band: MusicBand | null = null;
@@ -860,17 +865,34 @@ export async function completeWeeklyTaskAction(input: {
             : "Ange var du handlade.",
       };
     }
-    const amount = input.shopAmount;
-    if (amount == null || !Number.isFinite(amount) || amount < 0) {
-      return {
-        ok: false,
-        error:
-          kind === "expense"
-            ? "Ange beloppet."
-            : "Ange hur mycket du handlade för.",
-      };
+    const rawExpr = (input.shopAmountExpr ?? "").trim();
+    if (rawExpr) {
+      const parsed = parseShopAmountExpr(rawExpr);
+      if (!parsed) {
+        return {
+          ok: false,
+          error:
+            kind === "expense"
+              ? "Ange beloppet (t.ex. 450 eller 45+120)."
+              : "Ange hur mycket du handlade för (t.ex. 450 eller 45+120).",
+        };
+      }
+      shopAmount = parsed.total;
+      shopAmountExpr = parsed.expression;
+    } else {
+      const amount = input.shopAmount;
+      if (amount == null || !Number.isFinite(amount) || amount < 0) {
+        return {
+          ok: false,
+          error:
+            kind === "expense"
+              ? "Ange beloppet."
+              : "Ange hur mycket du handlade för.",
+        };
+      }
+      shopAmount = Math.round(amount * 100) / 100;
+      shopAmountExpr = String(shopAmount);
     }
-    shopAmount = Math.round(amount * 100) / 100;
   } else if (kind === "journal") {
     if (!note) {
       return { ok: false, error: "Anteckna vad du gjorde." };
@@ -1025,6 +1047,8 @@ export async function completeWeeklyTaskAction(input: {
         kind === "shop" || kind === "expense" ? shopLocation : null,
       shop_amount:
         kind === "shop" || kind === "expense" ? shopAmount : null,
+      shop_amount_expr:
+        kind === "shop" || kind === "expense" ? shopAmountExpr : null,
       laundry_loads: laundryLoads,
       band: kind === "music" ? band : null,
       music_log_kind: kind === "music" ? resolvedMusicLogKind : null,
@@ -1084,6 +1108,7 @@ export async function uncompleteWeeklyTaskAction(input: {
       note: null,
       shop_location: null,
       shop_amount: null,
+      shop_amount_expr: null,
       laundry_loads: null,
       band: null,
       music_log_kind: null,
@@ -1154,6 +1179,7 @@ export async function toggleWeeklyTaskDoneAction(input: {
             note: null,
             shop_location: null,
             shop_amount: null,
+            shop_amount_expr: null,
             laundry_loads: null,
             band: null,
           },

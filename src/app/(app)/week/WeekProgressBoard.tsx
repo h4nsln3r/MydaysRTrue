@@ -26,7 +26,7 @@ import {
   type Weekday,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
-import { collectWeekExpenses } from "@/lib/expenses";
+import { collectWeekExpenses, collectWeekShopping } from "@/lib/expenses";
 import { ExpensesSummary } from "@/components/ExpensesSummary/ExpensesSummary";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
@@ -110,11 +110,18 @@ export function WeekProgressBoard({
   const weightActive = weightPlan.enabled && weightPlan.weekday != null;
   const weightDone = Boolean(weightPlan.log);
   const expenseSummary = collectWeekExpenses(tasks, taskCategories);
+  const shoppingSummary = collectWeekShopping(tasks, taskCategories);
   const today = week.days.find((d) => d.isToday)?.date ?? "";
   const colSpan = week.days.length + 2;
 
   return (
     <div className={styles.board}>
+      <ExpensesSummary
+        summary={shoppingSummary}
+        title="Handling denna vecka"
+        icon="🛒"
+        variant="shopping"
+      />
       <ExpensesSummary
         summary={expenseSummary}
         title="Utgifter denna vecka"

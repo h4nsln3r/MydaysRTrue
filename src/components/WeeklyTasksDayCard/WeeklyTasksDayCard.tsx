@@ -33,6 +33,11 @@ import {
   type Weekday,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import {
+  formatKr,
+  parseShopAmountExpr,
+  shopAmountExprHasBreakdown,
+} from "@/lib/monthly-finance";
 import { GIG_RATING_MAX, GIG_RATING_MIN } from "@/lib/gigs";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
@@ -377,8 +382,14 @@ export function WeeklyTaskRow({
     placement?.shopLocation ?? "",
   );
   const [shopAmount, setShopAmount] = useState(
-    placement?.shopAmount != null ? String(placement.shopAmount) : "",
+    placement?.shopAmountExpr?.trim() ||
+      (placement?.shopAmount != null ? String(placement.shopAmount) : ""),
   );
+  const shopAmountParsed = parseShopAmountExpr(shopAmount);
+  const shopAmountHint =
+    shopAmountParsed && shopAmountExprHasBreakdown(shopAmountParsed.expression)
+      ? `Totalt ${formatKr(shopAmountParsed.total)}`
+      : undefined;
   const [laundryLoads, setLaundryLoads] = useState(
     placement?.laundryLoads != null ? String(placement.laundryLoads) : "",
   );
@@ -422,10 +433,7 @@ export function WeeklyTaskRow({
         weekStart,
         note: taskNote,
         shopLocation,
-        shopAmount:
-          shopAmount.trim() === ""
-            ? undefined
-            : Number(shopAmount.replace(",", ".")),
+        shopAmountExpr: shopAmount,
         laundryLoads:
           laundryLoads.trim() === "" ? undefined : Number(laundryLoads),
         band: band ?? undefined,
@@ -701,12 +709,11 @@ export function WeeklyTaskRow({
                   />
                   <Input
                     label="Summa (kr)"
-                    type="number"
                     inputMode="decimal"
-                    step="0.01"
                     value={shopAmount}
                     onChange={(e) => setShopAmount(e.target.value)}
-                    placeholder="t.ex. 450"
+                    placeholder="t.ex. 450 eller 45+120+8,50"
+                    hint={shopAmountHint}
                     disabled={pending}
                   />
                 </>

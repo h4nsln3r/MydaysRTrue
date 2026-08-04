@@ -8,26 +8,47 @@ import styles from "./ExpensesSummary.module.scss";
 interface Props {
   summary: ExpenseSummary;
   title: string;
+  icon?: string;
+  variant?: "expense" | "shopping";
   emptyMessage?: string;
 }
 
 export function ExpensesSummary({
   summary,
   title,
+  icon = "💸",
+  variant = "expense",
   emptyMessage = "Inga utgifter loggade ännu.",
 }: Props) {
   if (summary.entries.length === 0) return null;
 
   return (
-    <section className={styles.panel} aria-label={title}>
+    <section
+      className={[
+        styles.panel,
+        variant === "shopping" ? styles.panelShopping : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-label={title}
+    >
       <header className={styles.header}>
         <div className={styles.heading}>
           <span className={styles.icon} aria-hidden>
-            💸
+            {icon}
           </span>
           <h3 className={styles.title}>{title}</h3>
         </div>
-        <p className={styles.total}>{formatExpenseKr(summary.totalKr)}</p>
+        <p
+          className={[
+            styles.total,
+            variant === "shopping" ? styles.totalShopping : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {formatExpenseKr(summary.totalKr)}
+        </p>
       </header>
 
       <ul className={styles.list}>
@@ -44,6 +65,7 @@ export function ExpensesSummary({
               <span className={styles.rowTitle}>{entry.title}</span>
               <span className={styles.rowDetail}>
                 {entry.description}
+                {entry.amountExpr ? ` · ${entry.amountExpr}` : ""}
                 {entry.note?.trim() && entry.note.trim() !== entry.description
                   ? ` · ${entry.note.trim()}`
                   : ""}

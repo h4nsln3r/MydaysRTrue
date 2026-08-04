@@ -29,6 +29,7 @@ interface Props {
   salaryAmount?: number | null;
   categories: TaskCategory[];
   expenseSummary: ExpenseSummary;
+  shoppingSummary: ExpenseSummary;
 }
 
 const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
@@ -53,6 +54,7 @@ export function MonthProgressBoard({
   salaryAmount = null,
   categories,
   expenseSummary,
+  shoppingSummary,
 }: Props) {
   const pastDays = summary.days.filter((d) => !d.isFuture).length;
   const colSpan = summary.days.length + 2;
@@ -60,6 +62,12 @@ export function MonthProgressBoard({
 
   return (
     <div className={styles.board}>
+      <ExpensesSummary
+        summary={shoppingSummary}
+        title="Handling denna månad"
+        icon="🛒"
+        variant="shopping"
+      />
       <ExpensesSummary
         summary={expenseSummary}
         title="Utgifter denna månad"

@@ -11,6 +11,10 @@
     border-radius: $radius-md;
 }
 
+.panelShopping {
+    border-left-color: #4ade80;
+}
+
 .header {
     display: flex;
     align-items: flex-start;
@@ -42,6 +46,10 @@
     font-weight: 700;
     color: #f97316;
     white-space: nowrap;
+}
+
+.totalShopping {
+    color: #4ade80;
 }
 
 .list {

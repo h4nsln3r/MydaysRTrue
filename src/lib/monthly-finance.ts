@@ -183,6 +183,50 @@ export function parseKrInput(raw: string): number | null {
   return Math.round(n * 100) / 100;
 }
 
+/** True when the saved sum text is more than a single number (e.g. "45+120"). */
+export function shopAmountExprHasBreakdown(expr: string | null | undefined): boolean {
+  if (!expr) return false;
+  const compact = expr.replace(/\s/g, "");
+  return /[+\-]/.test(compact.slice(1));
+}
+
+/**
+ * Parse a kr sum that may be a single amount or an expression like "45+120+8,50".
+ * Supports + and -; commas or dots as decimals; spaces around operators.
+ * Returns the user-facing expression (trimmed) and computed total.
+ */
+export function parseShopAmountExpr(
+  raw: string,
+): { total: number; expression: string } | null {
+  const expression = raw.trim();
+  if (!expression) return null;
+
+  const single = parseKrInput(expression);
+  if (single != null && !shopAmountExprHasBreakdown(expression)) {
+    if (single < 0) return null;
+    return { total: single, expression };
+  }
+
+  const compact = expression.replace(/\s+/g, "").replace(/(\d),(\d)/g, "$1.$2");
+  if (!/^-?\d+(\.\d+)?([+\-]\d+(\.\d+)?)*$/.test(compact)) {
+    return null;
+  }
+
+  const terms = compact.match(/[+\-]?\d+(?:\.\d+)?/g);
+  if (!terms || terms.length === 0) return null;
+
+  let total = 0;
+  for (const term of terms) {
+    total += Number(term);
+  }
+  if (!Number.isFinite(total) || total < 0) return null;
+
+  return {
+    total: Math.round(total * 100) / 100,
+    expression,
+  };
+}
+
 export function balancesFromSnapshotRow(row: {
   kort: number | null;
   spar: number | null;

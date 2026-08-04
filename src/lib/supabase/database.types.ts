@@ -755,6 +755,7 @@ export interface Database {
           note: string | null;
           shop_location: string | null;
           shop_amount: number | null;
+          shop_amount_expr: string | null;
           laundry_loads: number | null;
           band: string | null;
           music_log_kind: "gig" | "live" | null;
@@ -776,6 +777,7 @@ export interface Database {
           note?: string | null;
           shop_location?: string | null;
           shop_amount?: number | null;
+          shop_amount_expr?: string | null;
           laundry_loads?: number | null;
           band?: string | null;
           music_log_kind?: "gig" | "live" | null;
@@ -797,6 +799,7 @@ export interface Database {
           note?: string | null;
           shop_location?: string | null;
           shop_amount?: number | null;
+          shop_amount_expr?: string | null;
           laundry_loads?: number | null;
           band?: string | null;
           music_log_kind?: "gig" | "live" | null;

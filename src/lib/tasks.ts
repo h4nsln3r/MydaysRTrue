@@ -1,6 +1,8 @@
 // Client-safe types + helpers for categories, weekly tasks and monthly tasks.
 // Server-only queries live in `./tasks.server`.
 
+import { transferTaskFinanceLabel } from "@/lib/monthly-finance";
+
 // 'daily' = habit categories. 'task' = shared categories used by BOTH weekly
 // and monthly tasks. 'weekly'/'monthly' are legacy values kept for type-compat
 // with old rows (migrated to 'task' in 0028).
@@ -259,16 +261,31 @@ export interface MonthlyTaskForMonth extends MonthlyTask {
 }
 
 export function formatMonthlyTaskDetail(
-  task: Pick<MonthlyTask, "completionKind">,
+  task: Pick<MonthlyTask, "completionKind" | "key">,
   completion: MonthlyCompletion | null,
 ): string | null {
   if (!completion) return null;
-  if (task.completionKind === "amount" && completion.amount != null) {
-    const base = `${Math.round(completion.amount).toLocaleString("sv-SE")} kr`;
-    const note = completion.note?.trim();
-    return note ? `${base} · ${note}` : base;
+
+  const hasAmount =
+    completion.amount != null && Number.isFinite(completion.amount);
+  const note = completion.note?.trim() || null;
+
+  // Amount tasks, bills with a saved cost, and savings transfers.
+  if (task.completionKind === "amount" || hasAmount) {
+    if (!hasAmount && !note) return null;
+    const parts: string[] = [];
+    if (hasAmount) {
+      const amountLabel = `${Math.round(completion.amount!).toLocaleString("sv-SE")} kr`;
+      const transferTarget = transferTaskFinanceLabel(task.key);
+      parts.push(
+        transferTarget ? `${amountLabel} → ${transferTarget}` : amountLabel,
+      );
+    }
+    if (note) parts.push(note);
+    return parts.length > 0 ? parts.join(" · ") : null;
   }
-  return completion.note?.trim() || null;
+
+  return note;
 }
 
 // ----------------------------------------------------------------------------

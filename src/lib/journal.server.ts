@@ -27,6 +27,7 @@ import {
   type MonthlyTaskForMonth,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import { monthlyTaskDisplayTitle } from "@/lib/monthly-finance";
 import { monthlyTasksOnLocalDate } from "@/lib/monthly-bills";
 import type { MonthlyBillsWeekContext } from "@/lib/tasks.server";
 import { formatWeightKg } from "@/lib/format";
@@ -367,7 +368,7 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
       id: `monthly-task-${completion.id}`,
       source: "task",
       icon: t.icon,
-      title: t.title,
+      title: monthlyTaskDisplayTitle(t),
       body: detail ?? "Klar.",
       at: completion.doneAt!,
       editable: false,

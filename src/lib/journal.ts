@@ -181,6 +181,18 @@ function phraseEntry(entry: JournalDisplayEntry): string {
     case "task": {
       const note = entry.body.trim();
       if (note && note !== "Klar.") {
+        const title = entry.title.trim();
+        const noteLower = note.toLowerCase();
+        const titleLower = title.toLowerCase();
+        const alreadyNamed =
+          !title ||
+          noteLower.startsWith(titleLower) ||
+          noteLower.includes(titleLower);
+        // Money lines often only have sum/comment — keep the task name so the
+        // diary says what was paid / where the money went.
+        if (/\d[\d\s\u00a0]*kr/i.test(note) && !alreadyNamed) {
+          return ensureSentence(`${title} — ${note}`);
+        }
         return ensureSentence(note);
       }
       return ensureSentence(`${entry.title} — klart`);

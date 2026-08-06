@@ -15,6 +15,12 @@ import {
   type IntakeKind,
 } from "@/lib/intake";
 import { MEDIA_KIND_LABEL, type MediaKind } from "@/lib/media";
+import {
+  LIVE_EVENT_KIND_ICON,
+  LIVE_EVENT_KIND_LABEL,
+  liveRatingLabel,
+  type LiveEventKind,
+} from "@/lib/live-events";
 import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
 import { smokeFreeJournalBody } from "@/lib/smoke-free";
 
@@ -77,6 +83,17 @@ export interface JournalDailyTrackers {
     title: string;
     kind: MediaKind;
     detail: string;
+    note: string | null;
+    loggedAt: string;
+  }[];
+  liveEvents: {
+    id: string;
+    title: string;
+    kindLabel: string;
+    icon: string;
+    location: string | null;
+    note: string | null;
+    ratingLabel: string | null;
     loggedAt: string;
   }[];
   mobileGames: {
@@ -98,6 +115,7 @@ function emptyTrackers(): Omit<JournalDailyTrackers, never> {
     habits: [],
     activity: { steps: null, activityHours: null, loggedAt: null },
     media: [],
+    liveEvents: [],
     mobileGames: null,
     smokeFree: null,
   };
@@ -134,6 +152,7 @@ export async function getJournalTrackersForWeek(
     mediaRes,
     gamesRes,
     smokeFreeRes,
+    liveEventsRes,
   ] = await Promise.all([
     supabase
       .from("meal_entries")
@@ -199,6 +218,15 @@ export async function getJournalTrackersForWeek(
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
+    supabase
+      .from("live_events")
+      .select(
+        "id, event_date, title, kind, location, note, rating, attended_at",
+      )
+      .eq("user_id", userId)
+      .gte("event_date", weekStart)
+      .lte("event_date", weekEnd)
+      .not("attended_at", "is", null),
   ]);
 
   const waterLogIds = (mealsRes.data ?? [])
@@ -260,10 +288,7 @@ export async function getJournalTrackersForWeek(
     day.intake.push({
       id: row.id,
       kind,
-      description:
-        kind === "creatine" || kind === "shake"
-          ? ""
-          : row.description,
+      description: row.description ?? "",
       loggedAt: row.created_at,
     });
   }
@@ -320,16 +345,20 @@ export async function getJournalTrackersForWeek(
     mediaRows.push(row);
   }
 
-  const mediaItemMap = new Map<string, { title: string; kind: MediaKind }>();
+  const mediaItemMap = new Map<
+    string,
+    { title: string; kind: MediaKind; note: string | null }
+  >();
   if (mediaItemIds.size > 0) {
     const { data: items } = await supabase
       .from("media_items")
-      .select("id, title, kind")
+      .select("id, title, kind, note")
       .in("id", [...mediaItemIds]);
     for (const item of items ?? []) {
       mediaItemMap.set(item.id, {
         title: item.title,
         kind: item.kind as MediaKind,
+        note: item.note ?? null,
       });
     }
   }
@@ -351,7 +380,24 @@ export async function getJournalTrackersForWeek(
       title: item.title,
       kind: item.kind,
       detail,
+      note: item.note,
       loggedAt: row.updated_at,
+    });
+  }
+
+  for (const row of liveEventsRes.data ?? []) {
+    const day = result.get(row.event_date);
+    if (!day || !row.attended_at) continue;
+    const kind = row.kind as LiveEventKind;
+    day.liveEvents.push({
+      id: row.id,
+      title: row.title,
+      kindLabel: LIVE_EVENT_KIND_LABEL[kind] ?? kind,
+      icon: LIVE_EVENT_KIND_ICON[kind] ?? "🎉",
+      location: row.location,
+      note: row.note,
+      ratingLabel: liveRatingLabel(row.rating),
+      loggedAt: row.attended_at,
     });
   }
 

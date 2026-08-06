@@ -140,12 +140,13 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
   }
 
   for (const item of trackers.intake) {
+    const note = item.description.trim();
     const body =
       item.kind === "creatine"
-        ? "Kreatin"
+        ? note || "Kreatin"
         : item.kind === "shake"
-          ? "Shake"
-          : item.description.trim();
+          ? note || "Shake"
+          : note;
     entries.push({
       id: `intake-${item.id}`,
       source: "intake",
@@ -177,12 +178,13 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
       habit.status === "yes"
         ? habit.label
         : `${habit.label} (delvis)`;
+    const habitNote = habit.note?.trim();
     entries.push({
       id: `habit-${habit.id}`,
       source: "habit",
       icon: habit.icon,
       title: habit.label,
-      body: habit.note?.trim() || statusText,
+      body: habitNote ? `${statusText} — ${habitNote}` : statusText,
       at: habit.loggedAt,
       editable: false,
     });
@@ -214,13 +216,34 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
 
   for (const mediaEntry of trackers.media) {
     const kindLabel = MEDIA_KIND_LABEL[mediaEntry.kind].toLowerCase();
+    const parts = [`${kindLabel}: ${mediaEntry.title} (${mediaEntry.detail})`];
+    if (mediaEntry.note?.trim()) {
+      parts.push(mediaEntry.note.trim());
+    }
     entries.push({
       id: `media-${mediaEntry.loggedAt}-${mediaEntry.title}`,
       source: "media",
       icon: "📺",
       title: MEDIA_KIND_LABEL[mediaEntry.kind],
-      body: `${kindLabel}: ${mediaEntry.title} (${mediaEntry.detail})`,
+      body: parts.join(" — "),
       at: mediaEntry.loggedAt,
+      editable: false,
+    });
+  }
+
+  for (const event of trackers.liveEvents) {
+    const parts = [event.title];
+    if (event.kindLabel) parts.push(event.kindLabel);
+    if (event.location) parts.push(event.location);
+    if (event.ratingLabel) parts.push(event.ratingLabel);
+    if (event.note?.trim()) parts.push(event.note.trim());
+    entries.push({
+      id: `live-event-${event.id}`,
+      source: "live_event",
+      icon: event.icon,
+      title: event.title,
+      body: parts.join(" · "),
+      at: event.loggedAt,
       editable: false,
     });
   }

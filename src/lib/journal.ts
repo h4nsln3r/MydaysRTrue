@@ -21,7 +21,8 @@ export type JournalEntrySource =
   | "habit"
   | "activity"
   | "media"
-  | "mobile_game";
+  | "mobile_game"
+  | "live_event";
 
 export const JOURNAL_SOURCE_LABEL: Record<JournalEntrySource, string> = {
   manual: "Anteckning",
@@ -43,6 +44,7 @@ export const JOURNAL_SOURCE_LABEL: Record<JournalEntrySource, string> = {
   activity: "Aktivitet",
   media: "Media",
   mobile_game: "Mobilspel",
+  live_event: "Live",
 };
 
 export interface ManualJournalEntry {
@@ -106,13 +108,26 @@ function timeOfDayIntro(at: string): string {
   return "På kvällen";
 }
 
+function noteAlreadyNamesTitle(note: string, title: string): boolean {
+  if (!title) return true;
+  const noteLower = note.toLowerCase();
+  const titleLower = title.toLowerCase();
+  return noteLower.startsWith(titleLower) || noteLower.includes(titleLower);
+}
+
 function phraseGym(entry: JournalDisplayEntry): string {
   const intro = timeOfDayIntro(entry.at);
   const note = entry.body.trim();
+  const title = entry.title.trim();
   if (note && !note.startsWith("Uppvärmning:")) {
-    return ensureSentence(`${intro} tränade jag ${lowercaseFirst(note)}`);
+    if (noteAlreadyNamesTitle(note, title)) {
+      return ensureSentence(`${intro} tränade jag ${lowercaseFirst(note)}`);
+    }
+    return ensureSentence(
+      `${intro} tränade jag ${lowercaseFirst(title)} — ${lowercaseFirst(note)}`,
+    );
   }
-  return ensureSentence(`${intro} tränade jag ${lowercaseFirst(entry.title)}`);
+  return ensureSentence(`${intro} tränade jag ${lowercaseFirst(title)}`);
 }
 
 function phraseWorkStart(entry: JournalDisplayEntry): string {
@@ -165,10 +180,16 @@ function phraseEntry(entry: JournalDisplayEntry): string {
     case "cardio": {
       const note = entry.body.trim();
       const intro = timeOfDayIntro(entry.at);
+      const title = entry.title.trim();
       if (note && note !== "Pass klart.") {
-        return ensureSentence(`${intro} ${lowercaseFirst(note)}`);
+        if (noteAlreadyNamesTitle(note, title)) {
+          return ensureSentence(`${intro} ${lowercaseFirst(note)}`);
+        }
+        return ensureSentence(
+          `${intro} ${lowercaseFirst(title)} — ${lowercaseFirst(note)}`,
+        );
       }
-      return ensureSentence(`${intro} cardio — ${lowercaseFirst(entry.title)}`);
+      return ensureSentence(`${intro} cardio — ${lowercaseFirst(title)}`);
     }
     case "sport": {
       const note = entry.body.trim();
@@ -182,20 +203,23 @@ function phraseEntry(entry: JournalDisplayEntry): string {
       const note = entry.body.trim();
       if (note && note !== "Klar.") {
         const title = entry.title.trim();
-        const noteLower = note.toLowerCase();
-        const titleLower = title.toLowerCase();
-        const alreadyNamed =
-          !title ||
-          noteLower.startsWith(titleLower) ||
-          noteLower.includes(titleLower);
-        // Money lines often only have sum/comment — keep the task name so the
-        // diary says what was paid / where the money went.
-        if (/\d[\d\s\u00a0]*kr/i.test(note) && !alreadyNamed) {
-          return ensureSentence(`${title} — ${note}`);
+        if (noteAlreadyNamesTitle(note, title)) {
+          return ensureSentence(note);
         }
-        return ensureSentence(note);
+        return ensureSentence(`${title} — ${note}`);
       }
       return ensureSentence(`${entry.title} — klart`);
+    }
+    case "task_checklist": {
+      const note = entry.body.trim();
+      const title = entry.title.trim();
+      const itemText = title.includes(": ")
+        ? title.slice(title.indexOf(": ") + 2)
+        : title;
+      if (note && note !== itemText) {
+        return ensureSentence(`${title} — ${lowercaseFirst(note)}`);
+      }
+      return ensureSentence(title);
     }
     case "mood":
       return ensureSentence(`Kände mig ${lowercaseFirst(entry.body)}`);
@@ -229,15 +253,12 @@ function phraseEntry(entry: JournalDisplayEntry): string {
       if (entry.title === "Frukt") {
         return ensureSentence(`Åt ${lowercaseFirst(note)}`);
       }
-      if (entry.title === "Kreatin") {
-        return ensureSentence("Tog kreatin");
+      const label = entry.title.toLowerCase();
+      // Default body is the title itself when no flavour/note was logged.
+      if (note && note.toLowerCase() !== label) {
+        return ensureSentence(`Tog ${label}: ${lowercaseFirst(note)}`);
       }
-      if (entry.title === "Shake") {
-        return ensureSentence("Tog shake");
-      }
-      return note
-        ? ensureSentence(`Tog ${entry.title.toLowerCase()}: ${lowercaseFirst(note)}`)
-        : ensureSentence(`Tog ${entry.title.toLowerCase()}`);
+      return ensureSentence(`Tog ${label}`);
     }
     case "water":
       return ensureSentence(entry.body);
@@ -252,6 +273,12 @@ function phraseEntry(entry: JournalDisplayEntry): string {
       return ensureSentence(entry.body);
     case "mobile_game":
       return ensureSentence(`Spelade ${lowercaseFirst(entry.body)}`);
+    case "live_event": {
+      const note = entry.body.trim();
+      return note
+        ? ensureSentence(note)
+        : ensureSentence(`Var på ${lowercaseFirst(entry.title)}`);
+    }
     default:
       return ensureSentence(entry.body || entry.title);
   }

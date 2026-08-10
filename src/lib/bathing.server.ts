@@ -57,6 +57,125 @@ function rowToPlacement(r: PlacementRow): BathingPlacement {
   };
 }
 
+type BathingSupabase = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Resolve the repeatable "bad" template and archive leftover bad_1/2/3.
+ * Handles DBs that never fully applied migration 0016.
+ */
+export async function ensureBadTemplate(
+  supabase: BathingSupabase,
+  userId: string,
+): Promise<{ id: string } | null> {
+  let canonicalId: string | null = null;
+
+  const { data: canonical } = await supabase
+    .from("bathing_session_templates")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("key", "bad")
+    .is("archived_at", null)
+    .maybeSingle();
+  if (canonical) {
+    canonicalId = canonical.id;
+  }
+
+  if (!canonicalId) {
+    // Reactivate an archived "bad" if present (unique on user_id+key).
+    const { data: archived } = await supabase
+      .from("bathing_session_templates")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("key", "bad")
+      .not("archived_at", "is", null)
+      .maybeSingle();
+    if (archived) {
+      const { error } = await supabase
+        .from("bathing_session_templates")
+        .update({
+          archived_at: null,
+          label: "Bad",
+          description: "Dra in hur många bad du vill den här veckan.",
+          sort_order: 0,
+        })
+        .eq("id", archived.id)
+        .eq("user_id", userId);
+      if (!error) canonicalId = archived.id;
+    }
+  }
+
+  if (!canonicalId) {
+    // Legacy seed: bad_1 / bad_2 / bad_3 — promote the first active one.
+    const { data: legacy } = await supabase
+      .from("bathing_session_templates")
+      .select("id")
+      .eq("user_id", userId)
+      .like("key", "bad_%")
+      .is("archived_at", null)
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (legacy) {
+      const { error } = await supabase
+        .from("bathing_session_templates")
+        .update({
+          key: "bad",
+          label: "Bad",
+          description: "Dra in hur många bad du vill den här veckan.",
+          sort_order: 0,
+        })
+        .eq("id", legacy.id)
+        .eq("user_id", userId);
+      if (error) return null;
+      canonicalId = legacy.id;
+    }
+  }
+
+  if (!canonicalId) {
+    const { data: created, error } = await supabase
+      .from("bathing_session_templates")
+      .insert({
+        user_id: userId,
+        key: "bad",
+        label: "Bad",
+        description: "Dra in hur många bad du vill den här veckan.",
+        icon: "🛁",
+        accent: "#38bdf8",
+        sort_order: 0,
+        default_weekday: 1,
+      })
+      .select("id")
+      .maybeSingle();
+    if (error || !created) return null;
+    canonicalId = created.id;
+  }
+
+  // Archive any remaining numbered bad passes and keep their placements on "bad".
+  const { data: leftovers } = await supabase
+    .from("bathing_session_templates")
+    .select("id")
+    .eq("user_id", userId)
+    .like("key", "bad_%")
+    .is("archived_at", null);
+
+  for (const leftover of leftovers ?? []) {
+    if (leftover.id === canonicalId) continue;
+    await supabase
+      .from("bathing_week_placements")
+      .update({ template_id: canonicalId })
+      .eq("user_id", userId)
+      .eq("template_id", leftover.id);
+    await supabase
+      .from("bathing_session_templates")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", leftover.id)
+      .eq("user_id", userId);
+  }
+
+  return { id: canonicalId };
+}
+
 export interface BathingWeekSummary {
   weekStart: string;
   /** Backlog entries not yet placed on a day this week. */
@@ -69,6 +188,7 @@ export async function getBathingTemplates(
   userId: string,
 ): Promise<BathingSessionTemplate[]> {
   const supabase = await createClient();
+  await ensureBadTemplate(supabase, userId);
   const { data } = await supabase
     .from("bathing_session_templates")
     .select(
@@ -85,6 +205,7 @@ export async function getBathingWeekSummary(
   weekStart: string,
 ): Promise<BathingWeekSummary> {
   const supabase = await createClient();
+  await ensureBadTemplate(supabase, userId);
 
   const [{ data: templates }, { data: placements }] = await Promise.all([
     supabase
@@ -135,6 +256,7 @@ export async function getBathingWeekSummary(
     // other templates (bastu) disappear from the backlog after placement.
     templates: (templates ?? [])
       .map(rowToTemplate)
+      .filter((t) => t.key === "bad" || t.key === "bastu")
       .filter((t) => t.key === "bad" || !placedTemplateIds.has(t.id)),
     placedSessions,
   };

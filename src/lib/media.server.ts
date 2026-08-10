@@ -28,6 +28,7 @@ interface ItemRow {
   rating: number | null;
   total_length: number | null;
   sort_order: number;
+  completed_on: string | null;
 }
 
 interface LogStat {
@@ -84,11 +85,15 @@ function rowToItem(
     sortOrder: r.sort_order,
     bestPosition: stats.bestPosition,
     lastActivityDate: stats.lastActivityDate,
+    completedOn: r.completed_on,
     completed: false,
   };
   item.completed = isMediaCompleted(item);
   return item;
 }
+
+const MEDIA_ITEM_SELECT =
+  "id, year, kind, title, author, director, actors, note, rating, total_length, sort_order, completed_on";
 
 export async function getYearMedia(
   userId: string,
@@ -97,9 +102,7 @@ export async function getYearMedia(
   const supabase = await createClient();
   const { data } = await supabase
     .from("media_items")
-    .select(
-      "id, year, kind, title, author, director, actors, note, rating, total_length, sort_order",
-    )
+    .select(MEDIA_ITEM_SELECT)
     .eq("user_id", userId)
     .eq("year", year)
     .is("archived_at", null)
@@ -292,9 +295,7 @@ export async function getMonthMedia(
   const itemIds = [...new Set(logRows.map((r) => r.media_item_id))];
   const { data: itemRows } = await supabase
     .from("media_items")
-    .select(
-      "id, year, kind, title, author, director, actors, note, rating, total_length, sort_order",
-    )
+    .select(MEDIA_ITEM_SELECT)
     .eq("user_id", userId)
     .in("id", itemIds)
     .is("archived_at", null);

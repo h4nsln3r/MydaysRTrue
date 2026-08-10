@@ -37,6 +37,8 @@ export interface MediaItem {
   bestPosition: number;
   completed: boolean;
   lastActivityDate: string | null;
+  /** Local calendar date when finished (nullable until set). */
+  completedOn: string | null;
 }
 
 export interface MediaDayLog {

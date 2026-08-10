@@ -267,6 +267,7 @@ export function MediaDayLogging({
           kind={pendingReviewItem.kind}
           note={pendingReviewItem.note}
           rating={pendingReviewItem.rating}
+          completedOn={pendingReviewItem.completedOn ?? date}
           highlight={reviewHighlight}
           onDismiss={() => {
             setPendingReviewItem(null);

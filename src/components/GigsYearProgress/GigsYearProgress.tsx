@@ -1,4 +1,7 @@
-import Link from "next/link";
+"use client";
+
+import { CompletionQuickEdit } from "@/components/CompletionQuickEdit/CompletionQuickEdit";
+import { buildGigCompletions } from "@/lib/completions";
 import {
   MUSIC_BANDS,
   gigBandCounts,
@@ -10,18 +13,16 @@ import styles from "./GigsYearProgress.module.scss";
 
 interface Props {
   yearGigs: YearGigsContext;
-  planHref: string;
 }
 
-export function GigsYearProgress({ yearGigs, planHref }: Props) {
+export function GigsYearProgress({ yearGigs }: Props) {
   const { played, planned } = gigYearGroups(yearGigs.gigs);
   const bandCounts = gigBandCounts(yearGigs.gigs);
 
   if (yearGigs.gigs.length === 0) {
     return (
       <p className={styles.empty}>
-        Inga spelningar för {yearGigs.year} ännu.{" "}
-        <Link href={planHref}>Lägg till i planeringen →</Link>
+        Inga spelningar för {yearGigs.year} ännu.
       </p>
     );
   }
@@ -30,31 +31,38 @@ export function GigsYearProgress({ yearGigs, planHref }: Props) {
     label: string,
     items: typeof yearGigs.gigs,
     variant: "" | "itemDone" | "itemPlanned",
+    editable: boolean,
   ) => {
     if (items.length === 0) return null;
     return (
       <section className={styles.group}>
         <h3 className={styles.groupLabel}>{label}</h3>
         <ul className={styles.list}>
-          {items.map((gig) => (
-            <li
-              key={gig.id}
-              className={[styles.item, variant ? styles[variant] : ""]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <span className={styles.itemIcon} aria-hidden>
-                🎤
-              </span>
-              <div className={styles.itemMeta}>
-                <p className={styles.itemTitle}>{gig.title}</p>
-                <p className={styles.itemSub}>{gigDetail(gig)}</p>
-                {gig.note ? (
-                  <p className={styles.itemNote}>{gig.note}</p>
-                ) : null}
-              </div>
-            </li>
-          ))}
+          {items.map((gig) => {
+            const completion = editable
+              ? buildGigCompletions([gig])[0]
+              : null;
+            return (
+              <li
+                key={gig.id}
+                className={[styles.item, variant ? styles[variant] : ""]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <span className={styles.itemIcon} aria-hidden>
+                  🎤
+                </span>
+                <div className={styles.itemMeta}>
+                  <p className={styles.itemTitle}>{gig.title}</p>
+                  <p className={styles.itemSub}>{gigDetail(gig)}</p>
+                  {gig.note ? (
+                    <p className={styles.itemNote}>{gig.note}</p>
+                  ) : null}
+                </div>
+                {completion ? <CompletionQuickEdit item={completion} /> : null}
+              </li>
+            );
+          })}
         </ul>
       </section>
     );
@@ -84,8 +92,8 @@ export function GigsYearProgress({ yearGigs, planHref }: Props) {
           )}
         </div>
       ) : null}
-      {renderGroup("Spelade", played, "itemDone")}
-      {renderGroup("Planerade", planned, "itemPlanned")}
+      {renderGroup("Spelade", played, "itemDone", true)}
+      {renderGroup("Planerade", planned, "itemPlanned", false)}
     </div>
   );
 }

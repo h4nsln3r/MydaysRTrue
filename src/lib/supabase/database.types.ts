@@ -220,7 +220,7 @@ export interface Database {
           github_url: string | null;
           live_url: string | null;
           is_live: boolean;
-          status: "active" | "v1_done" | "done";
+          status: "active" | "done";
           sort_order: number;
           archived_at: string | null;
           created_at: string;
@@ -234,7 +234,7 @@ export interface Database {
           github_url?: string | null;
           live_url?: string | null;
           is_live?: boolean;
-          status?: "active" | "v1_done" | "done";
+          status?: "active" | "done";
           sort_order?: number;
           archived_at?: string | null;
           created_at?: string;
@@ -248,9 +248,42 @@ export interface Database {
           github_url?: string | null;
           live_url?: string | null;
           is_live?: boolean;
-          status?: "active" | "v1_done" | "done";
+          status?: "active" | "done";
           sort_order?: number;
           archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      coding_project_versions: {
+        Row: {
+          id: string;
+          user_id: string;
+          project_id: string;
+          version_number: number;
+          completed_on: string;
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          project_id: string;
+          version_number: number;
+          completed_on: string;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          project_id?: string;
+          version_number?: number;
+          completed_on?: string;
+          note?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -270,6 +303,7 @@ export interface Database {
           rating: number | null;
           total_length: number | null;
           sort_order: number;
+          completed_on: string | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -287,6 +321,7 @@ export interface Database {
           rating?: number | null;
           total_length?: number | null;
           sort_order?: number;
+          completed_on?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -304,6 +339,7 @@ export interface Database {
           rating?: number | null;
           total_length?: number | null;
           sort_order?: number;
+          completed_on?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;

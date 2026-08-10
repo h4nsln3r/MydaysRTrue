@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateMediaItemReviewAction } from "@/app/(app)/media-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { todayLocalISO } from "@/lib/date";
 import {
   MEDIA_RATING_MAX,
   MEDIA_RATING_MIN,
@@ -23,6 +24,8 @@ interface Props {
   kind: MediaKind;
   note: string | null;
   rating: number | null;
+  /** Prefill / required when finishing — local YYYY-MM-DD. */
+  completedOn?: string | null;
   /** Highlight when the user just finished the title. */
   highlight?: boolean;
   compact?: boolean;
@@ -35,6 +38,7 @@ export function MediaItemReview({
   kind,
   note,
   rating,
+  completedOn = null,
   highlight = false,
   compact = false,
   onDismiss,
@@ -45,6 +49,9 @@ export function MediaItemReview({
   const [reviewRating, setReviewRating] = useState(
     rating != null ? String(rating) : "",
   );
+  const [reviewCompletedOn, setReviewCompletedOn] = useState(
+    completedOn ?? todayLocalISO(),
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -52,12 +59,14 @@ export function MediaItemReview({
   useEffect(() => {
     setReviewNote(note ?? "");
     setReviewRating(rating != null ? String(rating) : "");
+    setReviewCompletedOn(completedOn ?? todayLocalISO());
     setSaved(false);
-  }, [itemId, note, rating]);
+  }, [itemId, note, rating, completedOn]);
 
   const dirty =
     reviewNote.trim() !== (note ?? "").trim() ||
-    (reviewRating === "" ? null : Number(reviewRating)) !== rating;
+    (reviewRating === "" ? null : Number(reviewRating)) !== rating ||
+    reviewCompletedOn !== (completedOn ?? "");
 
   const save = () => {
     setError(null);
@@ -67,6 +76,7 @@ export function MediaItemReview({
         id: itemId,
         note: reviewNote,
         rating: reviewRating.trim() === "" ? null : Number(reviewRating),
+        completedOn: reviewCompletedOn,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
@@ -97,6 +107,16 @@ export function MediaItemReview({
         .join(" ")}
     >
       <p className={styles.prompt}>{mediaCompletionPrompt(kind)}</p>
+      <Input
+        label="Klart den"
+        type="date"
+        value={reviewCompletedOn}
+        onChange={(e) => {
+          setReviewCompletedOn(e.target.value);
+          setSaved(false);
+        }}
+        disabled={pending}
+      />
       <Input
         label="Kommentar (valfritt)"
         type="text"
@@ -145,10 +165,10 @@ export function MediaItemReview({
             size="md"
             fullWidth={!compact}
             loading={pending}
-            disabled={pending || !dirty}
+            disabled={pending || (!dirty && Boolean(completedOn))}
             onClick={save}
           >
-            Spara recension
+            {highlight ? "Spara" : "Spara recension"}
           </Button>
           {onDismiss ? (
             <Button

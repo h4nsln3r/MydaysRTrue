@@ -105,8 +105,10 @@
 .day {
     aspect-ratio: 1;
     display: inline-flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 1px;
     border: 1px solid transparent;
     border-radius: $radius-xs;
     background: transparent;
@@ -116,10 +118,286 @@
     line-height: 1;
     padding: 0;
     min-width: 0;
+    position: relative;
 
     &:hover {
         border-color: $color-line;
         color: $color-cream;
+    }
+}
+
+.dayNum {
+    line-height: 1;
+}
+
+.dayHasCompletion {
+    color: $color-cream;
+}
+
+.dayCompletionActive {
+    border-color: $color-orange-bright;
+}
+
+.completionDot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: $color-orange-bright;
+    flex-shrink: 0;
+}
+
+.completionDotLegend {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $color-orange-bright;
+    display: inline-block;
+}
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $space-4;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+.modal {
+    display: flex;
+    flex-direction: column;
+    width: min(420px, 100%);
+    max-height: min(88vh, 640px);
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    box-shadow: $shadow-soft;
+    overflow: hidden;
+}
+
+.modalHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+    padding: $space-4 $space-4 $space-3;
+    border-bottom: 1px solid $color-line;
+    background: rgba(255, 122, 26, 0.1);
+}
+
+.modalHeaderText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.modalKicker {
+    margin: 0;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.modalTitle {
+    margin: 0;
+    font-family: $font-display;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: $color-cream;
+}
+
+.modalClose {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+        color: $color-cream;
+        border-color: $color-orange;
+    }
+}
+
+.modalBody {
+    flex: 1;
+    overflow-y: auto;
+    padding: $space-4;
+}
+
+.modalList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.modalItem {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding-bottom: $space-3;
+    border-bottom: 1px solid $color-line;
+
+    &:last-child {
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+}
+
+.modalItemHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-2;
+}
+
+.modalItemText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.modalItemTitle {
+    color: $color-cream;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.modalItemSub {
+    color: $color-fog;
+    font-size: 0.78rem;
+}
+
+.modalEditBtn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+        color: $color-orange-bright;
+        border-color: $color-orange;
+    }
+}
+
+.modalMeta {
+    margin: 0;
+    color: $color-orange-bright;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+}
+
+.modalNote {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
+
+.modalNoteEmpty {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.78rem;
+    font-style: italic;
+}
+
+.modalFields {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.noteField {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.noteLabel {
+    color: $color-fog;
+    font-size: 0.75rem;
+    font-family: $font-mono;
+    letter-spacing: 0.04em;
+}
+
+.noteTextarea {
+    width: 100%;
+    min-height: 4.5rem;
+    resize: vertical;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+    color: $color-cream;
+    font: inherit;
+    font-size: 0.9rem;
+    line-height: 1.4;
+
+    &::placeholder {
+        color: $color-fog;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: $color-orange;
+    }
+
+    &:disabled {
+        opacity: 0.6;
+    }
+}
+
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $space-2;
+}
+
+.modalError {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.8rem;
+}
+
+.modalSaved {
+    margin: 0;
+    color: $color-success;
+    font-size: 0.8rem;
+}
+
+@media (max-width: $bp-sm) {
+    .backdrop {
+        padding: $space-2;
+        align-items: flex-end;
+    }
+
+    .modal {
+        max-height: 92vh;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
     }
 }
 

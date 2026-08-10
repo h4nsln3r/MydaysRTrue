@@ -78,11 +78,6 @@
     color: #9fd0ff;
 }
 
-.badgeV1 {
-    border-color: rgba(250, 204, 21, 0.45);
-    color: #fde68a;
-}
-
 .badgeDone {
     border-color: rgba(110, 231, 163, 0.45);
     color: #86efac;
@@ -96,6 +91,24 @@
 .badgeOffline {
     border-color: rgba(248, 113, 113, 0.4);
     color: #fca5a5;
+}
+
+.versionSummary {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+}
+
+.versionRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-2;
 }
 
 .linkRow {

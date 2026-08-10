@@ -39,9 +39,11 @@ const RATING_OPTIONS = Array.from(
 
 interface Props {
   yearLive: YearLiveEventsContext;
+  /** Only the create form (used under the progress list). */
+  createOnly?: boolean;
 }
 
-export function LiveEventsYearBoard({ yearLive }: Props) {
+export function LiveEventsYearBoard({ yearLive, createOnly = false }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +82,67 @@ export function LiveEventsYearBoard({ yearLive }: Props) {
     });
   };
 
+  const form = (
+    <div className={styles.form}>
+      <p className={styles.hint}>Lägg till</p>
+      <div className={styles.kindRow} role="radiogroup" aria-label="Typ">
+        {KINDS.map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={kind === k}
+            aria-pressed={kind === k}
+            className={styles.kindBtn}
+            onClick={() => setKind(k)}
+            disabled={pending}
+          >
+            {LIVE_EVENT_KIND_ICON[k]} {LIVE_EVENT_KIND_LABEL[k]}
+          </button>
+        ))}
+      </div>
+      <Input
+        label="Titel"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="t.ex. The Ark, AIK–Djurgården, Midnattsloppet"
+        maxLength={120}
+        disabled={pending}
+      />
+      <Input
+        label="Datum"
+        type="date"
+        value={eventDate}
+        onChange={(e) => setEventDate(e.target.value)}
+        disabled={pending}
+      />
+      <Input
+        label="Plats (valfritt)"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        placeholder="t.ex. Gröna Lund, Friends Arena"
+        maxLength={120}
+        disabled={pending}
+      />
+      <Button
+        type="button"
+        variant="primary"
+        size="md"
+        fullWidth
+        loading={pending}
+        disabled={pending}
+        onClick={add}
+      >
+        Lägg till
+      </Button>
+      {error ? <p className={styles.error}>{error}</p> : null}
+    </div>
+  );
+
+  if (createOnly) {
+    return <div className={styles.board}>{form}</div>;
+  }
+
   return (
     <div className={styles.board}>
       <p className={styles.hint}>
@@ -103,61 +166,7 @@ export function LiveEventsYearBoard({ yearLive }: Props) {
         <p className={styles.empty}>Inget planerat ännu.</p>
       )}
 
-      <div className={styles.form}>
-        <p className={styles.hint}>Lägg till</p>
-        <div className={styles.kindRow} role="radiogroup" aria-label="Typ">
-          {KINDS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={kind === k}
-              aria-pressed={kind === k}
-              className={styles.kindBtn}
-              onClick={() => setKind(k)}
-              disabled={pending}
-            >
-              {LIVE_EVENT_KIND_ICON[k]} {LIVE_EVENT_KIND_LABEL[k]}
-            </button>
-          ))}
-        </div>
-        <Input
-          label="Titel"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="t.ex. The Ark, AIK–Djurgården, Midnattsloppet"
-          maxLength={120}
-          disabled={pending}
-        />
-        <Input
-          label="Datum"
-          type="date"
-          value={eventDate}
-          onChange={(e) => setEventDate(e.target.value)}
-          disabled={pending}
-        />
-        <Input
-          label="Plats (valfritt)"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="t.ex. Gröna Lund, Friends Arena"
-          maxLength={120}
-          disabled={pending}
-        />
-        <Button
-          type="button"
-          variant="primary"
-          size="md"
-          fullWidth
-          loading={pending}
-          disabled={pending}
-          onClick={add}
-        >
-          Lägg till
-        </Button>
-      </div>
-
-      {error ? <p className={styles.error}>{error}</p> : null}
+      {form}
     </div>
   );
 }

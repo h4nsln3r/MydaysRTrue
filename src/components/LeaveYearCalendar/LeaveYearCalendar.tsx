@@ -1,15 +1,21 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   archiveLeavePeriodAction,
   createLeavePeriodAction,
   updateLeavePeriodAction,
 } from "@/app/(app)/leave-actions";
+import { updateDayCompletionAction } from "@/app/(app)/completions-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
-import { todayLocalISO } from "@/lib/date";
+import {
+  completionsByDate,
+  type DayCompletion,
+} from "@/lib/completions";
+import { formatDayLong, todayLocalISO } from "@/lib/date";
 import {
   LEAVE_KIND_ICON,
   LEAVE_KIND_LABEL,
@@ -41,6 +47,8 @@ const MONTH_LABELS = [
 
 interface Props {
   yearLeave: YearLeaveContext;
+  /** Finished media / gigs / coding versions on their dates. */
+  completions?: DayCompletion[];
   /** When true, calendar is read-only (progress tab). */
   readOnly?: boolean;
 }
@@ -67,7 +75,11 @@ function inSelectedRange(
   return date >= a && date <= b;
 }
 
-export function LeaveYearCalendar({ yearLeave, readOnly = false }: Props) {
+export function LeaveYearCalendar({
+  yearLeave,
+  completions = [],
+  readOnly = false,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -75,16 +87,26 @@ export function LeaveYearCalendar({ yearLeave, readOnly = false }: Props) {
   const [note, setNote] = useState("");
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [rangeEnd, setRangeEnd] = useState<string | null>(null);
+  const [activeCompletionDate, setActiveCompletionDate] = useState<
+    string | null
+  >(null);
 
   const leaveMap = useMemo(
     () => leaveKindByDate(yearLeave.periods),
     [yearLeave.periods],
+  );
+  const completionMap = useMemo(
+    () => completionsByDate(completions),
+    [completions],
   );
   const weekdayCount = useMemo(
     () => countLeaveWeekdaysInYear(yearLeave.periods, yearLeave.year),
     [yearLeave.periods, yearLeave.year],
   );
   const today = todayLocalISO();
+  const activeCompletions = activeCompletionDate
+    ? (completionMap.get(activeCompletionDate) ?? [])
+    : [];
 
   const clearSelection = () => {
     setRangeStart(null);
@@ -94,6 +116,13 @@ export function LeaveYearCalendar({ yearLeave, readOnly = false }: Props) {
   };
 
   const onDayClick = (date: string) => {
+    const dayCompletions = completionMap.get(date) ?? [];
+    if (dayCompletions.length > 0) {
+      setActiveCompletionDate((prev) => (prev === date ? null : date));
+    } else {
+      setActiveCompletionDate(null);
+    }
+
     if (readOnly) return;
     setError(null);
     if (!rangeStart || (rangeStart && rangeEnd)) {
@@ -157,6 +186,10 @@ export function LeaveYearCalendar({ yearLeave, readOnly = false }: Props) {
           <span className={[styles.swatch, styles.swatchSelected].join(" ")} />
           Val
         </span>
+        <span className={styles.legendItem}>
+          <span className={styles.completionDotLegend} />
+          Klart (bok · film · spelning · version)
+        </span>
       </div>
 
       <div className={styles.yearGrid}>
@@ -167,14 +200,24 @@ export function LeaveYearCalendar({ yearLeave, readOnly = false }: Props) {
             monthIndex={monthIndex}
             label={label}
             leaveMap={leaveMap}
+            completionMap={completionMap}
             rangeStart={rangeStart}
             rangeEnd={rangeEnd}
             today={today}
+            activeCompletionDate={activeCompletionDate}
             readOnly={readOnly}
             onDayClick={onDayClick}
           />
         ))}
       </div>
+
+      {activeCompletionDate && activeCompletions.length > 0 ? (
+        <DayCompletionsModal
+          date={activeCompletionDate}
+          items={activeCompletions}
+          onClose={() => setActiveCompletionDate(null)}
+        />
+      ) : null}
 
       {!readOnly && rangeStart ? (
         <div className={styles.form}>
@@ -255,14 +298,236 @@ export function LeaveYearCalendar({ yearLeave, readOnly = false }: Props) {
   );
 }
 
+function DayCompletionsModal({
+  date,
+  items,
+  onClose,
+}: {
+  date: string;
+  items: DayCompletion[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const close = useCallback(() => onClose(), [onClose]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [close]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className={styles.backdrop} onClick={close}>
+      <div
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="year-day-completions-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className={styles.modalHeader}>
+          <div className={styles.modalHeaderText}>
+            <p className={styles.modalKicker}>Klart den dagen</p>
+            <h2 id="year-day-completions-title" className={styles.modalTitle}>
+              {formatDayLong(date)}
+            </h2>
+          </div>
+          <button
+            type="button"
+            className={styles.modalClose}
+            onClick={close}
+            aria-label="Stäng"
+          >
+            ×
+          </button>
+        </header>
+        <div className={styles.modalBody}>
+          <ul className={styles.modalList}>
+            {items.map((item) => (
+              <CompletionEditRow
+                key={item.id}
+                item={item}
+                onSaved={() => router.refresh()}
+              />
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function CompletionEditRow({
+  item,
+  onSaved,
+}: {
+  item: DayCompletion;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [date, setDate] = useState(item.date);
+  const [note, setNote] = useState(item.note ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setDate(item.date);
+    setNote(item.note ?? "");
+    setError(null);
+    setSavedMsg(null);
+  }, [item.id, item.date, item.note]);
+
+  const dirty =
+    date !== item.date || note.trim() !== (item.note ?? "").trim();
+
+  const cancelEdit = () => {
+    setDate(item.date);
+    setNote(item.note ?? "");
+    setError(null);
+    setSavedMsg(null);
+    setEditing(false);
+  };
+
+  const save = () => {
+    setError(null);
+    setSavedMsg(null);
+    startTransition(async () => {
+      const res = await updateDayCompletionAction({
+        domain: item.domain,
+        entityId: item.entityId,
+        date,
+        note,
+        title: item.title,
+        subtitle: item.subtitle,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte spara.");
+        return;
+      }
+      setSavedMsg(
+        res.journalAdded
+          ? "Sparat · tillagt i dagboken"
+          : "Sparat",
+      );
+      setEditing(false);
+      onSaved();
+    });
+  };
+
+  if (!editing) {
+    return (
+      <li className={styles.modalItem}>
+        <div className={styles.modalItemHead}>
+          <div className={styles.modalItemText}>
+            <span className={styles.modalItemTitle}>{item.title}</span>
+            <span className={styles.modalItemSub}>{item.subtitle}</span>
+          </div>
+          <button
+            type="button"
+            className={styles.modalEditBtn}
+            onClick={() => {
+              setEditing(true);
+              setSavedMsg(null);
+              setError(null);
+            }}
+            aria-label={`Redigera ${item.title}`}
+          >
+            ✎
+          </button>
+        </div>
+        <p className={styles.modalMeta}>Klart {item.date}</p>
+        {item.note ? (
+          <p className={styles.modalNote}>{item.note}</p>
+        ) : (
+          <p className={styles.modalNoteEmpty}>Ingen kommentar</p>
+        )}
+        {savedMsg ? <p className={styles.modalSaved}>{savedMsg}</p> : null}
+      </li>
+    );
+  }
+
+  return (
+    <li className={styles.modalItem}>
+      <div className={styles.modalItemHead}>
+        <div className={styles.modalItemText}>
+          <span className={styles.modalItemTitle}>{item.title}</span>
+          <span className={styles.modalItemSub}>{item.subtitle}</span>
+        </div>
+      </div>
+      <div className={styles.modalFields}>
+        <Input
+          label="Klart den"
+          type="date"
+          value={date}
+          onChange={(e) => {
+            setDate(e.target.value);
+            setSavedMsg(null);
+          }}
+          disabled={pending}
+        />
+        <label className={styles.noteField}>
+          <span className={styles.noteLabel}>Kommentar</span>
+          <textarea
+            className={styles.noteTextarea}
+            value={note}
+            onChange={(e) => {
+              setNote(e.target.value);
+              setSavedMsg(null);
+            }}
+            placeholder="valfritt — sparas i dagboken"
+            maxLength={280}
+            rows={3}
+            disabled={pending}
+          />
+        </label>
+      </div>
+      {error ? <p className={styles.modalError}>{error}</p> : null}
+      <div className={styles.modalActions}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="md"
+          disabled={pending}
+          onClick={cancelEdit}
+        >
+          Avbryt
+        </Button>
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          loading={pending}
+          disabled={pending || !dirty}
+          onClick={save}
+        >
+          Spara
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 function MonthGrid({
   year,
   monthIndex,
   label,
   leaveMap,
+  completionMap,
   rangeStart,
   rangeEnd,
   today,
+  activeCompletionDate,
   readOnly,
   onDayClick,
 }: {
@@ -270,9 +535,11 @@ function MonthGrid({
   monthIndex: number;
   label: string;
   leaveMap: Map<string, LeaveKind>;
+  completionMap: Map<string, DayCompletion[]>;
   rangeStart: string | null;
   rangeEnd: string | null;
   today: string;
+  activeCompletionDate: string | null;
   readOnly: boolean;
   onDayClick: (date: string) => void;
 }) {
@@ -304,30 +571,49 @@ function MonthGrid({
             return <span key={`e-${i}`} className={styles.dayEmpty} />;
           }
           const leaveKind = leaveMap.get(cell.date);
+          const dayCompletions = completionMap.get(cell.date) ?? [];
+          const hasCompletion = dayCompletions.length > 0;
           const selected = inSelectedRange(cell.date, rangeStart, rangeEnd);
           const isToday = cell.date === today;
+          const isActive = activeCompletionDate === cell.date;
           const classNames = [
             styles.day,
             leaveKind === "vacation" ? styles.dayVacation : null,
             leaveKind === "day_off" ? styles.dayOff : null,
             selected ? styles.daySelected : null,
             isToday ? styles.dayToday : null,
+            hasCompletion ? styles.dayHasCompletion : null,
+            isActive ? styles.dayCompletionActive : null,
           ]
             .filter(Boolean)
             .join(" ");
 
-          if (readOnly) {
+          const ariaExtra = [
+            leaveKind ? LEAVE_KIND_LABEL[leaveKind] : null,
+            hasCompletion
+              ? `${dayCompletions.length} klart`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(", ");
+
+          const inner = (
+            <>
+              <span className={styles.dayNum}>{cell.day}</span>
+              {hasCompletion ? (
+                <span className={styles.completionDot} aria-hidden />
+              ) : null}
+            </>
+          );
+
+          if (readOnly && !hasCompletion) {
             return (
               <span
                 key={cell.date}
                 className={classNames}
-                title={
-                  leaveKind
-                    ? LEAVE_KIND_LABEL[leaveKind]
-                    : undefined
-                }
+                title={leaveKind ? LEAVE_KIND_LABEL[leaveKind] : undefined}
               >
-                {cell.day}
+                {inner}
               </span>
             );
           }
@@ -338,10 +624,10 @@ function MonthGrid({
               type="button"
               className={classNames}
               onClick={() => onDayClick(cell.date!)}
-              aria-label={`${cell.date}${leaveKind ? `, ${LEAVE_KIND_LABEL[leaveKind]}` : ""}`}
-              aria-pressed={selected}
+              aria-label={`${cell.date}${ariaExtra ? `, ${ariaExtra}` : ""}`}
+              aria-pressed={readOnly ? isActive : selected}
             >
-              {cell.day}
+              {inner}
             </button>
           );
         })}

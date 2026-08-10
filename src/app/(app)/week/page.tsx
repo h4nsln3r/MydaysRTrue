@@ -42,6 +42,9 @@ import { WeekProgressBoard } from "./WeekProgressBoard";
 
 import { WeekMealsBoard } from "./WeekMealsBoard";
 
+import { getWeekCompletions } from "@/lib/completions.server";
+import { WeekCompletionsList } from "./WeekCompletionsList";
+
 import { WeekViewTabs } from "./WeekViewTabs";
 
 import { WeekNav } from "@/components/WeekNav/WeekNav";
@@ -91,6 +94,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     mealRestaurants,
     mediaWeek,
     weekProgressLayout,
+    weekCompletions,
   ] = await Promise.all([
     getWeeklySummary(user.id, start),
     getWeekHabitSummary(user.id, start),
@@ -106,6 +110,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getMealRestaurants(user.id),
     getWeekMediaSummary(user.id, start),
     getWeekProgressLayout(user.id, [...WEEK_PROGRESS_HABIT_KEYS]),
+    getWeekCompletions(user.id, start),
   ]);
 
   const journalWeek = await getWeekJournalSummary(user.id, {
@@ -134,6 +139,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
       {view === "progress" ? (
         <>
+          <WeekCompletionsList weekStart={start} completions={weekCompletions} />
           <WeekMealsBoard summary={mealsWeek} savedRestaurants={mealRestaurants} />
           <WeekProgressBoard
           key={start}

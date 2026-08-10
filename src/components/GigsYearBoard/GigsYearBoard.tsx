@@ -30,9 +30,11 @@ const RATING_OPTIONS = Array.from(
 
 interface Props {
   yearGigs: YearGigsContext;
+  /** Only the create form (used under the progress list). */
+  createOnly?: boolean;
 }
 
-export function GigsYearBoard({ yearGigs }: Props) {
+export function GigsYearBoard({ yearGigs, createOnly = false }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +73,67 @@ export function GigsYearBoard({ yearGigs }: Props) {
     });
   };
 
+  const form = (
+    <div className={styles.form}>
+      <p className={styles.hint}>Lägg till</p>
+      <div className={styles.bandRow} role="radiogroup" aria-label="Band">
+        {MUSIC_BANDS.map((b) => (
+          <button
+            key={b}
+            type="button"
+            role="radio"
+            aria-checked={band === b}
+            aria-pressed={band === b}
+            className={styles.bandBtn}
+            onClick={() => setBand(b)}
+            disabled={pending}
+          >
+            🎸 {b}
+          </button>
+        ))}
+      </div>
+      <Input
+        label="Titel"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="t.ex. EKenäsfestivalen, Kvarteret, Sommarfest"
+        maxLength={120}
+        disabled={pending}
+      />
+      <Input
+        label="Datum"
+        type="date"
+        value={eventDate}
+        onChange={(e) => setEventDate(e.target.value)}
+        disabled={pending}
+      />
+      <Input
+        label="Plats (valfritt)"
+        value={venue}
+        onChange={(e) => setVenue(e.target.value)}
+        placeholder="t.ex. Ekenäs, Gröna Lund"
+        maxLength={120}
+        disabled={pending}
+      />
+      <Button
+        type="button"
+        variant="primary"
+        size="md"
+        fullWidth
+        loading={pending}
+        disabled={pending}
+        onClick={add}
+      >
+        Lägg till
+      </Button>
+      {error ? <p className={styles.error}>{error}</p> : null}
+    </div>
+  );
+
+  if (createOnly) {
+    return <div className={styles.board}>{form}</div>;
+  }
+
   return (
     <div className={styles.board}>
       <p className={styles.hint}>
@@ -93,61 +156,7 @@ export function GigsYearBoard({ yearGigs }: Props) {
         <p className={styles.empty}>Inga spelningar ännu.</p>
       )}
 
-      <div className={styles.form}>
-        <p className={styles.hint}>Lägg till</p>
-        <div className={styles.bandRow} role="radiogroup" aria-label="Band">
-          {MUSIC_BANDS.map((b) => (
-            <button
-              key={b}
-              type="button"
-              role="radio"
-              aria-checked={band === b}
-              aria-pressed={band === b}
-              className={styles.bandBtn}
-              onClick={() => setBand(b)}
-              disabled={pending}
-            >
-              🎸 {b}
-            </button>
-          ))}
-        </div>
-        <Input
-          label="Titel"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="t.ex. EKenäsfestivalen, Kvarteret, Sommarfest"
-          maxLength={120}
-          disabled={pending}
-        />
-        <Input
-          label="Datum"
-          type="date"
-          value={eventDate}
-          onChange={(e) => setEventDate(e.target.value)}
-          disabled={pending}
-        />
-        <Input
-          label="Plats (valfritt)"
-          value={venue}
-          onChange={(e) => setVenue(e.target.value)}
-          placeholder="t.ex. Ekenäs, Gröna Lund"
-          maxLength={120}
-          disabled={pending}
-        />
-        <Button
-          type="button"
-          variant="primary"
-          size="md"
-          fullWidth
-          loading={pending}
-          disabled={pending}
-          onClick={add}
-        >
-          Lägg till
-        </Button>
-      </div>
-
-      {error ? <p className={styles.error}>{error}</p> : null}
+      {form}
     </div>
   );
 }

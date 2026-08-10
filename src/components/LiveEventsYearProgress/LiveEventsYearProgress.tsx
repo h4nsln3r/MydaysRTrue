@@ -1,8 +1,8 @@
-import Link from "next/link";
+"use client";
+
 import {
   LIVE_EVENT_KIND_ICON,
   LIVE_EVENT_KIND_LABEL,
-  liveEventDetail,
   liveRatingLabel,
   liveYearGroups,
   type YearLiveEventsContext,
@@ -11,17 +11,15 @@ import styles from "./LiveEventsYearProgress.module.scss";
 
 interface Props {
   yearLive: YearLiveEventsContext;
-  planHref: string;
 }
 
-export function LiveEventsYearProgress({ yearLive, planHref }: Props) {
+export function LiveEventsYearProgress({ yearLive }: Props) {
   const { attended, planned } = liveYearGroups(yearLive.events);
 
   if (yearLive.events.length === 0) {
     return (
       <p className={styles.empty}>
-        Inga live-upplevelser för {yearLive.year} ännu.{" "}
-        <Link href={planHref}>Lägg till i planeringen →</Link>
+        Inga live-upplevelser för {yearLive.year} ännu.
       </p>
     );
   }

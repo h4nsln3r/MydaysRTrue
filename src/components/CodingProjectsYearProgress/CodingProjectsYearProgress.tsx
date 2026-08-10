@@ -1,23 +1,22 @@
-import Link from "next/link";
+"use client";
+
+import { CompletionQuickEdit } from "@/components/CompletionQuickEdit/CompletionQuickEdit";
 import {
   CODING_PROJECT_STATUS_LABEL,
+  codingProjectVersionLabel,
+  formatCodingProjectDate,
   type CodingProject,
 } from "@/lib/coding";
+import { buildCodingCompletions } from "@/lib/completions";
 import styles from "./CodingProjectsYearProgress.module.scss";
 
 interface Props {
   projects: CodingProject[];
-  planHref: string;
 }
 
-export function CodingProjectsYearProgress({ projects, planHref }: Props) {
+export function CodingProjectsYearProgress({ projects }: Props) {
   if (projects.length === 0) {
-    return (
-      <p className={styles.empty}>
-        Inga kodningsprojekt ännu.{" "}
-        <Link href={planHref}>Lägg till i planeringen →</Link>
-      </p>
-    );
+    return <p className={styles.empty}>Inga kodningsprojekt ännu.</p>;
   }
 
   return (
@@ -36,9 +35,7 @@ export function CodingProjectsYearProgress({ projects, planHref }: Props) {
                     styles.badge,
                     project.status === "done"
                       ? styles.badgeDone
-                      : project.status === "v1_done"
-                        ? styles.badgeV1
-                        : styles.badgeActive,
+                      : styles.badgeActive,
                   ].join(" ")}
                 >
                   {CODING_PROJECT_STATUS_LABEL[project.status]}
@@ -59,6 +56,27 @@ export function CodingProjectsYearProgress({ projects, planHref }: Props) {
               ) : (
                 <p className={styles.itemSub}>Ingen beskrivning ännu</p>
               )}
+              {project.versions.length > 0 ? (
+                <ul className={styles.versionSummary}>
+                  {project.versions.map((version) => {
+                    const completion = buildCodingCompletions([
+                      { ...project, versions: [version] },
+                    ])[0];
+                    return (
+                      <li key={version.id} className={styles.versionRow}>
+                        <span>
+                          {codingProjectVersionLabel(version.versionNumber)} ·{" "}
+                          {formatCodingProjectDate(version.completedOn)}
+                          {version.note ? ` · ${version.note}` : ""}
+                        </span>
+                        {completion ? (
+                          <CompletionQuickEdit item={completion} />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
               <div className={styles.linkRow}>
                 {project.githubUrl ? (
                   <a
@@ -85,9 +103,6 @@ export function CodingProjectsYearProgress({ projects, planHref }: Props) {
           </li>
         ))}
       </ul>
-      <p className={styles.hint}>
-        <Link href={planHref}>Redigera projekt i planeringen →</Link>
-      </p>
     </div>
   );
 }

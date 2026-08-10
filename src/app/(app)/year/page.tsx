@@ -19,6 +19,10 @@ import { GigsYearBoard } from "@/components/GigsYearBoard/GigsYearBoard";
 import { GigsYearProgress } from "@/components/GigsYearProgress/GigsYearProgress";
 import { getYearRestaurantMeals } from "@/lib/meals.server";
 import { parsePeriodView } from "@/lib/period-view";
+import {
+  buildYearCompletions,
+  filterCompletionsForYear,
+} from "@/lib/completions";
 import styles from "./year.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +61,14 @@ export default async function YearPage({ searchParams }: YearPageProps) {
     ]);
   const isCurrent = year === currentYear;
   const canGoForward = year < currentYear;
+  const yearCompletions = filterCompletionsForYear(
+    buildYearCompletions({
+      media: yearMedia.items,
+      gigs: yearGigs.gigs,
+      projects: codingProjects,
+    }),
+    year,
+  );
 
   return (
     <main className={styles.main}>
@@ -110,6 +122,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
 
         <LeaveYearCalendar
           yearLeave={yearLeave}
+          completions={yearCompletions}
           readOnly={view === "progress"}
         />
       </section>
@@ -121,10 +134,10 @@ export default async function YearPage({ searchParams }: YearPageProps) {
         </header>
 
         {view === "progress" ? (
-          <CodingProjectsYearProgress
-            projects={codingProjects}
-            planHref={yearNavHref(year, "plan")}
-          />
+          <>
+            <CodingProjectsYearProgress projects={codingProjects} />
+            <CodingProjectsYearBoard projects={codingProjects} createOnly />
+          </>
         ) : (
           <CodingProjectsYearBoard projects={codingProjects} />
         )}
@@ -137,10 +150,10 @@ export default async function YearPage({ searchParams }: YearPageProps) {
         </header>
 
         {view === "progress" ? (
-          <MediaYearProgress
-            yearMedia={yearMedia}
-            planHref={yearNavHref(year, "plan")}
-          />
+          <>
+            <MediaYearProgress yearMedia={yearMedia} />
+            <MediaYearBoard yearMedia={yearMedia} createOnly />
+          </>
         ) : (
           <MediaYearBoard yearMedia={yearMedia} />
         )}
@@ -153,10 +166,10 @@ export default async function YearPage({ searchParams }: YearPageProps) {
         </header>
 
         {view === "progress" ? (
-          <LiveEventsYearProgress
-            yearLive={yearLive}
-            planHref={yearNavHref(year, "plan")}
-          />
+          <>
+            <LiveEventsYearProgress yearLive={yearLive} />
+            <LiveEventsYearBoard yearLive={yearLive} createOnly />
+          </>
         ) : (
           <LiveEventsYearBoard yearLive={yearLive} />
         )}
@@ -169,10 +182,10 @@ export default async function YearPage({ searchParams }: YearPageProps) {
         </header>
 
         {view === "progress" ? (
-          <GigsYearProgress
-            yearGigs={yearGigs}
-            planHref={yearNavHref(year, "plan")}
-          />
+          <>
+            <GigsYearProgress yearGigs={yearGigs} />
+            <GigsYearBoard yearGigs={yearGigs} createOnly />
+          </>
         ) : (
           <GigsYearBoard yearGigs={yearGigs} />
         )}

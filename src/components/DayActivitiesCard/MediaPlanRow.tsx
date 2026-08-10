@@ -153,6 +153,7 @@ export function MediaPlanRow(props: RowProps) {
                     kind={loggedItem.kind}
                     note={loggedItem.note}
                     rating={loggedItem.rating}
+                    completedOn={loggedItem.completedOn ?? loggedItem.lastActivityDate}
                     compact
                     onDismiss={onRefresh}
                   />

@@ -1,0 +1,85 @@
+@use "abstracts" as *;
+
+.wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-3 $space-4;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-2;
+}
+
+.title {
+    margin: 0;
+    font-family: $font-display;
+    font-size: 1rem;
+    color: $color-cream;
+}
+
+.muted {
+    color: $color-fog;
+    font-size: 0.75rem;
+}
+
+.empty {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.85rem;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: $space-3;
+    align-items: start;
+}
+
+.date {
+    color: $color-orange-bright;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    padding-top: 2px;
+    white-space: nowrap;
+}
+
+.meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.itemTitle {
+    color: $color-cream;
+    font-size: 0.9rem;
+}
+
+.itemSub {
+    color: $color-fog;
+    font-size: 0.75rem;
+}
+
+.itemNote {
+    color: $color-cream-dim;
+    font-size: 0.78rem;
+    font-style: italic;
+}

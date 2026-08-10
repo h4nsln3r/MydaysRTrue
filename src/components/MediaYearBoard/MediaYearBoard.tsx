@@ -22,6 +22,7 @@ import {
   type MediaItem,
   type YearMediaContext,
 } from "@/lib/media";
+import { mediaCompletionDate } from "@/lib/completions";
 import styles from "./MediaYearBoard.module.scss";
 
 const KINDS: MediaKind[] = ["book", "series", "movie"];
@@ -32,9 +33,11 @@ const RATING_OPTIONS = Array.from(
 
 interface Props {
   yearMedia: YearMediaContext;
+  /** Only the create form (used under the progress list). */
+  createOnly?: boolean;
 }
 
-export function MediaYearBoard({ yearMedia }: Props) {
+export function MediaYearBoard({ yearMedia, createOnly = false }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +83,99 @@ export function MediaYearBoard({ yearMedia }: Props) {
     });
   };
 
+  const form = (
+    <div className={styles.form}>
+      <p className={styles.hint}>Lägg till</p>
+      <div className={styles.kindRow} role="radiogroup" aria-label="Typ">
+        {KINDS.map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={kind === k}
+            aria-pressed={kind === k}
+            className={styles.kindBtn}
+            onClick={() => setKind(k)}
+            disabled={pending}
+          >
+            {MEDIA_KIND_ICON[k]} {MEDIA_KIND_LABEL[k]}
+          </button>
+        ))}
+      </div>
+      <Input
+        label="Titel"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder={
+          kind === "book"
+            ? "t.ex. Dune"
+            : kind === "series"
+              ? "t.ex. Breaking Bad"
+              : "t.ex. Inception"
+        }
+        maxLength={120}
+        disabled={pending}
+      />
+      {kind === "book" ? (
+        <Input
+          label="Författare (valfritt)"
+          value={author}
+          onChange={(e) => setAuthor(e.target.value)}
+          placeholder="t.ex. Frank Herbert"
+          maxLength={120}
+          disabled={pending}
+        />
+      ) : null}
+      {kind === "movie" ? (
+        <>
+          <Input
+            label="Regissör (valfritt)"
+            value={director}
+            onChange={(e) => setDirector(e.target.value)}
+            placeholder="t.ex. Christopher Nolan"
+            maxLength={120}
+            disabled={pending}
+          />
+          <Input
+            label="Skådespelare (valfritt)"
+            value={actors}
+            onChange={(e) => setActors(e.target.value)}
+            placeholder="t.ex. Leonardo DiCaprio, Ellen Page"
+            maxLength={120}
+            disabled={pending}
+          />
+        </>
+      ) : null}
+      {kind !== "movie" ? (
+        <Input
+          label={kind === "book" ? "Antal sidor" : "Antal avsnitt"}
+          type="number"
+          inputMode="numeric"
+          value={totalLength}
+          onChange={(e) => setTotalLength(e.target.value)}
+          placeholder={kind === "book" ? "t.ex. 412" : "t.ex. 62"}
+          disabled={pending}
+        />
+      ) : null}
+      <Button
+        type="button"
+        variant="primary"
+        size="md"
+        fullWidth
+        loading={pending}
+        disabled={pending}
+        onClick={add}
+      >
+        Lägg till
+      </Button>
+      {error ? <p className={styles.error}>{error}</p> : null}
+    </div>
+  );
+
+  if (createOnly) {
+    return <div className={styles.board}>{form}</div>;
+  }
+
   return (
     <div className={styles.board}>
       <p className={styles.hint}>
@@ -103,93 +199,7 @@ export function MediaYearBoard({ yearMedia }: Props) {
         <p className={styles.empty}>Inget tillagt ännu.</p>
       )}
 
-      <div className={styles.form}>
-        <p className={styles.hint}>Lägg till</p>
-        <div className={styles.kindRow} role="radiogroup" aria-label="Typ">
-          {KINDS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={kind === k}
-              aria-pressed={kind === k}
-              className={styles.kindBtn}
-              onClick={() => setKind(k)}
-              disabled={pending}
-            >
-              {MEDIA_KIND_ICON[k]} {MEDIA_KIND_LABEL[k]}
-            </button>
-          ))}
-        </div>
-        <Input
-          label="Titel"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={
-            kind === "book"
-              ? "t.ex. Dune"
-              : kind === "series"
-                ? "t.ex. Breaking Bad"
-                : "t.ex. Inception"
-          }
-          maxLength={120}
-          disabled={pending}
-        />
-        {kind === "book" ? (
-          <Input
-            label="Författare (valfritt)"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            placeholder="t.ex. Frank Herbert"
-            maxLength={120}
-            disabled={pending}
-          />
-        ) : null}
-        {kind === "movie" ? (
-          <>
-            <Input
-              label="Regissör (valfritt)"
-              value={director}
-              onChange={(e) => setDirector(e.target.value)}
-              placeholder="t.ex. Christopher Nolan"
-              maxLength={120}
-              disabled={pending}
-            />
-            <Input
-              label="Skådespelare (valfritt)"
-              value={actors}
-              onChange={(e) => setActors(e.target.value)}
-              placeholder="t.ex. Leonardo DiCaprio, Ellen Page"
-              maxLength={120}
-              disabled={pending}
-            />
-          </>
-        ) : null}
-        {kind !== "movie" ? (
-          <Input
-            label={kind === "book" ? "Antal sidor" : "Antal avsnitt"}
-            type="number"
-            inputMode="numeric"
-            value={totalLength}
-            onChange={(e) => setTotalLength(e.target.value)}
-            placeholder={kind === "book" ? "t.ex. 412" : "t.ex. 62"}
-            disabled={pending}
-          />
-        ) : null}
-        <Button
-          type="button"
-          variant="primary"
-          size="md"
-          fullWidth
-          loading={pending}
-          disabled={pending}
-          onClick={add}
-        >
-          Lägg till
-        </Button>
-      </div>
-
-      {error ? <p className={styles.error}>{error}</p> : null}
+      {form}
     </div>
   );
 }
@@ -214,6 +224,9 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
   const [editTotalLength, setEditTotalLength] = useState(
     item.totalLength != null ? String(item.totalLength) : "",
   );
+  const [editCompletedOn, setEditCompletedOn] = useState(
+    mediaCompletionDate(item) ?? "",
+  );
   const [localPending, startTransition] = useTransition();
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -229,6 +242,7 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
     setEditTotalLength(
       item.totalLength != null ? String(item.totalLength) : "",
     );
+    setEditCompletedOn(mediaCompletionDate(item) ?? "");
     setLocalError(null);
     onError(null);
     setIsEditing(true);
@@ -242,6 +256,10 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
   const saveEdit = () => {
     if (!editTitle.trim()) {
       setLocalError("Skriv en titel.");
+      return;
+    }
+    if (item.completed && !editCompletedOn.trim()) {
+      setLocalError("Ange när det blev klart.");
       return;
     }
 
@@ -262,6 +280,7 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
             : editTotalLength.trim() === ""
               ? undefined
               : Number(editTotalLength),
+        completedOn: item.completed ? editCompletedOn : undefined,
       });
       if (!res.ok) {
         setLocalError(res.error ?? "Kunde inte spara.");
@@ -335,6 +354,13 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
             ) : null}
             {item.completed ? (
               <>
+                <Input
+                  label="Klart den"
+                  type="date"
+                  value={editCompletedOn}
+                  onChange={(e) => setEditCompletedOn(e.target.value)}
+                  disabled={busy}
+                />
                 <Input
                   label="Recension (valfritt)"
                   type="text"
@@ -417,6 +443,11 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
             {mediaProgressLabel(item)
               ? ` · ${mediaProgressLabel(item)}`
               : ""}
+            {mediaCompletionDate(item)
+              ? ` · klart ${mediaCompletionDate(item)}`
+              : item.completed
+                ? " · saknar klartdatum"
+                : ""}
             {mediaRatingLabel(item.rating)
               ? ` · ${mediaRatingLabel(item.rating)}`
               : ""}
@@ -443,13 +474,14 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
         </button>
       </div>
       {item.completed &&
-      item.rating == null &&
+      (item.rating == null || !mediaCompletionDate(item)) &&
       !(item.note?.trim() ?? "") ? (
         <MediaItemReview
           itemId={item.id}
           kind={item.kind}
           note={item.note}
           rating={item.rating}
+          completedOn={mediaCompletionDate(item)}
           compact
         />
       ) : null}

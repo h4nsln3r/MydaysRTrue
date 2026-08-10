@@ -58,6 +58,29 @@ function parseMediaRating(
   return { ok: true, rating: value };
 }
 
+function parseMediaCompletedOn(
+  value: string | null | undefined,
+): { ok: true; date: string | null } | { ok: false; error: string } {
+  if (value == null || value.trim() === "") return { ok: true, date: null };
+  const trimmed = value.trim();
+  if (!ISO_DATE_RE.test(trimmed)) {
+    return { ok: false, error: "Ange ett giltigt datum." };
+  }
+  const [y, m, d] = trimmed.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  if (
+    dt.getFullYear() !== y ||
+    dt.getMonth() !== m - 1 ||
+    dt.getDate() !== d
+  ) {
+    return { ok: false, error: "Ange ett giltigt datum." };
+  }
+  if (y < 1970 || y > 2100) {
+    return { ok: false, error: "Datumet känns orimligt." };
+  }
+  return { ok: true, date: trimmed };
+}
+
 export interface CreateMediaItemResult extends ActionResult {
   id?: string;
 }
@@ -158,6 +181,7 @@ export async function updateMediaItemAction(input: {
   note?: string;
   rating?: number | null;
   totalLength?: number | null;
+  completedOn?: string | null;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Saknar id." };
 
@@ -203,6 +227,12 @@ export async function updateMediaItemAction(input: {
   const ratingResult = parseMediaRating(input.rating);
   if (!ratingResult.ok) return ratingResult;
 
+  const completedOnResult =
+    input.completedOn === undefined
+      ? null
+      : parseMediaCompletedOn(input.completedOn);
+  if (completedOnResult && !completedOnResult.ok) return completedOnResult;
+
   let totalLength: number | null = null;
   if (existing.kind === "book" || existing.kind === "series") {
     const len = input.totalLength;
@@ -246,6 +276,7 @@ export async function updateMediaItemAction(input: {
       note: noteResult.note,
       rating: ratingResult.rating,
       total_length: totalLength,
+      ...(completedOnResult ? { completed_on: completedOnResult.date } : {}),
     })
     .eq("id", input.id)
     .eq("user_id", user.id)
@@ -261,6 +292,7 @@ export async function updateMediaItemReviewAction(input: {
   id: string;
   note?: string;
   rating?: number | null;
+  completedOn?: string | null;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Saknar id." };
 
@@ -269,6 +301,15 @@ export async function updateMediaItemReviewAction(input: {
 
   const ratingResult = parseMediaRating(input.rating);
   if (!ratingResult.ok) return ratingResult;
+
+  const completedOnResult =
+    input.completedOn === undefined
+      ? null
+      : parseMediaCompletedOn(input.completedOn);
+  if (completedOnResult && !completedOnResult.ok) return completedOnResult;
+  if (completedOnResult && completedOnResult.date == null) {
+    return { ok: false, error: "Ange när det blev klart." };
+  }
 
   const supabase = await createClient();
   const {
@@ -281,6 +322,7 @@ export async function updateMediaItemReviewAction(input: {
     .update({
       note: noteResult.note,
       rating: ratingResult.rating,
+      ...(completedOnResult ? { completed_on: completedOnResult.date } : {}),
     })
     .eq("id", input.id)
     .eq("user_id", user.id)
@@ -289,6 +331,7 @@ export async function updateMediaItemReviewAction(input: {
 
   revalidatePath("/", "layout");
   revalidatePath("/year", "page");
+  revalidatePath("/week", "page");
   return { ok: true };
 }
 
@@ -405,6 +448,7 @@ export async function saveMediaDailyLogAction(input: {
     bestPosition: prevBestPosition,
     completed: false,
     lastActivityDate: null,
+    completedOn: null,
   });
 
   let position = input.position;
@@ -448,9 +492,21 @@ export async function saveMediaDailyLogAction(input: {
     bestPosition: newBestPosition,
     completed: false,
     lastActivityDate: null,
+    completedOn: null,
   });
 
+  if (justCompleted) {
+    await supabase
+      .from("media_items")
+      .update({ completed_on: input.localDate })
+      .eq("id", input.mediaItemId)
+      .eq("user_id", user.id)
+      .is("completed_on", null);
+  }
+
   revalidatePath("/", "layout");
+  revalidatePath("/year", "page");
+  revalidatePath("/week", "page");
   return { ok: true, justCompleted };
 }
 

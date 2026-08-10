@@ -216,6 +216,7 @@ export interface Database {
           id: string;
           user_id: string;
           title: string;
+          description: string | null;
           sort_order: number;
           archived_at: string | null;
           created_at: string;
@@ -225,6 +226,7 @@ export interface Database {
           id?: string;
           user_id: string;
           title: string;
+          description?: string | null;
           sort_order?: number;
           archived_at?: string | null;
           created_at?: string;
@@ -234,6 +236,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           title?: string;
+          description?: string | null;
           sort_order?: number;
           archived_at?: string | null;
           created_at?: string;

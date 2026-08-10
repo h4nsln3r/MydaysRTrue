@@ -1,0 +1,141 @@
+@use "abstracts" as *;
+
+.board {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.hint {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.85rem;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.itemWrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-2 $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+}
+
+.itemEditing {
+    .item {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        border-color: $color-orange;
+        background: $color-ink-elevated;
+    }
+}
+
+.editForm {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.editActions {
+    display: flex;
+    gap: $space-2;
+    justify-content: flex-end;
+}
+
+.editBtn {
+    padding: 4px 8px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-orange;
+    }
+}
+
+.itemIcon {
+    font-size: 1.1rem;
+}
+
+.itemMeta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.itemTitle {
+    font-weight: 600;
+    color: $color-cream;
+}
+
+.itemSub {
+    font-size: 0.78rem;
+    color: $color-fog;
+}
+
+.itemNote {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-style: italic;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.removeBtn {
+    padding: 4px 8px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+
+    &:hover:not(:disabled) {
+        color: $color-danger;
+    }
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-3;
+    border-radius: $radius-md;
+    border: 1px dashed $color-line;
+}
+
+.empty {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.9rem;
+}
+
+.error {
+    margin: 0;
+    color: $color-danger;
+    font-size: 0.85rem;
+}

@@ -11,12 +11,14 @@ export interface ActionResult {
 
 export async function createCodingProjectAction(input: {
   title: string;
+  description?: string;
 }): Promise<ActionResult> {
   const title = input.title.trim();
   if (!title) return { ok: false, error: "Skriv ett projektnamn." };
   if (title.length > 120) {
     return { ok: false, error: "Håll namnet under 120 tecken." };
   }
+  const description = (input.description ?? "").trim().slice(0, 500) || null;
 
   const supabase = await createClient();
   const {
@@ -38,6 +40,7 @@ export async function createCodingProjectAction(input: {
     .insert({
       user_id: user.id,
       title,
+      description,
       sort_order: (last?.sort_order ?? -1) + 1,
     })
     .select("id")
@@ -45,7 +48,40 @@ export async function createCodingProjectAction(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
+  revalidatePath("/year", "page");
   return { ok: true, id: data.id };
+}
+
+export async function updateCodingProjectAction(input: {
+  id: string;
+  title: string;
+  description?: string;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar projekt." };
+  const title = input.title.trim();
+  if (!title) return { ok: false, error: "Skriv ett projektnamn." };
+  if (title.length > 120) {
+    return { ok: false, error: "Håll namnet under 120 tecken." };
+  }
+  const description = (input.description ?? "").trim().slice(0, 500) || null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("coding_projects")
+    .update({ title, description })
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .is("archived_at", null);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  revalidatePath("/year", "page");
+  return { ok: true };
 }
 
 export async function archiveCodingProjectAction(input: {
@@ -67,5 +103,6 @@ export async function archiveCodingProjectAction(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
+  revalidatePath("/year", "page");
   return { ok: true };
 }

@@ -3,10 +3,13 @@ import { LeaveYearCalendar } from "@/components/LeaveYearCalendar/LeaveYearCalen
 import { RestaurantsYearBoard } from "@/components/RestaurantsYearBoard/RestaurantsYearBoard";
 import { MediaYearBoard } from "@/components/MediaYearBoard/MediaYearBoard";
 import { MediaYearProgress } from "@/components/MediaYearProgress/MediaYearProgress";
+import { CodingProjectsYearBoard } from "@/components/CodingProjectsYearBoard/CodingProjectsYearBoard";
+import { CodingProjectsYearProgress } from "@/components/CodingProjectsYearProgress/CodingProjectsYearProgress";
 import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getYearMedia } from "@/lib/media.server";
+import { getCodingProjects } from "@/lib/coding.server";
 import { getYearLiveEvents } from "@/lib/live-events.server";
 import { getYearGigs } from "@/lib/gigs.server";
 import { getYearLeave } from "@/lib/leave.server";
@@ -43,11 +46,15 @@ export default async function YearPage({ searchParams }: YearPageProps) {
   }
   if (year > currentYear) year = currentYear;
 
-  const yearMedia = await getYearMedia(user.id, year);
-  const yearLive = await getYearLiveEvents(user.id, year);
-  const yearGigs = await getYearGigs(user.id, year);
-  const yearRestaurants = await getYearRestaurantMeals(user.id, year);
-  const yearLeave = await getYearLeave(user.id, year);
+  const [yearMedia, yearLive, yearGigs, yearRestaurants, yearLeave, codingProjects] =
+    await Promise.all([
+      getYearMedia(user.id, year),
+      getYearLiveEvents(user.id, year),
+      getYearGigs(user.id, year),
+      getYearRestaurantMeals(user.id, year),
+      getYearLeave(user.id, year),
+      getCodingProjects(user.id),
+    ]);
   const isCurrent = year === currentYear;
   const canGoForward = year < currentYear;
 
@@ -105,6 +112,22 @@ export default async function YearPage({ searchParams }: YearPageProps) {
           yearLeave={yearLeave}
           readOnly={view === "progress"}
         />
+      </section>
+
+      <section className={styles.section}>
+        <header className={styles.sectionHeader}>
+          <h2 className={styles.h2}>Kodningsprojekt</h2>
+          <span className={styles.muted}>projekt du kodar på</span>
+        </header>
+
+        {view === "progress" ? (
+          <CodingProjectsYearProgress
+            projects={codingProjects}
+            planHref={yearNavHref(year, "plan")}
+          />
+        ) : (
+          <CodingProjectsYearBoard projects={codingProjects} />
+        )}
       </section>
 
       <section className={styles.section}>

@@ -9,7 +9,12 @@ import {
 } from "@/app/(app)/coding-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
-import type { CodingProject } from "@/lib/coding";
+import {
+  CODING_PROJECT_STATUSES,
+  CODING_PROJECT_STATUS_LABEL,
+  type CodingProject,
+  type CodingProjectStatus,
+} from "@/lib/coding";
 import styles from "./CodingProjectsYearBoard.module.scss";
 
 interface Props {
@@ -22,6 +27,10 @@ export function CodingProjectsYearBoard({ projects }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [githubUrl, setGithubUrl] = useState("");
+  const [liveUrl, setLiveUrl] = useState("");
+  const [isLive, setIsLive] = useState(false);
+  const [status, setStatus] = useState<CodingProjectStatus>("active");
 
   const add = () => {
     if (!title.trim()) {
@@ -34,6 +43,10 @@ export function CodingProjectsYearBoard({ projects }: Props) {
       const res = await createCodingProjectAction({
         title,
         description,
+        githubUrl,
+        liveUrl,
+        isLive,
+        status,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte lägga till.");
@@ -41,6 +54,10 @@ export function CodingProjectsYearBoard({ projects }: Props) {
       }
       setTitle("");
       setDescription("");
+      setGithubUrl("");
+      setLiveUrl("");
+      setIsLive(false);
+      setStatus("active");
       router.refresh();
     });
   };
@@ -49,7 +66,7 @@ export function CodingProjectsYearBoard({ projects }: Props) {
     <div className={styles.board}>
       <p className={styles.hint}>
         Projekt du kodar på. Välj dem när du loggar ett kodpass. Här kan du
-        lägga till en beskrivning om du vill.
+        lägga beskrivning, GitHub, live-länk och om projektet är klart.
       </p>
 
       {projects.length > 0 ? (
@@ -85,6 +102,48 @@ export function CodingProjectsYearBoard({ projects }: Props) {
           maxLength={500}
           disabled={pending}
         />
+        <Input
+          label="GitHub (valfritt)"
+          value={githubUrl}
+          onChange={(e) => setGithubUrl(e.target.value)}
+          placeholder="github.com/dig/repo"
+          maxLength={300}
+          disabled={pending}
+        />
+        <Input
+          label="Live-sida (valfritt)"
+          value={liveUrl}
+          onChange={(e) => setLiveUrl(e.target.value)}
+          placeholder="mydays.app"
+          maxLength={300}
+          disabled={pending}
+        />
+        <label className={styles.checkRow}>
+          <input
+            type="checkbox"
+            checked={isLive}
+            onChange={(e) => setIsLive(e.target.checked)}
+            disabled={pending || !liveUrl.trim()}
+          />
+          <span>Sidan ligger uppe</span>
+        </label>
+        <label className={styles.statusField}>
+          <span className={styles.statusLabel}>Status</span>
+          <select
+            className={styles.statusSelect}
+            value={status}
+            disabled={pending}
+            onChange={(e) =>
+              setStatus(e.target.value as CodingProjectStatus)
+            }
+          >
+            {CODING_PROJECT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {CODING_PROJECT_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </label>
         <Button
           type="button"
           variant="primary"
@@ -116,6 +175,12 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
   const [editDescription, setEditDescription] = useState(
     project.description ?? "",
   );
+  const [editGithubUrl, setEditGithubUrl] = useState(project.githubUrl ?? "");
+  const [editLiveUrl, setEditLiveUrl] = useState(project.liveUrl ?? "");
+  const [editIsLive, setEditIsLive] = useState(project.isLive);
+  const [editStatus, setEditStatus] = useState<CodingProjectStatus>(
+    project.status,
+  );
   const [localPending, startTransition] = useTransition();
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -124,6 +189,10 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
   const startEdit = () => {
     setEditTitle(project.title);
     setEditDescription(project.description ?? "");
+    setEditGithubUrl(project.githubUrl ?? "");
+    setEditLiveUrl(project.liveUrl ?? "");
+    setEditIsLive(project.isLive);
+    setEditStatus(project.status);
     setLocalError(null);
     onError(null);
     setIsEditing(true);
@@ -147,6 +216,10 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
         id: project.id,
         title: editTitle,
         description: editDescription,
+        githubUrl: editGithubUrl,
+        liveUrl: editLiveUrl,
+        isLive: editIsLive,
+        status: editStatus,
       });
       if (!res.ok) {
         setLocalError(res.error ?? "Kunde inte spara.");
@@ -189,6 +262,48 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
               maxLength={500}
               disabled={busy}
             />
+            <Input
+              label="GitHub (valfritt)"
+              value={editGithubUrl}
+              onChange={(e) => setEditGithubUrl(e.target.value)}
+              placeholder="github.com/dig/repo"
+              maxLength={300}
+              disabled={busy}
+            />
+            <Input
+              label="Live-sida (valfritt)"
+              value={editLiveUrl}
+              onChange={(e) => setEditLiveUrl(e.target.value)}
+              placeholder="mydays.app"
+              maxLength={300}
+              disabled={busy}
+            />
+            <label className={styles.checkRow}>
+              <input
+                type="checkbox"
+                checked={editIsLive}
+                onChange={(e) => setEditIsLive(e.target.checked)}
+                disabled={busy || !editLiveUrl.trim()}
+              />
+              <span>Sidan ligger uppe</span>
+            </label>
+            <label className={styles.statusField}>
+              <span className={styles.statusLabel}>Status</span>
+              <select
+                className={styles.statusSelect}
+                value={editStatus}
+                disabled={busy}
+                onChange={(e) =>
+                  setEditStatus(e.target.value as CodingProjectStatus)
+                }
+              >
+                {CODING_PROJECT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {CODING_PROJECT_STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
             {localError ? <p className={styles.error}>{localError}</p> : null}
             <div className={styles.editActions}>
               <Button
@@ -225,11 +340,57 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
         </span>
         <div className={styles.itemMeta}>
           <span className={styles.itemTitle}>{project.title}</span>
+          <div className={styles.badgeRow}>
+            <span
+              className={[
+                styles.badge,
+                project.status === "done"
+                  ? styles.badgeDone
+                  : project.status === "v1_done"
+                    ? styles.badgeV1
+                    : styles.badgeActive,
+              ].join(" ")}
+            >
+              {CODING_PROJECT_STATUS_LABEL[project.status]}
+            </span>
+            {project.liveUrl ? (
+              <span
+                className={[
+                  styles.badge,
+                  project.isLive ? styles.badgeLive : styles.badgeOffline,
+                ].join(" ")}
+              >
+                {project.isLive ? "Uppe" : "Ej uppe"}
+              </span>
+            ) : null}
+          </div>
           {project.description ? (
             <span className={styles.itemNote}>{project.description}</span>
           ) : (
             <span className={styles.itemSub}>Ingen beskrivning ännu</span>
           )}
+          <div className={styles.linkRow}>
+            {project.githubUrl ? (
+              <a
+                href={project.githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.link}
+              >
+                GitHub
+              </a>
+            ) : null}
+            {project.liveUrl ? (
+              <a
+                href={project.liveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.link}
+              >
+                Live
+              </a>
+            ) : null}
+          </div>
         </div>
         <button
           type="button"

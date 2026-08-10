@@ -217,6 +217,10 @@ export interface Database {
           user_id: string;
           title: string;
           description: string | null;
+          github_url: string | null;
+          live_url: string | null;
+          is_live: boolean;
+          status: "active" | "v1_done" | "done";
           sort_order: number;
           archived_at: string | null;
           created_at: string;
@@ -227,6 +231,10 @@ export interface Database {
           user_id: string;
           title: string;
           description?: string | null;
+          github_url?: string | null;
+          live_url?: string | null;
+          is_live?: boolean;
+          status?: "active" | "v1_done" | "done";
           sort_order?: number;
           archived_at?: string | null;
           created_at?: string;
@@ -237,6 +245,10 @@ export interface Database {
           user_id?: string;
           title?: string;
           description?: string | null;
+          github_url?: string | null;
+          live_url?: string | null;
+          is_live?: boolean;
+          status?: "active" | "v1_done" | "done";
           sort_order?: number;
           archived_at?: string | null;
           created_at?: string;

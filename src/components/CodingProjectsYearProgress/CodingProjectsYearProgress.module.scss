@@ -56,6 +56,66 @@
     word-break: break-word;
 }
 
+.badgeRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.badge {
+    padding: 2px 8px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: $color-cream-dim;
+}
+
+.badgeActive {
+    border-color: rgba(95, 182, 255, 0.45);
+    color: #9fd0ff;
+}
+
+.badgeV1 {
+    border-color: rgba(250, 204, 21, 0.45);
+    color: #fde68a;
+}
+
+.badgeDone {
+    border-color: rgba(110, 231, 163, 0.45);
+    color: #86efac;
+}
+
+.badgeLive {
+    border-color: rgba(110, 231, 163, 0.45);
+    color: #86efac;
+}
+
+.badgeOffline {
+    border-color: rgba(248, 113, 113, 0.4);
+    color: #fca5a5;
+}
+
+.linkRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+    margin-top: 6px;
+}
+
+.link {
+    font-size: 0.78rem;
+    color: $color-orange-bright;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: $color-cream;
+    }
+}
+
 .hint {
     margin: 0;
     font-size: 0.85rem;

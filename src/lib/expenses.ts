@@ -4,6 +4,7 @@ import type {
   TaskCategory,
   WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import { expandWeeklyTaskPlacements } from "@/lib/tasks";
 
 export const UTGIFTER_CATEGORY_NAME = "Utgifter";
 
@@ -94,7 +95,7 @@ export function collectWeekExpenses(
   const cats = categoryMap(categories);
   const entries: ExpenseEntry[] = [];
 
-  for (const task of tasks) {
+  for (const task of expandWeeklyTaskPlacements(tasks)) {
     if (!isTrackedWeeklyExpense(task, cats)) continue;
     const placement = task.placement;
     if (!placement?.doneAt || placement.shopAmount == null) continue;
@@ -129,7 +130,7 @@ export function collectWeekShopping(
   const cats = categoryMap(categories);
   const entries: ExpenseEntry[] = [];
 
-  for (const task of tasks) {
+  for (const task of expandWeeklyTaskPlacements(tasks)) {
     if (!isTrackedWeeklyShopping(task, cats)) continue;
     const placement = task.placement;
     if (!placement?.doneAt || placement.shopAmount == null) continue;
@@ -167,7 +168,7 @@ export function collectMonthExpenses(input: {
   const monthEnd = `${input.monthStart.slice(0, 7)}-31`;
   const entries: ExpenseEntry[] = [];
 
-  for (const task of input.weeklyTasks) {
+  for (const task of expandWeeklyTaskPlacements(input.weeklyTasks)) {
     if (!isTrackedWeeklyExpense(task, cats)) continue;
     const placement = task.placement;
     if (!placement?.doneAt || placement.shopAmount == null) continue;

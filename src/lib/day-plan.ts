@@ -454,7 +454,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     items.push({
       kind: "task",
       id: task.id,
-      itemKey: `task:${task.id}`,
+      itemKey: `task:${task.placement?.id ?? task.id}`,
       sortOrder: 0,
       doneAt: task.placement?.doneAt ?? null,
       task,

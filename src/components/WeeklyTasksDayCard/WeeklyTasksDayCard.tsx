@@ -11,6 +11,8 @@ import { MusicTaskChecklist } from "@/components/MusicTaskChecklist/MusicTaskChe
 import {
   completeWeeklyTaskAction,
   createOneOffWeeklyTaskAction,
+  deleteWeeklyTaskPlacementAction,
+  moveWeeklyTaskPlacementAction,
   placeWeeklyTaskAction,
   setWeeklyTaskCategoryAction,
   toggleWeeklyTaskDoneAction,
@@ -20,7 +22,9 @@ import {
 } from "@/app/(app)/tasks-actions";
 import {
   formatWeeklyTaskDetail,
+  isCodingWeeklyTaskKey,
   isMusicRepTask,
+  isRepeatableWeeklyTaskKey,
   MUSIC_BANDS,
   MUSIC_LOG_KIND_LABEL,
   sortWeeklyDayTasks,
@@ -33,6 +37,8 @@ import {
   type Weekday,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import type { CodingProject } from "@/lib/coding";
+import { createCodingProjectAction } from "@/app/(app)/coding-actions";
 import {
   formatKr,
   parseShopAmountExpr,
@@ -169,21 +175,24 @@ export function WeeklyTasksDayCard({
       <ul className={styles.list}>
         {orderedTasks.map((task) => (
           <WeeklyTaskRow
-            key={task.id}
+            key={task.placement?.id ?? task.id}
             task={task}
             weekStart={weekStart}
             categories={categories}
             canReschedule={canReschedule}
             isOverdue={isOverdue}
             rescheduleDays={rescheduleDays}
-            expanded={expandedId === task.id}
-            busy={pendingId === task.id}
+            expanded={expandedId === (task.placement?.id ?? task.id)}
+            busy={pendingId === (task.placement?.id ?? task.id)}
             pending={pending}
-            onToggleExpand={() =>
-              setExpandedId(expandedId === task.id ? null : task.id)
-            }
+            onToggleExpand={() => {
+              const id = task.placement?.id ?? task.id;
+              setExpandedId(expandedId === id ? null : id);
+            }}
             onError={setError}
-            onPendingId={setPendingId}
+            onPendingId={(id) =>
+              setPendingId(id ? (task.placement?.id ?? task.id) : null)
+            }
             onRefresh={() => router.refresh()}
             onDone={() => {
               setExpandedId(null);
@@ -322,6 +331,7 @@ interface TaskRowProps {
   task: WeeklyTaskForWeek;
   weekStart: string;
   categories: TaskCategory[];
+  codingProjects?: CodingProject[];
   canReschedule: boolean;
   isOverdue: boolean;
   rescheduleDays: RescheduleDay[];
@@ -344,6 +354,7 @@ export function WeeklyTaskRow({
   task,
   weekStart,
   categories,
+  codingProjects = [],
   canReschedule,
   isOverdue,
   rescheduleDays,
@@ -362,6 +373,8 @@ export function WeeklyTaskRow({
   localDate,
 }: TaskRowProps) {
   const placement = task.placement;
+  const placementId = placement?.id;
+  const isCoding = isCodingWeeklyTaskKey(task.key);
   const done = Boolean(placement?.doneAt);
   // Quick tasks complete with one tap on the circle; everything is still
   // expandable so any task can carry an optional comment.
@@ -404,6 +417,11 @@ export function WeeklyTaskRow({
   );
   const [musicPlace, setMusicPlace] = useState("");
   const [musicRating, setMusicRating] = useState("");
+  const [codingProjectId, setCodingProjectId] = useState(
+    placement?.codingProjectId ?? "",
+  );
+  const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
 
   const detail = placement ? formatWeeklyTaskDetail(placement) : null;
   const planNote = placement?.planNote?.trim() ?? "";
@@ -431,6 +449,7 @@ export function WeeklyTaskRow({
       const res = await completeWeeklyTaskAction({
         taskId: task.id,
         weekStart,
+        placementId,
         note: taskNote,
         shopLocation,
         shopAmountExpr: shopAmount,
@@ -444,6 +463,7 @@ export function WeeklyTaskRow({
           musicLogKind && musicRating.trim() !== ""
             ? Number(musicRating)
             : null,
+        codingProjectId: isCoding ? codingProjectId || null : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -458,6 +478,7 @@ export function WeeklyTaskRow({
       const res = await uncompleteWeeklyTaskAction({
         taskId: task.id,
         weekStart,
+        placementId,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
       setTaskNote("");
@@ -469,8 +490,34 @@ export function WeeklyTaskRow({
       setMusicTitle("");
       setMusicPlace("");
       setMusicRating("");
+      setCodingProjectId("");
+      setNewProjectTitle("");
+      setCreatingProject(false);
       onPendingId(null);
       onDone();
+    });
+  };
+
+  const createProject = () => {
+    const title = newProjectTitle.trim();
+    if (!title) {
+      onError("Skriv ett projektnamn.");
+      return;
+    }
+    onError(null);
+    onPendingId(task.id);
+    startTransition(async () => {
+      const res = await createCodingProjectAction({ title });
+      if (!res.ok || !res.id) {
+        onError(res.error ?? "Kunde inte skapa projekt.");
+        onPendingId(null);
+        return;
+      }
+      setCodingProjectId(res.id);
+      setNewProjectTitle("");
+      setCreatingProject(false);
+      onPendingId(null);
+      onRefresh();
     });
   };
 
@@ -481,12 +528,23 @@ export function WeeklyTaskRow({
     startTransition(async () => {
       const res =
         value === "remove"
-          ? await unplaceWeeklyTaskAction({ taskId: task.id, weekStart })
-          : await placeWeeklyTaskAction({
-              taskId: task.id,
-              weekStart,
-              weekday: Number(value) as Weekday,
-            });
+          ? placementId && isRepeatableWeeklyTaskKey(task.key)
+            ? await deleteWeeklyTaskPlacementAction({
+                placementId,
+                weekStart,
+              })
+            : await unplaceWeeklyTaskAction({ taskId: task.id, weekStart })
+          : placementId && isRepeatableWeeklyTaskKey(task.key)
+            ? await moveWeeklyTaskPlacementAction({
+                placementId,
+                weekStart,
+                weekday: Number(value) as Weekday,
+              })
+            : await placeWeeklyTaskAction({
+                taskId: task.id,
+                weekStart,
+                weekday: Number(value) as Weekday,
+              });
       if (!res.ok) onError(res.error ?? "Kunde inte planera om.");
       onPendingId(null);
       onDone();
@@ -719,14 +777,88 @@ export function WeeklyTaskRow({
                 </>
               ) : null}
               {task.completionKind === "journal" ? (
-                <Input
-                  label="Vad gjorde du?"
-                  value={taskNote}
-                  onChange={(e) => setTaskNote(e.target.value)}
-                  placeholder="Anteckna resultatet"
-                  maxLength={500}
-                  disabled={pending}
-                />
+                <>
+                  {isCoding ? (
+                    <div className={styles.bandPicker}>
+                      <span className={styles.bandLabel}>Projekt</span>
+                      {creatingProject ? (
+                        <div className={styles.quickAddActions}>
+                          <Input
+                            label="Nytt projekt"
+                            value={newProjectTitle}
+                            onChange={(e) => setNewProjectTitle(e.target.value)}
+                            placeholder="t.ex. Mydays, Portfolio"
+                            maxLength={120}
+                            disabled={pending}
+                          />
+                          <button
+                            type="button"
+                            className={styles.quickAddCancel}
+                            onClick={() => {
+                              setCreatingProject(false);
+                              setNewProjectTitle("");
+                            }}
+                            disabled={pending}
+                          >
+                            Avbryt
+                          </button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="md"
+                            loading={pending && busy}
+                            disabled={pending || !newProjectTitle.trim()}
+                            onClick={createProject}
+                          >
+                            Skapa
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <select
+                            className={styles.rescheduleSelect}
+                            value={codingProjectId}
+                            disabled={pending}
+                            onChange={(e) => {
+                              if (e.target.value === "__new__") {
+                                setCreatingProject(true);
+                                return;
+                              }
+                              setCodingProjectId(e.target.value);
+                            }}
+                          >
+                            <option value="">Välj projekt…</option>
+                            {codingProjects.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.title}
+                              </option>
+                            ))}
+                            {codingProjectId &&
+                            !codingProjects.some((p) => p.id === codingProjectId) &&
+                            placement?.codingProjectTitle ? (
+                              <option value={codingProjectId}>
+                                {placement.codingProjectTitle}
+                              </option>
+                            ) : null}
+                            <option value="__new__">+ Nytt projekt</option>
+                          </select>
+                        </>
+                      )}
+                    </div>
+                  ) : null}
+                  <Input
+                    label={isCoding ? "Vad gjorde du i projektet?" : "Vad gjorde du?"}
+                    value={taskNote}
+                    onChange={(e) => setTaskNote(e.target.value)}
+                    placeholder={
+                      isCoding
+                        ? "t.ex. Byggde repeatable tasks"
+                        : "Anteckna resultatet"
+                    }
+                    maxLength={500}
+                    disabled={pending}
+                  />
+                </>
               ) : null}
               {task.completionKind === "simple" ||
               task.completionKind === "note" ||

@@ -4,7 +4,7 @@ import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getSportWeekSummary } from "@/lib/sport.server";
 import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
-import { formatWeeklyTaskDetail, type Weekday } from "@/lib/tasks";
+import { formatWeeklyTaskDetail, isRepeatableWeeklyTaskKey, type Weekday } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
@@ -15,6 +15,8 @@ import {
   weekPlanBathingSourceDragId,
   weekPlanDragId,
   weekPlanMonthlyBillDragId,
+  weekPlanTaskPlacementDragId,
+  weekPlanTaskSourceDragId,
   type UnifiedWeekPlan,
   type WeekPlanItem,
 } from "@/lib/week-plan";
@@ -211,29 +213,95 @@ export async function getUnifiedWeekPlan(
   }
 
   for (const t of taskWeek.tasks) {
-    const done = Boolean(t.placement?.doneAt);
+    const repeatable = isRepeatableWeeklyTaskKey(t.key);
+    const placed = t.placements.filter((p) => p.weekday != null && !p.onHold);
+    const backlogOrphans = t.placements.filter(
+      (p) => p.weekday == null && !p.onHold,
+    );
+
+    if (repeatable) {
+      items.push({
+        dragId: weekPlanTaskSourceDragId(t.id),
+        kind: "task",
+        taskRole: "source",
+        taskId: t.id,
+        placementId: null,
+        taskKey: t.key,
+        categoryId: t.categoryId,
+        completionKind: t.completionKind,
+        placement: null,
+        checklist: t.checklist,
+        label: t.title,
+        subtitle: t.notes,
+        icon: t.icon,
+        accent: t.accent,
+        defaultWeekday: t.defaultWeekday,
+        weekday: null,
+        done: false,
+        sortOrder: t.sortOrder,
+        singleWeekStart: t.singleWeekStart,
+      });
+
+      for (const placement of placed) {
+        const done = Boolean(placement.doneAt);
+        items.push({
+          dragId: weekPlanTaskPlacementDragId(placement.id),
+          kind: "task",
+          taskRole: "placement",
+          taskId: t.id,
+          placementId: placement.id,
+          taskKey: t.key,
+          categoryId: t.categoryId,
+          completionKind: t.completionKind,
+          placement,
+          checklist: t.checklist,
+          label: t.title,
+          subtitle: done
+            ? formatWeeklyTaskDetail(placement) ?? t.notes
+            : t.notes,
+          icon: t.icon,
+          accent: t.accent,
+          defaultWeekday: t.defaultWeekday,
+          weekday: placement.weekday,
+          done,
+          sortOrder: dayPlanSortOrder(
+            placement.weekday,
+            placement.daySortOrder,
+            t.sortOrder,
+          ),
+          singleWeekStart: t.singleWeekStart,
+        });
+      }
+      continue;
+    }
+
+    // Non-repeatable: one board item (backlog orphan or placed). Prefer placed.
+    const placement = placed[0] ?? backlogOrphans[0] ?? t.placement;
+    const done = Boolean(placement?.doneAt);
     items.push({
       dragId: weekPlanDragId("task", t.id),
       kind: "task",
+      taskRole: "placement",
       taskId: t.id,
+      placementId: placement?.id ?? null,
       taskKey: t.key,
       categoryId: t.categoryId,
       completionKind: t.completionKind,
-      placement: t.placement,
+      placement,
       checklist: t.checklist,
       label: t.title,
       subtitle:
-        done && t.placement
-          ? formatWeeklyTaskDetail(t.placement) ?? t.notes
+        done && placement
+          ? formatWeeklyTaskDetail(placement) ?? t.notes
           : t.notes,
       icon: t.icon,
       accent: t.accent,
       defaultWeekday: t.defaultWeekday,
-      weekday: t.placement?.weekday ?? null,
+      weekday: placement?.weekday ?? null,
       done,
       sortOrder: dayPlanSortOrder(
-        t.placement?.weekday ?? null,
-        t.placement?.daySortOrder ?? 0,
+        placement?.weekday ?? null,
+        placement?.daySortOrder ?? 0,
         t.sortOrder,
       ),
       singleWeekStart: t.singleWeekStart,

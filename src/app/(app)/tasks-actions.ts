@@ -19,8 +19,10 @@ import {
 } from "@/lib/monthly-finance";
 import type { Database } from "@/lib/supabase/database.types";
 import {
+  isCodingWeeklyTaskKey,
   isHexColor,
   isMusicRepTask,
+  isRepeatableWeeklyTaskKey,
   MUSIC_BANDS,
   type MusicBand,
   type MusicLogKind,
@@ -525,6 +527,19 @@ export async function placeWeeklyTaskAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
+  const { data: task } = await supabase
+    .from("weekly_tasks")
+    .select("key")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+
+  if (isRepeatableWeeklyTaskKey(task.key)) {
+    return addWeeklyTaskPlacementAction(input);
+  }
+
   const { data: existing } = await supabase
     .from("weekly_task_placements")
     .select("id, done_at, note, weekday, day_sort_order")
@@ -565,6 +580,141 @@ export async function placeWeeklyTaskAction(input: {
     });
     if (error) return { ok: false, error: error.message };
   }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Add a new instance of a repeatable weekly task onto a weekday. */
+export async function addWeeklyTaskPlacementAction(input: {
+  taskId: string;
+  weekStart: string;
+  weekday: Weekday;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Missing task id." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Week must start on a Monday." };
+  }
+  if (input.weekday < 1 || input.weekday > 7) {
+    return { ok: false, error: "Invalid weekday." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: task } = await supabase
+    .from("weekly_tasks")
+    .select("id, key")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+  if (!isRepeatableWeeklyTaskKey(task.key)) {
+    return placeWeeklyTaskAction(input);
+  }
+
+  const daySortOrder = await nextWeeklyDaySortOrder(
+    supabase,
+    user.id,
+    input.weekStart,
+    input.weekday,
+  );
+
+  const { error } = await supabase.from("weekly_task_placements").insert({
+    user_id: user.id,
+    task_id: input.taskId,
+    week_start: input.weekStart,
+    weekday: input.weekday,
+    day_sort_order: daySortOrder,
+    on_hold: false,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Move an existing weekly task placement to another weekday. */
+export async function moveWeeklyTaskPlacementAction(input: {
+  placementId: string;
+  weekStart: string;
+  weekday: Weekday;
+}): Promise<ActionResult> {
+  if (!input.placementId) return { ok: false, error: "Saknar placering." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Week must start on a Monday." };
+  }
+  if (input.weekday < 1 || input.weekday > 7) {
+    return { ok: false, error: "Invalid weekday." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: existing } = await supabase
+    .from("weekly_task_placements")
+    .select("id, weekday, day_sort_order")
+    .eq("id", input.placementId)
+    .eq("user_id", user.id)
+    .eq("week_start", input.weekStart)
+    .maybeSingle();
+  if (!existing) return { ok: false, error: "Placeringen hittades inte." };
+
+  const movingDay = existing.weekday !== input.weekday;
+  const daySortOrder = movingDay
+    ? await nextWeeklyDaySortOrder(
+        supabase,
+        user.id,
+        input.weekStart,
+        input.weekday,
+      )
+    : (existing.day_sort_order ?? 0);
+
+  const { error } = await supabase
+    .from("weekly_task_placements")
+    .update({
+      weekday: input.weekday,
+      day_sort_order: daySortOrder,
+      on_hold: false,
+    })
+    .eq("id", existing.id)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Delete a weekly task placement instance (repeatable tasks). */
+export async function deleteWeeklyTaskPlacementAction(input: {
+  placementId: string;
+  weekStart: string;
+}): Promise<ActionResult> {
+  if (!input.placementId) return { ok: false, error: "Saknar placering." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Week must start on a Monday." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("weekly_task_placements")
+    .delete()
+    .eq("id", input.placementId)
+    .eq("user_id", user.id)
+    .eq("week_start", input.weekStart);
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -726,6 +876,7 @@ export async function updateWeeklyTaskPlanAction(input: {
   taskId: string;
   weekStart: string;
   planNote: string;
+  placementId?: string;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -758,13 +909,27 @@ export async function updateWeeklyTaskPlanAction(input: {
     return { ok: false, error: "Uppgiften har inget att planera." };
   }
 
-  const { data: existing } = await supabase
-    .from("weekly_task_placements")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("task_id", input.taskId)
-    .eq("week_start", input.weekStart)
-    .maybeSingle();
+  let existing: { id: string } | null = null;
+  if (input.placementId) {
+    const { data } = await supabase
+      .from("weekly_task_placements")
+      .select("id")
+      .eq("id", input.placementId)
+      .eq("user_id", user.id)
+      .eq("task_id", input.taskId)
+      .eq("week_start", input.weekStart)
+      .maybeSingle();
+    existing = data;
+  } else {
+    const { data } = await supabase
+      .from("weekly_task_placements")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("task_id", input.taskId)
+      .eq("week_start", input.weekStart)
+      .maybeSingle();
+    existing = data;
+  }
   if (!existing) {
     return { ok: false, error: "Placera uppgiften på en dag först." };
   }
@@ -784,6 +949,8 @@ export async function updateWeeklyTaskPlanAction(input: {
 export async function completeWeeklyTaskAction(input: {
   taskId: string;
   weekStart: string;
+  /** Required when the task is repeatable (multiple placements per week). */
+  placementId?: string;
   planNote?: string;
   note?: string;
   shopLocation?: string;
@@ -800,6 +967,8 @@ export async function completeWeeklyTaskAction(input: {
   /** Venue (gig) or location (live). */
   musicPlace?: string;
   musicRating?: number | null;
+  /** Coding session project. */
+  codingProjectId?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -829,18 +998,56 @@ export async function completeWeeklyTaskAction(input: {
   const musicPlace = (input.musicPlace ?? "").trim().slice(0, 120) || null;
   const eventNote = note.slice(0, 280);
 
-  const { data: existing } = await supabase
-    .from("weekly_task_placements")
-    .select("id, plan_note, weekday")
-    .eq("user_id", user.id)
-    .eq("task_id", input.taskId)
-    .eq("week_start", input.weekStart)
-    .maybeSingle();
+  let existing: { id: string; plan_note: string | null; weekday: number | null } | null =
+    null;
+
+  if (input.placementId) {
+    const { data } = await supabase
+      .from("weekly_task_placements")
+      .select("id, plan_note, weekday")
+      .eq("id", input.placementId)
+      .eq("user_id", user.id)
+      .eq("task_id", input.taskId)
+      .eq("week_start", input.weekStart)
+      .maybeSingle();
+    existing = data;
+  } else {
+    const { data } = await supabase
+      .from("weekly_task_placements")
+      .select("id, plan_note, weekday")
+      .eq("user_id", user.id)
+      .eq("task_id", input.taskId)
+      .eq("week_start", input.weekStart)
+      .maybeSingle();
+    existing = data;
+  }
+
   if (!existing) {
     return { ok: false, error: "Placera uppgiften på en dag först." };
   }
   if (existing.weekday == null) {
     return { ok: false, error: "Dra uppgiften till en dag i veckovyn först." };
+  }
+
+  let codingProjectId: string | null = null;
+  if (isCodingWeeklyTaskKey(task.key)) {
+    codingProjectId = input.codingProjectId?.trim() || null;
+    if (!codingProjectId) {
+      return { ok: false, error: "Välj vilket projekt du jobbade med." };
+    }
+    const { data: project } = await supabase
+      .from("coding_projects")
+      .select("id")
+      .eq("id", codingProjectId)
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (!project) {
+      return { ok: false, error: "Projektet hittades inte." };
+    }
+    if (!note) {
+      return { ok: false, error: "Anteckna vad du gjorde i projektet." };
+    }
   }
 
   const planNote =
@@ -1054,6 +1261,9 @@ export async function completeWeeklyTaskAction(input: {
       music_log_kind: kind === "music" ? resolvedMusicLogKind : null,
       gig_id: kind === "music" ? gigId : null,
       live_event_id: kind === "music" ? liveEventId : null,
+      coding_project_id: isCodingWeeklyTaskKey(task.key)
+        ? codingProjectId
+        : null,
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
@@ -1080,6 +1290,7 @@ export async function completeWeeklyTaskAction(input: {
 export async function uncompleteWeeklyTaskAction(input: {
   taskId: string;
   weekStart: string;
+  placementId?: string;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -1092,13 +1303,32 @@ export async function uncompleteWeeklyTaskAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
-  const { data: existing } = await supabase
-    .from("weekly_task_placements")
-    .select("id, gig_id, live_event_id")
-    .eq("user_id", user.id)
-    .eq("task_id", input.taskId)
-    .eq("week_start", input.weekStart)
-    .maybeSingle();
+  let existing: {
+    id: string;
+    gig_id: string | null;
+    live_event_id: string | null;
+  } | null = null;
+
+  if (input.placementId) {
+    const { data } = await supabase
+      .from("weekly_task_placements")
+      .select("id, gig_id, live_event_id")
+      .eq("id", input.placementId)
+      .eq("user_id", user.id)
+      .eq("task_id", input.taskId)
+      .eq("week_start", input.weekStart)
+      .maybeSingle();
+    existing = data;
+  } else {
+    const { data } = await supabase
+      .from("weekly_task_placements")
+      .select("id, gig_id, live_event_id")
+      .eq("user_id", user.id)
+      .eq("task_id", input.taskId)
+      .eq("week_start", input.weekStart)
+      .maybeSingle();
+    existing = data;
+  }
   if (!existing) return { ok: false, error: "Uppgiften hittades inte." };
 
   const { error } = await supabase
@@ -1114,6 +1344,7 @@ export async function uncompleteWeeklyTaskAction(input: {
       music_log_kind: null,
       gig_id: null,
       live_event_id: null,
+      coding_project_id: null,
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);

@@ -41,7 +41,9 @@ export interface WeekPlanItemBase {
 
 export interface WeekPlanTaskItem extends WeekPlanItemBase {
   kind: "task";
+  taskRole: TaskDragRole;
   taskId: string;
+  placementId: string | null;
   taskKey: string | null;
   categoryId: string | null;
   completionKind: WeeklyTaskCompletionKind;
@@ -130,11 +132,13 @@ export function weekdayFromWeekPlanDropId(id: string): Weekday | null {
 }
 
 export type BathingDragRole = "source" | "placement";
+export type TaskDragRole = "source" | "placement";
 
 export interface ParsedWeekPlanDragId {
   kind: WeekPlanItemKind;
   entityId: string;
   bathingRole?: BathingDragRole;
+  taskRole?: TaskDragRole;
   monthStart?: string;
 }
 
@@ -155,11 +159,31 @@ export function weekPlanBathingPlacementDragId(placementId: string): string {
   return `bathing:${placementId}`;
 }
 
+/** Repeatable weekly task source that stays in the backlog. */
+export function weekPlanTaskSourceDragId(taskId: string): string {
+  return `task-source:${taskId}`;
+}
+
+/** A weekly task placement instance (especially repeatable tasks). */
+export function weekPlanTaskPlacementDragId(placementId: string): string {
+  return `task-placement:${placementId}`;
+}
+
 export function weekPlanMonthlyBillDragId(taskId: string, monthStart: string): string {
   return `monthly_bill:${taskId}:${monthStart}`;
 }
 
 export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null {
+  const taskSource = /^task-source:(.+)$/.exec(dragId);
+  if (taskSource) {
+    return { kind: "task", entityId: taskSource[1], taskRole: "source" };
+  }
+
+  const taskPlacement = /^task-placement:(.+)$/.exec(dragId);
+  if (taskPlacement) {
+    return { kind: "task", entityId: taskPlacement[1], taskRole: "placement" };
+  }
+
   const source = /^bathing-source:(.+)$/.exec(dragId);
   if (source) {
     return { kind: "bathing", entityId: source[1], bathingRole: "source" };
@@ -184,6 +208,7 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
   return {
     kind: m[1] as WeekPlanItemKind,
     entityId: m[2],
+    ...(m[1] === "task" ? { taskRole: "placement" as const } : {}),
   };
 }
 

@@ -144,6 +144,7 @@ export function UnifiedWeekBoard({
     if (i.kind === "monthly_bill") return false;
     if (i.weekday != null) return false;
     if (i.kind === "bathing" && i.bathingRole === "source") return true;
+    if (i.kind === "task" && i.taskRole === "source") return true;
     return true;
   });
   const monthlyBacklog = localItems.filter(
@@ -168,7 +169,8 @@ export function UnifiedWeekBoard({
   const placedCount = localItems.filter(
     (i) =>
       i.weekday != null &&
-      !(i.kind === "bathing" && i.bathingRole === "source"),
+      !(i.kind === "bathing" && i.bathingRole === "source") &&
+      !(i.kind === "task" && i.taskRole === "source"),
   ).length;
   const doneCount = localItems.filter((i) => i.done).length;
   const draggingItem = draggingId
@@ -181,7 +183,8 @@ export function UnifiedWeekBoard({
 
     const isBathingSource =
       item.kind === "bathing" && item.bathingRole === "source";
-    if (!isBathingSource && item.weekday === weekday) return;
+    const isTaskSource = item.kind === "task" && item.taskRole === "source";
+    if (!isBathingSource && !isTaskSource && item.weekday === weekday) return;
 
     setError(null);
     if (isBathingSource) {
@@ -209,6 +212,39 @@ export function UnifiedWeekBoard({
         };
         return [...rest, optimisticPlacement];
       });
+    } else if (isTaskSource) {
+      setLocalItems((prev) => {
+        const source = prev.find((i) => i.dragId === dragId);
+        if (
+          !source ||
+          source.kind !== "task" ||
+          source.taskRole !== "source"
+        ) {
+          return prev.filter((i) => i.dragId !== dragId);
+        }
+        const uid = `${source.taskId}-${Date.now()}`;
+        const dayItems = prev.filter(
+          (i) =>
+            i.weekday === weekday &&
+            !(i.kind === "bathing" && i.bathingRole === "source") &&
+            !(i.kind === "task" && i.taskRole === "source"),
+        );
+        const nextOrder =
+          dayItems.length > 0
+            ? Math.max(...dayItems.map((t) => t.sortOrder)) + 1
+            : 0;
+        const optimisticPlacement: WeekPlanItem = {
+          ...source,
+          dragId: `task-placement:optimistic-${uid}`,
+          taskRole: "placement",
+          placementId: `optimistic-${uid}`,
+          placement: null,
+          weekday,
+          sortOrder: nextOrder,
+          done: false,
+        };
+        return [...prev, optimisticPlacement];
+      });
     } else {
       setLocalItems((prev) => {
         const moving = prev.find((i) => i.dragId === dragId);
@@ -216,7 +252,8 @@ export function UnifiedWeekBoard({
         const dayItems = prev.filter(
           (i) =>
             i.weekday === weekday &&
-            !(i.kind === "bathing" && i.bathingRole === "source"),
+            !(i.kind === "bathing" && i.bathingRole === "source") &&
+            !(i.kind === "task" && i.taskRole === "source"),
         );
         const nextOrder =
           moving.weekday === weekday
@@ -268,6 +305,7 @@ export function UnifiedWeekBoard({
     const item = localItems.find((i) => i.dragId === dragId);
     if (!item || item.weekday == null) return;
     if (item.kind === "bathing" && item.bathingRole === "source") return;
+    if (item.kind === "task" && item.taskRole === "source") return;
 
     setError(null);
     setLocalItems((prev) => {
@@ -302,6 +340,14 @@ export function UnifiedWeekBoard({
           },
         };
         return [...without, sourceItem];
+      }
+      if (
+        item.kind === "task" &&
+        item.taskRole === "placement" &&
+        dragId.startsWith("task-placement:")
+      ) {
+        // Repeatable task instance: remove placement; source stays in backlog.
+        return prev.filter((i) => i.dragId !== dragId);
       }
       return prev.map((i) =>
         i.dragId === dragId ? { ...i, weekday: null } : i,
@@ -340,7 +386,8 @@ export function UnifiedWeekBoard({
     const canReorder = (item: WeekPlanItem | undefined) =>
       item != null &&
       item.weekday != null &&
-      !(item.kind === "bathing" && item.bathingRole === "source");
+      !(item.kind === "bathing" && item.bathingRole === "source") &&
+      !(item.kind === "task" && item.taskRole === "source");
 
     if (
       canReorder(activeItem) &&
@@ -352,7 +399,8 @@ export function UnifiedWeekBoard({
         localItems.filter(
           (i) =>
             i.weekday === weekday &&
-            !(i.kind === "bathing" && i.bathingRole === "source"),
+            !(i.kind === "bathing" && i.bathingRole === "source") &&
+            !(i.kind === "task" && i.taskRole === "source"),
         ),
       );
       const oldIndex = dayItems.findIndex((t) => t.dragId === dragId);
@@ -399,6 +447,10 @@ export function UnifiedWeekBoard({
     if (overId === WEEK_PLAN_BACKLOG_DROP_ID) {
       const item = localItems.find((i) => i.dragId === dragId);
       if (item?.kind === "bathing" && item.bathingRole === "source") {
+        setDraggingId(null);
+        return;
+      }
+      if (item?.kind === "task" && item.taskRole === "source") {
         setDraggingId(null);
         return;
       }
@@ -604,7 +656,9 @@ export function UnifiedWeekBoard({
           {WEEKDAYS.map((d) => {
             const dayItems = sortDayItems(
               (byDay.get(d) ?? []).filter(
-                (i) => !(i.kind === "bathing" && i.bathingRole === "source"),
+                (i) =>
+                  !(i.kind === "bathing" && i.bathingRole === "source") &&
+                  !(i.kind === "task" && i.taskRole === "source"),
               ),
             );
             const dayDone = dayItems.filter((i) => i.done).length;
@@ -1141,6 +1195,7 @@ function ItemRowContent({
     item.kind === "monthly_bill" && item.taskKey === CARPAY_TASK_KEY;
   const taskPlanningExpand =
     item.kind === "task" &&
+    item.taskRole !== "source" &&
     (item.completionKind === "journal" ||
       item.completionKind === "laundry" ||
       item.completionKind === "music");
@@ -1336,6 +1391,7 @@ function ItemRowContent({
         taskId: item.taskId,
         weekStart,
         planNote: taskPlanNote,
+        placementId: item.placementId ?? item.placement?.id,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);

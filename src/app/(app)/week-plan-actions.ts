@@ -7,6 +7,9 @@ import { resetSportWeekToDefaultsAction } from "@/app/(app)/sport-actions";
 import { resetGymWeekToDefaultsAction } from "@/app/(app)/gym-actions";
 import {
   placeWeeklyTaskAction,
+  addWeeklyTaskPlacementAction,
+  moveWeeklyTaskPlacementAction,
+  deleteWeeklyTaskPlacementAction,
   unplaceWeeklyTaskAction,
   placeMonthlyBillFromWeekAction,
   unplaceMonthlyBillFromWeekAction,
@@ -69,6 +72,20 @@ export async function placeWeekPlanItemAction(input: {
 
   switch (parsed.kind) {
     case "task":
+      if (parsed.taskRole === "source") {
+        return addWeeklyTaskPlacementAction({
+          taskId: parsed.entityId,
+          weekStart: input.weekStart,
+          weekday: input.weekday,
+        });
+      }
+      if (input.dragId.startsWith("task-placement:")) {
+        return moveWeeklyTaskPlacementAction({
+          placementId: parsed.entityId,
+          weekStart: input.weekStart,
+          weekday: input.weekday,
+        });
+      }
       return placeWeeklyTaskAction({
         taskId: parsed.entityId,
         weekStart: input.weekStart,
@@ -134,6 +151,15 @@ export async function unplaceWeekPlanItemAction(input: {
 
   switch (parsed.kind) {
     case "task":
+      if (parsed.taskRole === "source") {
+        return { ok: true };
+      }
+      if (input.dragId.startsWith("task-placement:")) {
+        return deleteWeeklyTaskPlacementAction({
+          placementId: parsed.entityId,
+          weekStart: input.weekStart,
+        });
+      }
       return unplaceWeeklyTaskAction({
         taskId: parsed.entityId,
         weekStart: input.weekStart,

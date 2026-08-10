@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, DISPLAY_TIMEZONE, isoWeekdayFromLocalISO, parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
 import {
   dedupeMonthlyTasks,
+  expandWeeklyTaskPlacements,
+  isRepeatableWeeklyTaskKey,
   monthlyTaskKeeperScore,
   type MonthlyCompletion,
   type MonthlyTask,
@@ -16,6 +18,7 @@ import {
   type WeeklyTaskChecklistItem,
   type WeeklyTaskChecklistCompletion,
   type WeeklyTaskForWeek,
+  type WeeklyTaskCompletionKind,
   type MusicBand,
   type MusicLogKind,
 } from "@/lib/tasks";
@@ -223,9 +226,13 @@ interface WeeklyPlacementRow {
   gig_id: string | null;
   live_event_id: string | null;
   on_hold: boolean;
+  coding_project_id: string | null;
 }
 
-function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
+function rowToPlacement(
+  r: WeeklyPlacementRow,
+  projectTitleById?: Map<string, string>,
+): WeeklyPlacement {
   return {
     id: r.id,
     taskId: r.task_id,
@@ -244,6 +251,10 @@ function rowToPlacement(r: WeeklyPlacementRow): WeeklyPlacement {
     gigId: r.gig_id,
     liveEventId: r.live_event_id,
     onHold: r.on_hold ?? false,
+    codingProjectId: r.coding_project_id,
+    codingProjectTitle: r.coding_project_id
+      ? (projectTitleById?.get(r.coding_project_id) ?? null)
+      : null,
   };
 }
 
@@ -304,12 +315,175 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, laundry_loads, band, music_log_kind, gig_id, live_event_id, on_hold";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, laundry_loads, band, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 
 const CHECKLIST_COMPLETION_SELECT =
   "id, checklist_item_id, local_date, note, done_at";
+
+const REPEATABLE_CANONICAL: Array<{
+  key: string;
+  legacyLike: string;
+  title: string;
+  notes: string;
+  icon: string;
+  accent: string;
+  completionKind: WeeklyTaskCompletionKind;
+  categoryName: string;
+  sortOrder: number;
+}> = [
+  {
+    key: "dev_code",
+    legacyLike: "dev_code_%",
+    title: "Kodning",
+    notes:
+      "Dra in hur många kodpass du vill — minst 2 per vecka. Välj projekt och anteckna vad du gjorde.",
+    icon: "💻",
+    accent: "#5fb6ff",
+    completionKind: "journal",
+    categoryName: "DEV",
+    sortOrder: 0,
+  },
+  {
+    key: "home_handla",
+    legacyLike: "home_handla_%",
+    title: "Handla",
+    notes:
+      "Dra in hur många handlingar du vill — minst 2 per vecka. Ange butik och summa när du är klar.",
+    icon: "🛒",
+    accent: "#6ee7a3",
+    completionKind: "shop",
+    categoryName: "HOME",
+    sortOrder: 1,
+  },
+  {
+    key: "life_ring_mamma",
+    legacyLike: "life_ring_mamma_%",
+    title: "Ring mamma",
+    notes: "Dra in hur många samtal du vill — minst 2 per vecka.",
+    icon: "📞",
+    accent: "#f472b6",
+    completionKind: "journal",
+    categoryName: "Livet",
+    sortOrder: 0,
+  },
+];
+
+/**
+ * Promote legacy numbered slots (dev_code_1/2, …) into one repeatable task
+ * and archive leftovers — same idea as bathing ensureBadTemplate.
+ */
+export async function ensureRepeatableWeeklyTasks(
+  userId: string,
+): Promise<void> {
+  const supabase = await createClient();
+
+  for (const spec of REPEATABLE_CANONICAL) {
+    let canonicalId: string | null = null;
+
+    const { data: canonical } = await supabase
+      .from("weekly_tasks")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("key", spec.key)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (canonical) canonicalId = canonical.id;
+
+    if (!canonicalId) {
+      const { data: legacy } = await supabase
+        .from("weekly_tasks")
+        .select("id")
+        .eq("user_id", userId)
+        .like("key", spec.legacyLike)
+        .is("archived_at", null)
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (legacy) {
+        const { error } = await supabase
+          .from("weekly_tasks")
+          .update({
+            key: spec.key,
+            title: spec.title,
+            notes: spec.notes,
+            icon: spec.icon,
+            accent: spec.accent,
+            completion_kind: spec.completionKind,
+            default_weekday: null,
+            sort_order: spec.sortOrder,
+          })
+          .eq("id", legacy.id)
+          .eq("user_id", userId);
+        if (!error) canonicalId = legacy.id;
+      }
+    }
+
+    if (!canonicalId) {
+      const { data: category } = await supabase
+        .from("task_categories")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("scope", "task")
+        .eq("name", spec.categoryName)
+        .is("archived_at", null)
+        .maybeSingle();
+
+      const { data: created, error } = await supabase
+        .from("weekly_tasks")
+        .insert({
+          user_id: userId,
+          category_id: category?.id ?? null,
+          key: spec.key,
+          title: spec.title,
+          notes: spec.notes,
+          icon: spec.icon,
+          accent: spec.accent,
+          sort_order: spec.sortOrder,
+          default_weekday: null,
+          completion_kind: spec.completionKind,
+        })
+        .select("id")
+        .maybeSingle();
+      if (!error && created) canonicalId = created.id;
+    }
+
+    if (!canonicalId) continue;
+
+    await supabase
+      .from("weekly_tasks")
+      .update({
+        title: spec.title,
+        notes: spec.notes,
+        default_weekday: null,
+      })
+      .eq("id", canonicalId)
+      .eq("user_id", userId);
+
+    const { data: leftovers } = await supabase
+      .from("weekly_tasks")
+      .select("id")
+      .eq("user_id", userId)
+      .is("archived_at", null)
+      .neq("id", canonicalId)
+      .or(`key.eq.${spec.key},key.like.${spec.legacyLike}`);
+
+    for (const leftover of leftovers ?? []) {
+      await supabase
+        .from("weekly_task_placements")
+        .update({ task_id: canonicalId })
+        .eq("user_id", userId)
+        .eq("task_id", leftover.id);
+      await supabase
+        .from("weekly_tasks")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", leftover.id)
+        .eq("user_id", userId);
+    }
+  }
+}
 
 export async function getWeeklyTasks(userId: string): Promise<WeeklyTask[]> {
   const supabase = await createClient();
@@ -420,6 +594,7 @@ export async function getWeekSummary(
 ): Promise<WeekSummary> {
   await repairMisplacedOneOffWeekPins(userId);
   await carryOverIncompleteOneOffTasks(userId, weekStart);
+  await ensureRepeatableWeeklyTasks(userId);
 
   const weekEnd = addDaysISO(weekStart, 6);
   const supabase = await createClient();
@@ -479,9 +654,30 @@ export async function getWeekSummary(
     return !everCompletedCustom.has(row.id);
   }
 
-  const placements = new Map<string, WeeklyPlacement>();
+  const projectIds = [
+    ...new Set(
+      (placementsRes.data ?? [])
+        .map((r) => r.coding_project_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const projectTitleById = new Map<string, string>();
+  if (projectIds.length > 0) {
+    const { data: projects } = await supabase
+      .from("coding_projects")
+      .select("id, title")
+      .eq("user_id", userId)
+      .in("id", projectIds);
+    for (const p of projects ?? []) {
+      projectTitleById.set(p.id, p.title);
+    }
+  }
+
+  const placementsByTask = new Map<string, WeeklyPlacement[]>();
   for (const row of placementsRes.data ?? []) {
-    placements.set(row.task_id, rowToPlacement(row));
+    const list = placementsByTask.get(row.task_id) ?? [];
+    list.push(rowToPlacement(row, projectTitleById));
+    placementsByTask.set(row.task_id, list);
   }
 
   const checklistByTask = new Map<string, WeeklyTaskChecklistItem[]>();
@@ -508,10 +704,13 @@ export async function getWeekSummary(
   }
 
   const dayOrderCursor = new Map<number, number>();
-  for (const p of placements.values()) {
-    if (p.weekday != null) {
-      const next = Math.max(dayOrderCursor.get(p.weekday) ?? -1, p.daySortOrder) + 1;
-      dayOrderCursor.set(p.weekday, next);
+  for (const list of placementsByTask.values()) {
+    for (const p of list) {
+      if (p.weekday != null) {
+        const next =
+          Math.max(dayOrderCursor.get(p.weekday) ?? -1, p.daySortOrder) + 1;
+        dayOrderCursor.set(p.weekday, next);
+      }
     }
   }
 
@@ -525,21 +724,23 @@ export async function getWeekSummary(
 
   for (const row of taskRows) {
     if (!includeWeeklyTask(row)) continue;
-    if (!placements.has(row.id)) {
-      const wd = row.default_weekday;
-      let daySortOrder = 0;
-      if (wd != null) {
-        daySortOrder = dayOrderCursor.get(wd) ?? 0;
-        dayOrderCursor.set(wd, daySortOrder + 1);
-      }
-      toInsert.push({
-        user_id: userId,
-        task_id: row.id,
-        week_start: weekStart,
-        weekday: wd,
-        day_sort_order: daySortOrder,
-      });
+    const existing = placementsByTask.get(row.id) ?? [];
+    if (existing.length > 0) continue;
+    // Repeatable tasks stay as backlog sources until dragged — no auto-placement.
+    if (isRepeatableWeeklyTaskKey(row.key)) continue;
+    const wd = row.default_weekday;
+    let daySortOrder = 0;
+    if (wd != null) {
+      daySortOrder = dayOrderCursor.get(wd) ?? 0;
+      dayOrderCursor.set(wd, daySortOrder + 1);
     }
+    toInsert.push({
+      user_id: userId,
+      task_id: row.id,
+      week_start: weekStart,
+      weekday: wd,
+      day_sort_order: daySortOrder,
+    });
   }
 
   if (toInsert.length > 0) {
@@ -548,18 +749,28 @@ export async function getWeekSummary(
       .insert(toInsert)
       .select(WEEKLY_PLACEMENT_SELECT);
     for (const row of inserted ?? []) {
-      placements.set(row.task_id, rowToPlacement(row));
+      const list = placementsByTask.get(row.task_id) ?? [];
+      list.push(rowToPlacement(row, projectTitleById));
+      placementsByTask.set(row.task_id, list);
     }
   }
 
   const tasks: WeeklyTaskForWeek[] = taskRows
     .filter(includeWeeklyTask)
-    .map((row) => ({
-    ...rowToWeekly(row),
-    placement: placements.get(row.id) ?? null,
-    checklist: checklistByTask.get(row.id) ?? [],
-    checklistCompletions: completionsByTask.get(row.id) ?? [],
-  }));
+    .map((row) => {
+      const placements = placementsByTask.get(row.id) ?? [];
+      const primary =
+        placements.find((p) => p.weekday != null && !p.onHold) ??
+        placements[0] ??
+        null;
+      return {
+        ...rowToWeekly(row),
+        placement: primary,
+        placements,
+        checklist: checklistByTask.get(row.id) ?? [],
+        checklistCompletions: completionsByTask.get(row.id) ?? [],
+      };
+    });
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
   return { weekStart, tasks, categories };
@@ -586,7 +797,8 @@ export async function getWeeklyTasksForDate(
   const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
   const { tasks, categories } = await getWeekSummary(userId, weekStart);
   const withCompletions = attachChecklistCompletionsForDate(tasks, localDate);
-  const forDay = withCompletions
+  const expanded = expandWeeklyTaskPlacements(withCompletions);
+  const forDay = expanded
     .filter(
       (t) =>
         t.placement?.weekday != null &&
@@ -609,7 +821,7 @@ export async function getWeeklyTasksForDate(
     weekStart,
     weekday,
     tasks: forDay,
-    weekTasks: withCompletions,
+    weekTasks: expandWeeklyTaskPlacements(withCompletions),
     onHoldTasks,
     categories,
   };

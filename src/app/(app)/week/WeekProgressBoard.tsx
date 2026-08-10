@@ -18,8 +18,11 @@ import type { WeekSummary, WeekDay } from "@/lib/water.server";
 import type { WaterDayStatus } from "@/lib/water";
 import { computeWeekDayScore } from "@/lib/week-day-score";
 import {
+  expandWeeklyTaskPlacements,
   formatWeeklyTaskDetail,
   groupByCategory,
+  isRepeatableWeeklyTaskKey,
+  scoreRepeatableWeeklyGoal,
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   type TaskCategory,
@@ -85,28 +88,34 @@ export function WeekProgressBoard({
   const cardioByWeekday = groupByWeekday(cardioSessions);
   const sportByWeekday = groupByWeekday(sportSessions);
   const bathingByWeekday = groupByWeekday(bathingSessions);
-  const tasksByWeekday = groupTasksByWeekday(tasks);
+  const expandedTasks = expandWeeklyTaskPlacements(tasks);
+  const tasksByWeekday = groupTasksByWeekday(expandedTasks);
   const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
 
   const placedGym = gymSessions.filter((s) => s.placement.weekday != null);
   const placedCardio = cardioSessions.filter((s) => s.placement.weekday != null);
   const placedSport = sportSessions.filter((s) => s.placement.weekday != null);
   const placedBathing = bathingSessions.filter((s) => s.placement.weekday != null);
-  const placedTasks = tasks.filter((t) => t.placement);
-  const taskGroups = groupByCategory(placedTasks, taskCategories).map(
-    ({ category, items }) => ({
-      category,
-      items,
-      byWeekday: groupTasksByWeekday(items),
-      done: items.filter((t) => t.placement?.doneAt).length,
-      total: items.length,
-    }),
+  const taskScore = scoreWeeklyTasksForProgress(tasks);
+  const taskGroups = groupByCategory(tasks, taskCategories).map(
+    ({ category, items }) => {
+      const scored = scoreWeeklyTasksForProgress(items);
+      return {
+        category,
+        items: expandWeeklyTaskPlacements(items).filter(
+          (t) => t.placement?.weekday != null,
+        ),
+        byWeekday: groupTasksByWeekday(expandWeeklyTaskPlacements(items)),
+        done: scored.done,
+        total: scored.total,
+      };
+    },
   );
   const gymDone = placedGym.filter((s) => s.placement.doneAt).length;
   const cardioDone = placedCardio.filter((s) => s.placement.doneAt).length;
   const sportDone = placedSport.filter((s) => s.placement.doneAt).length;
   const bathingDone = placedBathing.filter((s) => s.placement.doneAt).length;
-  const tasksDone = placedTasks.filter((t) => t.placement?.doneAt).length;
+  const tasksDone = taskScore.done;
   const weightActive = weightPlan.enabled && weightPlan.weekday != null;
   const weightDone = Boolean(weightPlan.log);
   const expenseSummary = collectWeekExpenses(tasks, taskCategories);
@@ -351,7 +360,7 @@ export function WeekProgressBoard({
                     bathingDone,
                     bathingTotal: placedBathing.length,
                     tasksDone,
-                    tasksTotal: placedTasks.length,
+                    tasksTotal: taskScore.total,
                     waterHit: week.daysHit,
                     waterTotal: pastDays,
                     habitYes: Object.values(habitWeek.yesByHabit).reduce((a, b) => a + b, 0),
@@ -1095,6 +1104,35 @@ function groupTasksByWeekday(tasks: WeeklyTaskForWeek[]): Map<number, WeeklyTask
     map.set(weekday, list);
   }
   return map;
+}
+
+/** Repeatable goals count as goal/2 with extras above; other tasks are done/placed. */
+function scoreWeeklyTasksForProgress(tasks: WeeklyTaskForWeek[]): {
+  done: number;
+  total: number;
+} {
+  let done = 0;
+  let total = 0;
+
+  for (const task of tasks) {
+    if (isRepeatableWeeklyTaskKey(task.key)) {
+      const completed = task.placements.filter(
+        (p) => p.weekday != null && !p.onHold && p.doneAt,
+      ).length;
+      const scored = scoreRepeatableWeeklyGoal(completed);
+      done += scored.hit;
+      total += scored.total;
+      continue;
+    }
+
+    const placement = task.placement;
+    if (!placement || placement.onHold) continue;
+    // Count backlog + placed templates that have a placement row.
+    total += 1;
+    if (placement.doneAt) done += 1;
+  }
+
+  return { done, total };
 }
 
 function summaryScore(parts: {

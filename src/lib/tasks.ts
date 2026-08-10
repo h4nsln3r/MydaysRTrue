@@ -66,6 +66,42 @@ export function isMusicRepTask(key: string | null): boolean {
   return key?.startsWith("music_rep_") ?? false;
 }
 
+/** Weekly tasks you can drag onto the plan multiple times (like bathing "bad"). */
+export const REPEATABLE_WEEKLY_TASK_KEYS = [
+  "dev_code",
+  "home_handla",
+  "life_ring_mamma",
+] as const;
+
+export type RepeatableWeeklyTaskKey =
+  (typeof REPEATABLE_WEEKLY_TASK_KEYS)[number];
+
+/** Base goal for repeatable weekly tasks — extras above this still count as hit. */
+export const REPEATABLE_WEEKLY_TASK_GOAL = 2;
+
+const REPEATABLE_WEEKLY_TASK_KEY_SET = new Set<string>(
+  REPEATABLE_WEEKLY_TASK_KEYS,
+);
+
+export function isRepeatableWeeklyTaskKey(
+  key: string | null | undefined,
+): key is RepeatableWeeklyTaskKey {
+  return key != null && REPEATABLE_WEEKLY_TASK_KEY_SET.has(key);
+}
+
+export function isCodingWeeklyTaskKey(key: string | null | undefined): boolean {
+  return key === "dev_code";
+}
+
+/** Score a repeatable weekly goal: total is always the goal; hit can exceed it. */
+export function scoreRepeatableWeeklyGoal(doneCount: number): {
+  hit: number;
+  total: number;
+} {
+  const done = Math.max(0, doneCount);
+  return { hit: done, total: REPEATABLE_WEEKLY_TASK_GOAL };
+}
+
 export interface WeeklyTask {
   id: string;
   categoryId: string | null;
@@ -169,6 +205,9 @@ export interface WeeklyPlacement {
   liveEventId: string | null;
   /** Paused for this week — hidden from backlog/days until placed again. */
   onHold: boolean;
+  /** Coding session project (dev_code only). */
+  codingProjectId: string | null;
+  codingProjectTitle: string | null;
 }
 
 export interface WeeklyTaskChecklistCompletion {
@@ -208,11 +247,40 @@ export interface MonthlyCompletion {
 
 /** A weekly task in the context of a specific week. */
 export interface WeeklyTaskForWeek extends WeeklyTask {
-  /** null = no row yet for this week. */
+  /**
+   * Primary placement for this row. For expanded placement instances this is
+   * that placement; for the template summary it is the first placed (or any).
+   */
   placement: WeeklyPlacement | null;
+  /** All placements of this task in the week (repeatable tasks may have many). */
+  placements: WeeklyPlacement[];
   checklist: WeeklyTaskChecklistItem[];
   /** All checklist completions in this week (for journal / day plan). */
   checklistCompletions: WeeklyTaskChecklistCompletion[];
+}
+
+/** One entry per day placement (repeatable tasks expand to multiple rows). */
+export function expandWeeklyTaskPlacements(
+  tasks: WeeklyTaskForWeek[],
+): WeeklyTaskForWeek[] {
+  const out: WeeklyTaskForWeek[] = [];
+  for (const task of tasks) {
+    const placed = task.placements.filter(
+      (p) => p.weekday != null && !p.onHold,
+    );
+    if (placed.length === 0) {
+      out.push(task);
+      continue;
+    }
+    for (const placement of placed) {
+      out.push({
+        ...task,
+        placement,
+        placements: [placement],
+      });
+    }
+  }
+  return out;
 }
 
 function formatShopAmountLabel(placement: WeeklyPlacement): string {
@@ -226,6 +294,12 @@ function formatShopAmountLabel(placement: WeeklyPlacement): string {
 }
 
 export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | null {
+  if (placement.codingProjectTitle?.trim() && placement.note?.trim()) {
+    return `${placement.codingProjectTitle.trim()} · ${placement.note.trim()}`;
+  }
+  if (placement.codingProjectTitle?.trim()) {
+    return placement.codingProjectTitle.trim();
+  }
   if (placement.shopLocation && placement.shopAmount != null) {
     return `${placement.shopLocation} · ${formatShopAmountLabel(placement)}`;
   }

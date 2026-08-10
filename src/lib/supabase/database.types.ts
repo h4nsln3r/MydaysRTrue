@@ -211,6 +211,36 @@ export interface Database {
         };
         Relationships: [];
       };
+      coding_projects: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       media_items: {
         Row: {
           id: string;
@@ -762,6 +792,7 @@ export interface Database {
           gig_id: string | null;
           live_event_id: string | null;
           on_hold: boolean;
+          coding_project_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -784,6 +815,7 @@ export interface Database {
           gig_id?: string | null;
           live_event_id?: string | null;
           on_hold?: boolean;
+          coding_project_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -806,6 +838,7 @@ export interface Database {
           gig_id?: string | null;
           live_event_id?: string | null;
           on_hold?: boolean;
+          coding_project_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -130,6 +130,8 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
                 gigId: t.placement?.gigId ?? null,
                 liveEventId: t.placement?.liveEventId ?? null,
                 onHold: false,
+                codingProjectId: t.placement?.codingProjectId ?? null,
+                codingProjectTitle: t.placement?.codingProjectTitle ?? null,
               },
             }
           : t,

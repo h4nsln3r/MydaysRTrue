@@ -31,6 +31,7 @@ import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
 import type { MonthlyTaskForMonth, TaskCategory, Weekday, WeeklyTaskForWeek } from "@/lib/tasks";
+import type { CodingProject } from "@/lib/coding";
 import type { WeightDayContext } from "@/lib/weight";
 import type { DailyMediaContext } from "@/lib/media";
 import type { DailyLiveEventsContext } from "@/lib/live-events";
@@ -76,6 +77,7 @@ interface Props {
   enableExtraBath?: boolean;
   /** Future day in the current week — reorder only, no logging. */
   planningMode?: boolean;
+  codingProjects?: CodingProject[];
 }
 
 export function DayActivitiesCard({
@@ -111,6 +113,7 @@ export function DayActivitiesCard({
   bathingWeekday = null,
   enableExtraBath = false,
   planningMode = false,
+  codingProjects = [],
 }: Props) {
   const router = useRouter();
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -355,6 +358,7 @@ export function DayActivitiesCard({
                     date={planDate}
                     weekStart={weekStart}
                     categories={categories}
+                    codingProjects={codingProjects}
                     savedRestaurants={savedRestaurants}
                     mealBoxStock={mealBoxStock}
                     canReschedule={canReschedule}

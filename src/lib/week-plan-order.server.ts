@@ -93,6 +93,17 @@ export async function applyWeekDaySortOrder(
 
     switch (parsed.kind) {
       case "task": {
+        if (parsed.taskRole === "source") break;
+        if (dragIds[i].startsWith("task-placement:")) {
+          const { error } = await supabase
+            .from("weekly_task_placements")
+            .update({ day_sort_order: i })
+            .eq("user_id", userId)
+            .eq("id", parsed.entityId)
+            .eq("week_start", weekStart);
+          if (error) return { ok: false, error: error.message };
+          break;
+        }
         const { error } = await supabase
           .from("weekly_task_placements")
           .update({ day_sort_order: i })

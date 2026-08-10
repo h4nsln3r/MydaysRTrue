@@ -1,0 +1,166 @@
+@use "abstracts" as *;
+
+.root {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: $color-cream-dim;
+    font-weight: 600;
+}
+
+.inputWrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: $color-ink-elevated;
+    border: 2px solid $color-line;
+    border-radius: $radius-md;
+    transition:
+        border-color 160ms $ease-out,
+        box-shadow 200ms $ease-out;
+
+    &:focus-within {
+        border-color: $color-orange;
+        box-shadow: 0 0 0 4px rgba(255, 122, 26, 0.18);
+    }
+}
+
+.inputWrapOpen {
+    border-color: $color-orange;
+    box-shadow: 0 0 0 4px rgba(255, 122, 26, 0.18);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    outline: none;
+    color: $color-cream;
+    padding: 14px 12px 14px 16px;
+    font-size: 1rem;
+    border-radius: $radius-md;
+
+    &::placeholder {
+        color: $color-fog;
+    }
+
+    &:disabled {
+        opacity: 0.55;
+    }
+}
+
+.chevron {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: $color-fog;
+    cursor: pointer;
+    transition: color 160ms $ease-out, transform 160ms $ease-out;
+
+    svg {
+        transition: transform 160ms $ease-out;
+    }
+
+    &[aria-expanded="true"] svg {
+        transform: rotate(180deg);
+    }
+
+    &:hover:not(:disabled) {
+        color: $color-cream-dim;
+    }
+
+    &:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+}
+
+.listbox {
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: $space-1;
+    list-style: none;
+    max-height: 220px;
+    overflow-y: auto;
+    background: $color-ink-soft;
+    border: 2px solid $color-orange;
+    border-top: 1px solid $color-line;
+    border-radius: 0 0 $radius-md $radius-md;
+    box-shadow: $shadow-card;
+}
+
+.option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-2;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: $radius-sm;
+    background: transparent;
+    color: $color-cream-dim;
+    font-family: $font-sans;
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background 120ms $ease-out,
+        color 120ms $ease-out;
+
+    &:hover,
+    &[data-active="true"] {
+        background: rgba(255, 122, 26, 0.14);
+        color: $color-cream;
+    }
+
+    &[aria-selected="true"] {
+        color: $color-orange-bright;
+    }
+}
+
+.optionCreate {
+    color: $color-cream;
+
+    .createLabel {
+        color: $color-fog;
+        font-weight: 500;
+        font-size: 0.8rem;
+    }
+
+    .createName {
+        color: $color-orange-bright;
+    }
+}
+
+.empty {
+    padding: 12px;
+    color: $color-fog;
+    font-size: 0.85rem;
+}
+
+.hint {
+    color: $color-fog;
+    font-size: 0.82rem;
+}

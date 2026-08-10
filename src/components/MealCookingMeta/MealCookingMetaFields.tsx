@@ -11,6 +11,7 @@ import {
 import type { MealBoxStockItem } from "@/lib/habits";
 import cardStyles from "@/components/MealsCard/MealsCard.module.scss";
 import planStyles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
+import { RestaurantCombobox } from "./RestaurantCombobox";
 
 export interface MealCookingMetaState {
   cookedBy: MealCookedBy | null;
@@ -128,7 +129,6 @@ export function MealCookingMetaFields({
   const showMealBoxPicker = meta.cookedBy === "meal_box";
   const showRestaurant = meta.cookedBy === "restaurant";
   const showOtherName = meta.cookedBy === "other";
-  const restaurantListId = "meal-restaurant-suggestions";
 
   const setCookedBy = (option: MealCookedBy) => {
     onChange({
@@ -148,14 +148,6 @@ export function MealCookingMetaFields({
       mealBoxStockId: item.id,
     });
     onPickMealBox?.(item.description);
-  };
-
-  const pickRestaurant = (restaurant: MealRestaurant) => {
-    onChange({
-      ...meta,
-      restaurantId: restaurant.id,
-      restaurantName: restaurant.name,
-    });
   };
 
   return (
@@ -231,66 +223,15 @@ export function MealCookingMetaFields({
       ) : null}
 
       {showRestaurant ? (
-        <div className={layout === "card" ? styles.restaurantBlock : undefined}>
-          {savedRestaurants.length > 0 ? (
-            <div className={layout === "card" ? styles.savedRestaurants : styles.bandPicker}>
-              <span className={layout === "card" ? styles.label : styles.bandLabel}>
-                Tidigare restauranger
-              </span>
-              <div className={layout === "card" ? styles.cookRow : styles.bandBtns}>
-                {savedRestaurants.map((restaurant) => (
-                  <button
-                    key={restaurant.id}
-                    type="button"
-                    className={
-                      layout === "card"
-                        ? styles.cookOption
-                        : [
-                            styles.bandBtn,
-                            meta.restaurantId === restaurant.id
-                              ? styles.bandBtnActive
-                              : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")
-                    }
-                    aria-pressed={meta.restaurantId === restaurant.id}
-                    onClick={() => pickRestaurant(restaurant)}
-                    disabled={pending}
-                  >
-                    {restaurant.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <Input
-            label="Restaurang"
-            value={meta.restaurantName}
-            onChange={(e) => {
-              const value = e.target.value;
-              const match = savedRestaurants.find(
-                (r) => r.name.toLowerCase() === value.trim().toLowerCase(),
-              );
-              onChange({
-                ...meta,
-                restaurantName: value,
-                restaurantId: match?.id ?? null,
-              });
-            }}
-            placeholder="t.ex. Sushi Palace"
-            list={savedRestaurants.length > 0 ? restaurantListId : undefined}
-            maxLength={120}
-            disabled={pending}
-          />
-          {savedRestaurants.length > 0 ? (
-            <datalist id={restaurantListId}>
-              {savedRestaurants.map((restaurant) => (
-                <option key={restaurant.id} value={restaurant.name} />
-              ))}
-            </datalist>
-          ) : null}
-        </div>
+        <RestaurantCombobox
+          value={meta.restaurantName}
+          selectedId={meta.restaurantId}
+          restaurants={savedRestaurants}
+          disabled={pending}
+          onChange={({ restaurantName, restaurantId }) =>
+            onChange({ ...meta, restaurantName, restaurantId })
+          }
+        />
       ) : null}
 
       {showOtherName ? (

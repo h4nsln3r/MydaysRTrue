@@ -283,6 +283,11 @@ export function expandWeeklyTaskPlacements(
   return out;
 }
 
+/** Stable React list key for a weekly task row (placement instance when present). */
+export function weeklyTaskInstanceKey(task: WeeklyTaskForWeek): string {
+  return task.placement?.id ?? task.id;
+}
+
 function formatShopAmountLabel(placement: WeeklyPlacement): string {
   const amount = placement.shopAmount;
   if (amount == null) return "";

@@ -680,6 +680,41 @@ export async function getWeekSummary(
     placementsByTask.set(row.task_id, list);
   }
 
+  // Non-repeatable tasks should have at most one placement per week. After the
+  // unique constraint was dropped for repeatables, duplicates can linger and
+  // break React keys / unplace. Keep the best row and delete the rest.
+  const duplicatePlacementIds: string[] = [];
+  for (const row of taskRows) {
+    if (isRepeatableWeeklyTaskKey(row.key)) continue;
+    const list = placementsByTask.get(row.id);
+    if (!list || list.length <= 1) continue;
+    const ranked = [...list].sort((a, b) => {
+      const score = (p: WeeklyPlacement) => {
+        let s = 0;
+        if (p.doneAt) s += 8;
+        if (p.weekday != null && !p.onHold) s += 4;
+        if (!p.onHold) s += 2;
+        if (p.weekday != null) s += 1;
+        return s;
+      };
+      const diff = score(b) - score(a);
+      if (diff !== 0) return diff;
+      return a.daySortOrder - b.daySortOrder;
+    });
+    const keeper = ranked[0]!;
+    placementsByTask.set(row.id, [keeper]);
+    for (const extra of ranked.slice(1)) {
+      duplicatePlacementIds.push(extra.id);
+    }
+  }
+  if (duplicatePlacementIds.length > 0) {
+    await supabase
+      .from("weekly_task_placements")
+      .delete()
+      .eq("user_id", userId)
+      .in("id", duplicatePlacementIds);
+  }
+
   const checklistByTask = new Map<string, WeeklyTaskChecklistItem[]>();
   for (const row of checklistRes.data ?? []) {
     const list = checklistByTask.get(row.task_id) ?? [];

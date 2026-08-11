@@ -540,13 +540,18 @@ export async function placeWeeklyTaskAction(input: {
     return addWeeklyTaskPlacementAction(input);
   }
 
-  const { data: existing } = await supabase
+  // Unique (user, task, week) was dropped for repeatables — non-repeatable
+  // tasks can still have duplicate rows; keep one and remove the rest.
+  const { data: existingRows } = await supabase
     .from("weekly_task_placements")
     .select("id, done_at, note, weekday, day_sort_order")
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
     .eq("week_start", input.weekStart)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
+
+  const existing = existingRows?.[0] ?? null;
+  const duplicateIds = (existingRows ?? []).slice(1).map((r) => r.id);
 
   const movingDay = existing?.weekday !== input.weekday;
   const daySortOrder = movingDay
@@ -569,6 +574,14 @@ export async function placeWeeklyTaskAction(input: {
       .eq("id", existing.id)
       .eq("user_id", user.id);
     if (error) return { ok: false, error: error.message };
+
+    if (duplicateIds.length > 0) {
+      await supabase
+        .from("weekly_task_placements")
+        .delete()
+        .eq("user_id", user.id)
+        .in("id", duplicateIds);
+    }
   } else {
     const { error } = await supabase.from("weekly_task_placements").insert({
       user_id: user.id,
@@ -783,34 +796,46 @@ export async function setWeeklyTaskOnHoldAction(input: {
 
   const { data: task } = await supabase
     .from("weekly_tasks")
-    .select("single_week_start")
+    .select("single_week_start, key")
     .eq("id", input.taskId)
     .eq("user_id", user.id)
     .maybeSingle();
   if (!task) return { ok: false, error: "Uppgiften hittades inte." };
-  if (!task.single_week_start) {
-    return {
-      ok: false,
-      error: "Bara engångsuppgifter kan pausas.",
-    };
+  // Historically this was only for one-offs, but music reps (music_rep_*) are
+  // also expected to be hideable from the week planner.
+  if (!task.single_week_start && !isMusicRepTask(task.key)) {
+    return { ok: false, error: "Bara engångsuppgifter kan pausas." };
   }
 
-  const { data: existing } = await supabase
+  const { data: existingRows } = await supabase
     .from("weekly_task_placements")
     .select("id")
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
     .eq("week_start", input.weekStart)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
+
+  const existing = existingRows?.[0] ?? null;
+  const duplicateIds = (existingRows ?? []).slice(1).map((r) => r.id);
 
   if (input.onHold) {
     if (existing) {
+      // Clear every placement for this task/week so a duplicate can't stay on a day.
       const { error } = await supabase
         .from("weekly_task_placements")
         .update({ on_hold: true, weekday: null })
-        .eq("id", existing.id)
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .eq("task_id", input.taskId)
+        .eq("week_start", input.weekStart);
       if (error) return { ok: false, error: error.message };
+
+      if (duplicateIds.length > 0) {
+        await supabase
+          .from("weekly_task_placements")
+          .delete()
+          .eq("user_id", user.id)
+          .in("id", duplicateIds);
+      }
     } else {
       const { error } = await supabase.from("weekly_task_placements").insert({
         user_id: user.id,
@@ -826,8 +851,9 @@ export async function setWeeklyTaskOnHoldAction(input: {
     const { error } = await supabase
       .from("weekly_task_placements")
       .update({ on_hold: false })
-      .eq("id", existing.id)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .eq("task_id", input.taskId)
+      .eq("week_start", input.weekStart);
     if (error) return { ok: false, error: error.message };
   }
 
@@ -850,22 +876,15 @@ export async function unplaceWeeklyTaskAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
-  const { data: existing } = await supabase
+  // Update all matching rows — maybeSingle fails when duplicates exist, which
+  // previously left the task stuck on its weekday.
+  const { error } = await supabase
     .from("weekly_task_placements")
-    .select("id")
+    .update({ weekday: null })
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
-    .eq("week_start", input.weekStart)
-    .maybeSingle();
-
-  if (existing) {
-    const { error } = await supabase
-      .from("weekly_task_placements")
-      .update({ weekday: null })
-      .eq("id", existing.id)
-      .eq("user_id", user.id);
-    if (error) return { ok: false, error: error.message };
-  }
+    .eq("week_start", input.weekStart);
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
   return { ok: true };

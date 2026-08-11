@@ -79,6 +79,7 @@ import {
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   WEEKDAYS,
+  isMusicRepTask,
   type TaskCategory,
   type Weekday,
 } from "@/lib/tasks";
@@ -153,7 +154,6 @@ export function UnifiedWeekBoard({
   const onHoldTasks = localItems.filter(
     (i): i is WeekPlanTaskItem =>
       i.kind === "task" &&
-      i.singleWeekStart != null &&
       isTaskOnHold(i) &&
       !i.done,
   );
@@ -520,6 +520,7 @@ export function UnifiedWeekBoard({
           setExpandedId(expandedId === item.dragId ? null : item.dragId)
         }
         onPlace={place}
+        onUnplace={unplace}
         onError={setError}
         onPendingId={setPendingId}
         onDone={() => {
@@ -548,6 +549,7 @@ export function UnifiedWeekBoard({
           setExpandedId(expandedId === item.dragId ? null : item.dragId)
         }
         onPlace={place}
+        onUnplace={unplace}
         onError={setError}
         onPendingId={setPendingId}
         onDone={() => {
@@ -694,7 +696,7 @@ export function UnifiedWeekBoard({
           <header className={styles.onHoldHeader}>
             <div>
               <h3 className={styles.onHoldTitle}>På paus</h3>
-              <p className={styles.onHoldSub}>Engångsuppgifter som väntar</p>
+              <p className={styles.onHoldSub}>Uppgifter som väntar den här veckan</p>
             </div>
             <span className={styles.dayCount}>{onHoldTasks.length}</span>
           </header>
@@ -857,7 +859,9 @@ function OnHoldTaskRow({
       <span className={styles.onHoldMeta}>
         <span className={styles.taskTitle}>
           {item.label}
-          <span className={styles.oneOffBadge}>Engång</span>
+          {item.singleWeekStart != null ? (
+            <span className={styles.oneOffBadge}>Engång</span>
+          ) : null}
         </span>
         {category ? (
           <span className={styles.taskCategory} style={{ color: category.accent }}>
@@ -923,9 +927,16 @@ interface DraggableItemRowProps {
   showCategory?: boolean;
   onToggleExpand: () => void;
   onPlace: (dragId: string, weekday: Weekday) => void;
+  onUnplace: (dragId: string) => void;
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
+}
+
+function hasDayActions(item: WeekPlanItem): boolean {
+  return canManageTask(item) || isMusicRepTask(
+    item.kind === "task" ? item.taskKey : null,
+  );
 }
 
 function SortableItemRow(props: DraggableItemRowProps) {
@@ -957,7 +968,7 @@ function SortableItemRow(props: DraggableItemRowProps) {
         props.busy ? styles.taskBusy : "",
         isDragging || props.dragging ? styles.taskDragging : "",
         props.expanded ? styles.taskExpanded : "",
-        canManageTask(item) ? styles.taskWithActions : "",
+        hasDayActions(item) ? styles.taskWithActions : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -975,6 +986,7 @@ function SortableItemRow(props: DraggableItemRowProps) {
         dragHandleProps={{ ...attributes, ...listeners }}
         onToggleExpand={props.onToggleExpand}
         onPlace={props.onPlace}
+        onUnplace={props.onUnplace}
         onError={props.onError}
         onPendingId={props.onPendingId}
         onDone={props.onDone}
@@ -996,6 +1008,7 @@ function DraggableItemRow({
   showCategory = true,
   onToggleExpand,
   onPlace,
+  onUnplace,
   onError,
   onPendingId,
   onDone,
@@ -1019,7 +1032,7 @@ function DraggableItemRow({
         busy ? styles.taskBusy : "",
         dragging ? styles.taskDragging : "",
         expanded ? styles.taskExpanded : "",
-        canManageTask(item) ? styles.taskWithActions : "",
+        hasDayActions(item) ? styles.taskWithActions : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -1037,6 +1050,7 @@ function DraggableItemRow({
         dragHandleProps={{ ...attributes, ...listeners }}
         onToggleExpand={onToggleExpand}
         onPlace={onPlace}
+        onUnplace={onUnplace}
         onError={onError}
         onPendingId={onPendingId}
         onDone={onDone}
@@ -1077,6 +1091,7 @@ function ItemCardPreview({
         preview
         onToggleExpand={() => {}}
         onPlace={() => {}}
+        onUnplace={() => {}}
         onError={() => {}}
         onPendingId={() => {}}
         onDone={() => {}}
@@ -1099,6 +1114,7 @@ interface ItemRowContentProps {
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
   onToggleExpand: () => void;
   onPlace: (dragId: string, weekday: Weekday) => void;
+  onUnplace: (dragId: string) => void;
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
@@ -1138,6 +1154,7 @@ function ItemRowContent({
   dragHandleProps,
   onToggleExpand,
   onPlace,
+  onUnplace,
   onError,
   onPendingId,
   onDone,
@@ -1202,6 +1219,33 @@ function ItemRowContent({
 
   const isOneOff = isOneOffTask(item);
   const canManage = canManageTask(item);
+  const canHideFromPlan =
+    !preview &&
+    item.kind === "task" &&
+    isMusicRepTask(item.taskKey) &&
+    !item.placement?.onHold;
+
+  const canUnplaceFromDay =
+    !preview &&
+    item.weekday != null &&
+    !(item.kind === "bathing" && item.bathingRole === "source") &&
+    !(item.kind === "task" && item.taskRole === "source");
+
+  const hideFromPlan = () => {
+    if (!canHideFromPlan || item.kind !== "task") return;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await setWeeklyTaskOnHoldAction({
+        taskId: item.taskId,
+        weekStart,
+        onHold: true,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte ta bort från planneringen.");
+      onPendingId(null);
+      onDone();
+    });
+  };
   const canExpand =
     canManage ||
     taskPlanningExpand ||
@@ -1721,7 +1765,7 @@ function ItemRowContent({
         ) : null}
       </button>
 
-      {!preview && canManage ? (
+      {!preview && (canManage || canHideFromPlan) ? (
         <div className={styles.taskInlineActions}>
           {isOneOff && item.kind === "task" && !item.placement?.onHold ? (
             <button
@@ -1735,33 +1779,61 @@ function ItemRowContent({
               ⏸
             </button>
           ) : null}
-          <button
-            type="button"
-            className={styles.taskEditBtn}
-            onClick={onToggleExpand}
-            aria-label={`Redigera ${item.label}`}
-            aria-expanded={expanded}
-            disabled={pending}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinejoin="round"
-              />
-              <path d="m13.5 6.5 3 3" stroke="currentColor" strokeWidth="2" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className={styles.taskRemoveBtn}
-            onClick={removeTask}
-            disabled={pending}
-            aria-label={`Ta bort ${item.label}`}
-          >
-            ×
-          </button>
+          {canManage ? (
+            <button
+              type="button"
+              className={styles.taskEditBtn}
+              onClick={onToggleExpand}
+              aria-label={`Redigera ${item.label}`}
+              aria-expanded={expanded}
+              disabled={pending}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+                <path d="m13.5 6.5 3 3" stroke="currentColor" strokeWidth="2" />
+              </svg>
+            </button>
+          ) : null}
+          {canManage ? (
+            <button
+              type="button"
+              className={styles.taskRemoveBtn}
+              onClick={removeTask}
+              disabled={pending}
+              aria-label={`Ta bort ${item.label}`}
+            >
+              ×
+            </button>
+          ) : null}
+          {canHideFromPlan ? (
+            <button
+              type="button"
+              className={styles.taskRemoveBtn}
+              onClick={
+                canUnplaceFromDay
+                  ? () => onUnplace(item.dragId)
+                  : hideFromPlan
+              }
+              disabled={pending}
+              aria-label={
+                canUnplaceFromDay
+                  ? `Ta bort ${item.label} från dagen`
+                  : `Ta bort ${item.label} från planneringen`
+              }
+              title={
+                canUnplaceFromDay
+                  ? "Tillbaka till att placera"
+                  : "Ta bort från planneringen"
+              }
+            >
+              ×
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -1838,6 +1910,16 @@ function ItemRowContent({
                   );
                 })}
               </div>
+              {canUnplaceFromDay ? (
+                <button
+                  type="button"
+                  className={styles.undoBtn}
+                  onClick={() => onUnplace(item.dragId)}
+                  disabled={pending}
+                >
+                  Tillbaka till att placera
+                </button>
+              ) : null}
             </>
           ) : null}
 
@@ -2215,6 +2297,20 @@ function ItemRowContent({
               onClick={removeTask}
             >
               Ta bort uppgift
+            </Button>
+          ) : null}
+
+          {canHideFromPlan ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              fullWidth
+              loading={pending && busy}
+              disabled={pending}
+              onClick={hideFromPlan}
+            >
+              Ta bort från planneringen
             </Button>
           ) : null}
         </div>

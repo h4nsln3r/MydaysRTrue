@@ -238,7 +238,7 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
               <ul className={styles.taskList}>
                 {backlog.map((t) => (
                   <DraggableTaskRow
-                    key={t.id}
+                    key={t.placement?.id ?? t.id}
                     task={t}
                     cat={
                       t.categoryId ? catById.get(t.categoryId) ?? undefined : undefined
@@ -281,7 +281,7 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
                   <ul className={styles.taskList}>
                     {dayTasks.map((t) => (
                       <DraggableTaskRow
-                        key={t.id}
+                        key={t.placement?.id ?? t.id}
                         task={t}
                         cat={
                       t.categoryId ? catById.get(t.categoryId) ?? undefined : undefined

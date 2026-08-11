@@ -23,6 +23,7 @@ import {
   groupByCategory,
   isRepeatableWeeklyTaskKey,
   scoreRepeatableWeeklyGoal,
+  weeklyTaskInstanceKey,
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   type TaskCategory,
@@ -613,12 +614,16 @@ function CategoryRecapCard({
                     const taskDone = Boolean(t.placement?.doneAt);
                     if (t.completionKind === "music") {
                       return (
-                        <WeekMusicChip key={t.id} task={t} localDate={d.date} />
+                        <WeekMusicChip
+                          key={weeklyTaskInstanceKey(t)}
+                          task={t}
+                          localDate={d.date}
+                        />
                       );
                     }
                     return (
                       <li
-                        key={t.id}
+                        key={weeklyTaskInstanceKey(t)}
                         className={cellClass(
                           styles.categoryTaskChip,
                           taskDone && styles.categoryTaskChipDone,
@@ -651,7 +656,7 @@ function CategoryRecapCard({
                   ? WEEKDAY_LONG[placement.weekday as Weekday]
                   : null;
               return (
-                <li key={t.id} className={styles.categoryDoneItem}>
+                <li key={weeklyTaskInstanceKey(t)} className={styles.categoryDoneItem}>
                   <span className={styles.categoryDoneIcon} aria-hidden>
                     {t.icon}
                   </span>
@@ -678,7 +683,7 @@ function CategoryRecapCard({
             {pendingItems.map((t) => {
               const wd = t.placement?.weekday;
               return (
-                <li key={t.id} className={styles.categoryPendingItem}>
+                <li key={weeklyTaskInstanceKey(t)} className={styles.categoryPendingItem}>
                   <span aria-hidden>{t.icon}</span>
                   <span>{t.title}</span>
                   {wd != null ? (
@@ -698,7 +703,10 @@ function CategoryRecapCard({
           <p className={styles.categorySectionLabel}>Ej placerad</p>
           <ul className={styles.categoryPendingList}>
             {backlog.map((t) => (
-              <li key={t.id} className={styles.categoryPendingItem}>
+              <li
+                key={weeklyTaskInstanceKey(t)}
+                className={styles.categoryPendingItem}
+              >
                 <span aria-hidden>{t.icon}</span>
                 <span>{t.title}</span>
               </li>

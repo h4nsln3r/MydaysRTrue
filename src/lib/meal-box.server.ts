@@ -77,21 +77,15 @@ export async function adjustMealBoxStock(
   }
 
   if (existing) {
-    if (next === 0) {
-      const { error } = await supabase
-        .from("meal_box_stock")
-        .delete()
-        .eq("id", existing.id)
-        .eq("user_id", userId);
-      if (error) return { ok: false, error: error.message };
-    } else {
-      const { error } = await supabase
-        .from("meal_box_stock")
-        .update({ remaining: next, updated_at: new Date().toISOString() })
-        .eq("id", existing.id)
-        .eq("user_id", userId);
-      if (error) return { ok: false, error: error.message };
-    }
+    // Keep the row at remaining=0 instead of deleting. Meal entries reference
+    // meal_box_stock_id, so deleting the last box before the meal insert fails
+    // the FK and leaves stock gone with no lunch logged.
+    const { error } = await supabase
+      .from("meal_box_stock")
+      .update({ remaining: next, updated_at: new Date().toISOString() })
+      .eq("id", existing.id)
+      .eq("user_id", userId);
+    if (error) return { ok: false, error: error.message };
     return { ok: true };
   }
 
@@ -210,6 +204,7 @@ export async function getAllMealBoxStock(
     .from("meal_box_stock")
     .select("id, description, remaining")
     .eq("user_id", userId)
+    .gt("remaining", 0)
     .order("description", { ascending: true });
 
   return (data ?? []).map((row) => ({
@@ -275,6 +270,19 @@ export async function addMealBoxStockEntry(
   const supabase = await createClient();
   const existing = await findStockByDescription(supabase, userId, trimmed);
   if (existing) {
+    // Revive rows left at 0 after the last box was eaten (kept for FK history).
+    if (existing.remaining === 0) {
+      const { error } = await supabase
+        .from("meal_box_stock")
+        .update({
+          remaining: rounded,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id)
+        .eq("user_id", userId);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    }
     return {
       ok: false,
       error: `«${existing.description}» finns redan (${existing.remaining} kvar). Justera antalet i listan.`,

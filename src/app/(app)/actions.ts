@@ -852,45 +852,110 @@ export async function saveMealAction(input: {
     syncMealBoxStockOnMealSave,
   } = await import("@/lib/meal-box.server");
 
+  const previousConsumption = existing
+    ? {
+        fromMealBox: existing.from_meal_box ?? false,
+        mealBoxStockId: existing.meal_box_stock_id,
+        description: existing.description,
+      }
+    : null;
+  const nextConsumption = {
+    fromMealBox: isMealBoxMeal,
+    mealBoxStockId,
+    stockDescription: finalDescription,
+  };
+
   const consumptionRes = await syncMealBoxConsumptionOnSave(
     supabase,
     user.id,
-    existing
-      ? {
-          fromMealBox: existing.from_meal_box ?? false,
-          mealBoxStockId: existing.meal_box_stock_id,
-          description: existing.description,
-        }
-      : null,
-    {
-      fromMealBox: isMealBoxMeal,
-      mealBoxStockId,
-      stockDescription: finalDescription,
-    },
+    previousConsumption,
+    nextConsumption,
   );
   if (!consumptionRes.ok) return consumptionRes;
+
+  const previousProduction =
+    existing && !existing.from_meal_box
+      ? {
+          description: existing.description,
+          mealBoxes: existing.meal_boxes,
+          fromMealBox: false as const,
+          mealBoxStockId: null,
+        }
+      : null;
+  const nextProduction = {
+    description: finalDescription,
+    mealBoxes,
+    fromMealBox: false as const,
+    mealBoxStockId: null,
+  };
 
   if (!isMealBoxMeal) {
     const productionRes = await syncMealBoxStockOnMealSave(
       supabase,
       user.id,
-      existing && !existing.from_meal_box
+      previousProduction,
+      nextProduction,
+    );
+    if (!productionRes.ok) {
+      await syncMealBoxConsumptionOnSave(
+        supabase,
+        user.id,
+        {
+          fromMealBox: nextConsumption.fromMealBox,
+          mealBoxStockId: nextConsumption.mealBoxStockId,
+          description: nextConsumption.stockDescription,
+        },
+        previousConsumption
+          ? {
+              fromMealBox: previousConsumption.fromMealBox,
+              mealBoxStockId: previousConsumption.mealBoxStockId,
+              stockDescription: previousConsumption.description,
+            }
+          : {
+              fromMealBox: false,
+              mealBoxStockId: null,
+              stockDescription: "",
+            },
+      );
+      return productionRes;
+    }
+  }
+
+  const rollbackMealBoxStock = async () => {
+    await syncMealBoxConsumptionOnSave(
+      supabase,
+      user.id,
+      {
+        fromMealBox: nextConsumption.fromMealBox,
+        mealBoxStockId: nextConsumption.mealBoxStockId,
+        description: nextConsumption.stockDescription,
+      },
+      previousConsumption
         ? {
-            description: existing.description,
-            mealBoxes: existing.meal_boxes,
+            fromMealBox: previousConsumption.fromMealBox,
+            mealBoxStockId: previousConsumption.mealBoxStockId,
+            stockDescription: previousConsumption.description,
+          }
+        : {
             fromMealBox: false,
             mealBoxStockId: null,
-          }
-        : null,
-      {
-        description: finalDescription,
-        mealBoxes,
-        fromMealBox: false,
-        mealBoxStockId: null,
-      },
+            stockDescription: "",
+          },
     );
-    if (!productionRes.ok) return productionRes;
-  }
+    if (!isMealBoxMeal) {
+      await syncMealBoxStockOnMealSave(
+        supabase,
+        user.id,
+        nextProduction,
+        previousProduction ?? {
+          description: finalDescription,
+          mealBoxes: null,
+          fromMealBox: false,
+          mealBoxStockId: null,
+        },
+      );
+    }
+  };
 
   // Resolve the water_log row.
   let waterLogId: string | null = existing?.water_log_id ?? null;
@@ -905,7 +970,10 @@ export async function saveMealAction(input: {
         })
         .eq("id", waterLogId)
         .eq("user_id", user.id);
-      if (error) return { ok: false, error: error.message };
+      if (error) {
+        await rollbackMealBoxStock();
+        return { ok: false, error: error.message };
+      }
     } else {
       const { data: inserted, error } = await supabase
         .from("water_logs")
@@ -918,6 +986,7 @@ export async function saveMealAction(input: {
         .select("id")
         .single();
       if (error || !inserted) {
+        await rollbackMealBoxStock();
         return { ok: false, error: error?.message ?? "Could not save water." };
       }
       waterLogId = inserted.id;
@@ -947,7 +1016,10 @@ export async function saveMealAction(input: {
       })
       .eq("id", existing.id)
       .eq("user_id", user.id);
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      await rollbackMealBoxStock();
+      return { ok: false, error: error.message };
+    }
   } else {
     const { error } = await supabase.from("meal_entries").insert({
       user_id: user.id,
@@ -962,7 +1034,10 @@ export async function saveMealAction(input: {
       from_meal_box: isMealBoxMeal,
       meal_box_stock_id: isMealBoxMeal ? mealBoxStockId : null,
     });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      await rollbackMealBoxStock();
+      return { ok: false, error: error.message };
+    }
   }
 
   revalidatePath("/", "layout");

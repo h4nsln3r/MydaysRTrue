@@ -4,7 +4,7 @@ import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getSportWeekSummary } from "@/lib/sport.server";
 import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
-import { formatWeeklyTaskDetail, isRepeatableWeeklyTaskKey, type Weekday } from "@/lib/tasks";
+import { formatWeeklyTaskDetail, isWeeklyTaskRepeatable, type Weekday } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
@@ -15,6 +15,8 @@ import {
   weekPlanBathingSourceDragId,
   weekPlanDragId,
   weekPlanMonthlyBillDragId,
+  weekPlanSportPlacementDragId,
+  weekPlanSportSourceDragId,
   weekPlanTaskPlacementDragId,
   weekPlanTaskSourceDragId,
   type UnifiedWeekPlan,
@@ -132,12 +134,47 @@ export async function getUnifiedWeekPlan(
     });
   }
 
-  for (const s of sportWeek.sessions) {
+  for (const t of sportWeek.templates) {
+    items.push({
+      dragId: weekPlanSportSourceDragId(t.id),
+      kind: "sport",
+      sportRole: "source",
+      templateId: t.id,
+      placementId: null,
+      label: t.label,
+      subtitle: t.description,
+      icon: t.icon,
+      accent: t.accent,
+      defaultWeekday: t.defaultWeekday,
+      weekday: null,
+      done: false,
+      sortOrder: t.sortOrder,
+      session: {
+        ...t,
+        placement: {
+          id: "",
+          templateId: t.id,
+          weekStart,
+          weekday: null,
+          daySortOrder: 0,
+          planSport: null,
+          actualSport: null,
+          note: null,
+          companions: null,
+          doneAt: null,
+        },
+      },
+    });
+  }
+
+  for (const s of sportWeek.placedSessions) {
     const detail = formatSportDetail(s.placement);
     items.push({
-      dragId: weekPlanDragId("sport", s.id),
+      dragId: weekPlanSportPlacementDragId(s.placement.id),
       kind: "sport",
+      sportRole: "placement",
       templateId: s.id,
+      placementId: s.placement.id,
       label: s.label,
       subtitle: s.placement.doneAt
         ? detail
@@ -213,7 +250,7 @@ export async function getUnifiedWeekPlan(
   }
 
   for (const t of taskWeek.tasks) {
-    const repeatable = isRepeatableWeeklyTaskKey(t.key);
+    const repeatable = isWeeklyTaskRepeatable(t);
     const placed = t.placements.filter((p) => p.weekday != null && !p.onHold);
     const backlogOrphans = t.placements.filter(
       (p) => p.weekday == null && !p.onHold,

@@ -5,7 +5,9 @@ import {
   dedupeMonthlyTasks,
   expandWeeklyTaskPlacements,
   isRepeatableWeeklyTaskKey,
+  isWeeklyTaskRepeatable,
   monthlyTaskKeeperScore,
+  REPEATABLE_WEEKLY_TASK_GOAL,
   type MonthlyCompletion,
   type MonthlyTask,
   type MonthlyTaskCompletionKind,
@@ -46,6 +48,7 @@ interface CategoryRow {
   icon: string;
   accent: string;
   sort_order: number;
+  weekly_goal?: number | null;
 }
 
 function rowToCategory(r: CategoryRow): TaskCategory {
@@ -56,6 +59,10 @@ function rowToCategory(r: CategoryRow): TaskCategory {
     icon: r.icon,
     accent: r.accent,
     sortOrder: r.sort_order,
+    weeklyGoal:
+      r.weekly_goal != null
+        ? Math.max(1, Math.min(14, r.weekly_goal))
+        : null,
   };
 }
 
@@ -67,7 +74,7 @@ export async function getCategories(
   const supabase = await createClient();
   let q = supabase
     .from("task_categories")
-    .select("id, scope, name, icon, accent, sort_order")
+    .select("id, scope, name, icon, accent, sort_order, weekly_goal")
     .eq("user_id", userId)
     .is("archived_at", null);
   if (scope) q = q.eq("scope", scope);
@@ -93,9 +100,12 @@ interface WeeklyTaskRow {
   completion_kind: string;
   single_week_start: string | null;
   enabled: boolean;
+  is_repeatable?: boolean | null;
+  weekly_goal?: number | null;
 }
 
 function rowToWeekly(r: WeeklyTaskRow): WeeklyTask {
+  const legacyRepeatable = isRepeatableWeeklyTaskKey(r.key);
   return {
     id: r.id,
     categoryId: r.category_id,
@@ -109,6 +119,11 @@ function rowToWeekly(r: WeeklyTaskRow): WeeklyTask {
     defaultWeekday: r.default_weekday as Weekday | null,
     singleWeekStart: r.single_week_start,
     enabled: r.enabled ?? true,
+    isRepeatable: r.is_repeatable ?? legacyRepeatable,
+    weeklyGoal:
+      r.weekly_goal != null
+        ? Math.max(1, Math.min(14, r.weekly_goal))
+        : REPEATABLE_WEEKLY_TASK_GOAL,
   };
 }
 
@@ -312,7 +327,7 @@ function attachChecklistCompletionsForDate(
 }
 
 const WEEKLY_TASK_SELECT =
-  "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled";
+  "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled, is_repeatable, weekly_goal";
 
 const WEEKLY_PLACEMENT_SELECT =
   "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, laundry_loads, band, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id";
@@ -368,6 +383,42 @@ const REPEATABLE_CANONICAL: Array<{
     categoryName: "Livet",
     sortOrder: 0,
   },
+  {
+    key: "music_rep",
+    legacyLike: "music_rep_%",
+    title: "Rep",
+    notes:
+      "Dra in hur många reps du vill — minst 2 per vecka. Välj band och anteckna vad ni gick igenom.",
+    icon: "🤘",
+    accent: "#e879f9",
+    completionKind: "music",
+    categoryName: "MUSIC",
+    sortOrder: 4,
+  },
+  {
+    key: "music_bas",
+    legacyLike: "music_bas_%",
+    title: "Bas",
+    notes:
+      "Dra in hur många basövningar du vill — minst 2 per vecka. Lägg till låtar och övningar i listan.",
+    icon: "🎸",
+    accent: "#e879f9",
+    completionKind: "music",
+    categoryName: "MUSIC",
+    sortOrder: 1,
+  },
+  {
+    key: "music_live",
+    legacyLike: "music_live_%",
+    title: "Live",
+    notes:
+      "Dra in hur många live-spelningar du vill — minst 2 per vecka. Välj band och anteckna vad ni gick igenom.",
+    icon: "🎫",
+    accent: "#f472b6",
+    completionKind: "music",
+    categoryName: "MUSIC",
+    sortOrder: 5,
+  },
 ];
 
 /**
@@ -414,6 +465,8 @@ export async function ensureRepeatableWeeklyTasks(
             completion_kind: spec.completionKind,
             default_weekday: null,
             sort_order: spec.sortOrder,
+            is_repeatable: true,
+            weekly_goal: REPEATABLE_WEEKLY_TASK_GOAL,
           })
           .eq("id", legacy.id)
           .eq("user_id", userId);
@@ -444,6 +497,8 @@ export async function ensureRepeatableWeeklyTasks(
           sort_order: spec.sortOrder,
           default_weekday: null,
           completion_kind: spec.completionKind,
+          is_repeatable: true,
+          weekly_goal: REPEATABLE_WEEKLY_TASK_GOAL,
         })
         .select("id")
         .maybeSingle();
@@ -458,6 +513,8 @@ export async function ensureRepeatableWeeklyTasks(
         title: spec.title,
         notes: spec.notes,
         default_weekday: null,
+        is_repeatable: true,
+        weekly_goal: REPEATABLE_WEEKLY_TASK_GOAL,
       })
       .eq("id", canonicalId)
       .eq("user_id", userId);
@@ -615,7 +672,7 @@ export async function getWeekSummary(
       .eq("week_start", weekStart),
     supabase
       .from("task_categories")
-      .select("id, scope, name, icon, accent, sort_order")
+      .select("id, scope, name, icon, accent, sort_order, weekly_goal")
       .eq("user_id", userId)
       .eq("scope", "task")
       .is("archived_at", null)
@@ -685,7 +742,7 @@ export async function getWeekSummary(
   // break React keys / unplace. Keep the best row and delete the rest.
   const duplicatePlacementIds: string[] = [];
   for (const row of taskRows) {
-    if (isRepeatableWeeklyTaskKey(row.key)) continue;
+    if (isWeeklyTaskRepeatable(rowToWeekly(row))) continue;
     const list = placementsByTask.get(row.id);
     if (!list || list.length <= 1) continue;
     const ranked = [...list].sort((a, b) => {
@@ -762,7 +819,7 @@ export async function getWeekSummary(
     const existing = placementsByTask.get(row.id) ?? [];
     if (existing.length > 0) continue;
     // Repeatable tasks stay as backlog sources until dragged — no auto-placement.
-    if (isRepeatableWeeklyTaskKey(row.key)) continue;
+    if (isWeeklyTaskRepeatable(rowToWeekly(row))) continue;
     const wd = row.default_weekday;
     let daySortOrder = 0;
     if (wd != null) {
@@ -1175,7 +1232,7 @@ export async function getMonthTaskSummary(
       .eq("month_start", monthStart),
     supabase
       .from("task_categories")
-      .select("id, scope, name, icon, accent, sort_order")
+      .select("id, scope, name, icon, accent, sort_order, weekly_goal")
       .eq("user_id", userId)
       .eq("scope", "task")
       .is("archived_at", null)
@@ -1243,7 +1300,7 @@ export async function getMonthlyBillsForWeek(
       .order("sort_order", { ascending: true }),
     supabase
       .from("task_categories")
-      .select("id, scope, name, icon, accent, sort_order")
+      .select("id, scope, name, icon, accent, sort_order, weekly_goal")
       .eq("user_id", userId)
       .eq("scope", "task")
       .is("archived_at", null)

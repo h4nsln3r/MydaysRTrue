@@ -369,7 +369,7 @@ function SportForm({
     setError(null);
     startTransition(async () => {
       const res = await completeSportSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
         actualSport,
         note,
@@ -387,7 +387,7 @@ function SportForm({
     setError(null);
     startTransition(async () => {
       const res = await uncompleteSportSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
       });
       if (!res.ok) {

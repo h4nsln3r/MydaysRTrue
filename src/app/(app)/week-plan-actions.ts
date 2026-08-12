@@ -36,8 +36,9 @@ import {
   unplaceCardioSessionAction,
 } from "./cardio-actions";
 import {
-  moveSportSessionAction,
-  unplaceSportSessionAction,
+  addSportPlacementAction,
+  deleteSportPlacementAction,
+  moveSportPlacementAction,
 } from "./sport-actions";
 import {
   moveGymSessionAction,
@@ -104,8 +105,15 @@ export async function placeWeekPlanItemAction(input: {
         weekday: input.weekday,
       });
     case "sport":
-      return moveSportSessionAction({
-        templateId: parsed.entityId,
+      if (parsed.sportRole === "source") {
+        return addSportPlacementAction({
+          templateId: parsed.entityId,
+          weekStart: input.weekStart,
+          weekday: input.weekday,
+        });
+      }
+      return moveSportPlacementAction({
+        placementId: parsed.entityId,
         weekStart: input.weekStart,
         weekday: input.weekday,
       });
@@ -175,8 +183,11 @@ export async function unplaceWeekPlanItemAction(input: {
         weekStart: input.weekStart,
       });
     case "sport":
-      return unplaceSportSessionAction({
-        templateId: parsed.entityId,
+      if (parsed.sportRole === "source") {
+        return { ok: true };
+      }
+      return deleteSportPlacementAction({
+        placementId: parsed.entityId,
         weekStart: input.weekStart,
       });
     case "bathing":

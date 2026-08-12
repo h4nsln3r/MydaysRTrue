@@ -67,7 +67,9 @@ export interface WeekPlanCardioItem extends WeekPlanItemBase {
 
 export interface WeekPlanSportItem extends WeekPlanItemBase {
   kind: "sport";
+  sportRole: SportDragRole;
   templateId: string;
+  placementId: string | null;
   session: SportSessionForWeek;
 }
 
@@ -132,12 +134,14 @@ export function weekdayFromWeekPlanDropId(id: string): Weekday | null {
 }
 
 export type BathingDragRole = "source" | "placement";
+export type SportDragRole = "source" | "placement";
 export type TaskDragRole = "source" | "placement";
 
 export interface ParsedWeekPlanDragId {
   kind: WeekPlanItemKind;
   entityId: string;
   bathingRole?: BathingDragRole;
+  sportRole?: SportDragRole;
   taskRole?: TaskDragRole;
   monthStart?: string;
 }
@@ -157,6 +161,16 @@ export function weekPlanBathingSourceDragId(templateId: string): string {
 /** A bathing instance placed on a weekday. */
 export function weekPlanBathingPlacementDragId(placementId: string): string {
   return `bathing:${placementId}`;
+}
+
+/** Draggable sport template in the left backlog. */
+export function weekPlanSportSourceDragId(templateId: string): string {
+  return `sport-source:${templateId}`;
+}
+
+/** A sport instance placed on a weekday. */
+export function weekPlanSportPlacementDragId(placementId: string): string {
+  return `sport:${placementId}`;
 }
 
 /** Repeatable weekly task source that stays in the backlog. */
@@ -194,6 +208,16 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
     return { kind: "bathing", entityId: bathing[1], bathingRole: "placement" };
   }
 
+  const sportSource = /^sport-source:(.+)$/.exec(dragId);
+  if (sportSource) {
+    return { kind: "sport", entityId: sportSource[1], sportRole: "source" };
+  }
+
+  const sportPlacement = /^sport:(.+)$/.exec(dragId);
+  if (sportPlacement) {
+    return { kind: "sport", entityId: sportPlacement[1], sportRole: "placement" };
+  }
+
   const monthlyBill = /^monthly_bill:([^:]+):(\d{4}-\d{2}-\d{2})$/.exec(dragId);
   if (monthlyBill) {
     return {
@@ -203,7 +227,7 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
     };
   }
 
-  const m = /^(task|gym|cardio|sport|weight):(.+)$/.exec(dragId);
+  const m = /^(task|gym|cardio|weight):(.+)$/.exec(dragId);
   if (!m) return null;
   return {
     kind: m[1] as WeekPlanItemKind,

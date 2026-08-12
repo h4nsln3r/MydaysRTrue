@@ -64,8 +64,144 @@ function rowToPlacement(r: PlacementRow): SportPlacement {
 const PLACEMENT_SELECT =
   "id, template_id, week_start, weekday, day_sort_order, plan_sport, actual_sport, note, companions, done_at";
 
+type SportSupabase = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Resolve the repeatable "sport" template and archive leftover sport_1/2.
+ */
+export async function ensureSportTemplate(
+  supabase: SportSupabase,
+  userId: string,
+): Promise<{ id: string } | null> {
+  let canonicalId: string | null = null;
+
+  const { data: canonical } = await supabase
+    .from("sport_session_templates")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("key", "sport")
+    .is("archived_at", null)
+    .maybeSingle();
+  if (canonical) canonicalId = canonical.id;
+
+  if (!canonicalId) {
+    const { data: archived } = await supabase
+      .from("sport_session_templates")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("key", "sport")
+      .not("archived_at", "is", null)
+      .maybeSingle();
+    if (archived) {
+      const { error } = await supabase
+        .from("sport_session_templates")
+        .update({
+          archived_at: null,
+          label: "Sportpass",
+          description:
+            "Dra in hur många sportpass du vill — minst 2 per vecka. Välj sport och logga efteråt.",
+          sort_order: 0,
+          default_weekday: 3,
+        })
+        .eq("id", archived.id)
+        .eq("user_id", userId);
+      if (!error) canonicalId = archived.id;
+    }
+  }
+
+  if (!canonicalId) {
+    const { data: legacy } = await supabase
+      .from("sport_session_templates")
+      .select("id")
+      .eq("user_id", userId)
+      .like("key", "sport_%")
+      .is("archived_at", null)
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (legacy) {
+      const { error } = await supabase
+        .from("sport_session_templates")
+        .update({
+          key: "sport",
+          label: "Sportpass",
+          description:
+            "Dra in hur många sportpass du vill — minst 2 per vecka. Välj sport och logga efteråt.",
+          icon: "🏸",
+          accent: "#a78bfa",
+          sort_order: 0,
+          default_weekday: 3,
+        })
+        .eq("id", legacy.id)
+        .eq("user_id", userId);
+      if (error) return null;
+      canonicalId = legacy.id;
+    }
+  }
+
+  if (!canonicalId) {
+    const { data: created, error } = await supabase
+      .from("sport_session_templates")
+      .insert({
+        user_id: userId,
+        key: "sport",
+        label: "Sportpass",
+        description:
+          "Dra in hur många sportpass du vill — minst 2 per vecka. Välj sport och logga efteråt.",
+        icon: "🏸",
+        accent: "#a78bfa",
+        sort_order: 0,
+        default_weekday: 3,
+      })
+      .select("id")
+      .maybeSingle();
+    if (error || !created) return null;
+    canonicalId = created.id;
+  }
+
+  const { data: leftovers } = await supabase
+    .from("sport_session_templates")
+    .select("id")
+    .eq("user_id", userId)
+    .like("key", "sport_%")
+    .is("archived_at", null);
+
+  for (const leftover of leftovers ?? []) {
+    if (leftover.id === canonicalId) continue;
+    await supabase
+      .from("sport_week_placements")
+      .update({ template_id: canonicalId })
+      .eq("user_id", userId)
+      .eq("template_id", leftover.id);
+    await supabase
+      .from("sport_session_templates")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", leftover.id)
+      .eq("user_id", userId);
+  }
+
+  await supabase
+    .from("sport_session_templates")
+    .update({
+      label: "Sportpass",
+      description:
+        "Dra in hur många sportpass du vill — minst 2 per vecka. Välj sport och logga efteråt.",
+      default_weekday: 3,
+    })
+    .eq("id", canonicalId)
+    .eq("user_id", userId);
+
+  return { id: canonicalId };
+}
+
 export interface SportWeekSummary {
   weekStart: string;
+  /** Backlog source(s) not consumed by placement. */
+  templates: SportSessionTemplate[];
+  /** Instances placed on weekdays this week. */
+  placedSessions: SportSessionForWeek[];
+  /** Alias for placedSessions — kept for older call sites. */
   sessions: SportSessionForWeek[];
 }
 
@@ -73,6 +209,7 @@ export async function getSportTemplates(
   userId: string,
 ): Promise<SportSessionTemplate[]> {
   const supabase = await createClient();
+  await ensureSportTemplate(supabase, userId);
   const { data } = await supabase
     .from("sport_session_templates")
     .select(
@@ -89,71 +226,52 @@ export async function getSportWeekSummary(
   weekStart: string,
 ): Promise<SportWeekSummary> {
   const supabase = await createClient();
+  await ensureSportTemplate(supabase, userId);
 
-  const { data: templates } = await supabase
-    .from("sport_session_templates")
-    .select(
-      "id, key, label, description, icon, accent, sort_order, default_weekday",
-    )
-    .eq("user_id", userId)
-    .is("archived_at", null)
-    .order("sort_order", { ascending: true });
-
-  if (!templates?.length) {
-    return { weekStart, sessions: [] };
-  }
-
-  const { data: placements } = await supabase
-    .from("sport_week_placements")
-    .select(PLACEMENT_SELECT)
-    .eq("user_id", userId)
-    .eq("week_start", weekStart);
-
-  const placementByTemplate = new Map<string, PlacementRow>();
-  for (const p of placements ?? []) {
-    placementByTemplate.set(p.template_id, p);
-  }
-
-  const toInsert: {
-    user_id: string;
-    template_id: string;
-    week_start: string;
-    weekday: number | null;
-  }[] = [];
-
-  for (const t of templates) {
-    if (!placementByTemplate.has(t.id)) {
-      toInsert.push({
-        user_id: userId,
-        template_id: t.id,
-        week_start: weekStart,
-        weekday: t.default_weekday,
-      });
-    }
-  }
-
-  if (toInsert.length > 0) {
-    const { data: inserted } = await supabase
+  const [{ data: templates }, { data: placements }] = await Promise.all([
+    supabase
+      .from("sport_session_templates")
+      .select(
+        "id, key, label, description, icon, accent, sort_order, default_weekday",
+      )
+      .eq("user_id", userId)
+      .is("archived_at", null)
+      .order("sort_order", { ascending: true }),
+    supabase
       .from("sport_week_placements")
-      .insert(toInsert)
-      .select(PLACEMENT_SELECT);
-    for (const p of inserted ?? []) {
-      placementByTemplate.set(p.template_id, p);
-    }
+      .select(PLACEMENT_SELECT)
+      .eq("user_id", userId)
+      .eq("week_start", weekStart)
+      .not("weekday", "is", null),
+  ]);
+
+  const templateById = new Map(
+    (templates ?? []).map((t) => [t.id, rowToTemplate(t)]),
+  );
+
+  const placedSessions: SportSessionForWeek[] = [];
+  for (const p of placements ?? []) {
+    const template = templateById.get(p.template_id);
+    if (!template) continue;
+    placedSessions.push({
+      ...template,
+      placement: rowToPlacement(p),
+    });
   }
 
-  const sessions: SportSessionForWeek[] = templates.map((t) => {
-    const placement = placementByTemplate.get(t.id);
-    if (!placement) {
-      throw new Error(`Missing sport placement for template ${t.id}`);
-    }
-    return {
-      ...rowToTemplate(t),
-      placement: rowToPlacement(placement),
-    };
+  placedSessions.sort((a, b) => {
+    const wd = (a.placement.weekday ?? 0) - (b.placement.weekday ?? 0);
+    if (wd !== 0) return wd;
+    return a.placement.daySortOrder - b.placement.daySortOrder;
   });
 
-  return { weekStart, sessions };
+  return {
+    weekStart,
+    // Sport is always repeatable — keep the source in the backlog.
+    templates: (templates ?? []).map(rowToTemplate),
+    placedSessions,
+    sessions: placedSessions,
+  };
 }
 
 export interface SportDaySummary {
@@ -169,8 +287,8 @@ export async function getSportSessionsForDate(
 ): Promise<SportDaySummary> {
   const weekStart = weekStartISO(parseLocalISO(localDate));
   const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
-  const { sessions } = await getSportWeekSummary(userId, weekStart);
-  const forDay = sessions
+  const { placedSessions } = await getSportWeekSummary(userId, weekStart);
+  const forDay = placedSessions
     .filter(
       (s) => s.placement.weekday != null && s.placement.weekday === weekday,
     )

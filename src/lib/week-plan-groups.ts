@@ -33,7 +33,8 @@ export function groupWeekPlanDayItems(
   const training = items.filter(
     (i) =>
       TRAINING_KINDS.has(i.kind) &&
-      !(i.kind === "bathing" && i.bathingRole === "source"),
+      !(i.kind === "bathing" && i.bathingRole === "source") &&
+      !(i.kind === "sport" && i.sportRole === "source"),
   );
   const bills = items.filter(
     (i) =>
@@ -79,6 +80,7 @@ export function groupWeekPlanDayItems(
 
 function isBacklogTrainingItem(item: WeekPlanItem): boolean {
   if (item.kind === "bathing") return item.bathingRole === "source";
+  if (item.kind === "sport") return item.sportRole === "source";
   return TRAINING_KINDS.has(item.kind);
 }
 

@@ -40,6 +40,11 @@ export interface TaskCategory {
   icon: string;
   accent: string;
   sortOrder: number;
+  /**
+   * Legacy category-level weekly target. Progress uses the sum of each task’s
+   * weeklyGoal instead; this field is ignored by scoring.
+   */
+  weeklyGoal: number | null;
 }
 
 export type WeeklyTaskCompletionKind =
@@ -63,20 +68,27 @@ export const MUSIC_LOG_KIND_LABEL: Record<MusicLogKind, string> = {
 };
 
 export function isMusicRepTask(key: string | null): boolean {
-  return key?.startsWith("music_rep_") ?? false;
+  return (
+    key === "music_rep" ||
+    key === "music_live" ||
+    (key?.startsWith("music_rep_") ?? false)
+  );
 }
 
-/** Weekly tasks you can drag onto the plan multiple times (like bathing "bad"). */
+/** Weekly tasks that historically defaulted to multi-drag (before is_repeatable). */
 export const REPEATABLE_WEEKLY_TASK_KEYS = [
   "dev_code",
   "home_handla",
   "life_ring_mamma",
+  "music_rep",
+  "music_bas",
+  "music_live",
 ] as const;
 
 export type RepeatableWeeklyTaskKey =
   (typeof REPEATABLE_WEEKLY_TASK_KEYS)[number];
 
-/** Base goal for repeatable weekly tasks — extras above this still count as hit. */
+/** Default goal when a task is marked repeatable. */
 export const REPEATABLE_WEEKLY_TASK_GOAL = 2;
 
 const REPEATABLE_WEEKLY_TASK_KEY_SET = new Set<string>(
@@ -89,17 +101,108 @@ export function isRepeatableWeeklyTaskKey(
   return key != null && REPEATABLE_WEEKLY_TASK_KEY_SET.has(key);
 }
 
+/** Prefer the DB flag; fall back to legacy key list during migration. */
+export function isWeeklyTaskRepeatable(task: {
+  isRepeatable?: boolean;
+  key?: string | null;
+}): boolean {
+  if (typeof task.isRepeatable === "boolean") return task.isRepeatable;
+  return isRepeatableWeeklyTaskKey(task.key);
+}
+
 export function isCodingWeeklyTaskKey(key: string | null | undefined): boolean {
   return key === "dev_code";
 }
 
-/** Score a repeatable weekly goal: total is always the goal; hit can exceed it. */
-export function scoreRepeatableWeeklyGoal(doneCount: number): {
+/** Clamp a weekly goal to the allowed range. */
+export function normalizeWeeklyGoal(goal: number | null | undefined): number {
+  const n = Math.round(Number(goal));
+  if (!Number.isFinite(n)) return REPEATABLE_WEEKLY_TASK_GOAL;
+  return Math.max(1, Math.min(14, n));
+}
+
+/** Score a repeatable weekly goal: total is the goal; hit can exceed it. */
+export function scoreRepeatableWeeklyGoal(
+  doneCount: number,
+  goal: number = REPEATABLE_WEEKLY_TASK_GOAL,
+): {
   hit: number;
   total: number;
 } {
   const done = Math.max(0, doneCount);
-  return { hit: done, total: REPEATABLE_WEEKLY_TASK_GOAL };
+  return { hit: done, total: normalizeWeeklyGoal(goal) };
+}
+
+/** Count completed (placed, not on-hold) instances across weekly tasks. */
+export function countCompletedWeeklyPlacements(
+  tasks: Array<{
+    placements?: Array<{
+      weekday: Weekday | null;
+      onHold?: boolean;
+      doneAt: string | null;
+    }>;
+    placement?: {
+      weekday: Weekday | null;
+      onHold?: boolean;
+      doneAt: string | null;
+    } | null;
+  }>,
+): number {
+  let done = 0;
+  for (const task of tasks) {
+    const list =
+      task.placements && task.placements.length > 0
+        ? task.placements
+        : task.placement
+          ? [task.placement]
+          : [];
+    for (const p of list) {
+      if (p.weekday != null && !p.onHold && p.doneAt) done += 1;
+    }
+  }
+  return done;
+}
+
+/**
+ * Category week score = sum of task goals vs completed placements.
+ * Category-level weeklyGoal is ignored (auto from tasks).
+ */
+export function scoreCategoryFromTaskGoals(
+  tasks: Array<{
+    weeklyGoal?: number;
+    isRepeatable?: boolean;
+    key?: string | null;
+    placements?: Array<{
+      weekday: Weekday | null;
+      onHold?: boolean;
+      doneAt: string | null;
+    }>;
+    placement?: {
+      weekday: Weekday | null;
+      onHold?: boolean;
+      doneAt: string | null;
+    } | null;
+  }>,
+): { done: number; total: number } {
+  let done = 0;
+  let total = 0;
+  for (const task of tasks) {
+    const goal = normalizeWeeklyGoal(task.weeklyGoal);
+    total += goal;
+    done += countCompletedWeeklyPlacements([task]);
+  }
+  return { done, total };
+}
+
+/** @deprecated Prefer scoreCategoryFromTaskGoals — category goals are derived from tasks. */
+export function scoreCategoryWeeklyGoal(
+  tasks: Parameters<typeof countCompletedWeeklyPlacements>[0],
+  weeklyGoal: number | null | undefined,
+  fallback: { done: number; total: number },
+): { done: number; total: number } {
+  if (weeklyGoal == null) return fallback;
+  const completed = countCompletedWeeklyPlacements(tasks);
+  return { done: completed, total: normalizeWeeklyGoal(weeklyGoal) };
 }
 
 export interface WeeklyTask {
@@ -118,6 +221,10 @@ export interface WeeklyTask {
   singleWeekStart: string | null;
   /** When false, hidden from week planning until turned back on. */
   enabled: boolean;
+  /** Can be dragged onto the plan multiple times in one week. */
+  isRepeatable: boolean;
+  /** How many completions count as “hit” for the week (when repeatable). */
+  weeklyGoal: number;
 }
 
 export interface TaskCategoryGroup<T extends { categoryId: string | null }> {

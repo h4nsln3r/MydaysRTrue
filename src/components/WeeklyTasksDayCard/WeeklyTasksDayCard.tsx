@@ -24,7 +24,7 @@ import {
   formatWeeklyTaskDetail,
   isCodingWeeklyTaskKey,
   isMusicRepTask,
-  isRepeatableWeeklyTaskKey,
+  isWeeklyTaskRepeatable,
   MUSIC_BANDS,
   MUSIC_LOG_KIND_LABEL,
   sortWeeklyDayTasks,
@@ -528,13 +528,13 @@ export function WeeklyTaskRow({
     startTransition(async () => {
       const res =
         value === "remove"
-          ? placementId && isRepeatableWeeklyTaskKey(task.key)
+          ? placementId && isWeeklyTaskRepeatable(task)
             ? await deleteWeeklyTaskPlacementAction({
                 placementId,
                 weekStart,
               })
             : await unplaceWeeklyTaskAction({ taskId: task.id, weekStart })
-          : placementId && isRepeatableWeeklyTaskKey(task.key)
+          : placementId && isWeeklyTaskRepeatable(task)
             ? await moveWeeklyTaskPlacementAction({
                 placementId,
                 weekStart,

@@ -102,14 +102,16 @@ export function SportDayCard({
       <ul className={styles.list}>
         {orderedSessions.map((s) => (
           <SportSessionRow
-            key={s.id}
+            key={s.placement.id}
             session={s}
             weekStart={weekStart}
-            expanded={expandedId === s.id}
-            busy={pendingId === s.id}
+            expanded={expandedId === s.placement.id}
+            busy={pendingId === s.placement.id}
             pending={pending}
             onToggleExpand={() =>
-              setExpandedId(expandedId === s.id ? null : s.id)
+              setExpandedId(
+                expandedId === s.placement.id ? null : s.placement.id,
+              )
             }
             onError={setError}
             onPendingId={setPendingId}
@@ -176,10 +178,10 @@ export function SportSessionRow({
 
   const savePlan = () => {
     onError(null);
-    onPendingId(session.id);
+    onPendingId(session.placement.id);
     startTransition(async () => {
       const res = await updateSportPlanAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
         planSport,
       });
@@ -191,10 +193,10 @@ export function SportSessionRow({
 
   const complete = () => {
     onError(null);
-    onPendingId(session.id);
+    onPendingId(session.placement.id);
     startTransition(async () => {
       const res = await completeSportSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
         actualSport,
         note,
@@ -208,10 +210,10 @@ export function SportSessionRow({
 
   const uncomplete = () => {
     onError(null);
-    onPendingId(session.id);
+    onPendingId(session.placement.id);
     startTransition(async () => {
       const res = await uncompleteSportSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
@@ -226,18 +228,20 @@ export function SportSessionRow({
   const reschedule = (value: string) => {
     if (!value) return;
     onError(null);
-    onPendingId(session.id);
+    onPendingId(session.placement.id);
     startTransition(async () => {
       const res =
         value === "remove"
           ? await unplaceSportSessionAction({
               templateId: session.id,
               weekStart,
+              placementId: session.placement.id,
             })
           : await moveSportSessionAction({
               templateId: session.id,
               weekStart,
               weekday: Number(value) as Weekday,
+              placementId: session.placement.id,
             });
       if (!res.ok) onError(res.error ?? "Kunde inte planera om.");
       onPendingId(null);

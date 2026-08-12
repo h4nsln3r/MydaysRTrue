@@ -3,11 +3,11 @@
 
 import type { Weekday } from "@/lib/tasks";
 
-export type SportKey = "sport_1" | "sport_2";
+export type SportKey = "sport";
 
 export interface SportSessionTemplate {
   id: string;
-  key: SportKey;
+  key: SportKey | string;
   label: string;
   description: string | null;
   icon: string;
@@ -32,6 +32,10 @@ export interface SportPlacement {
 
 export interface SportSessionForWeek extends SportSessionTemplate {
   placement: SportPlacement;
+}
+
+export function isRepeatableSportKey(key: string | null | undefined): boolean {
+  return key === "sport" || (key?.startsWith("sport_") ?? false);
 }
 
 export function formatSportDetail(placement: SportPlacement): string | null {

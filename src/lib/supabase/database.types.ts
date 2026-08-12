@@ -736,6 +736,7 @@ export interface Database {
           icon: string;
           accent: string;
           sort_order: number;
+          weekly_goal: number | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -748,6 +749,7 @@ export interface Database {
           icon?: string;
           accent?: string;
           sort_order?: number;
+          weekly_goal?: number | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -760,6 +762,7 @@ export interface Database {
           icon?: string;
           accent?: string;
           sort_order?: number;
+          weekly_goal?: number | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -781,6 +784,8 @@ export interface Database {
           single_week_start: string | null;
           completion_kind: "simple" | "shop" | "expense" | "journal" | "laundry" | "music" | "note";
           enabled: boolean;
+          is_repeatable: boolean;
+          weekly_goal: number;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -799,6 +804,8 @@ export interface Database {
           single_week_start?: string | null;
           completion_kind?: "simple" | "shop" | "expense" | "journal" | "laundry" | "music" | "note";
           enabled?: boolean;
+          is_repeatable?: boolean;
+          weekly_goal?: number;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -817,6 +824,8 @@ export interface Database {
           single_week_start?: string | null;
           completion_kind?: "simple" | "shop" | "expense" | "journal" | "laundry" | "music" | "note";
           enabled?: boolean;
+          is_repeatable?: boolean;
+          weekly_goal?: number;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;

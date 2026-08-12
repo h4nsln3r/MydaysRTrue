@@ -8,6 +8,26 @@ import { expandWeeklyTaskPlacements } from "@/lib/tasks";
 
 export const UTGIFTER_CATEGORY_NAME = "Utgifter";
 
+/** Categories that belong on the month tab (not week goals). */
+export const MONTHLY_TASK_CATEGORY_NAMES = [
+  "Ekonomi",
+  "Utgifter",
+  "Sparande",
+  "Räkningar",
+] as const;
+
+export type MonthlyTaskCategoryName =
+  (typeof MONTHLY_TASK_CATEGORY_NAMES)[number];
+
+export function isMonthlyTaskCategoryName(
+  name: string | null | undefined,
+): name is MonthlyTaskCategoryName {
+  return (
+    name != null &&
+    (MONTHLY_TASK_CATEGORY_NAMES as readonly string[]).includes(name)
+  );
+}
+
 export function isUtgifterCategory(
   category: Pick<TaskCategory, "name"> | null | undefined,
 ): boolean {

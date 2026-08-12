@@ -446,6 +446,73 @@ export async function setHabitEnabledAction(input: {
   return { ok: true };
 }
 
+export async function updateHabitAction(input: {
+  habitId: string;
+  label?: string;
+  icon?: string;
+  accent?: string;
+  categoryId?: string | null;
+}): Promise<ActionResult> {
+  if (!input.habitId) return { ok: false, error: "Missing habit id." };
+
+  const patch: {
+    label?: string;
+    icon?: string;
+    accent?: string;
+    category_id?: string | null;
+  } = {};
+
+  if (input.label !== undefined) {
+    const label = input.label.trim();
+    if (!label) return { ok: false, error: "Ge vanan ett namn." };
+    if (label.length > 32) {
+      return { ok: false, error: "Håll namnet under 32 tecken." };
+    }
+    patch.label = label;
+  }
+  if (input.icon !== undefined) {
+    patch.icon = (input.icon ?? "✓").trim().slice(0, 4) || "✓";
+  }
+  if (input.accent !== undefined) {
+    patch.accent =
+      input.accent && /^#[0-9a-fA-F]{6}$/.test(input.accent)
+        ? input.accent
+        : "#ff7a1a";
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  if (input.categoryId !== undefined) {
+    if (input.categoryId) {
+      const { data: cat } = await supabase
+        .from("task_categories")
+        .select("scope, user_id")
+        .eq("id", input.categoryId)
+        .maybeSingle();
+      if (!cat || cat.user_id !== user.id || cat.scope !== "daily") {
+        return { ok: false, error: "Invalid category." };
+      }
+    }
+    patch.category_id = input.categoryId;
+  }
+
+  if (Object.keys(patch).length === 0) return { ok: true };
+
+  const { error } = await supabase
+    .from("habits")
+    .update(patch)
+    .eq("id", input.habitId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Whether a daily tracker appears on leave/vacation days. */
 export async function setHabitShowOnLeaveAction(input: {
   habitId: string;

@@ -22,7 +22,7 @@ import {
   isCodingWeeklyTaskKey,
   isHexColor,
   isMusicRepTask,
-  isRepeatableWeeklyTaskKey,
+  isWeeklyTaskRepeatable,
   MUSIC_BANDS,
   type MusicBand,
   type MusicLogKind,
@@ -199,6 +199,7 @@ export async function updateCategoryAction(input: {
   name?: string;
   icon?: string;
   accent?: string;
+  weeklyGoal?: number | null;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Missing category id." };
 
@@ -210,6 +211,17 @@ export async function updateCategoryAction(input: {
   }
   if (input.icon !== undefined) patch.icon = cleanIcon(input.icon, "📁");
   if (input.accent !== undefined) patch.accent = cleanAccent(input.accent);
+  if (input.weeklyGoal !== undefined) {
+    if (input.weeklyGoal === null) {
+      patch.weekly_goal = null;
+    } else {
+      const n = Math.round(Number(input.weeklyGoal));
+      if (!Number.isFinite(n) || n < 1 || n > 14) {
+        return { ok: false, error: "Kategorimål måste vara 1–14, eller tomt." };
+      }
+      patch.weekly_goal = n;
+    }
+  }
 
   if (Object.keys(patch).length === 0) return { ok: true };
 
@@ -266,6 +278,8 @@ export async function createWeeklyTaskAction(input: {
   notes?: string;
   icon?: string;
   accent?: string;
+  isRepeatable?: boolean;
+  weeklyGoal?: number;
 }): Promise<ActionResult> {
   const title = cleanTitle(input.title, 80);
   if (!title) return { ok: false, error: "Title is required." };
@@ -292,6 +306,16 @@ export async function createWeeklyTaskAction(input: {
     input.categoryId,
   );
 
+  const isRepeatable = Boolean(input.isRepeatable);
+  let weeklyGoal = isRepeatable ? 2 : 1;
+  if (input.weeklyGoal != null) {
+    const n = Math.round(Number(input.weeklyGoal));
+    if (!Number.isFinite(n) || n < 1 || n > 14) {
+      return { ok: false, error: "Veckans mål måste vara 1–14." };
+    }
+    weeklyGoal = n;
+  }
+
   const { error } = await supabase.from("weekly_tasks").insert({
     user_id: user.id,
     category_id: input.categoryId ?? null,
@@ -300,6 +324,8 @@ export async function createWeeklyTaskAction(input: {
     icon: cleanIcon(input.icon),
     accent: cleanAccent(input.accent),
     sort_order: nextOrder,
+    is_repeatable: isRepeatable,
+    weekly_goal: weeklyGoal,
     ...(completionKind ? { completion_kind: completionKind } : {}),
   });
   if (error) return { ok: false, error: error.message };
@@ -406,6 +432,8 @@ export async function updateWeeklyTaskAction(input: {
   icon?: string;
   accent?: string;
   defaultWeekday?: Weekday | null;
+  isRepeatable?: boolean;
+  weeklyGoal?: number;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Missing task id." };
 
@@ -429,6 +457,16 @@ export async function updateWeeklyTaskAction(input: {
     } else {
       return { ok: false, error: "Ogiltig standarddag." };
     }
+  }
+  if (input.isRepeatable !== undefined) {
+    patch.is_repeatable = Boolean(input.isRepeatable);
+  }
+  if (input.weeklyGoal !== undefined) {
+    const n = Math.round(Number(input.weeklyGoal));
+    if (!Number.isFinite(n) || n < 1 || n > 14) {
+      return { ok: false, error: "Veckans mål måste vara 1–14." };
+    }
+    patch.weekly_goal = n;
   }
 
   if (Object.keys(patch).length === 0) return { ok: true };
@@ -529,14 +567,14 @@ export async function placeWeeklyTaskAction(input: {
 
   const { data: task } = await supabase
     .from("weekly_tasks")
-    .select("key")
+    .select("key, is_repeatable")
     .eq("id", input.taskId)
     .eq("user_id", user.id)
     .is("archived_at", null)
     .maybeSingle();
   if (!task) return { ok: false, error: "Uppgiften hittades inte." };
 
-  if (isRepeatableWeeklyTaskKey(task.key)) {
+  if (isWeeklyTaskRepeatable({ key: task.key, isRepeatable: task.is_repeatable })) {
     return addWeeklyTaskPlacementAction(input);
   }
 
@@ -620,13 +658,13 @@ export async function addWeeklyTaskPlacementAction(input: {
 
   const { data: task } = await supabase
     .from("weekly_tasks")
-    .select("id, key")
+    .select("id, key, is_repeatable")
     .eq("id", input.taskId)
     .eq("user_id", user.id)
     .is("archived_at", null)
     .maybeSingle();
   if (!task) return { ok: false, error: "Uppgiften hittades inte." };
-  if (!isRepeatableWeeklyTaskKey(task.key)) {
+  if (!isWeeklyTaskRepeatable({ key: task.key, isRepeatable: task.is_repeatable })) {
     return placeWeeklyTaskAction(input);
   }
 
@@ -801,9 +839,10 @@ export async function setWeeklyTaskOnHoldAction(input: {
     .eq("user_id", user.id)
     .maybeSingle();
   if (!task) return { ok: false, error: "Uppgiften hittades inte." };
-  // Historically this was only for one-offs, but music reps (music_rep_*) are
-  // also expected to be hideable from the week planner.
-  if (!task.single_week_start && !isMusicRepTask(task.key)) {
+  // Historically this was only for one-offs; legacy numbered music reps
+  // (music_rep_*) could also be paused. Canonical music_rep is repeatable.
+  const isLegacyMusicRepSlot = task.key?.startsWith("music_rep_") ?? false;
+  if (!task.single_week_start && !isLegacyMusicRepSlot) {
     return { ok: false, error: "Bara engångsuppgifter kan pausas." };
   }
 

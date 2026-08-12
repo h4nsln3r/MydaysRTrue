@@ -101,6 +101,14 @@ import {
 import { useSyncNavPending } from "@/components/NavProgress/NavProgress";
 import styles from "./weekly-tasks.module.scss";
 
+function isPlanSource(item: WeekPlanItem): boolean {
+  return (
+    (item.kind === "bathing" && item.bathingRole === "source") ||
+    (item.kind === "sport" && item.sportRole === "source") ||
+    (item.kind === "task" && item.taskRole === "source")
+  );
+}
+
 interface Props {
   weekStart: string;
   plan: UnifiedWeekPlan;
@@ -144,8 +152,7 @@ export function UnifiedWeekBoard({
     if (isTaskOnHold(i)) return false;
     if (i.kind === "monthly_bill") return false;
     if (i.weekday != null) return false;
-    if (i.kind === "bathing" && i.bathingRole === "source") return true;
-    if (i.kind === "task" && i.taskRole === "source") return true;
+    if (isPlanSource(i)) return true;
     return true;
   });
   const monthlyBacklog = localItems.filter(
@@ -167,10 +174,7 @@ export function UnifiedWeekBoard({
   }
 
   const placedCount = localItems.filter(
-    (i) =>
-      i.weekday != null &&
-      !(i.kind === "bathing" && i.bathingRole === "source") &&
-      !(i.kind === "task" && i.taskRole === "source"),
+    (i) => i.weekday != null && !isPlanSource(i),
   ).length;
   const doneCount = localItems.filter((i) => i.done).length;
   const draggingItem = draggingId
@@ -183,8 +187,9 @@ export function UnifiedWeekBoard({
 
     const isBathingSource =
       item.kind === "bathing" && item.bathingRole === "source";
+    const isSportSource = item.kind === "sport" && item.sportRole === "source";
     const isTaskSource = item.kind === "task" && item.taskRole === "source";
-    if (!isBathingSource && !isTaskSource && item.weekday === weekday) return;
+    if (!isBathingSource && !isSportSource && !isTaskSource && item.weekday === weekday) return;
 
     setError(null);
     if (isBathingSource) {
@@ -212,6 +217,35 @@ export function UnifiedWeekBoard({
         };
         return [...rest, optimisticPlacement];
       });
+    } else if (isSportSource) {
+      setLocalItems((prev) => {
+        const source = prev.find((i) => i.dragId === dragId);
+        if (
+          !source ||
+          source.kind !== "sport" ||
+          source.sportRole !== "source"
+        ) {
+          return prev.filter((i) => i.dragId !== dragId);
+        }
+        const uid = `${source.templateId}-${Date.now()}`;
+        const dayItems = prev.filter(
+          (i) => i.weekday === weekday && !isPlanSource(i),
+        );
+        const nextOrder =
+          dayItems.length > 0
+            ? Math.max(...dayItems.map((t) => t.sortOrder)) + 1
+            : 0;
+        const optimisticPlacement: WeekPlanItem = {
+          ...source,
+          dragId: `sport:optimistic-${uid}`,
+          sportRole: "placement",
+          placementId: `optimistic-${uid}`,
+          weekday,
+          sortOrder: nextOrder,
+          done: false,
+        };
+        return [...prev, optimisticPlacement];
+      });
     } else if (isTaskSource) {
       setLocalItems((prev) => {
         const source = prev.find((i) => i.dragId === dragId);
@@ -224,10 +258,7 @@ export function UnifiedWeekBoard({
         }
         const uid = `${source.taskId}-${Date.now()}`;
         const dayItems = prev.filter(
-          (i) =>
-            i.weekday === weekday &&
-            !(i.kind === "bathing" && i.bathingRole === "source") &&
-            !(i.kind === "task" && i.taskRole === "source"),
+          (i) => i.weekday === weekday && !isPlanSource(i),
         );
         const nextOrder =
           dayItems.length > 0
@@ -250,10 +281,7 @@ export function UnifiedWeekBoard({
         const moving = prev.find((i) => i.dragId === dragId);
         if (!moving) return prev;
         const dayItems = prev.filter(
-          (i) =>
-            i.weekday === weekday &&
-            !(i.kind === "bathing" && i.bathingRole === "source") &&
-            !(i.kind === "task" && i.taskRole === "source"),
+          (i) => i.weekday === weekday && !isPlanSource(i),
         );
         const nextOrder =
           moving.weekday === weekday
@@ -304,8 +332,7 @@ export function UnifiedWeekBoard({
   const unplace = (dragId: string) => {
     const item = localItems.find((i) => i.dragId === dragId);
     if (!item || item.weekday == null) return;
-    if (item.kind === "bathing" && item.bathingRole === "source") return;
-    if (item.kind === "task" && item.taskRole === "source") return;
+    if (isPlanSource(item)) return;
 
     setError(null);
     setLocalItems((prev) => {
@@ -340,6 +367,10 @@ export function UnifiedWeekBoard({
           },
         };
         return [...without, sourceItem];
+      }
+      if (item.kind === "sport" && item.sportRole === "placement") {
+        // Repeatable sport instance: remove placement; source stays in backlog.
+        return prev.filter((i) => i.dragId !== dragId);
       }
       if (
         item.kind === "task" &&
@@ -384,10 +415,7 @@ export function UnifiedWeekBoard({
     const activeItem = localItems.find((i) => i.dragId === dragId);
     const overItem = localItems.find((i) => i.dragId === overId);
     const canReorder = (item: WeekPlanItem | undefined) =>
-      item != null &&
-      item.weekday != null &&
-      !(item.kind === "bathing" && item.bathingRole === "source") &&
-      !(item.kind === "task" && item.taskRole === "source");
+      item != null && item.weekday != null && !isPlanSource(item);
 
     if (
       canReorder(activeItem) &&
@@ -397,10 +425,7 @@ export function UnifiedWeekBoard({
       const weekday = activeItem!.weekday!;
       const dayItems = sortDayItems(
         localItems.filter(
-          (i) =>
-            i.weekday === weekday &&
-            !(i.kind === "bathing" && i.bathingRole === "source") &&
-            !(i.kind === "task" && i.taskRole === "source"),
+          (i) => i.weekday === weekday && !isPlanSource(i),
         ),
       );
       const oldIndex = dayItems.findIndex((t) => t.dragId === dragId);
@@ -446,11 +471,7 @@ export function UnifiedWeekBoard({
 
     if (overId === WEEK_PLAN_BACKLOG_DROP_ID) {
       const item = localItems.find((i) => i.dragId === dragId);
-      if (item?.kind === "bathing" && item.bathingRole === "source") {
-        setDraggingId(null);
-        return;
-      }
-      if (item?.kind === "task" && item.taskRole === "source") {
+      if (item && isPlanSource(item)) {
         setDraggingId(null);
         return;
       }
@@ -657,11 +678,7 @@ export function UnifiedWeekBoard({
 
           {WEEKDAYS.map((d) => {
             const dayItems = sortDayItems(
-              (byDay.get(d) ?? []).filter(
-                (i) =>
-                  !(i.kind === "bathing" && i.bathingRole === "source") &&
-                  !(i.kind === "task" && i.taskRole === "source"),
-              ),
+              (byDay.get(d) ?? []).filter((i) => !isPlanSource(i)),
             );
             const dayDone = dayItems.filter((i) => i.done).length;
             return (
@@ -1220,17 +1237,18 @@ function ItemRowContent({
 
   const isOneOff = isOneOffTask(item);
   const canManage = canManageTask(item);
+  // Legacy numbered music reps only — canonical music_rep is repeatable like Kodning.
   const canHideFromPlan =
     !preview &&
     item.kind === "task" &&
-    isMusicRepTask(item.taskKey) &&
+    Boolean(item.taskKey?.startsWith("music_rep_")) &&
     !item.placement?.onHold;
 
+  const isUnplaced = item.weekday == null;
   const canUnplaceFromDay =
     !preview &&
-    item.weekday != null &&
-    !(item.kind === "bathing" && item.bathingRole === "source") &&
-    !(item.kind === "task" && item.taskRole === "source");
+    !isUnplaced &&
+    !isPlanSource(item);
 
   const hideFromPlan = () => {
     if (!canHideFromPlan || item.kind !== "task") return;
@@ -1252,7 +1270,7 @@ function ItemRowContent({
     taskPlanningExpand ||
     item.kind === "gym" ||
     item.kind === "cardio" ||
-    item.kind === "sport" ||
+    (item.kind === "sport" && item.sportRole === "placement") ||
     (item.kind === "bathing" && item.bathingRole === "placement") ||
     item.kind === "weight" ||
     isMonthlyAmount ||
@@ -1515,12 +1533,12 @@ function ItemRowContent({
   };
 
   const saveSportPlan = () => {
-    if (item.kind !== "sport") return;
+    if (item.kind !== "sport" || !item.placementId) return;
     onError(null);
     onPendingId(item.dragId);
     startTransition(async () => {
       const res = await updateSportPlanAction({
-        templateId: item.templateId,
+        placementId: item.placementId!,
         weekStart,
         planSport: sportPlan,
       });
@@ -1531,12 +1549,12 @@ function ItemRowContent({
   };
 
   const completeSport = () => {
-    if (item.kind !== "sport") return;
+    if (item.kind !== "sport" || !item.placementId) return;
     onError(null);
     onPendingId(item.dragId);
     startTransition(async () => {
       const res = await completeSportSessionAction({
-        templateId: item.templateId,
+        placementId: item.placementId!,
         weekStart,
         actualSport: sportActual,
         note: sportNote,
@@ -1549,12 +1567,12 @@ function ItemRowContent({
   };
 
   const uncompleteSport = () => {
-    if (item.kind !== "sport") return;
+    if (item.kind !== "sport" || !item.placementId) return;
     onError(null);
     onPendingId(item.dragId);
     startTransition(async () => {
       const res = await uncompleteSportSessionAction({
-        templateId: item.templateId,
+        placementId: item.placementId!,
         weekStart,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
@@ -1648,7 +1666,7 @@ function ItemRowContent({
         (item.kind === "task" ||
           item.kind === "gym" ||
           item.kind === "cardio" ||
-          item.kind === "sport" ||
+          (item.kind === "sport" && item.sportRole === "placement") ||
           (item.kind === "bathing" && item.bathingRole === "placement") ||
           item.kind === "weight" ||
           item.kind === "monthly_bill") ? (
@@ -2061,7 +2079,9 @@ function ItemRowContent({
             </button>
           ) : null}
 
-          {item.kind === "sport" && !item.done ? (
+          {item.kind === "sport" &&
+          item.sportRole === "placement" &&
+          !item.done ? (
             <>
               <Input
                 label="Planerad sport"
@@ -2117,7 +2137,9 @@ function ItemRowContent({
             </>
           ) : null}
 
-          {item.kind === "sport" && item.done ? (
+          {item.kind === "sport" &&
+          item.sportRole === "placement" &&
+          item.done ? (
             <button
               type="button"
               className={styles.undoBtn}

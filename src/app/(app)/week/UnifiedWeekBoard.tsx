@@ -640,7 +640,7 @@ export function UnifiedWeekBoard({
                     {monthlyBacklog.length}
                   </span>
                 </header>
-                <p className={styles.dragHint}>Dra till en veckodag →</p>
+                <p className={styles.dragHint}>Välj dag eller dra →</p>
                 <div className={styles.dayGroups}>
                   {renderGroupedLists(
                     groupWeekPlanBacklogItems(monthlyBacklog, plan.categories),
@@ -1195,6 +1195,7 @@ function ItemRowContent({
   const [taskPlanNote, setTaskPlanNote] = useState(
     item.kind === "task" ? (item.placement?.planNote ?? "") : "",
   );
+  const [placeOpen, setPlaceOpen] = useState(false);
   const [monthlyAmount, setMonthlyAmount] = useState(
     item.kind === "monthly_bill" && item.completion?.amount != null
       ? String(item.completion.amount)
@@ -1837,6 +1838,52 @@ function ItemRowContent({
         </div>
       ) : null}
 
+      {!preview && isUnplaced ? (
+        <div className={styles.backlogPlace}>
+          <button
+            type="button"
+            className={[
+              styles.taskPlaceBtn,
+              placeOpen ? styles.taskPlaceBtnOpen : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => setPlaceOpen((open) => !open)}
+            disabled={pending}
+            aria-label={`Placera ${item.label} på en dag`}
+            aria-expanded={placeOpen}
+            title="Placera på dag"
+          >
+            Dag
+            <span
+              className={[styles.chevron, placeOpen ? styles.chevronUp : ""]
+                .filter(Boolean)
+                .join(" ")}
+              aria-hidden
+            >
+              ▾
+            </span>
+          </button>
+          {placeOpen ? (
+            <div className={styles.weekdayRow} role="radiogroup">
+              {WEEKDAYS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  role="radio"
+                  aria-checked={false}
+                  className={styles.weekdayBtn}
+                  onClick={() => onPlace(item.dragId, d)}
+                  disabled={pending}
+                >
+                  {WEEKDAY_SHORT[d]}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {expanded && !preview ? (
         <div className={styles.taskActions}>
           {canManage ? (
@@ -1884,7 +1931,7 @@ function ItemRowContent({
             </>
           ) : null}
 
-          {item.kind !== "bathing" ? (
+          {!isUnplaced && item.kind !== "bathing" ? (
             <>
               <p className={styles.actionsLabel}>Flytta till annan dag</p>
               <div className={styles.weekdayRow} role="radiogroup">

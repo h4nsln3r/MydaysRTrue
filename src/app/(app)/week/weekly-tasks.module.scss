@@ -303,6 +303,52 @@
     }
 }
 
+.taskPlaceBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: auto;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    align-self: start;
+    cursor: pointer;
+    opacity: 0.72;
+    transition:
+        color 160ms $ease-out,
+        opacity 160ms $ease-out;
+
+    .chevron {
+        font-size: 0.58rem;
+        line-height: 1;
+        opacity: 0.85;
+    }
+
+    &:hover:not(:disabled) {
+        color: $color-cream-dim;
+        opacity: 1;
+    }
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+}
+
+.taskPlaceBtnOpen {
+    color: $color-cream-dim;
+    opacity: 1;
+}
+
 .taskEditBtn {
     &:hover:not(:disabled) {
         color: $color-orange-bright;
@@ -702,6 +748,20 @@
     padding-top: $space-3;
     margin-top: $space-2;
     border-top: 1px dashed $color-line;
+}
+
+.backlogPlace {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $space-2;
+    padding-top: 2px;
+    margin-top: 0;
+
+    .weekdayRow {
+        width: 100%;
+    }
 }
 
 .actionsLabel {

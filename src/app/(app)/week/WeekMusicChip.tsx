@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { WeekMusicLogDialog } from "./WeekMusicLogDialog";
 import type { WeeklyTaskForWeek } from "@/lib/tasks";
+import { musicSessionIcon, musicSessionTitle } from "@/lib/tasks";
 import styles from "./week-progress.module.scss";
 
 function cellClass(...classes: Array<string | false | undefined>): string {
@@ -29,7 +30,7 @@ export function WeekMusicChip({ task, localDate }: Props) {
           styles.categoryTaskChipInteractive,
           done && styles.categoryTaskChipDone,
         )}
-        title={`${task.title} · Dubbelklicka för att ${done ? "ändra" : "logga"}`}
+        title={`${musicSessionTitle(task, task.placement)} · Dubbelklicka för att ${done ? "ändra" : "logga"}`}
         role="button"
         tabIndex={0}
         onDoubleClick={() => setOpen(true)}
@@ -40,7 +41,7 @@ export function WeekMusicChip({ task, localDate }: Props) {
           }
         }}
       >
-        <span aria-hidden>{task.icon}</span>
+        <span aria-hidden>{musicSessionIcon(task, task.placement)}</span>
         <span className={styles.categoryTaskChipMark} aria-hidden>
           {done ? "✓" : "○"}
         </span>

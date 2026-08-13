@@ -21,8 +21,9 @@ import {
   type WeeklyTaskChecklistCompletion,
   type WeeklyTaskForWeek,
   type WeeklyTaskCompletionKind,
-  type MusicBand,
   type MusicLogKind,
+  musicActivityFromLegacyKey,
+  parseMusicActivity,
 } from "@/lib/tasks";
 import {
   balancesFromSnapshotRow,
@@ -237,6 +238,8 @@ interface WeeklyPlacementRow {
   shop_amount_expr: string | null;
   laundry_loads: number | null;
   band: string | null;
+  music_activity: string | null;
+  plan_todo: string | null;
   music_log_kind: string | null;
   gig_id: string | null;
   live_event_id: string | null;
@@ -261,7 +264,9 @@ function rowToPlacement(
     shopAmount: r.shop_amount != null ? Number(r.shop_amount) : null,
     shopAmountExpr: r.shop_amount_expr,
     laundryLoads: r.laundry_loads,
-    band: (r.band as MusicBand | null) ?? null,
+    musicActivity: parseMusicActivity(r.music_activity),
+    planTodo: r.plan_todo,
+    band: r.band,
     musicLogKind: (r.music_log_kind as MusicLogKind | null) ?? null,
     gigId: r.gig_id,
     liveEventId: r.live_event_id,
@@ -330,7 +335,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled, is_repeatable, weekly_goal";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, laundry_loads, band, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, laundry_loads, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 
@@ -384,42 +389,61 @@ const REPEATABLE_CANONICAL: Array<{
     sortOrder: 0,
   },
   {
-    key: "music_rep",
-    legacyLike: "music_rep_%",
-    title: "Rep",
+    key: "music",
+    legacyLike: "music_%",
+    title: "Musik",
     notes:
-      "Dra in hur många reps du vill — minst 2 per vecka. Välj band och anteckna vad ni gick igenom.",
-    icon: "🤘",
+      "Dra in hur många musikpass du vill — minst 2 per vecka. Välj vad du ska göra när du planerar.",
+    icon: "🎵",
     accent: "#e879f9",
     completionKind: "music",
     categoryName: "MUSIC",
-    sortOrder: 4,
-  },
-  {
-    key: "music_bas",
-    legacyLike: "music_bas_%",
-    title: "Bas",
-    notes:
-      "Dra in hur många basövningar du vill — minst 2 per vecka. Lägg till låtar och övningar i listan.",
-    icon: "🎸",
-    accent: "#e879f9",
-    completionKind: "music",
-    categoryName: "MUSIC",
-    sortOrder: 1,
-  },
-  {
-    key: "music_live",
-    legacyLike: "music_live_%",
-    title: "Live",
-    notes:
-      "Dra in hur många live-spelningar du vill — minst 2 per vecka. Välj band och anteckna vad ni gick igenom.",
-    icon: "🎫",
-    accent: "#f472b6",
-    completionKind: "music",
-    categoryName: "MUSIC",
-    sortOrder: 5,
+    sortOrder: 0,
   },
 ];
+
+async function backfillMusicActivityFromLegacyKeys(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<void> {
+  await supabase
+    .from("weekly_tasks")
+    .update({ archived_at: null })
+    .eq("user_id", userId)
+    .eq("key", "music");
+
+  const { data: tasks } = await supabase
+    .from("weekly_tasks")
+    .select("id, key")
+    .eq("user_id", userId)
+    .like("key", "music%");
+  for (const task of tasks ?? []) {
+    const fromKey = musicActivityFromLegacyKey(task.key);
+    if (task.key === "music_live") {
+      await supabase
+        .from("weekly_task_placements")
+        .update({ music_activity: "spelning" })
+        .eq("user_id", userId)
+        .eq("task_id", task.id)
+        .eq("music_log_kind", "gig")
+        .is("music_activity", null);
+      await supabase
+        .from("weekly_task_placements")
+        .update({ music_activity: "live" })
+        .eq("user_id", userId)
+        .eq("task_id", task.id)
+        .is("music_activity", null);
+      continue;
+    }
+    if (!fromKey) continue;
+    await supabase
+      .from("weekly_task_placements")
+      .update({ music_activity: fromKey })
+      .eq("user_id", userId)
+      .eq("task_id", task.id)
+      .is("music_activity", null);
+  }
+}
 
 /**
  * Promote legacy numbered slots (dev_code_1/2, …) into one repeatable task
@@ -429,6 +453,7 @@ export async function ensureRepeatableWeeklyTasks(
   userId: string,
 ): Promise<void> {
   const supabase = await createClient();
+  await backfillMusicActivityFromLegacyKeys(supabase, userId);
 
   for (const spec of REPEATABLE_CANONICAL) {
     let canonicalId: string | null = null;

@@ -24,6 +24,8 @@ import { isMoodKey } from "@/lib/mood";
 import {
   formatMonthlyTaskDetail,
   formatWeeklyTaskDetail,
+  musicSessionIcon,
+  musicSessionTitle,
   type MonthlyTaskForMonth,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
@@ -372,8 +374,8 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
     entries.push({
       id: `task-${placement.id}`,
       source: "task",
-      icon: t.icon,
-      title: t.title,
+      icon: musicSessionIcon(t, placement),
+      title: musicSessionTitle(t, placement),
       body: parts.length > 0 ? parts.join(". ") : "Klar.",
       at: placement.doneAt!,
       editable: false,

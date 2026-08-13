@@ -125,6 +125,8 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
                 shopAmount: t.placement?.shopAmount ?? null,
                 shopAmountExpr: t.placement?.shopAmountExpr ?? null,
                 laundryLoads: t.placement?.laundryLoads ?? null,
+                musicActivity: t.placement?.musicActivity ?? null,
+                planTodo: t.placement?.planTodo ?? null,
                 band: t.placement?.band ?? null,
                 musicLogKind: t.placement?.musicLogKind ?? null,
                 gigId: t.placement?.gigId ?? null,

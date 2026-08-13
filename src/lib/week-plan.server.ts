@@ -4,7 +4,7 @@ import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getSportWeekSummary } from "@/lib/sport.server";
 import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
-import { formatWeeklyTaskDetail, isWeeklyTaskRepeatable, type Weekday } from "@/lib/tasks";
+import { formatWeeklyTaskDetail, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
@@ -40,6 +40,20 @@ function dayPlanSortOrder(
   backlogOrder: number,
 ): number {
   return weekday != null ? daySortOrder : backlogOrder;
+}
+
+function weekTaskSubtitle(
+  task: { notes: string | null; completionKind: string },
+  placement: Parameters<typeof formatWeeklyTaskDetail>[0] | null | undefined,
+): string | null {
+  if (placement) {
+    const detail = formatWeeklyTaskDetail(placement);
+    if (detail) return detail;
+  }
+  if (task.completionKind === "music") {
+    return placement?.musicActivity ? null : "Välj vad du ska göra";
+  }
+  return task.notes;
 }
 
 function sortItems(items: WeekPlanItem[]): WeekPlanItem[] {
@@ -292,11 +306,9 @@ export async function getUnifiedWeekPlan(
           completionKind: t.completionKind,
           placement,
           checklist: t.checklist,
-          label: t.title,
-          subtitle: done
-            ? formatWeeklyTaskDetail(placement) ?? t.notes
-            : t.notes,
-          icon: t.icon,
+          label: musicSessionTitle(t, placement),
+          subtitle: weekTaskSubtitle(t, placement),
+          icon: musicSessionIcon(t, placement),
           accent: t.accent,
           defaultWeekday: t.defaultWeekday,
           weekday: placement.weekday,
@@ -326,12 +338,9 @@ export async function getUnifiedWeekPlan(
       completionKind: t.completionKind,
       placement,
       checklist: t.checklist,
-      label: t.title,
-      subtitle:
-        done && placement
-          ? formatWeeklyTaskDetail(placement) ?? t.notes
-          : t.notes,
-      icon: t.icon,
+      label: musicSessionTitle(t, placement),
+      subtitle: weekTaskSubtitle(t, placement),
+      icon: musicSessionIcon(t, placement),
       accent: t.accent,
       defaultWeekday: t.defaultWeekday,
       weekday: placement?.weekday ?? null,

@@ -29,6 +29,7 @@ import type {
   WeeklyTaskChecklistItem,
   WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import { musicSessionIcon, musicSessionTitle } from "@/lib/tasks";
 import { shouldShowWork, type WorkDailyLog } from "@/lib/work";
 import type { WeightDayContext } from "@/lib/weight";
 import {
@@ -459,20 +460,6 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
       doneAt: task.placement?.doneAt ?? null,
       task,
     });
-
-    if (task.completionKind === "music" && task.checklist.length > 0) {
-      for (const checklistItem of task.checklist) {
-        items.push({
-          kind: "task_checklist",
-          id: checklistItem.id,
-          itemKey: `task_checklist:${checklistItem.id}`,
-          sortOrder: 0,
-          doneAt: checklistItem.completion?.doneAt ?? null,
-          task,
-          checklistItem,
-        });
-      }
-    }
   }
 
   const monthStart = input.monthStart ?? `${input.date.slice(0, 7)}-01`;
@@ -711,7 +698,7 @@ export function sortDayPlanItems(items: DayPlanItem[]): DayPlanItem[] {
 export function dayPlanItemLabel(item: DayPlanItem): string {
   switch (item.kind) {
     case "task":
-      return item.task.title;
+      return musicSessionTitle(item.task, item.task.placement);
     case "task_checklist":
       return item.checklistItem.text;
     case "monthly_task":
@@ -752,9 +739,9 @@ export function dayPlanItemLabel(item: DayPlanItem): string {
 export function dayPlanItemIcon(item: DayPlanItem): string {
   switch (item.kind) {
     case "task":
-      return item.task.icon;
+      return musicSessionIcon(item.task, item.task.placement);
     case "task_checklist":
-      return item.task.icon;
+      return musicSessionIcon(item.task, item.task.placement);
     case "monthly_task":
       return item.task.icon;
     case "gym":

@@ -848,6 +848,8 @@ export interface Database {
           shop_amount_expr: string | null;
           laundry_loads: number | null;
           band: string | null;
+          music_activity: "rep" | "bas" | "gitarr" | "piano" | "ovning" | "inspelning" | "live" | "spelning" | null;
+          plan_todo: string | null;
           music_log_kind: "gig" | "live" | null;
           gig_id: string | null;
           live_event_id: string | null;
@@ -871,6 +873,8 @@ export interface Database {
           shop_amount_expr?: string | null;
           laundry_loads?: number | null;
           band?: string | null;
+          music_activity?: "rep" | "bas" | "gitarr" | "piano" | "ovning" | "inspelning" | "live" | "spelning" | null;
+          plan_todo?: string | null;
           music_log_kind?: "gig" | "live" | null;
           gig_id?: string | null;
           live_event_id?: string | null;
@@ -894,6 +898,8 @@ export interface Database {
           shop_amount_expr?: string | null;
           laundry_loads?: number | null;
           band?: string | null;
+          music_activity?: "rep" | "bas" | "gitarr" | "piano" | "ovning" | "inspelning" | "live" | "spelning" | null;
+          plan_todo?: string | null;
           music_log_kind?: "gig" | "live" | null;
           gig_id?: string | null;
           live_event_id?: string | null;

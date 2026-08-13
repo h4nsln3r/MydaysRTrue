@@ -59,7 +59,122 @@ export type WeeklyTaskCompletionKind =
 export const MUSIC_BANDS = ["Totes", "Bojeng"] as const;
 export type MusicBand = (typeof MUSIC_BANDS)[number];
 
-/** How a music weekly task was logged when completed. */
+export const MUSIC_OTHER_BAND = "Annat";
+
+export const MUSIC_ACTIVITIES = [
+  "rep",
+  "bas",
+  "gitarr",
+  "piano",
+  "ovning",
+  "inspelning",
+  "live",
+  "spelning",
+] as const;
+
+export type MusicActivity = (typeof MUSIC_ACTIVITIES)[number];
+
+export const MUSIC_ACTIVITY_LABEL: Record<MusicActivity, string> = {
+  rep: "Rep",
+  bas: "Bas",
+  gitarr: "Gitarr",
+  piano: "Piano",
+  ovning: "Övning",
+  inspelning: "Inspelning",
+  live: "Live",
+  spelning: "Spelning",
+};
+
+export const MUSIC_ACTIVITY_ICON: Record<MusicActivity, string> = {
+  rep: "🤘",
+  bas: "🎸",
+  gitarr: "🎸",
+  piano: "🎹",
+  ovning: "🎵",
+  inspelning: "🎙️",
+  live: "🎫",
+  spelning: "🎤",
+};
+
+export const MUSIC_ACTIVITY_HINT: Record<MusicActivity, string> = {
+  rep: "Repa med ett av banden eller i en annan konstellation",
+  bas: "Basträning själv",
+  gitarr: "Gitarrträning",
+  piano: "Pianoträning",
+  ovning: "Övning på annat instrument",
+  inspelning: "Studio / inspelning",
+  live: "Gå på ett live-gig",
+  spelning: "Spela på en spelning, med ett band eller i annan konstellation",
+};
+
+const MUSIC_ACTIVITY_SET = new Set<string>(MUSIC_ACTIVITIES);
+
+export function isMusicActivity(value: string | null | undefined): value is MusicActivity {
+  return value != null && MUSIC_ACTIVITY_SET.has(value);
+}
+
+export function parseMusicActivity(
+  value: string | null | undefined,
+): MusicActivity | null {
+  return isMusicActivity(value) ? value : null;
+}
+
+export function musicActivityNeedsBand(activity: MusicActivity | null): boolean {
+  return activity === "rep" || activity === "spelning";
+}
+
+export function musicActivityCreatesGig(activity: MusicActivity | null): boolean {
+  return activity === "spelning";
+}
+
+export function musicActivityCreatesLiveEvent(
+  activity: MusicActivity | null,
+): boolean {
+  return activity === "live";
+}
+
+export function isKnownMusicBand(value: string | null | undefined): value is MusicBand {
+  return value != null && (MUSIC_BANDS as readonly string[]).includes(value);
+}
+
+/** Canonical unified music weekly task (plus leftover legacy keys). */
+export function isMusicWeeklyTaskKey(key: string | null | undefined): boolean {
+  return key === "music" || (key?.startsWith("music_") ?? false);
+}
+
+export function musicActivityFromLegacyKey(
+  key: string | null | undefined,
+): MusicActivity | null {
+  if (!key) return null;
+  if (key === "music_bas" || key.startsWith("music_bas_")) return "bas";
+  if (key === "music_guitar") return "gitarr";
+  if (key === "music_inspelning") return "inspelning";
+  if (key === "music_rep" || key.startsWith("music_rep_")) return "rep";
+  if (key === "music_live") return "live";
+  return null;
+}
+
+export function musicSessionTitle(
+  task: { title: string; completionKind?: WeeklyTaskCompletionKind },
+  placement: { musicActivity?: MusicActivity | null } | null | undefined,
+): string {
+  if (task.completionKind === "music" && placement?.musicActivity) {
+    return MUSIC_ACTIVITY_LABEL[placement.musicActivity];
+  }
+  return task.title;
+}
+
+export function musicSessionIcon(
+  task: { icon: string; completionKind?: WeeklyTaskCompletionKind },
+  placement: { musicActivity?: MusicActivity | null } | null | undefined,
+): string {
+  if (task.completionKind === "music" && placement?.musicActivity) {
+    return MUSIC_ACTIVITY_ICON[placement.musicActivity];
+  }
+  return task.icon;
+}
+
+/** How a music weekly task was logged when completed (gig/live year boards). */
 export type MusicLogKind = "gig" | "live";
 
 export const MUSIC_LOG_KIND_LABEL: Record<MusicLogKind, string> = {
@@ -67,6 +182,15 @@ export const MUSIC_LOG_KIND_LABEL: Record<MusicLogKind, string> = {
   live: "Live spelning",
 };
 
+export function musicLogKindFromActivity(
+  activity: MusicActivity | null,
+): MusicLogKind | null {
+  if (activity === "spelning") return "gig";
+  if (activity === "live") return "live";
+  return null;
+}
+
+/** @deprecated Prefer musicActivityNeedsBand — kept for leftover music_rep_* rows. */
 export function isMusicRepTask(key: string | null): boolean {
   return (
     key === "music_rep" ||
@@ -80,6 +204,7 @@ export const REPEATABLE_WEEKLY_TASK_KEYS = [
   "dev_code",
   "home_handla",
   "life_ring_mamma",
+  "music",
   "music_rep",
   "music_bas",
   "music_live",
@@ -302,8 +427,12 @@ export interface WeeklyPlacement {
   /** Raw sum text as typed (e.g. "45+120+8,50"); null for legacy rows. */
   shopAmountExpr: string | null;
   laundryLoads: number | null;
-  /** Band name for music rep tasks (Totes / Bojeng). */
-  band: MusicBand | null;
+  /** Planned music session type (rep, bas, live, …). */
+  musicActivity: MusicActivity | null;
+  /** Optional to-do for this music occasion. */
+  planTodo: string | null;
+  /** Band or constellation name (Totes, Bojeng, or free text). */
+  band: string | null;
   /** When set, completion also registered a gig or attended live concert. */
   musicLogKind: MusicLogKind | null;
   /** Linked own-band gig created from this completion. */
@@ -425,18 +554,17 @@ export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | nul
     const time = placement.planNote ? `${placement.planNote} · ` : "";
     return `${time}${placement.laundryLoads} tvättar`;
   }
-  if (placement.musicLogKind) {
-    const parts = [MUSIC_LOG_KIND_LABEL[placement.musicLogKind]];
-    if (placement.band) parts.push(placement.band);
-    if (placement.note) parts.push(placement.note);
-    return parts.join(" · ");
+  const musicParts: string[] = [];
+  if (placement.band) musicParts.push(placement.band);
+  if (placement.planTodo?.trim()) musicParts.push(placement.planTodo.trim());
+  if (placement.musicLogKind && placement.note) {
+    musicParts.push(placement.note);
+  } else if (placement.note) {
+    musicParts.push(placement.note);
+  } else if (placement.planNote) {
+    musicParts.push(placement.planNote);
   }
-  if (placement.band && placement.note) {
-    return `${placement.band} · ${placement.note}`;
-  }
-  if (placement.band) return placement.band;
-  if (placement.note) return placement.note;
-  if (placement.planNote) return placement.planNote;
+  if (musicParts.length > 0) return musicParts.join(" · ");
   return null;
 }
 

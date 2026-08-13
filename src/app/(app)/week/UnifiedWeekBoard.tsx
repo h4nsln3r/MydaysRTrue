@@ -61,7 +61,7 @@ import {
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
-import { MusicTaskChecklist } from "@/components/MusicTaskChecklist/MusicTaskChecklist";
+import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import { formatWeightKg } from "@/lib/format";
 import {
   bathingRequiresWaterTemp,
@@ -79,7 +79,8 @@ import {
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   WEEKDAYS,
-  isMusicRepTask,
+  parseMusicActivity,
+  type MusicActivity,
   type TaskCategory,
   type Weekday,
 } from "@/lib/tasks";
@@ -951,8 +952,9 @@ interface DraggableItemRowProps {
 }
 
 function hasDayActions(item: WeekPlanItem): boolean {
-  return canManageTask(item) || isMusicRepTask(
-    item.kind === "task" ? item.taskKey : null,
+  return (
+    canManageTask(item) ||
+    (item.kind === "task" && item.completionKind === "music")
   );
 }
 
@@ -1212,6 +1214,17 @@ function ItemRowContent({
   const [taskPlanNote, setTaskPlanNote] = useState(
     item.kind === "task" ? (item.placement?.planNote ?? "") : "",
   );
+  const [musicActivity, setMusicActivity] = useState<MusicActivity | null>(
+    item.kind === "task"
+      ? parseMusicActivity(item.placement?.musicActivity)
+      : null,
+  );
+  const [musicBand, setMusicBand] = useState(
+    item.kind === "task" ? (item.placement?.band ?? null) : null,
+  );
+  const [musicPlanTodo, setMusicPlanTodo] = useState(
+    item.kind === "task" ? (item.placement?.planTodo ?? "") : "",
+  );
   const [placeOpen, setPlaceOpen] = useState(false);
   const [monthlyAmount, setMonthlyAmount] = useState(
     item.kind === "monthly_bill" && item.completion?.amount != null
@@ -1455,6 +1468,13 @@ function ItemRowContent({
         weekStart,
         planNote: taskPlanNote,
         placementId: item.placementId ?? item.placement?.id,
+        ...(item.completionKind === "music"
+          ? {
+              musicActivity,
+              band: musicBand,
+              planTodo: musicPlanTodo,
+            }
+          : {}),
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -2326,17 +2346,27 @@ function ItemRowContent({
               ) : null}
               {item.completionKind === "music" ? (
                 <>
-                  <MusicTaskChecklist
-                    taskId={item.taskId}
-                    items={item.checklist}
+                  <MusicActivityFields
+                    activity={musicActivity}
+                    onActivityChange={setMusicActivity}
+                    band={musicBand}
+                    onBandChange={setMusicBand}
                     disabled={pending}
                   />
                   <Input
-                    label="Kommentar denna vecka"
+                    label="Anteckning (valfritt)"
                     value={taskPlanNote}
                     onChange={(e) => setTaskPlanNote(e.target.value)}
-                    placeholder="Valfri anteckning"
+                    placeholder="t.ex. gå igenom setlistan"
                     maxLength={280}
+                    disabled={pending}
+                  />
+                  <Input
+                    label="Uppgift för tillfället (valfritt)"
+                    value={musicPlanTodo}
+                    onChange={(e) => setMusicPlanTodo(e.target.value)}
+                    placeholder="t.ex. lära sig introt till X"
+                    maxLength={200}
                     disabled={pending}
                   />
                 </>
@@ -2347,7 +2377,10 @@ function ItemRowContent({
                 size="md"
                 fullWidth
                 loading={pending && busy}
-                disabled={pending}
+                disabled={
+                  pending ||
+                  (item.completionKind === "music" && musicActivity == null)
+                }
                 onClick={saveTaskPlan}
               >
                 Spara plan

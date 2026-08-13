@@ -21,6 +21,8 @@ import {
   expandWeeklyTaskPlacements,
   formatWeeklyTaskDetail,
   groupByCategory,
+  musicSessionIcon,
+  musicSessionTitle,
   scoreCategoryFromTaskGoals,
   weeklyTaskInstanceKey,
   WEEKDAY_LONG,
@@ -658,10 +660,12 @@ function CategoryRecapCard({
               return (
                 <li key={weeklyTaskInstanceKey(t)} className={styles.categoryDoneItem}>
                   <span className={styles.categoryDoneIcon} aria-hidden>
-                    {t.icon}
+                    {musicSessionIcon(t, placement)}
                   </span>
                   <span className={styles.categoryDoneBody}>
-                    <span className={styles.categoryDoneTitle}>{t.title}</span>
+                    <span className={styles.categoryDoneTitle}>
+                      {musicSessionTitle(t, placement)}
+                    </span>
                     {detail ? (
                       <span className={styles.categoryDoneDetail}>{detail}</span>
                     ) : null}
@@ -684,8 +688,8 @@ function CategoryRecapCard({
               const wd = t.placement?.weekday;
               return (
                 <li key={weeklyTaskInstanceKey(t)} className={styles.categoryPendingItem}>
-                  <span aria-hidden>{t.icon}</span>
-                  <span>{t.title}</span>
+                  <span aria-hidden>{musicSessionIcon(t, t.placement)}</span>
+                  <span>{musicSessionTitle(t, t.placement)}</span>
                   {wd != null ? (
                     <span className={styles.categoryPendingDay}>
                       {WEEKDAY_LONG[wd as Weekday]}
@@ -707,8 +711,8 @@ function CategoryRecapCard({
                 key={weeklyTaskInstanceKey(t)}
                 className={styles.categoryPendingItem}
               >
-                <span aria-hidden>{t.icon}</span>
-                <span>{t.title}</span>
+                <span aria-hidden>{musicSessionIcon(t, t.placement)}</span>
+                <span>{musicSessionTitle(t, t.placement)}</span>
               </li>
             ))}
           </ul>

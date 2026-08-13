@@ -21,10 +21,15 @@ import type { Database } from "@/lib/supabase/database.types";
 import {
   isCodingWeeklyTaskKey,
   isHexColor,
-  isMusicRepTask,
+  isKnownMusicBand,
   isWeeklyTaskRepeatable,
-  MUSIC_BANDS,
-  type MusicBand,
+  MUSIC_ACTIVITY_LABEL,
+  musicActivityCreatesGig,
+  musicActivityCreatesLiveEvent,
+  musicActivityNeedsBand,
+  musicLogKindFromActivity,
+  parseMusicActivity,
+  type MusicActivity,
   type MusicLogKind,
   type TaskScope,
   type Weekday,
@@ -935,6 +940,9 @@ export async function updateWeeklyTaskPlanAction(input: {
   weekStart: string;
   planNote: string;
   placementId?: string;
+  musicActivity?: string | null;
+  band?: string | null;
+  planTodo?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -967,6 +975,22 @@ export async function updateWeeklyTaskPlanAction(input: {
     return { ok: false, error: "Uppgiften har inget att planera." };
   }
 
+  let musicActivity: MusicActivity | null = null;
+  let band: string | null = null;
+  let planTodo: string | null = null;
+  if (kind === "music") {
+    musicActivity = parseMusicActivity(input.musicActivity ?? null);
+    if (!musicActivity) {
+      return { ok: false, error: "Välj vad du ska göra." };
+    }
+    const rawBand = (input.band ?? "").trim().slice(0, 80);
+    if (musicActivityNeedsBand(musicActivity)) {
+      band = rawBand || null;
+    }
+    const todo = (input.planTodo ?? "").trim().slice(0, 200);
+    planTodo = todo || null;
+  }
+
   let existing: { id: string } | null = null;
   if (input.placementId) {
     const { data } = await supabase
@@ -994,7 +1018,16 @@ export async function updateWeeklyTaskPlanAction(input: {
 
   const { error } = await supabase
     .from("weekly_task_placements")
-    .update({ plan_note: planNote })
+    .update({
+      plan_note: planNote || null,
+      ...(kind === "music"
+        ? {
+            music_activity: musicActivity,
+            band,
+            plan_todo: planTodo,
+          }
+        : {}),
+    })
     .eq("id", existing.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
@@ -1018,6 +1051,8 @@ export async function completeWeeklyTaskAction(input: {
   shopAmount?: number;
   laundryLoads?: number;
   band?: string;
+  /** Planned / completed music session type. */
+  musicActivity?: string | null;
   /** Music only: register as own-band gig or attended live concert. */
   musicLogKind?: MusicLogKind | null;
   /** Required when musicLogKind is gig or live. */
@@ -1056,13 +1091,19 @@ export async function completeWeeklyTaskAction(input: {
   const musicPlace = (input.musicPlace ?? "").trim().slice(0, 120) || null;
   const eventNote = note.slice(0, 280);
 
-  let existing: { id: string; plan_note: string | null; weekday: number | null } | null =
-    null;
+  let existing: {
+    id: string;
+    plan_note: string | null;
+    weekday: number | null;
+    music_activity: string | null;
+    band: string | null;
+    plan_todo: string | null;
+  } | null = null;
 
   if (input.placementId) {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo")
       .eq("id", input.placementId)
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
@@ -1072,7 +1113,7 @@ export async function completeWeeklyTaskAction(input: {
   } else {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo")
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
       .eq("week_start", input.weekStart)
@@ -1115,7 +1156,8 @@ export async function completeWeeklyTaskAction(input: {
   let shopAmountExpr: string | null = null;
   let completionNote: string | null = null;
   let laundryLoads: number | null = null;
-  let band: MusicBand | null = null;
+  let band: string | null = null;
+  let musicActivity: MusicActivity | null = null;
   let resolvedMusicLogKind: MusicLogKind | null = null;
   let gigId: string | null = null;
   let liveEventId: string | null = null;
@@ -1173,11 +1215,23 @@ export async function completeWeeklyTaskAction(input: {
     }
     laundryLoads = loads;
   } else if (kind === "music") {
-    if (musicLogKind != null && musicLogKind !== "gig" && musicLogKind !== "live") {
-      return { ok: false, error: "Ogiltig musikttyp." };
+    musicActivity =
+      parseMusicActivity(input.musicActivity ?? null) ??
+      parseMusicActivity(existing.music_activity);
+    if (!musicActivity) {
+      return { ok: false, error: "Välj vad du gjorde." };
     }
 
-    if (musicLogKind === "gig" || musicLogKind === "live") {
+    const rawBand = (bandInput || existing.band || "").trim().slice(0, 80);
+    if (musicActivityNeedsBand(musicActivity)) {
+      band = rawBand || null;
+    }
+
+    resolvedMusicLogKind =
+      musicLogKindFromActivity(musicActivity) ??
+      (musicLogKind === "gig" || musicLogKind === "live" ? musicLogKind : null);
+
+    if (musicActivityCreatesGig(musicActivity) || musicActivityCreatesLiveEvent(musicActivity)) {
       if (!musicTitle) {
         return { ok: false, error: "Skriv en titel." };
       }
@@ -1202,45 +1256,46 @@ export async function completeWeeklyTaskAction(input: {
       const year = yearFromLocalISO(eventDate);
       const nowIso = new Date().toISOString();
 
-      if (musicLogKind === "gig") {
-        if (!bandInput || !MUSIC_BANDS.includes(bandInput as MusicBand)) {
-          return { ok: false, error: "Välj vilket band som spelade." };
+      if (musicActivityCreatesGig(musicActivity)) {
+        if (!band) {
+          return { ok: false, error: "Välj band eller annan konstellation." };
         }
-        band = bandInput as MusicBand;
 
-        const { data: last } = await supabase
-          .from("gigs")
-          .select("sort_order")
-          .eq("user_id", user.id)
-          .eq("year", year)
-          .is("archived_at", null)
-          .order("sort_order", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        if (isKnownMusicBand(band)) {
+          const { data: last } = await supabase
+            .from("gigs")
+            .select("sort_order")
+            .eq("user_id", user.id)
+            .eq("year", year)
+            .is("archived_at", null)
+            .order("sort_order", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        const { data: gig, error: gigError } = await supabase
-          .from("gigs")
-          .insert({
-            user_id: user.id,
-            year,
-            band,
-            title: musicTitle,
-            event_date: eventDate,
-            venue: musicPlace,
-            note: eventNote || null,
-            rating: rating ?? null,
-            played_at: nowIso,
-            sort_order: (last?.sort_order ?? -1) + 1,
-          })
-          .select("id")
-          .single();
-        if (gigError || !gig) {
-          return {
-            ok: false,
-            error: gigError?.message ?? "Kunde inte spara spelningen.",
-          };
+          const { data: gig, error: gigError } = await supabase
+            .from("gigs")
+            .insert({
+              user_id: user.id,
+              year,
+              band,
+              title: musicTitle,
+              event_date: eventDate,
+              venue: musicPlace,
+              note: eventNote || null,
+              rating: rating ?? null,
+              played_at: nowIso,
+              sort_order: (last?.sort_order ?? -1) + 1,
+            })
+            .select("id")
+            .single();
+          if (gigError || !gig) {
+            return {
+              ok: false,
+              error: gigError?.message ?? "Kunde inte spara spelningen.",
+            };
+          }
+          gigId = gig.id;
         }
-        gigId = gig.id;
       } else {
         const { data: last } = await supabase
           .from("live_events")
@@ -1277,22 +1332,16 @@ export async function completeWeeklyTaskAction(input: {
         liveEventId = liveEvent.id;
       }
 
-      resolvedMusicLogKind = musicLogKind;
       completionNote = musicTitle;
     } else {
-      if (!note) {
-        return { ok: false, error: "Skriv en kommentar om vad du gjorde." };
-      }
       if (note.length > 500) {
         return { ok: false, error: "Håll kommentaren under 500 tecken." };
       }
-      completionNote = note;
-      if (isMusicRepTask(task.key) && bandInput) {
-        if (!MUSIC_BANDS.includes(bandInput as MusicBand)) {
-          return { ok: false, error: "Ogiltigt band." };
-        }
-        band = bandInput as MusicBand;
-      }
+      completionNote =
+        note ||
+        existing.plan_todo ||
+        existing.plan_note ||
+        MUSIC_ACTIVITY_LABEL[musicActivity];
     }
   }
 
@@ -1316,6 +1365,7 @@ export async function completeWeeklyTaskAction(input: {
         kind === "shop" || kind === "expense" ? shopAmountExpr : null,
       laundry_loads: laundryLoads,
       band: kind === "music" ? band : null,
+      music_activity: kind === "music" ? musicActivity : null,
       music_log_kind: kind === "music" ? resolvedMusicLogKind : null,
       gig_id: kind === "music" ? gigId : null,
       live_event_id: kind === "music" ? liveEventId : null,
@@ -1398,7 +1448,6 @@ export async function uncompleteWeeklyTaskAction(input: {
       shop_amount: null,
       shop_amount_expr: null,
       laundry_loads: null,
-      band: null,
       music_log_kind: null,
       gig_id: null,
       live_event_id: null,

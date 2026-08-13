@@ -5,18 +5,19 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
-import { MusicTaskChecklist } from "@/components/MusicTaskChecklist/MusicTaskChecklist";
+import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import {
   completeWeeklyTaskAction,
   uncompleteWeeklyTaskAction,
 } from "@/app/(app)/tasks-actions";
 import {
   formatWeeklyTaskDetail,
-  isMusicRepTask,
-  MUSIC_BANDS,
-  MUSIC_LOG_KIND_LABEL,
-  type MusicBand,
-  type MusicLogKind,
+  musicActivityCreatesGig,
+  musicActivityCreatesLiveEvent,
+  musicSessionIcon,
+  musicSessionTitle,
+  parseMusicActivity,
+  type MusicActivity,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
 import { GIG_RATING_MAX, GIG_RATING_MIN } from "@/lib/gigs";
@@ -42,10 +43,10 @@ export function WeekMusicLogDialog({
   const placement = task.placement;
   const done = Boolean(placement?.doneAt);
 
-  const [band, setBand] = useState<MusicBand | null>(placement?.band ?? null);
-  const [musicLogKind, setMusicLogKind] = useState<MusicLogKind | null>(
-    placement?.musicLogKind ?? null,
+  const [musicActivity, setMusicActivity] = useState<MusicActivity | null>(
+    parseMusicActivity(placement?.musicActivity),
   );
+  const [band, setBand] = useState<string | null>(placement?.band ?? null);
   const [musicTitle, setMusicTitle] = useState(
     placement?.musicLogKind ? (placement.note ?? "") : "",
   );
@@ -68,19 +69,23 @@ export function WeekMusicLogDialog({
     };
   }, [close]);
 
+  const isGig = musicActivityCreatesGig(musicActivity);
+  const isLive = musicActivityCreatesLiveEvent(musicActivity);
+
   const complete = () => {
     setError(null);
     startTransition(async () => {
       const res = await completeWeeklyTaskAction({
         taskId: task.id,
         weekStart,
+        placementId: placement?.id,
         note: taskNote,
         band: band ?? undefined,
-        musicLogKind,
-        musicTitle: musicLogKind ? musicTitle : undefined,
-        musicPlace: musicLogKind ? musicPlace : undefined,
+        musicActivity,
+        musicTitle: isGig || isLive ? musicTitle : undefined,
+        musicPlace: isGig || isLive ? musicPlace : undefined,
         musicRating:
-          musicLogKind && musicRating.trim() !== ""
+          (isGig || isLive) && musicRating.trim() !== ""
             ? Number(musicRating)
             : null,
       });
@@ -99,6 +104,7 @@ export function WeekMusicLogDialog({
       const res = await uncompleteWeeklyTaskAction({
         taskId: task.id,
         weekStart,
+        placementId: placement?.id,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte ångra.");
@@ -109,9 +115,9 @@ export function WeekMusicLogDialog({
     });
   };
 
-  const isRep = isMusicRepTask(task.key);
   const detail = placement ? formatWeeklyTaskDetail(placement) : null;
   const title = `${formatWeekdayShort(localDate)} ${formatDayShort(localDate)}`;
+  const sessionTitle = musicSessionTitle(task, placement);
 
   return createPortal(
     <div className={styles.backdrop} onClick={close}>
@@ -119,13 +125,13 @@ export function WeekMusicLogDialog({
         className={styles.modal}
         role="dialog"
         aria-modal="true"
-        aria-label={task.title}
+        aria-label={sessionTitle}
         onClick={(e) => e.stopPropagation()}
       >
         <header className={styles.header}>
           <div className={styles.headerText}>
             <p className={styles.kicker}>
-              {task.icon} {task.title} · {title}
+              {musicSessionIcon(task, placement)} {sessionTitle} · {title}
             </p>
             <h2 className={styles.title}>Logga musik</h2>
           </div>
@@ -140,119 +146,29 @@ export function WeekMusicLogDialog({
         </header>
 
         <div className={styles.body}>
-          <MusicTaskChecklist
-            taskId={task.id}
-            items={task.checklist}
-            localDate={localDate}
+          {placement?.planTodo ? (
+            <p className={styles.hint}>Uppgift: {placement.planTodo}</p>
+          ) : null}
+          {placement?.planNote ? (
+            <p className={styles.hint}>Anteckning: {placement.planNote}</p>
+          ) : null}
+
+          <MusicActivityFields
+            activity={musicActivity}
+            onActivityChange={setMusicActivity}
+            band={band}
+            onBandChange={setBand}
             disabled={pending}
           />
 
-          <div className={styles.divider} />
-
-          <div className={styles.bandPicker}>
-            <span className={styles.bandLabel}>Typ</span>
-            <div className={styles.bandBtns}>
-              <button
-                type="button"
-                className={[
-                  styles.bandBtn,
-                  musicLogKind == null ? styles.bandBtnActive : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-pressed={musicLogKind == null}
-                disabled={pending}
-                onClick={() => setMusicLogKind(null)}
-              >
-                Övning
-              </button>
-              {(Object.keys(MUSIC_LOG_KIND_LABEL) as MusicLogKind[]).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  className={[
-                    styles.bandBtn,
-                    musicLogKind === k ? styles.bandBtnActive : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  aria-pressed={musicLogKind === k}
-                  disabled={pending}
-                  onClick={() => setMusicLogKind(k)}
-                >
-                  {MUSIC_LOG_KIND_LABEL[k]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {musicLogKind == null ? (
+          {isGig || isLive ? (
             <>
-              {isRep ? (
-                <div className={styles.bandPicker}>
-                  <span className={styles.bandLabel}>Vilket band? (valfritt)</span>
-                  <div className={styles.bandBtns}>
-                    {MUSIC_BANDS.map((b) => (
-                      <button
-                        key={b}
-                        type="button"
-                        className={[
-                          styles.bandBtn,
-                          band === b ? styles.bandBtnActive : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        aria-pressed={band === b}
-                        disabled={pending}
-                        onClick={() => setBand((prev) => (prev === b ? null : b))}
-                      >
-                        {b}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              <Input
-                label="Kommentar"
-                value={taskNote}
-                onChange={(e) => setTaskNote(e.target.value)}
-                placeholder="Vad gjorde du?"
-                maxLength={500}
-                disabled={pending}
-              />
-            </>
-          ) : (
-            <>
-              {musicLogKind === "gig" ? (
-                <div className={styles.bandPicker}>
-                  <span className={styles.bandLabel}>Vilket band?</span>
-                  <div className={styles.bandBtns}>
-                    {MUSIC_BANDS.map((b) => (
-                      <button
-                        key={b}
-                        type="button"
-                        className={[
-                          styles.bandBtn,
-                          band === b ? styles.bandBtnActive : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        aria-pressed={band === b}
-                        disabled={pending}
-                        onClick={() => setBand(b)}
-                      >
-                        {b}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
               <Input
                 label="Titel"
                 value={musicTitle}
                 onChange={(e) => setMusicTitle(e.target.value)}
                 placeholder={
-                  musicLogKind === "gig"
+                  isGig
                     ? "t.ex. Ekenäsfestivalen, Kvarteret"
                     : "t.ex. Artist / band på scen"
                 }
@@ -264,9 +180,7 @@ export function WeekMusicLogDialog({
                 value={musicPlace}
                 onChange={(e) => setMusicPlace(e.target.value)}
                 placeholder={
-                  musicLogKind === "gig"
-                    ? "t.ex. Debaser, Malmö"
-                    : "t.ex. Annexet, Stockholm"
+                  isGig ? "t.ex. Debaser, Malmö" : "t.ex. Annexet, Stockholm"
                 }
                 maxLength={120}
                 disabled={pending}
@@ -276,7 +190,7 @@ export function WeekMusicLogDialog({
                 value={taskNote}
                 onChange={(e) => setTaskNote(e.target.value)}
                 placeholder={
-                  musicLogKind === "gig"
+                  isGig
                     ? "t.ex. Bra publik, lite nervös i början"
                     : "t.ex. Fantastisk stämning, bra setlista!"
                 }
@@ -303,6 +217,15 @@ export function WeekMusicLogDialog({
                 </select>
               </label>
             </>
+          ) : (
+            <Input
+              label="Kommentar (valfritt)"
+              value={taskNote}
+              onChange={(e) => setTaskNote(e.target.value)}
+              placeholder="Vad gjorde du?"
+              maxLength={500}
+              disabled={pending}
+            />
           )}
 
           {done && detail ? <p className={styles.hint}>Loggat: {detail}</p> : null}

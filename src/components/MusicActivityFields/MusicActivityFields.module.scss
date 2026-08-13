@@ -1,0 +1,48 @@
+@use "abstracts" as *;
+
+.wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.label {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-weight: 600;
+}
+
+.hint {
+    margin: 0;
+    font-size: 0.78rem;
+    color: $color-fog;
+    line-height: 1.35;
+}
+
+.btns {
+    display: flex;
+    gap: $space-2;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 7px 12px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-family: $font-display;
+    font-size: 0.85rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-fog;
+    }
+}
+
+.btnActive {
+    background: rgba(232, 121, 249, 0.15);
+    border-color: #e879f9;
+    color: #e879f9;
+}

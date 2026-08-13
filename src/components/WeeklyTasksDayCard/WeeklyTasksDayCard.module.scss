@@ -15,17 +15,36 @@
 .titleRow {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
     gap: $space-3;
 }
 
 .title {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
     font-family: $font-sans;
     font-weight: 800;
     font-size: 1.05rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: $color-cream;
+}
+
+.saveSpinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(246, 239, 225, 0.22);
+    border-top-color: $color-orange-bright;
+    animation: saveSpin 0.75s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes saveSpin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .weekLink {

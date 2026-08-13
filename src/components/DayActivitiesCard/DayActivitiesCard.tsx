@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDayReschedule } from "@/lib/use-day-reschedule";
 import { useRouter } from "next/navigation";
 import {
@@ -23,7 +23,7 @@ import { BathingExtraBath } from "@/components/BathingDayCard/BathingDayCard";
 import { WeeklyTaskQuickAdd } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
-import { buildDayPlanItems } from "@/lib/day-plan";
+import { buildDayPlanItems, type DayPlanItem } from "@/lib/day-plan";
 import { isoWeekdayFromLocalISO } from "@/lib/date";
 import type { DailyHabit, DailySnacks, MealBoxStockItem, MealEntry, MealKey, MealRestaurant } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
@@ -37,10 +37,31 @@ import type { DailyMediaContext } from "@/lib/media";
 import type { DailyLiveEventsContext } from "@/lib/live-events";
 import type { WorkDailyLog } from "@/lib/work";
 import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
-import { useSyncNavPending } from "@/components/NavProgress/NavProgress";
+import {
+  useBackgroundSave,
+  useSyncNavPending,
+} from "@/components/NavProgress/NavProgress";
 import { DayActivityRow } from "./DayActivityRow";
 import { PlanSortableRow } from "./PlanSortableRow";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
+
+/** Keep the user's local order when server data refreshes (new doneAt, extra items, etc.). */
+function mergeDayPlanItems(
+  serverItems: DayPlanItem[],
+  localItems: DayPlanItem[],
+): DayPlanItem[] {
+  if (localItems.length === 0) return serverItems;
+  const serverByKey = new Map(serverItems.map((item) => [item.itemKey, item]));
+  const orderedKeys = localItems
+    .map((item) => item.itemKey)
+    .filter((key) => serverByKey.has(key));
+  if (orderedKeys.length === 0) return serverItems;
+  const seen = new Set(orderedKeys);
+  const extras = serverItems.filter((item) => !seen.has(item.itemKey));
+  return [...orderedKeys.map((key) => serverByKey.get(key)!), ...extras].map(
+    (item, index) => ({ ...item, sortOrder: index }),
+  );
+}
 
 interface Props {
   weekStart: string;
@@ -119,7 +140,9 @@ export function DayActivitiesCard({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [savingOrder, setSavingOrder] = useState(false);
+  const reorderGen = useRef(0);
+  const { clearQueuedNavigation } = useBackgroundSave(savingOrder);
 
   const planDate = date ?? today ?? "";
 
@@ -171,12 +194,12 @@ export function DayActivitiesCard({
     ],
   );
 
-  useSyncNavPending(pending || pendingKey != null, builtItems);
+  useSyncNavPending(pendingKey != null, builtItems);
 
   const [localItems, setLocalItems] = useState(builtItems);
 
   useEffect(() => {
-    setLocalItems(builtItems);
+    setLocalItems((prev) => mergeDayPlanItems(builtItems, prev));
   }, [builtItems]);
 
   const sensors = useSensors(
@@ -233,21 +256,32 @@ export function DayActivitiesCard({
       ...item,
       sortOrder: index,
     }));
+    const previous = localItems;
     setLocalItems(next);
     setError(null);
+    setSavingOrder(true);
 
-    startTransition(async () => {
-      const res = await reorderDayPlanAction({
-        localDate: planDate,
-        orderedKeys: next.map((i) => i.itemKey),
+    const gen = ++reorderGen.current;
+    void reorderDayPlanAction({
+      localDate: planDate,
+      orderedKeys: next.map((i) => i.itemKey),
+    })
+      .then((res) => {
+        if (gen !== reorderGen.current) return;
+        if (!res.ok) {
+          clearQueuedNavigation();
+          setError(res.error ?? "Kunde inte spara ordning.");
+          setLocalItems(previous);
+        }
+        setSavingOrder(false);
+      })
+      .catch(() => {
+        if (gen !== reorderGen.current) return;
+        clearQueuedNavigation();
+        setError("Kunde inte spara ordning.");
+        setLocalItems(previous);
+        setSavingOrder(false);
       });
-      if (!res.ok) {
-        setError(res.error ?? "Kunde inte spara ordning.");
-        setLocalItems(builtItems);
-        return;
-      }
-      router.refresh();
-    });
   };
 
   if (localItems.length === 0) {
@@ -302,7 +336,17 @@ export function DayActivitiesCard({
     <Card className={styles.card}>
       <header className={styles.header}>
         <div className={styles.titleRow}>
-          <h2 className={styles.title}>{title}</h2>
+          <h2 className={styles.title}>
+            {title}
+            {savingOrder ? (
+              <span
+                className={styles.saveSpinner}
+                role="status"
+                aria-live="polite"
+                aria-label="Sparar ordning"
+              />
+            ) : null}
+          </h2>
           <span
             className={[
               styles.counter,
@@ -366,7 +410,7 @@ export function DayActivitiesCard({
                     rescheduleDays={rescheduleDays}
                     expanded={expandedKey === item.itemKey}
                     busy={pendingKey === item.itemKey}
-                    pending={pending}
+                    pending={pendingKey === item.itemKey}
                     onToggleExpand={() =>
                       setExpandedKey(
                         expandedKey === item.itemKey ? null : item.itemKey,

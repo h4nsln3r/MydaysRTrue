@@ -23,7 +23,7 @@ import { BathingExtraBath } from "@/components/BathingDayCard/BathingDayCard";
 import { WeeklyTaskQuickAdd } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
-import { buildDayPlanItems, type DayPlanItem } from "@/lib/day-plan";
+import { buildDayPlanItems, sortDayPlanItems, type DayPlanItem } from "@/lib/day-plan";
 import { isoWeekdayFromLocalISO } from "@/lib/date";
 import type { DailyHabit, DailySnacks, MealBoxStockItem, MealEntry, MealKey, MealRestaurant } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
@@ -45,7 +45,10 @@ import { DayActivityRow } from "./DayActivityRow";
 import { PlanSortableRow } from "./PlanSortableRow";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
 
-/** Keep the user's local order when server data refreshes (new doneAt, extra items, etc.). */
+/**
+ * Keep local drag order across refresh, but let completed items sink below
+ * pending ones (and restore pending order if something is unchecked).
+ */
 function mergeDayPlanItems(
   serverItems: DayPlanItem[],
   localItems: DayPlanItem[],
@@ -58,9 +61,11 @@ function mergeDayPlanItems(
   if (orderedKeys.length === 0) return serverItems;
   const seen = new Set(orderedKeys);
   const extras = serverItems.filter((item) => !seen.has(item.itemKey));
-  return [...orderedKeys.map((key) => serverByKey.get(key)!), ...extras].map(
-    (item, index) => ({ ...item, sortOrder: index }),
-  );
+  const merged = [
+    ...orderedKeys.map((key) => serverByKey.get(key)!),
+    ...extras,
+  ].map((item, index) => ({ ...item, sortOrder: index }));
+  return sortDayPlanItems(merged);
 }
 
 interface Props {

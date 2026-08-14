@@ -46,6 +46,18 @@
     font-size: 0.68rem;
 }
 
+.legendItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legendItemLabel {
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+}
+
 .swatch {
     width: 12px;
     height: 12px;
@@ -54,6 +66,10 @@
 }
 
 .swatch_yes { background: rgba(110, 231, 163, 0.85); }
+.swatch_crush {
+    background: linear-gradient(180deg, #4ade80 0%, #10b981 100%);
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.65);
+}
 .swatch_half { background: rgba(255, 207, 58, 0.9); }
 .swatch_no { background: rgba(255, 82, 71, 0.85); }
 .swatch_empty {
@@ -782,6 +798,13 @@
     padding: 2px 3px;
 }
 
+.subCellFood {
+    height: auto;
+    min-height: 48px;
+    padding: 4px 3px;
+    vertical-align: middle;
+}
+
 .subTotalCell {
     // inherits totalCell styling from parent row
 }
@@ -795,7 +818,25 @@
     word-break: break-word;
 }
 
+.subFoodDetail {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 100%;
+    font-size: 0.55rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    word-break: break-word;
+}
+
 .subDetail_yes { color: $color-success; }
+.subDetail_crush {
+    color: #bbf7d0;
+    font-weight: 800;
+    text-shadow: 0 0 6px rgba(74, 222, 128, 0.55);
+}
 .subDetail_half { color: $color-warning; }
 .subDetail_no { color: $color-danger; }
 
@@ -848,6 +889,14 @@
 
 // Water cells
 .waterCell_good { background: rgba(110, 231, 163, 0.12); }
+.waterCell_crush {
+    background: linear-gradient(
+        180deg,
+        rgba(52, 211, 153, 0.42) 0%,
+        rgba(16, 185, 129, 0.22) 100%
+    );
+    box-shadow: inset 0 0 0 1px rgba(110, 231, 163, 0.75);
+}
 .waterCell_almost { background: rgba(255, 122, 26, 0.1); }
 .waterCell_low { background: rgba(255, 82, 71, 0.1); }
 .waterCell_future { background: transparent; }
@@ -869,6 +918,17 @@
     background: rgba(110, 231, 163, 0.2);
 }
 
+.waterMark_crush {
+    min-width: 22px;
+    width: auto;
+    padding: 0 3px;
+    color: #bbf7d0;
+    background: rgba(16, 185, 129, 0.45);
+    font-size: 0.68rem;
+    letter-spacing: -0.04em;
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.75);
+}
+
 .waterMark_almost {
     color: $color-orange-bright;
     background: rgba(255, 122, 26, 0.18);
@@ -881,6 +941,14 @@
 
 // Habit cells
 .habitCell_yes { background: rgba(110, 231, 163, 0.14); }
+.habitCell_crush {
+    background: linear-gradient(
+        180deg,
+        rgba(52, 211, 153, 0.45) 0%,
+        rgba(16, 185, 129, 0.24) 100%
+    );
+    box-shadow: inset 0 0 0 1px rgba(110, 231, 163, 0.8);
+}
 .habitCell_half { background: rgba(255, 207, 58, 0.12); }
 .habitCell_no { background: rgba(255, 82, 71, 0.12); }
 .habitCell_empty { background: rgba(20, 20, 20, 0.5); }
@@ -898,6 +966,16 @@
 }
 
 .statusMark_yes { color: $color-success; }
+.statusMark_crush {
+    min-width: 22px;
+    width: auto;
+    padding: 0 3px;
+    color: #bbf7d0;
+    background: rgba(16, 185, 129, 0.4);
+    font-size: 0.68rem;
+    letter-spacing: -0.04em;
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.75);
+}
 .statusMark_half { color: $color-warning; }
 .statusMark_no { color: $color-danger; }
 .statusMark_empty { color: $color-fog; font-size: 1rem; }
@@ -1262,6 +1340,17 @@
     background: rgba(110, 231, 163, 0.12);
 }
 
+.dayScoreCrush {
+    color: #bbf7d0;
+    background: linear-gradient(
+        180deg,
+        rgba(52, 211, 153, 0.42) 0%,
+        rgba(16, 185, 129, 0.22) 100%
+    );
+    box-shadow: inset 0 0 0 1px rgba(110, 231, 163, 0.7);
+    text-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+}
+
 .dayScoreMid {
     color: $color-warning;
     background: rgba(255, 207, 58, 0.1);
@@ -1273,7 +1362,7 @@
 }
 
 // Zebra striping for readability
-tbody tr:nth-child(even):not(.sectionRow) .dataCell {
+tbody tr:nth-child(even):not(.sectionRow) .dataCell:not(.habitCell_crush):not(.waterCell_crush) {
     background: rgba(20, 20, 20, 0.55);
 }
 
@@ -1285,7 +1374,7 @@ tbody tr:nth-child(even):not(.sectionRow) .totalCell {
     background: rgba(255, 122, 26, 0.08);
 }
 
-tbody tr:nth-child(even):not(.sectionRow) .cellToday {
+tbody tr:nth-child(even):not(.sectionRow) .cellToday:not(.habitCell_crush):not(.waterCell_crush) {
     background: rgba(255, 122, 26, 0.1);
 }
 

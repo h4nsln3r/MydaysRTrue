@@ -142,10 +142,11 @@ export function WeekProgressBoard({
       <div className={styles.legendBar} aria-label="Förklaring">
         <span className={styles.legendGroup}>
           <span className={styles.legendTitle}>Vanor</span>
-          <StatusSwatch status="yes" />
-          <StatusSwatch status="half" />
-          <StatusSwatch status="no" />
-          <StatusSwatch status="empty" />
+          <LegendStatus status="crush" label=":D överträffat" />
+          <LegendStatus status="yes" label="klar" />
+          <LegendStatus status="half" label="delvis" />
+          <LegendStatus status="no" label="inte klarat" />
+          <LegendStatus status="empty" label="ej ifyllt" />
         </span>
         <span className={styles.legendGroup}>
           <span className={styles.legendTitle}>Vatten</span>
@@ -1040,23 +1041,44 @@ function DayScore({
     weightScheduled,
     weightLogged,
   });
+  const crushed = pct >= 100 && total > 0;
 
   return (
     <span
       className={cellClass(
         styles.dayScore,
-        band === "good" && styles.dayScoreGood,
+        crushed && styles.dayScoreCrush,
+        !crushed && band === "good" && styles.dayScoreGood,
         band === "mid" && styles.dayScoreMid,
         band === "low" && styles.dayScoreLow,
       )}
-      title={`${formatHabitPoints(hit)}/${total} klart (${pct}%)`}
+      title={
+        crushed
+          ? `${formatHabitPoints(hit)}/${total} klart — överträffat :D`
+          : `${formatHabitPoints(hit)}/${total} klart (${pct}%)`
+      }
     >
-      {pct}%
+      {crushed ? `:D ${pct}%` : `${pct}%`}
     </span>
   );
 }
 
-function StatusSwatch({ status }: { status: HabitStatus | "empty" }) {
+function LegendStatus({
+  status,
+  label,
+}: {
+  status: HabitStatus | "empty" | "crush";
+  label: string;
+}) {
+  return (
+    <span className={styles.legendItem}>
+      <StatusSwatch status={status} />
+      <span className={styles.legendItemLabel}>{label}</span>
+    </span>
+  );
+}
+
+function StatusSwatch({ status }: { status: HabitStatus | "empty" | "crush" }) {
   return (
     <span
       className={cellClass(styles.swatch, styles[`swatch_${status}`])}

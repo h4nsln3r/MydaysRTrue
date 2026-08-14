@@ -220,6 +220,19 @@ export function waterStatusFor(totalMl: number, goalMl: number): HabitStatus | n
   return numericGoalStatus(totalMl, goalMl);
 }
 
+/** Ratio above a numeric goal that counts as crushing it. */
+export const GOAL_EXCEED_RATIO = 1.25;
+
+/** True when the logged value is well above the daily goal. */
+export function goalExceeded(
+  current: number,
+  goal: number,
+  ratio = GOAL_EXCEED_RATIO,
+): boolean {
+  if (current <= 0 || goal <= 0) return false;
+  return current >= goal * ratio;
+}
+
 /** Derive yes/half/no from a numeric value vs a daily goal. */
 export function numericGoalStatus(
   current: number,
@@ -257,20 +270,21 @@ export function statusOrMissedOnPastDay(
 
 /**
  * Derive meal status from the number of logged meals (0..3).
- *   3 → yes, 2 → half, 1 → no, 0 → no (per product spec).
+ *   3 → yes, 2 → half, 1 → no (started, not complete), 0 → null (not filled in).
  * For future days the caller should pass `null` instead of calling this.
  */
-export function mealStatusFor(count: number): HabitStatus {
+export function mealStatusFor(count: number): HabitStatus | null {
+  if (count <= 0) return null;
   if (count >= 3) return "yes";
   if (count >= 2) return "half";
   return "no";
 }
 
-/** Snack rollup: 2 = yes, 1 = half, 0 = no. */
-export function snackStatusFor(count: number): HabitStatus {
+/** Snack rollup: 2 = yes, 1 = half (started), 0 = null (not filled in). */
+export function snackStatusFor(count: number): HabitStatus | null {
+  if (count <= 0) return null;
   if (count >= 2) return "yes";
-  if (count >= 1) return "half";
-  return "no";
+  return "half";
 }
 
 /** Cycles yes → half → no → null → yes when the same button is tapped repeatedly. */

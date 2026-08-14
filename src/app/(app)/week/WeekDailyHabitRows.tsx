@@ -5,13 +5,21 @@ import { formatDayShort } from "@/lib/date";
 import {
   MEAL_ICON,
   MEAL_ORDER,
+  SNACK_ICON,
+  SNACK_LABEL,
+  SNACK_SLOTS,
   formatHabitPoints,
+  goalExceeded,
   habitStatusPoints,
+  mealCookedByDisplay,
   numericGoalStatus,
   statusOrMissedOnPastDay,
   type Habit,
   type HabitStatus,
+  type MealEntry,
   type MealKey,
+  type SnackEntry,
+  type SnackSlot,
 } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
 import {
@@ -45,9 +53,94 @@ const MEAL_LABEL_SV: Record<MealKey, string> = {
 const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
   yes: "Ja",
   half: "Delvis",
-  no: "Nej",
-  empty: "—",
+  no: "Inte klarat",
+  empty: "Ej ifylld",
 };
+
+function mealCellDetail(entry: MealEntry | null): string | undefined {
+  if (!entry) return undefined;
+  const name = entry.description.trim();
+  return name || "Loggad";
+}
+
+function snackCellDetail(entry: SnackEntry | null): string | undefined {
+  if (!entry) return undefined;
+  const name = entry.description.trim();
+  return name || "Loggad";
+}
+
+function formatMealHover(
+  label: string,
+  entry: MealEntry | null,
+  isFuture: boolean,
+): string {
+  if (isFuture) return `${label}: Kommande`;
+  if (!entry) return `${label}: Ej ifylld`;
+  const cooked = mealCookedByDisplay(
+    entry.cookedBy,
+    entry.restaurantName,
+    entry.cookedByName,
+  );
+  const bits = [entry.description.trim() || "Loggad"];
+  if (entry.fromMealBox) bits.push("Matlåda");
+  else if (cooked) bits.push(cooked);
+  if (!entry.fromMealBox && (entry.mealBoxes ?? 0) > 0) {
+    const n = entry.mealBoxes ?? 0;
+    bits.push(`+${n} matlåd${n === 1 ? "a" : "or"}`);
+  }
+  return `${label}: ${bits.join(" · ")}`;
+}
+
+function formatSnackHover(
+  slot: SnackSlot,
+  entry: SnackEntry | null,
+  isFuture: boolean,
+): string {
+  if (isFuture) return `${SNACK_LABEL[slot]}: Kommande`;
+  if (!entry) return `${SNACK_LABEL[slot]}: Ej ifylld`;
+  return `${SNACK_LABEL[slot]}: ${entry.description.trim() || "Loggad"}`;
+}
+
+function mealsCrushed(
+  mealDay: WeekMealsSummary["days"][number] | undefined,
+): boolean {
+  if (!mealDay) return false;
+  return (
+    MEAL_ORDER.every((key) => Boolean(mealDay.meals[key])) &&
+    SNACK_SLOTS.every((slot) => Boolean(mealDay.snacks[slot]))
+  );
+}
+
+function mealsRollupLabel(
+  mealDay: WeekMealsSummary["days"][number] | undefined,
+): string {
+  if (mealsCrushed(mealDay)) return "Överträffat :D";
+  const logged = MEAL_ORDER.filter((key) => mealDay?.meals[key]).length;
+  if (logged <= 0) return "Ej ifylld";
+  if (logged >= 3) return "Klar";
+  if (logged === 2) return "Delvis";
+  return "Inte klarat";
+}
+
+function withExceedTitle(title: string, exceeded: boolean): string {
+  return exceeded ? `${title} · Överträffat :D` : title;
+}
+
+function formatMealsDayHover(
+  day: WeekDay,
+  mealDay: WeekMealsSummary["days"][number] | undefined,
+): string {
+  if (day.isFuture) return "Kommande";
+  return [
+    mealsRollupLabel(mealDay),
+    ...MEAL_ORDER.map((key) =>
+      formatMealHover(MEAL_LABEL_SV[key], mealDay?.meals[key] ?? null, false),
+    ),
+    ...SNACK_SLOTS.map((slot) =>
+      formatSnackHover(slot, mealDay?.snacks[slot] ?? null, false),
+    ),
+  ].join("\n");
+}
 
 interface SubRowDef {
   key: string;
@@ -70,6 +163,10 @@ interface SubRowCellContent {
   title: string;
   detail?: string;
   moodIcon?: string;
+  /** Taller wrapping cell for meal/snack names. */
+  food?: boolean;
+  /** Well above the daily goal — extra green :D. */
+  exceeded?: boolean;
   /** If false, day is excluded from ∑ (e.g. weekday-only intake on weekend). */
   countable?: boolean;
 }
@@ -136,7 +233,11 @@ export function WeekDailyHabitRows({
               renderSummary={(d) => ({
                 status: null,
                 waterStatus: waterDayStatus(d),
-                title: `${formatDayShort(d.date)}: ${formatMl(d.totalMl)} / ${formatMl(d.goalMl)}`,
+                exceeded: goalExceeded(d.totalMl, d.goalMl),
+                title: withExceedTitle(
+                  `${formatDayShort(d.date)}: ${formatMl(d.totalMl)} / ${formatMl(d.goalMl)}`,
+                  goalExceeded(d.totalMl, d.goalMl),
+                ),
               })}
               total={{
                 value: week.daysHit,
@@ -182,19 +283,42 @@ export function WeekDailyHabitRows({
               const mediaDay =
                 habit.kind === "media" ? mediaDayByDate.get(d.date) : null;
               const mediaCount = mediaDay?.context.loggedToday.length ?? 0;
+              const mealDay = mealDayByDate.get(d.date);
+              const exceeded =
+                habit.kind === "meal"
+                  ? mealsCrushed(mealDay)
+                  : habit.kind === "steps"
+                    ? goalExceeded(
+                        habitDay?.details.steps?.value ?? 0,
+                        habitDay?.details.steps?.goal ?? 0,
+                      )
+                    : habit.kind === "activity_hours"
+                      ? goalExceeded(
+                          habitDay?.details.activity?.value ?? 0,
+                          habitDay?.details.activity?.goal ?? 0,
+                        )
+                      : false;
+              const mealSummary =
+                habit.kind === "meal"
+                  ? formatMealsDayHover(d, mealDay)
+                  : null;
+              const baseTitle = mealSummary
+                ? `${habit.label}, ${formatDayShort(d.date)}\n${mealSummary}`
+                : `${habit.label}, ${formatDayShort(d.date)}: ${
+                    d.isFuture
+                      ? "Kommande"
+                      : moodKey
+                        ? MOOD_LABEL[moodKey]
+                        : mediaDay?.summary
+                          ? mediaDay.summary
+                          : HABIT_STATUS_LABEL[status ?? "empty"]
+                  }`;
               return {
                 status,
                 moodKey,
                 mediaCount: habit.kind === "media" ? mediaCount : undefined,
-                title: `${habit.label}, ${formatDayShort(d.date)}: ${
-                  d.isFuture
-                    ? "Kommande"
-                    : moodKey
-                      ? MOOD_LABEL[moodKey]
-                      : mediaDay?.summary
-                        ? mediaDay.summary
-                        : HABIT_STATUS_LABEL[status ?? "empty"]
-                }`,
+                exceeded,
+                title: withExceedTitle(baseTitle, exceeded),
               };
             }}
             total={{
@@ -364,6 +488,7 @@ function HabitRowGroup({
     moodKey?: MoodKey | null;
     mediaCount?: number;
     waterStatus?: ReturnType<typeof waterDayStatus>;
+    exceeded?: boolean;
     title: string;
   };
   total: { value: number; total: number; highlight?: boolean };
@@ -398,11 +523,15 @@ function HabitRowGroup({
                 interactive && styles.cellInteractive,
                 isWater &&
                   !d.isFuture &&
-                  styles[`waterCell_${summary.waterStatus}`],
+                  (summary.exceeded
+                    ? styles.waterCell_crush
+                    : styles[`waterCell_${summary.waterStatus}`]),
                 !isWater &&
                   habit &&
                   !d.isFuture &&
-                  styles[`habitCell_${summary.status ?? "empty"}`],
+                  (summary.exceeded
+                    ? styles.habitCell_crush
+                    : styles[`habitCell_${summary.status ?? "empty"}`]),
               )}
               title={
                 interactive
@@ -415,7 +544,10 @@ function HabitRowGroup({
             >
               {!d.isFuture ? (
                 isWater && summary.waterStatus ? (
-                  <WaterMark status={summary.waterStatus} />
+                  <WaterMark
+                    status={summary.waterStatus}
+                    exceeded={summary.exceeded}
+                  />
                 ) : summary.moodKey ? (
                   <span
                     className={styles.moodMark}
@@ -431,7 +563,10 @@ function HabitRowGroup({
                     {summary.mediaCount}
                   </span>
                 ) : (
-                  <StatusMark status={summary.status} />
+                  <StatusMark
+                    status={summary.status}
+                    exceeded={summary.exceeded}
+                  />
                 )
               ) : null}
             </td>
@@ -470,10 +605,13 @@ function HabitRowGroup({
                     className={cellClass(
                       styles.dataCell,
                       styles.subCell,
+                      content.food && styles.subCellFood,
                       d.isFuture && styles.cellFuture,
                       d.isToday && styles.cellToday,
                       !d.isFuture &&
-                        styles[`habitCell_${content.status ?? "empty"}`],
+                        (content.exceeded
+                          ? styles.habitCell_crush
+                          : styles[`habitCell_${content.status ?? "empty"}`]),
                     )}
                     title={content.title}
                   >
@@ -549,7 +687,10 @@ function SubRowCellMark({ content }: { content: SubRowCellContent }) {
       <span
         className={cellClass(
           styles.subDetail,
-          styles[`subDetail_${content.status}`],
+          content.food && styles.subFoodDetail,
+          content.exceeded
+            ? styles.subDetail_crush
+            : styles[`subDetail_${content.status}`],
         )}
       >
         {content.detail}
@@ -557,7 +698,13 @@ function SubRowCellMark({ content }: { content: SubRowCellContent }) {
     );
   }
 
-  return <StatusMark status={content.status} small />;
+  return (
+    <StatusMark
+      status={content.status}
+      small
+      exceeded={content.exceeded}
+    />
+  );
 }
 
 function withPastDayMissed(
@@ -582,10 +729,15 @@ function waterSubRows(): SubRowDef[] {
         const wStatus = waterDayStatus(waterDay);
         const status: HabitStatus =
           wStatus === "good" ? "yes" : wStatus === "almost" ? "half" : "no";
+        const exceeded = goalExceeded(totalMl, goalMl);
         return {
           status: withPastDayMissed(totalMl > 0 ? status : null, day),
-          title: `${formatMl(totalMl)} / ${formatMl(goalMl)}`,
+          title: withExceedTitle(
+            `${formatMl(totalMl)} / ${formatMl(goalMl)}`,
+            exceeded,
+          ),
           detail: `${formatMl(totalMl)}`,
+          exceeded,
         };
       },
     },
@@ -595,20 +747,46 @@ function waterSubRows(): SubRowDef[] {
 function subRowsForHabit(habit: Habit): SubRowDef[] {
   switch (habit.kind) {
     case "meal":
-      return MEAL_ORDER.map((mealKey) => ({
-        key: mealKey,
-        icon: MEAL_ICON[mealKey],
-        label: MEAL_LABEL_SV[mealKey],
-        renderCell: ({ isFuture, isToday, mealDay }) => {
-          const day = { isFuture, isToday };
-          if (isFuture) return { status: null, title: "Kommande" };
-          const logged = Boolean(mealDay?.meals[mealKey]);
-          return {
-            status: withPastDayMissed(logged ? "yes" : "no", day),
-            title: `${MEAL_LABEL_SV[mealKey]}: ${logged ? "Loggad" : "Ej loggad"}`,
-          };
-        },
-      }));
+      return [
+        ...MEAL_ORDER.map((mealKey) => ({
+          key: mealKey,
+          icon: MEAL_ICON[mealKey],
+          label: MEAL_LABEL_SV[mealKey],
+          renderCell: ({ isFuture, mealDay }: SubRowCellCtx) => {
+            if (isFuture) {
+              return { status: null, title: `${MEAL_LABEL_SV[mealKey]}: Kommande` };
+            }
+            const entry = mealDay?.meals[mealKey] ?? null;
+            const logged = Boolean(entry);
+            const status: HabitStatus | null = logged ? "yes" : null;
+            return {
+              status,
+              title: formatMealHover(MEAL_LABEL_SV[mealKey], entry, false),
+              detail: mealCellDetail(entry),
+              food: true,
+            };
+          },
+        })),
+        ...SNACK_SLOTS.map((slot) => ({
+          key: `snack-${slot}`,
+          icon: SNACK_ICON[slot],
+          label: SNACK_LABEL[slot],
+          renderCell: ({ isFuture, mealDay }: SubRowCellCtx) => {
+            if (isFuture) {
+              return { status: null, title: `${SNACK_LABEL[slot]}: Kommande` };
+            }
+            const entry = mealDay?.snacks[slot] ?? null;
+            const logged = Boolean(entry);
+            const status: HabitStatus | null = logged ? "yes" : null;
+            return {
+              status,
+              title: formatSnackHover(slot, entry, false),
+              detail: snackCellDetail(entry),
+              food: true,
+            };
+          },
+        })),
+      ];
 
     case "intake":
       return INTAKE_ORDER.map((kind) => ({
@@ -649,15 +827,20 @@ function subRowsForHabit(habit: Habit): SubRowDef[] {
               numericGoalStatus(value, goal),
               day,
             );
+            const exceeded = goalExceeded(value, goal);
             return {
               status,
-              title: `${value.toLocaleString("sv-SE")} / ${goal.toLocaleString("sv-SE")} steg`,
+              title: withExceedTitle(
+                `${value.toLocaleString("sv-SE")} / ${goal.toLocaleString("sv-SE")} steg`,
+                exceeded,
+              ),
               detail:
                 value > 0
                   ? value >= 1000
                     ? `${(value / 1000).toFixed(1)}k`
                     : String(value)
                   : "0",
+              exceeded,
             };
           },
         },
@@ -677,10 +860,15 @@ function subRowsForHabit(habit: Habit): SubRowDef[] {
               numericGoalStatus(value, goal),
               day,
             );
+            const exceeded = goalExceeded(value, goal);
             return {
               status,
-              title: `${value} / ${goal} h aktivitet`,
+              title: withExceedTitle(
+                `${value} / ${goal} h aktivitet`,
+                exceeded,
+              ),
               detail: value > 0 ? `${value}h` : "0h",
+              exceeded,
             };
           },
         },
@@ -836,44 +1024,55 @@ function TotalCell({
 function StatusMark({
   status,
   small,
+  exceeded,
 }: {
   status: HabitStatus | null;
   small?: boolean;
+  exceeded?: boolean;
 }) {
   const resolved = status ?? "empty";
-  const label = HABIT_STATUS_LABEL[resolved];
+  const crush = Boolean(exceeded && resolved === "yes");
+  const label = crush ? "Överträffat" : HABIT_STATUS_LABEL[resolved];
   return (
     <span
       className={cellClass(
         styles.statusMark,
         small && styles.statusMarkSmall,
-        styles[`statusMark_${resolved}`],
+        crush ? styles.statusMark_crush : styles[`statusMark_${resolved}`],
       )}
       aria-label={label}
     >
-      {resolved === "yes"
-        ? "✓"
-        : resolved === "half"
-          ? "½"
-          : resolved === "no"
-            ? "✗"
-            : "·"}
+      {crush
+        ? ":D"
+        : resolved === "yes"
+          ? "✓"
+          : resolved === "half"
+            ? "½"
+            : resolved === "no"
+              ? "✗"
+              : "·"}
     </span>
   );
 }
 
 function WaterMark({
   status,
+  exceeded,
 }: {
   status: ReturnType<typeof waterDayStatus>;
+  exceeded?: boolean;
 }) {
   if (status === "future") return null;
+  const crush = Boolean(exceeded && status === "good");
   return (
     <span
-      className={cellClass(styles.waterMark, styles[`waterMark_${status}`])}
+      className={cellClass(
+        styles.waterMark,
+        crush ? styles.waterMark_crush : styles[`waterMark_${status}`],
+      )}
       aria-hidden
     >
-      {status === "good" ? "✓" : status === "almost" ? "~" : "!"}
+      {crush ? ":D" : status === "good" ? "✓" : status === "almost" ? "~" : "!"}
     </span>
   );
 }

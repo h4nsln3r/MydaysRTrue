@@ -4,18 +4,29 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, todayLocalISO } from "@/lib/date";
 import type { Database } from "@/lib/supabase/database.types";
-import type { MealBoxStockItem, MealEntry, MealKey } from "@/lib/habits";
-import { MEAL_ORDER } from "@/lib/habits";
+import type {
+  DailySnacks,
+  MealBoxStockItem,
+  MealEntry,
+  MealKey,
+  SnackSlot,
+} from "@/lib/habits";
+import { MEAL_ORDER, SNACK_SLOTS } from "@/lib/habits";
 
 type DbClient = SupabaseClient<Database>;
 
 export type { MealBoxStockItem };
+
+function emptySnacks(): DailySnacks {
+  return { 1: null, 2: null };
+}
 
 export interface WeekMealDay {
   date: string;
   isFuture: boolean;
   isToday: boolean;
   meals: Record<MealKey, MealEntry | null>;
+  snacks: DailySnacks;
   /** Sum of meal_boxes produced this day (from cooking logs). */
   boxesProduced: number;
 }
@@ -370,7 +381,7 @@ export async function getWeekMealsSummary(
   const weekEnd = addDaysISO(weekStart, 6);
   const today = todayLocalISO();
 
-  const [rowsRes, stock] = await Promise.all([
+  const [rowsRes, snacksRes, stock] = await Promise.all([
     supabase
       .from("meal_entries")
       .select(
@@ -380,6 +391,12 @@ export async function getWeekMealsSummary(
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd)
       .order("local_date", { ascending: true }),
+    supabase
+      .from("snack_checks")
+      .select("local_date, slot, description")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
     getMealBoxStock(userId),
   ]);
 
@@ -431,6 +448,19 @@ export async function getWeekMealsSummary(
     }
   }
 
+  const snacksByDate = new Map<string, DailySnacks>();
+  for (const r of snacksRes.data ?? []) {
+    const slot = r.slot as SnackSlot;
+    if (!SNACK_SLOTS.includes(slot)) continue;
+    const snacks = snacksByDate.get(r.local_date) ?? emptySnacks();
+    snacks[slot] = {
+      id: `${r.local_date}-${slot}`,
+      slot,
+      description: r.description ?? "",
+    };
+    snacksByDate.set(r.local_date, snacks);
+  }
+
   const days: WeekMealDay[] = [];
   for (let i = 0; i < 7; i += 1) {
     const date = addDaysISO(weekStart, i);
@@ -454,6 +484,7 @@ export async function getWeekMealsSummary(
       isFuture: date > today,
       isToday: date === today,
       meals,
+      snacks: snacksByDate.get(date) ?? emptySnacks(),
       boxesProduced,
     });
   }

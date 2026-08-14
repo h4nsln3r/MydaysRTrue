@@ -1151,7 +1151,11 @@ export async function getWeekHabitSummary(
         }
         if (status) yesByHabit[h.id] += habitStatusPoints(status);
       }
-      statuses[h.id] = statusOrMissedOnPastDay(status, dayCtx);
+      // Meals/snacks: empty (nothing logged) stays empty; 1 meal is "no".
+      statuses[h.id] =
+        h.kind === "meal" || h.kind === "snack"
+          ? status
+          : statusOrMissedOnPastDay(status, dayCtx);
     }
 
     const smokeCtx = smokeFreeByDate.get(date);

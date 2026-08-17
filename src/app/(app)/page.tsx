@@ -227,7 +227,6 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
           habits={dayPlan.habits}
           goals={dayPlan.goals}
           categories={allCategories}
-          date={today}
         />
       )}
     </main>

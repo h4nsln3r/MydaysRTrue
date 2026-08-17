@@ -248,23 +248,6 @@
     padding-top: $space-1;
 }
 
-.cadenceRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: $space-3;
-    padding: $space-2 $space-4 $space-3 calc(28px + 36px + #{$space-3 * 2});
-}
-
-.cadenceLabel {
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    font-family: $font-mono;
-    color: $color-cream-dim;
-}
-
 .error {
     color: $color-danger;
     font-size: 0.88rem;

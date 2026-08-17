@@ -26,11 +26,12 @@ import {
   updateHabitAction,
 } from "@/app/(app)/actions";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
+import { WeekdayChips } from "@/components/WeekdayChips/WeekdayChips";
 import { Input } from "@/components/Input/Input";
 import { formatInteger } from "@/lib/format";
 import { habitCadenceLabel, type Habit, type HabitKind } from "@/lib/habits";
 import type { DailyTrackerGoals } from "@/lib/habits.server";
-import type { TaskCategory } from "@/lib/tasks";
+import type { TaskCategory, Weekday } from "@/lib/tasks";
 import styles from "./DayPlanPanel.module.scss";
 
 const KIND_HINT: Partial<Record<HabitKind, string>> = {
@@ -54,10 +55,9 @@ interface Props {
   habits: Habit[];
   goals: DailyTrackerGoals;
   categories: TaskCategory[];
-  date: string;
 }
 
-export function DayPlanPanel({ habits, goals, categories, date }: Props) {
+export function DayPlanPanel({ habits, goals, categories }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [localHabits, setLocalHabits] = useState(habits);
@@ -111,25 +111,19 @@ export function DayPlanPanel({ habits, goals, categories, date }: Props) {
     });
   };
 
-  const toggleEveryOtherDay = (habitId: string, everyOtherDay: boolean) => {
-    const next = !everyOtherDay;
+  const setWeekdays = (habitId: string, weekdays: Weekday[]) => {
     setError(null);
     setLocalHabits((prev) =>
       prev.map((h) =>
         h.id === habitId
-          ? {
-              ...h,
-              intervalDays: next ? 2 : 1,
-              intervalAnchorDate: next ? date : null,
-            }
+          ? { ...h, weekdays, intervalDays: 1, intervalAnchorDate: null }
           : h,
       ),
     );
     startTransition(async () => {
       const res = await updateHabitAction({
         habitId,
-        intervalDays: next ? 2 : 1,
-        intervalAnchorDate: next ? date : null,
+        weekdays,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte uppdatera.");
@@ -192,7 +186,7 @@ export function DayPlanPanel({ habits, goals, categories, date }: Props) {
                   pending={pending}
                   onToggle={toggle}
                   onToggleLeave={toggleLeave}
-                  onToggleEveryOtherDay={toggleEveryOtherDay}
+                  onSetWeekdays={setWeekdays}
                   onGoalError={setError}
                 />
               ))}
@@ -214,7 +208,7 @@ interface SortableTrackerRowProps {
   pending: boolean;
   onToggle: (habitId: string, enabled: boolean) => void;
   onToggleLeave: (habitId: string, showOnLeave: boolean) => void;
-  onToggleEveryOtherDay: (habitId: string, everyOtherDay: boolean) => void;
+  onSetWeekdays: (habitId: string, weekdays: Weekday[]) => void;
   onGoalError: (message: string | null) => void;
 }
 
@@ -224,7 +218,7 @@ function SortableTrackerRow({
   pending,
   onToggle,
   onToggleLeave,
-  onToggleEveryOtherDay,
+  onSetWeekdays,
   onGoalError,
 }: SortableTrackerRowProps) {
   const {
@@ -243,7 +237,7 @@ function SortableTrackerRow({
 
   const hasGoal = GOAL_KINDS.has(habit.kind);
   const hasCadence = habit.key === "gor_shake";
-  const everyOtherDay = habit.intervalDays >= 2;
+  const [cadenceOpen, setCadenceOpen] = useState(false);
 
   return (
     <li
@@ -352,29 +346,62 @@ function SortableTrackerRow({
       </div>
 
       {hasCadence ? (
-        <div className={styles.cadenceRow}>
-          <span className={styles.cadenceLabel}>Varannan dag</span>
+        <div className={styles.goalAccordion}>
           <button
             type="button"
-            role="switch"
-            aria-checked={everyOtherDay}
-            aria-label={
-              everyOtherDay
-                ? "Visa Gör shake varje dag"
-                : "Visa Gör shake varannan dag"
-            }
-            title={everyOtherDay ? "Varannan dag" : "Varje dag"}
+            className={styles.goalTrigger}
+            aria-expanded={cadenceOpen}
+            aria-controls={`cadence-${habit.id}`}
+            onClick={() => setCadenceOpen((prev) => !prev)}
+          >
+            <span className={styles.goalTriggerLabel}>Dagar</span>
+            <span className={styles.goalTriggerValue}>
+              {habitCadenceLabel(habit) ?? "Varje dag"}
+            </span>
+            <svg
+              className={[
+                styles.goalChevron,
+                cadenceOpen ? styles.goalChevronOpen : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden
+            >
+              <path
+                d="m6 9 6 6 6-6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <div
+            id={`cadence-${habit.id}`}
             className={[
-              styles.toggle,
-              everyOtherDay ? styles.toggleOn : "",
+              styles.goalPanel,
+              cadenceOpen ? styles.goalPanelOpen : "",
             ]
               .filter(Boolean)
               .join(" ")}
-            onClick={() => onToggleEveryOtherDay(habit.id, everyOtherDay)}
-            disabled={pending}
+            hidden={!cadenceOpen}
           >
-            <span className={styles.toggleKnob} aria-hidden />
-          </button>
+            <WeekdayChips
+              value={habit.weekdays}
+              onChange={(next) => onSetWeekdays(habit.id, next)}
+              disabled={pending}
+              label=""
+              hint={
+                habit.weekdays.length > 0
+                  ? "Visas bara de valda dagarna"
+                  : "Inga dagar valda — visas varje dag"
+              }
+            />
+          </div>
         </div>
       ) : null}
 

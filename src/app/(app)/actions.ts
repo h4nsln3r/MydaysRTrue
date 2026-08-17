@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isLocalISODate, todayLocalISO } from "@/lib/date";
 import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
+import { parseHabitWeekdays } from "@/lib/habits";
+import type { Weekday } from "@/lib/tasks";
 import { MEAL_LABEL, mealHasCookingMeta, mealShowsMealBoxes } from "@/lib/habits";
 import { resolveMealRestaurant } from "@/lib/meals.server";
 import { saveWeekProgressLayout } from "@/lib/week-progress-layout.server";
@@ -231,6 +233,7 @@ export async function createHabitAction(input: {
   categoryId?: string | null;
   intervalDays?: number;
   intervalAnchorDate?: string | null;
+  weekdays?: number[] | null;
 }): Promise<ActionResult> {
   const label = input.label.trim();
   if (!label) return { ok: false, error: "Give your habit a name." };
@@ -288,6 +291,8 @@ export async function createHabitAction(input: {
 
   const interval = parseHabitInterval(input);
   if (!interval.ok) return interval;
+  const weekdays = parseHabitWeekdays(input.weekdays);
+  const useWeekdays = weekdays.length > 0;
 
   const { error } = await supabase.from("habits").insert({
     user_id: user.id,
@@ -298,8 +303,9 @@ export async function createHabitAction(input: {
     accent,
     sort_order: nextOrder,
     category_id: input.categoryId ?? null,
-    interval_days: interval.intervalDays,
-    interval_anchor_date: interval.intervalAnchorDate,
+    interval_days: useWeekdays ? 1 : interval.intervalDays,
+    interval_anchor_date: useWeekdays ? null : interval.intervalAnchorDate,
+    weekdays: useWeekdays ? weekdays : [],
   });
   if (error) return { ok: false, error: error.message };
 
@@ -484,6 +490,7 @@ export async function updateHabitAction(input: {
   categoryId?: string | null;
   intervalDays?: number;
   intervalAnchorDate?: string | null;
+  weekdays?: number[] | null;
 }): Promise<ActionResult> {
   if (!input.habitId) return { ok: false, error: "Missing habit id." };
 
@@ -494,6 +501,7 @@ export async function updateHabitAction(input: {
     category_id?: string | null;
     interval_days?: number;
     interval_anchor_date?: string | null;
+    weekdays?: Weekday[];
   } = {};
 
   if (input.label !== undefined) {
@@ -534,7 +542,14 @@ export async function updateHabitAction(input: {
     patch.category_id = input.categoryId;
   }
 
-  if (input.intervalDays !== undefined || input.intervalAnchorDate !== undefined) {
+  if (input.weekdays !== undefined) {
+    const weekdays = parseHabitWeekdays(input.weekdays);
+    patch.weekdays = weekdays;
+    if (weekdays.length > 0) {
+      patch.interval_days = 1;
+      patch.interval_anchor_date = null;
+    }
+  } else if (input.intervalDays !== undefined || input.intervalAnchorDate !== undefined) {
     const interval = parseHabitInterval({
       intervalDays: input.intervalDays,
       intervalAnchorDate: input.intervalAnchorDate,

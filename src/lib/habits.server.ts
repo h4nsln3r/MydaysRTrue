@@ -12,6 +12,7 @@ import {
   type SnackSlot,
   habitOccursOnDate,
   habitStatusPoints,
+  parseHabitWeekdays,
   mealStatusFor,
   numericGoalStatus,
   snackStatusFor,
@@ -65,10 +66,11 @@ interface HabitRow {
   show_on_leave: boolean | null;
   interval_days: number | null;
   interval_anchor_date: string | null;
+  weekdays: number[] | null;
 }
 
 const HABIT_COLUMNS =
-  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_leave, interval_days, interval_anchor_date";
+  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_leave, interval_days, interval_anchor_date, weekdays";
 
 function rowToHabit(r: HabitRow): Habit {
   return {
@@ -84,6 +86,7 @@ function rowToHabit(r: HabitRow): Habit {
     showOnLeave: r.show_on_leave ?? true,
     intervalDays: Math.max(1, r.interval_days ?? 1),
     intervalAnchorDate: r.interval_anchor_date,
+    weekdays: parseHabitWeekdays(r.weekdays),
   };
 }
 

@@ -153,6 +153,7 @@ export interface Database {
           show_on_leave: boolean;
           interval_days: number;
           interval_anchor_date: string | null;
+          weekdays: number[] | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -182,6 +183,7 @@ export interface Database {
           show_on_leave?: boolean;
           interval_days?: number;
           interval_anchor_date?: string | null;
+          weekdays?: number[] | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -211,6 +213,7 @@ export interface Database {
           show_on_leave?: boolean;
           interval_days?: number;
           interval_anchor_date?: string | null;
+          weekdays?: number[] | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -642,6 +645,7 @@ export interface Database {
           start_note: string | null;
           ended_at: string | null;
           end_note: string | null;
+          work_kind: "home" | "office" | "off" | "sick" | null;
           created_at: string;
           updated_at: string;
         };
@@ -652,6 +656,7 @@ export interface Database {
           start_note?: string | null;
           ended_at?: string | null;
           end_note?: string | null;
+          work_kind?: "home" | "office" | "off" | "sick" | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -662,6 +667,7 @@ export interface Database {
           start_note?: string | null;
           ended_at?: string | null;
           end_note?: string | null;
+          work_kind?: "home" | "office" | "off" | "sick" | null;
           created_at?: string;
           updated_at?: string;
         };

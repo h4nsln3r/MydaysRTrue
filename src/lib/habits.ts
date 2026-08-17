@@ -1,9 +1,10 @@
 // Client-safe habit types and helpers.
 // Server-only queries live in `./habits.server`.
 
-import { diffDaysISO } from "@/lib/date";
+import { diffDaysISO, isoWeekdayFromLocalISO } from "@/lib/date";
 import type { IntakeKind } from "@/lib/intake";
 import type { MoodKey } from "@/lib/mood";
+import { WEEKDAY_SHORT, type Weekday } from "@/lib/tasks";
 
 /** Per-day sub-item data for expandable week progress rows. */
 export interface WeekHabitDayDetails {
@@ -151,11 +152,14 @@ export interface Habit {
   intervalDays: number;
   /** First occurrence when intervalDays > 1. */
   intervalAnchorDate: string | null;
+  /** ISO weekdays (1=Mon … 7=Sun). Empty = every day (unless interval applies). */
+  weekdays: Weekday[];
 }
 
 export interface HabitIntervalRule {
   intervalDays: number;
   intervalAnchorDate: string | null;
+  weekdays: Weekday[];
 }
 
 /** Whether a habit should appear for this day given leave status. */
@@ -169,13 +173,17 @@ export function habitVisibleOnLeaveDay(
 
 /**
  * Whether a daily habit is due on `localDate`.
- * Interval 1 is every day. Interval 2+ starts on the anchor date (inclusive)
- * and then repeats every N calendar days.
+ * Selected weekdays win. Otherwise interval 1 is every day, and interval 2+
+ * repeats every N calendar days from the anchor.
  */
 export function habitOccursOnDate(
   habit: HabitIntervalRule,
   localDate: string,
 ): boolean {
+  if (habit.weekdays.length > 0) {
+    const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
+    return habit.weekdays.includes(weekday);
+  }
   const interval = Math.max(1, Math.round(habit.intervalDays || 1));
   if (interval <= 1) return true;
   const anchor = habit.intervalAnchorDate;
@@ -186,9 +194,22 @@ export function habitOccursOnDate(
 
 /** Short Swedish cadence for settings and day-plan hints. */
 export function habitCadenceLabel(habit: HabitIntervalRule): string | null {
+  if (habit.weekdays.length > 0) {
+    return habit.weekdays.map((d) => WEEKDAY_SHORT[d]).join(" · ");
+  }
   if (habit.intervalDays === 2) return "Varannan dag";
   if (habit.intervalDays > 2) return `Var ${habit.intervalDays}:e dag`;
   return null;
+}
+
+export function parseHabitWeekdays(raw: number[] | null | undefined): Weekday[] {
+  if (!raw || raw.length === 0) return [];
+  const seen = new Set<Weekday>();
+  for (const value of raw) {
+    const n = Math.round(Number(value));
+    if (n >= 1 && n <= 7) seen.add(n as Weekday);
+  }
+  return [...seen].sort((a, b) => a - b);
 }
 
 export interface DailyHabit extends Habit {

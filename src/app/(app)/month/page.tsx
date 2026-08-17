@@ -21,6 +21,7 @@ import { getMonthSpendSummaries } from "@/lib/expenses.server";
 import { SALARY_TASK_KEY } from "@/lib/monthly-finance";
 import { isMonthlyTaskComplete } from "@/lib/monthly-bills";
 import { todayLocalISO } from "@/lib/date";
+import { getWorkLogsInRange } from "@/lib/work.server";
 import { parsePeriodView, type PeriodView } from "@/lib/period-view";
 import { MonthProgressBoard } from "./MonthProgressBoard";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
@@ -67,7 +68,8 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
   month = clamped.month;
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, spendSummaries] =
+  const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, spendSummaries, workByDate] =
     await Promise.all([
     getMonthSummary(user.id, year, month),
     getMonthTaskSummary(user.id, monthStart),
@@ -76,6 +78,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     getMonthLiveEvents(user.id, monthStart),
     getMonthGigs(user.id, monthStart),
     getMonthSpendSummaries(user.id, monthStart),
+    getWorkLogsInRange(user.id, monthStart, monthEnd),
   ]);
   const monthlyDone = monthlyTasks.tasks.filter((t) =>
     isMonthlyTaskComplete(t, t.completion),
@@ -166,6 +169,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             categories={monthlyTasks.categories}
             expenseSummary={spendSummaries.expenses}
             shoppingSummary={spendSummaries.shopping}
+            workByDate={workByDate}
         />
         <section className={styles.section}>
           <MediaMonthSummary monthMedia={monthMedia} year={year} />

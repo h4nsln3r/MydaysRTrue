@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isUserOnLeave } from "@/lib/leave.server";
-import { isWorkday } from "@/lib/work";
+import { isWorkKind, isWorkday, workNeedsEnd, type WorkKind } from "@/lib/work";
 
 export interface ActionResult {
   ok: boolean;
@@ -22,10 +22,14 @@ function trimNote(note?: string): string | null {
 
 export async function logWorkStartAction(input: {
   localDate: string;
+  kind: WorkKind;
   note?: string;
 }): Promise<ActionResult> {
   if (!ISO_DATE_RE.test(input.localDate)) {
     return { ok: false, error: "Ogiltigt datum." };
+  }
+  if (!isWorkKind(input.kind)) {
+    return { ok: false, error: "Välj hur dagen ser ut." };
   }
   if (!isWorkday(input.localDate)) {
     return { ok: false, error: "Jobb loggas vardagar (mån–fre)." };
@@ -57,12 +61,14 @@ export async function logWorkStartAction(input: {
     return { ok: false, error: "Jobbstart är redan loggad." };
   }
 
+  const startedAt = new Date().toISOString();
   const { error } = await supabase.from("work_daily_logs").upsert(
     {
       user_id: user.id,
       local_date: input.localDate,
-      started_at: new Date().toISOString(),
+      started_at: startedAt,
       start_note: note,
+      work_kind: input.kind,
     },
     { onConflict: "user_id,local_date" },
   );
@@ -100,7 +106,7 @@ export async function logWorkEndAction(input: {
 
   const { data: existing } = await supabase
     .from("work_daily_logs")
-    .select("started_at, ended_at")
+    .select("started_at, ended_at, work_kind")
     .eq("user_id", user.id)
     .eq("local_date", input.localDate)
     .maybeSingle();
@@ -110,6 +116,9 @@ export async function logWorkEndAction(input: {
   }
   if (existing.ended_at) {
     return { ok: false, error: "Jobbslut är redan loggat." };
+  }
+  if (!workNeedsEnd({ kind: isWorkKind(existing.work_kind) ? existing.work_kind : null })) {
+    return { ok: false, error: "Ingen jobbslut när du är ledig eller sjuk." };
   }
 
   const { error } = await supabase

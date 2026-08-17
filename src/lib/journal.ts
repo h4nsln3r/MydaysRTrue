@@ -1,6 +1,7 @@
 // Client-safe journal types and helpers.
 
 import { formatTime, localHourFromISO } from "@/lib/date";
+import type { WorkKind } from "@/lib/work";
 
 export type JournalEntrySource =
   | "manual"
@@ -66,6 +67,7 @@ export interface JournalDisplayEntry {
   editable: boolean;
   /** Body was customized in the journal — use as-is in the narrative. */
   customBody?: boolean;
+  workKind?: WorkKind | null;
 }
 
 export interface DailyJournal {
@@ -132,10 +134,39 @@ function phraseGym(entry: JournalDisplayEntry): string {
 
 function phraseWorkStart(entry: JournalDisplayEntry): string {
   const note = entry.body.trim();
-  if (note) {
-    return ensureSentence(`Kl. ${formatTime(entry.at)} började jobbet — ${lowercaseFirst(note)}`);
+  const time = formatTime(entry.at);
+  const kind = entry.workKind;
+
+  if (kind === "off") {
+    if (note) {
+      return ensureSentence(`Kl. ${time} var jag ledig — ${lowercaseFirst(note)}`);
+    }
+    return ensureSentence(`Kl. ${time} var jag ledig`);
   }
-  return ensureSentence(`Kl. ${formatTime(entry.at)} började jobbet`);
+  if (kind === "sick") {
+    if (note) {
+      return ensureSentence(`Kl. ${time} var jag sjuk — ${lowercaseFirst(note)}`);
+    }
+    return ensureSentence(`Kl. ${time} var jag sjuk`);
+  }
+  if (kind === "home") {
+    if (note) {
+      return ensureSentence(`Kl. ${time} började jobbet hemma — ${lowercaseFirst(note)}`);
+    }
+    return ensureSentence(`Kl. ${time} började jobbet hemma`);
+  }
+  if (kind === "office") {
+    if (note) {
+      return ensureSentence(
+        `Kl. ${time} började jobbet på kontoret — ${lowercaseFirst(note)}`,
+      );
+    }
+    return ensureSentence(`Kl. ${time} började jobbet på kontoret`);
+  }
+  if (note) {
+    return ensureSentence(`Kl. ${time} började jobbet — ${lowercaseFirst(note)}`);
+  }
+  return ensureSentence(`Kl. ${time} började jobbet`);
 }
 
 function phraseWorkEnd(entry: JournalDisplayEntry): string {
@@ -146,18 +177,26 @@ function phraseWorkEnd(entry: JournalDisplayEntry): string {
   return ensureSentence(`Kl. ${formatTime(entry.at)} slutade jobbet`);
 }
 
+function workPlacePhrase(kind: WorkKind | null | undefined, startNote: string): string | null {
+  if (kind === "home") return "hemma";
+  if (kind === "office") return "på kontoret";
+  if (startNote) return lowercaseFirst(startNote);
+  return null;
+}
+
 function mergeWorkPhrases(start: JournalDisplayEntry, end: JournalDisplayEntry): string {
   const startNote = start.body.trim();
   const endNote = end.body.trim();
+  const place = workPlacePhrase(start.workKind, startNote);
 
-  if (startNote && endNote) {
-    const place = lowercaseFirst(startNote);
+  if (place && endNote) {
     const detail = lowercaseFirst(endNote);
     if (detail.startsWith("det ") || detail.startsWith("det var ")) {
       return ensureSentence(`Jobbade ${place}, ${detail}`);
     }
     return ensureSentence(`Jobbade ${place}. ${endNote.charAt(0).toUpperCase() + endNote.slice(1)}`);
   }
+  if (place) return ensureSentence(`Jobbade ${place}`);
   if (startNote) return ensureSentence(`Jobbade ${lowercaseFirst(startNote)}`);
   if (endNote) return phraseWorkEnd(end);
   return ensureSentence("Jobbade");

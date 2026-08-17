@@ -87,3 +87,7 @@ export function summarizeWorkLogs(logs: Iterable<WorkDailyLog>): WorkKindCounts 
   }
   return counts;
 }
+
+export function workKindCountTotal(counts: WorkKindCounts): number {
+  return counts.home + counts.office + counts.off + counts.sick;
+}

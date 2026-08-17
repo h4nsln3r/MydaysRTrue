@@ -11,7 +11,15 @@ import { Button } from "@/components/Button/Button";
 import { Card } from "@/components/Card/Card";
 import { Input } from "@/components/Input/Input";
 import { formatTime } from "@/lib/date";
-import { shouldShowWork, type WorkDailyLog } from "@/lib/work";
+import {
+  shouldShowWork,
+  workNeedsEnd,
+  WORK_KINDS,
+  WORK_KIND_FULL_LABEL,
+  WORK_KIND_ICON,
+  type WorkDailyLog,
+  type WorkKind,
+} from "@/lib/work";
 import styles from "./WorkDayCard.module.scss";
 
 interface Props {
@@ -36,11 +44,16 @@ export function WorkDayCard({ date, work, onLeave = false }: Props) {
 
   const started = Boolean(work.startedAt);
   const ended = Boolean(work.endedAt);
+  const showEnd = workNeedsEnd(work);
 
-  const logStart = () => {
+  const logStart = (kind: WorkKind) => {
     setError(null);
     startTransition(async () => {
-      const res = await logWorkStartAction({ localDate: date, note: startNote });
+      const res = await logWorkStartAction({
+        localDate: date,
+        kind,
+        note: startNote,
+      });
       if (!res.ok) setError(res.error ?? "Kunde inte spara.");
       router.refresh();
     });
@@ -78,11 +91,17 @@ export function WorkDayCard({ date, work, onLeave = false }: Props) {
           <div>
             <h2 className={styles.title}>Jobb</h2>
             <p className={styles.subtitle}>
-              {ended
-                ? "Dagen avslutad"
-                : started
-                  ? "På jobbet"
-                  : "Logga start och slut"}
+              {work.kind === "off"
+                ? "Ledig"
+                : work.kind === "sick"
+                  ? "Sjuk"
+                  : ended
+                    ? "Dagen avslutad"
+                    : started
+                      ? work.kind
+                        ? WORK_KIND_FULL_LABEL[work.kind]
+                        : "På jobbet"
+                      : "Välj hur dagen ser ut"}
             </p>
           </div>
         </div>
@@ -109,49 +128,55 @@ export function WorkDayCard({ date, work, onLeave = false }: Props) {
             disabled={pending || started}
           />
           {!started ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              fullWidth
-              onClick={logStart}
-              loading={pending}
-            >
-              Logga start
-            </Button>
+            <div className={styles.kindGrid}>
+              {WORK_KINDS.map((kind) => (
+                <Button
+                  key={kind}
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => logStart(kind)}
+                  loading={pending}
+                >
+                  {WORK_KIND_ICON[kind]} {WORK_KIND_FULL_LABEL[kind]}
+                </Button>
+              ))}
+            </div>
           ) : null}
         </section>
 
-        <section className={styles.block}>
-          <div className={styles.blockHead}>
-            <h3 className={styles.blockTitle}>Jobb slut</h3>
-            {work.endedAt ? (
-              <time className={styles.blockTime} dateTime={work.endedAt}>
-                {formatTime(work.endedAt)}
-              </time>
+        {showEnd ? (
+          <section className={styles.block}>
+            <div className={styles.blockHead}>
+              <h3 className={styles.blockTitle}>Jobb slut</h3>
+              {work.endedAt ? (
+                <time className={styles.blockTime} dateTime={work.endedAt}>
+                  {formatTime(work.endedAt)}
+                </time>
+              ) : null}
+            </div>
+            <Input
+              label="Kommentar"
+              value={endNote}
+              onChange={(e) => setEndNote(e.target.value)}
+              placeholder="t.ex. det var lugnt idag"
+              maxLength={500}
+              disabled={pending || !started}
+            />
+            {started && !ended ? (
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                fullWidth
+                onClick={logEnd}
+                loading={pending}
+              >
+                Logga slut
+              </Button>
             ) : null}
-          </div>
-          <Input
-            label="Kommentar"
-            value={endNote}
-            onChange={(e) => setEndNote(e.target.value)}
-            placeholder="t.ex. det var lugnt idag"
-            maxLength={500}
-            disabled={pending || !started}
-          />
-          {started && !ended ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              fullWidth
-              onClick={logEnd}
-              loading={pending}
-            >
-              Logga slut
-            </Button>
-          ) : null}
-        </section>
+          </section>
+        ) : null}
       </div>
 
       {(started || ended) && (startNote !== (work.startNote ?? "") || endNote !== (work.endNote ?? "")) ? (

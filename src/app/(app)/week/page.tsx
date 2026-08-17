@@ -95,6 +95,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     mediaWeek,
     weekProgressLayout,
     weekCompletions,
+    workByDate,
   ] = await Promise.all([
     getWeeklySummary(user.id, start),
     getWeekHabitSummary(user.id, start),
@@ -111,6 +112,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getWeekMediaSummary(user.id, start),
     getWeekProgressLayout(user.id, [...WEEK_PROGRESS_HABIT_KEYS]),
     getWeekCompletions(user.id, start),
+    getWorkLogsForWeek(user.id, start),
   ]);
 
   const journalWeek = await getWeekJournalSummary(user.id, {
@@ -122,7 +124,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     tasks: weeklyTasks.tasks,
     monthlyBillsWeek,
     weightPlan,
-    workByDate: await getWorkLogsForWeek(user.id, start),
+    workByDate,
   });
 
   return (
@@ -156,6 +158,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           weightPlan={weightPlan}
           journalWeek={journalWeek}
           layout={weekProgressLayout}
+          workByDate={workByDate}
         />
         </>
       ) : (

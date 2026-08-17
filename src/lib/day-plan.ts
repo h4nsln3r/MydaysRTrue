@@ -31,7 +31,13 @@ import type {
   WeeklyTaskForWeek,
 } from "@/lib/tasks";
 import { musicSessionIcon, musicSessionTitle } from "@/lib/tasks";
-import { shouldShowWork, type WorkDailyLog } from "@/lib/work";
+import {
+  shouldShowWork,
+  workNeedsEnd,
+  WORK_KIND_FULL_LABEL,
+  WORK_KIND_ICON,
+  type WorkDailyLog,
+} from "@/lib/work";
 import type { WeightDayContext } from "@/lib/weight";
 import {
   hasMediaDayActivity,
@@ -609,14 +615,16 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
       doneAt: input.work.startedAt,
       work: input.work,
     });
-    items.push({
-      kind: "work_end",
-      id: "end",
-      itemKey: "work_end:end",
-      sortOrder: 0,
-      doneAt: input.work.endedAt,
-      work: input.work,
-    });
+    if (workNeedsEnd(input.work)) {
+      items.push({
+        kind: "work_end",
+        id: "end",
+        itemKey: "work_end:end",
+        sortOrder: 0,
+        doneAt: input.work.endedAt,
+        work: input.work,
+      });
+    }
   }
 
   if (enabledKinds.has("steps")) {
@@ -729,7 +737,9 @@ export function dayPlanItemLabel(item: DayPlanItem): string {
     case "habit":
       return item.label;
     case "work_start":
-      return "Jobb start";
+      return item.work.kind
+        ? WORK_KIND_FULL_LABEL[item.work.kind]
+        : "Jobb start";
     case "work_end":
       return "Jobb slut";
     case "steps":
@@ -770,6 +780,7 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
     case "habit":
       return item.icon;
     case "work_start":
+      return item.work.kind ? WORK_KIND_ICON[item.work.kind] : "💼";
     case "work_end":
       return "💼";
     case "steps":

@@ -50,6 +50,12 @@ import {
 } from "@/lib/intake";
 import { formatTime } from "@/lib/date";
 import { SHAKE_RECIPE_INGREDIENTS } from "@/lib/shake-recipe";
+import {
+  WORK_KINDS,
+  WORK_KIND_FULL_LABEL,
+  WORK_KIND_ICON,
+  type WorkKind,
+} from "@/lib/work";
 import { formatMl } from "@/lib/water";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
 import type { PlanSortableProps } from "./usePlanSortable";
@@ -787,13 +793,11 @@ function WorkPlanRow(
     setNote(isStart ? (work.startNote ?? "") : (work.endNote ?? ""));
   }, [isStart, work.startNote, work.endNote]);
 
-  const log = () => {
+  const logStart = (kind: WorkKind) => {
     onError(null);
     onPendingKey(true);
     startTransition(async () => {
-      const res = isStart
-        ? await logWorkStartAction({ localDate: date, note })
-        : await logWorkEndAction({ localDate: date, note });
+      const res = await logWorkStartAction({ localDate: date, kind, note });
       if (!res.ok) {
         onError(res.error ?? "Kunde inte spara.");
         setError(res.error ?? "Kunde inte spara.");
@@ -803,8 +807,24 @@ function WorkPlanRow(
     });
   };
 
-  const detail = timestamp ? formatTime(timestamp) : null;
-  const canLog = isStart ? !done : Boolean(work.startedAt) && !done;
+  const logEnd = () => {
+    onError(null);
+    onPendingKey(true);
+    startTransition(async () => {
+      const res = await logWorkEndAction({ localDate: date, note });
+      if (!res.ok) {
+        onError(res.error ?? "Kunde inte spara.");
+        setError(res.error ?? "Kunde inte spara.");
+      }
+      onPendingKey(false);
+      onDone();
+    });
+  };
+
+  const kindDetail = isStart && work.kind ? WORK_KIND_FULL_LABEL[work.kind] : null;
+  const timeDetail = timestamp ? formatTime(timestamp) : null;
+  const detail = [kindDetail, timeDetail].filter(Boolean).join(" · ") || null;
+  const canLogEnd = !isStart && Boolean(work.startedAt) && !done;
 
   return (
     <PlanRowShell
@@ -819,15 +839,33 @@ function WorkPlanRow(
       planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
+      {isStart && !done ? (
+        <div className={styles.workKindGrid}>
+          {WORK_KINDS.map((kind) => (
+            <button
+              key={kind}
+              type="button"
+              className={styles.workKindBtn}
+              disabled={pending}
+              onClick={() => logStart(kind)}
+            >
+              <span className={styles.workKindIcon} aria-hidden>
+                {WORK_KIND_ICON[kind]}
+              </span>
+              {WORK_KIND_FULL_LABEL[kind]}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <Input
         label="Kommentar"
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder={isStart ? "t.ex. på kontoret" : "t.ex. det var lugnt idag"}
+        placeholder={isStart ? "valfritt" : "t.ex. det var lugnt idag"}
         maxLength={500}
         disabled={pending || (isStart ? done : !work.startedAt || done)}
       />
-      {canLog ? (
+      {canLogEnd ? (
         <Button
           type="button"
           variant="primary"
@@ -835,9 +873,9 @@ function WorkPlanRow(
           fullWidth
           loading={pending && busy}
           disabled={pending}
-          onClick={log}
+          onClick={logEnd}
         >
-          {isStart ? "Logga start" : "Logga slut"}
+          Logga slut
         </Button>
       ) : null}
       {done &&

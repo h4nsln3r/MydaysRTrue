@@ -14,6 +14,14 @@ import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
 import { ExpensesSummary } from "@/components/ExpensesSummary/ExpensesSummary";
 import type { ExpenseSummary } from "@/lib/expenses";
+import {
+  WORK_KINDS,
+  WORK_KIND_ICON,
+  WORK_KIND_LABEL,
+  summarizeWorkLogs,
+  workKindCountTotal,
+  type WorkDailyLog,
+} from "@/lib/work";
 import styles from "./month-progress.module.scss";
 
 interface Props {
@@ -30,6 +38,7 @@ interface Props {
   categories: TaskCategory[];
   expenseSummary: ExpenseSummary;
   shoppingSummary: ExpenseSummary;
+  workByDate: Map<string, WorkDailyLog>;
 }
 
 const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
@@ -55,10 +64,13 @@ export function MonthProgressBoard({
   categories,
   expenseSummary,
   shoppingSummary,
+  workByDate,
 }: Props) {
   const pastDays = summary.days.filter((d) => !d.isFuture).length;
   const colSpan = summary.days.length + 2;
   const hasTasks = monthlyTasks.length > 0;
+  const workCounts = summarizeWorkLogs(workByDate.values());
+  const workTotal = workKindCountTotal(workCounts);
 
   return (
     <div className={styles.board}>
@@ -96,6 +108,14 @@ export function MonthProgressBoard({
             </span>
           </span>
         ) : null}
+        <span className={styles.legendGroup}>
+          <span className={styles.legendTitle}>Jobb</span>
+          {WORK_KINDS.map((kind) => (
+            <span key={kind} className={styles.legendMarkDim}>
+              {WORK_KIND_ICON[kind]} {WORK_KIND_LABEL[kind]} {workCounts[kind]}
+            </span>
+          ))}
+        </span>
       </div>
 
       <div className={styles.spreadsheetWrap}>
@@ -162,6 +182,44 @@ export function MonthProgressBoard({
                 />
               </tr>
             ))}
+
+            <tr>
+              <RowLabel sticky icon="💼" label="Jobb" />
+              {summary.days.map((d) => {
+                const log = workByDate.get(d.date);
+                const kind = log?.startedAt ? log.kind : null;
+                return (
+                  <td
+                    key={d.date}
+                    className={cellClass(
+                      styles.dataCell,
+                      d.isFuture && styles.cellFuture,
+                      d.isToday && styles.cellToday,
+                    )}
+                    title={
+                      d.isFuture
+                        ? "Kommande"
+                        : kind
+                          ? WORK_KIND_LABEL[kind]
+                          : "Ej ifylld"
+                    }
+                  >
+                    {!d.isFuture && kind ? (
+                      <span aria-label={WORK_KIND_LABEL[kind]}>
+                        {WORK_KIND_ICON[kind]}
+                      </span>
+                    ) : !d.isFuture ? (
+                      <span className={styles.legendMarkDim}>·</span>
+                    ) : null}
+                  </td>
+                );
+              })}
+              <TotalCell
+                value={workTotal}
+                total={null}
+                muted={workTotal === 0}
+              />
+            </tr>
 
           </tbody>
           <tfoot>
@@ -451,6 +509,8 @@ function TotalCell({
           <span className={styles.totalValue}>{formatHabitPoints(value)}</span>
           <span className={styles.totalSlash}>/{total}</span>
         </span>
+      ) : value > 0 ? (
+        <span className={styles.totalValue}>{value}</span>
       ) : (
         <span className={styles.emptyMark}>—</span>
       )}

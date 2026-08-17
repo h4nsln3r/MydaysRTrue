@@ -412,7 +412,7 @@
     }
 
     &::after {
-        content: "▾";
+        content: "?";
         float: right;
         color: $color-fog;
         font-weight: 400;
@@ -420,7 +420,7 @@
 }
 
 .recipe[open] .recipeSummary::after {
-    content: "▴";
+    content: "?";
     color: $color-orange-bright;
 }
 
@@ -710,4 +710,40 @@
         border-color: $color-orange;
         color: $color-cream;
     }
+}
+
+.workKindGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.workKindBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 8px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        border-color: $color-fog;
+    }
+
+    &:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+}
+
+.workKindIcon {
+    font-size: 1.2rem;
+    line-height: 1;
 }

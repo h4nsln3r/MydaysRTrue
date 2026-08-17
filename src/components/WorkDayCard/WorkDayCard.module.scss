@@ -87,3 +87,9 @@
     color: $color-danger;
     font-size: 0.85rem;
 }
+
+.kindGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}

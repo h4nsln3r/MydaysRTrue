@@ -12,6 +12,7 @@ import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
 import type { WeeklyTaskForWeek } from "@/lib/tasks";
 import type { WeightDayContext } from "@/lib/weight";
+import { emptyWorkLog } from "@/lib/work";
 import { buildDayPlanItems, type DayPlanItem } from "@/lib/day-plan";
 
 export type DayActivityKind =
@@ -45,13 +46,7 @@ export function buildDayActivities(input: DayActivitiesInput): DayActivityItem[]
     meals: { breakfast: null, lunch: null, dinner: null },
     snacks: { 1: null, 2: null },
     intake: { fruit: null, creatine: null, vitamin: null, shake: null },
-    work: {
-      localDate: "",
-      startedAt: null,
-      startNote: null,
-      endedAt: null,
-      endNote: null,
-    },
+    work: emptyWorkLog(""),
     activityLog: { localDate: "", steps: null, activityHours: null },
     goals: { waterGoalMl: 2500, stepsGoal: 8000, activityHoursGoal: 12 },
     ...input,

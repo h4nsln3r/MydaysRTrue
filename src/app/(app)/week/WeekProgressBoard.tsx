@@ -49,6 +49,15 @@ import {
   type WeekProgressLayout,
   type WeekProgressTrainingKey,
 } from "@/lib/week-progress-layout";
+import {
+  WORK_KINDS,
+  WORK_KIND_ICON,
+  WORK_KIND_LABEL,
+  summarizeWorkLogs,
+  workKindCountTotal,
+  type WorkDailyLog,
+  type WorkKind,
+} from "@/lib/work";
 import styles from "./week-progress.module.scss";
 
 interface Props {
@@ -65,6 +74,7 @@ interface Props {
   weightPlan: WeightWeekPlan;
   journalWeek: WeekJournalSummary;
   layout: WeekProgressLayout;
+  workByDate: Map<string, WorkDailyLog>;
 }
 
 const WEEKDAY_HEAD = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
@@ -83,6 +93,7 @@ export function WeekProgressBoard({
   weightPlan,
   journalWeek,
   layout,
+  workByDate,
 }: Props) {
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
 
@@ -125,6 +136,8 @@ export function WeekProgressBoard({
   const shoppingSummary = collectWeekShopping(tasks, taskCategories);
   const today = week.days.find((d) => d.isToday)?.date ?? "";
   const colSpan = week.days.length + 2;
+  const workCounts = summarizeWorkLogs(workByDate.values());
+  const workTotal = workKindCountTotal(workCounts);
 
   return (
     <div className={styles.board}>
@@ -155,9 +168,15 @@ export function WeekProgressBoard({
           <WaterSwatch status="low" />
         </span>
         <span className={styles.legendGroup}>
-          <span className={styles.legendTitle}>Träning</span>
-          <span className={styles.legendMark}>✓ klar</span>
-          <span className={styles.legendMarkDim}>○ planerad</span>
+          <span className={styles.legendTitle}>Jobb</span>
+          {WORK_KINDS.map((kind) => (
+            <span key={kind} className={styles.legendItem}>
+              <span aria-hidden>{WORK_KIND_ICON[kind]}</span>
+              <span className={styles.legendItemLabel}>
+                {WORK_KIND_LABEL[kind]} {workCounts[kind]}
+              </span>
+            </span>
+          ))}
         </span>
       </div>
 
@@ -191,6 +210,12 @@ export function WeekProgressBoard({
                       mealsWeek={mealsWeek}
                       mediaWeek={mediaWeek}
                       dailyRows={layout.dailyRows}
+                    />
+                    <WorkKindRow
+                      days={week.days}
+                      workByDate={workByDate}
+                      counts={workCounts}
+                      total={workTotal}
                     />
                   </>
                 ) : null}
@@ -866,6 +891,63 @@ function DayHeader({ day, fallbackLabel }: { day: WeekDay; fallbackLabel: string
         {inner}
       </Link>
     </th>
+  );
+}
+
+function WorkKindRow({
+  days,
+  workByDate,
+  counts,
+  total,
+}: {
+  days: WeekDay[];
+  workByDate: Map<string, WorkDailyLog>;
+  counts: Record<WorkKind, number>;
+  total: number;
+}) {
+  return (
+    <tr>
+      <RowLabel sticky icon="💼" label="Jobb" />
+      {days.map((d) => {
+        const log = workByDate.get(d.date);
+        const kind = log?.startedAt ? log.kind : null;
+        return (
+          <td
+            key={d.date}
+            className={cellClass(
+              styles.dataCell,
+              d.isFuture && styles.cellFuture,
+              d.isToday && styles.cellToday,
+            )}
+            title={
+              d.isFuture
+                ? "Kommande"
+                : kind
+                  ? WORK_KIND_LABEL[kind]
+                  : "Ej ifylld"
+            }
+          >
+            {!d.isFuture && kind ? (
+              <span className={styles.moodMark} aria-label={WORK_KIND_LABEL[kind]}>
+                {WORK_KIND_ICON[kind]}
+              </span>
+            ) : !d.isFuture ? (
+              <span className={styles.emptyMark}>—</span>
+            ) : null}
+          </td>
+        );
+      })}
+      <TotalCell
+        value={null}
+        total={null}
+        muted
+        mutedLabel={
+          total === 0
+            ? "—"
+            : `${counts.home}/${counts.office}/${counts.off}/${counts.sick}`
+        }
+      />
+    </tr>
   );
 }
 

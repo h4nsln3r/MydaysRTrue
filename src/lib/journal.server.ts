@@ -34,7 +34,12 @@ import { monthlyTasksOnLocalDate } from "@/lib/monthly-bills";
 import type { MonthlyBillsWeekContext } from "@/lib/tasks.server";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
-import type { WorkDailyLog } from "@/lib/work";
+import {
+  WORK_KIND_FULL_LABEL,
+  WORK_KIND_ICON,
+  workNeedsEnd,
+  type WorkDailyLog,
+} from "@/lib/work";
 import {
   getJournalTrackersForDate,
   getJournalTrackersForWeek,
@@ -429,15 +434,16 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
     entries.push({
       id: `work-start-${ctx.localDate}`,
       source: "work_start",
-      icon: "💼",
-      title: "Jobb start",
+      icon: ctx.work.kind ? WORK_KIND_ICON[ctx.work.kind] : "💼",
+      title: ctx.work.kind ? WORK_KIND_FULL_LABEL[ctx.work.kind] : "Jobb start",
       body: ctx.work.startNote?.trim() || "",
       at: ctx.work.startedAt,
       editable: false,
+      workKind: ctx.work.kind,
     });
   }
 
-  if (ctx.work?.endedAt) {
+  if (ctx.work?.endedAt && workNeedsEnd(ctx.work)) {
     entries.push({
       id: `work-end-${ctx.localDate}`,
       source: "work_end",

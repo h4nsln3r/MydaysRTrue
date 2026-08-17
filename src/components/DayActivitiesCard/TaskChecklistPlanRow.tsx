@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toggleWeeklyTaskChecklistItemAction } from "@/app/(app)/tasks-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
@@ -42,6 +43,7 @@ export function TaskChecklistPlanRow({
   sortableRef,
   sortableStyle,
 }: Props) {
+  const router = useRouter();
   const completion = item.checklistItem.completion;
   const done = Boolean(completion);
   const [note, setNote] = useState(completion?.note ?? "");
@@ -76,7 +78,8 @@ export function TaskChecklistPlanRow({
         setError(res.error ?? "Kunde inte spara.");
       }
       onPendingKey(false);
-      onDone();
+      if (done) router.refresh();
+      else onDone();
     });
   };
 
@@ -163,29 +166,27 @@ export function TaskChecklistPlanRow({
       {!planningMode && expanded ? (
         <div className={styles.taskActions}>
           {error ? <p className={styles.error}>{error}</p> : null}
+          <Input
+            label="Kommentar (valfritt)"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="t.ex. lärde mig introt"
+            maxLength={500}
+            autoFocus={!done}
+            disabled={pending}
+          />
           {!done ? (
-            <>
-              <Input
-                label="Kommentar (valfritt)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="t.ex. lärde mig introt"
-                maxLength={500}
-                autoFocus
-                disabled={pending}
-              />
-              <Button
-                type="button"
-                variant="primary"
-                size="md"
-                fullWidth
-                loading={pending && busy}
-                disabled={pending}
-                onClick={save}
-              >
-                Markera klart
-              </Button>
-            </>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              fullWidth
+              loading={pending && busy}
+              disabled={pending}
+              onClick={save}
+            >
+              Markera klart
+            </Button>
           ) : (
             <>
               {note !== (completion?.note ?? "") ? (

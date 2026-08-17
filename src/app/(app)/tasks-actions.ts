@@ -1395,6 +1395,193 @@ export async function completeWeeklyTaskAction(input: {
   return { ok: true };
 }
 
+/** Update the written completion text without changing done_at. */
+export async function updateWeeklyTaskCompletionAction(input: {
+  taskId: string;
+  weekStart: string;
+  placementId?: string;
+  note?: string;
+  shopLocation?: string;
+  shopAmountExpr?: string;
+  laundryLoads?: number;
+  musicTitle?: string;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Veckan måste börja på en måndag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: task } = await supabase
+    .from("weekly_tasks")
+    .select("completion_kind, key")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+
+  let existing: {
+    id: string;
+    done_at: string | null;
+    gig_id: string | null;
+    live_event_id: string | null;
+    music_log_kind: string | null;
+  } | null = null;
+
+  if (input.placementId) {
+    const { data } = await supabase
+      .from("weekly_task_placements")
+      .select("id, done_at, gig_id, live_event_id, music_log_kind")
+      .eq("id", input.placementId)
+      .eq("user_id", user.id)
+      .eq("task_id", input.taskId)
+      .eq("week_start", input.weekStart)
+      .maybeSingle();
+    existing = data;
+  } else {
+    const { data } = await supabase
+      .from("weekly_task_placements")
+      .select("id, done_at, gig_id, live_event_id, music_log_kind")
+      .eq("user_id", user.id)
+      .eq("task_id", input.taskId)
+      .eq("week_start", input.weekStart)
+      .maybeSingle();
+    existing = data;
+  }
+
+  if (!existing) return { ok: false, error: "Placeringen hittades inte." };
+  if (!existing.done_at) {
+    return { ok: false, error: "Markera uppgiften klar först." };
+  }
+
+  const kind = task.completion_kind as WeeklyTaskCompletionKind;
+  const note = (input.note ?? "").trim();
+  const musicTitle = (input.musicTitle ?? "").trim();
+  const patch: {
+    note?: string | null;
+    shop_location?: string | null;
+    shop_amount?: number | null;
+    shop_amount_expr?: string | null;
+    laundry_loads?: number | null;
+  } = {};
+
+  if (kind === "shop" || kind === "expense") {
+    const shopLocation = (input.shopLocation ?? "").trim();
+    if (!shopLocation) {
+      return {
+        ok: false,
+        error:
+          kind === "expense"
+            ? "Ange vad utgiften gällde."
+            : "Ange var du handlade.",
+      };
+    }
+    const rawExpr = (input.shopAmountExpr ?? "").trim();
+    if (!rawExpr) {
+      return {
+        ok: false,
+        error:
+          kind === "expense"
+            ? "Ange beloppet."
+            : "Ange hur mycket du handlade för.",
+      };
+    }
+    const parsed = parseShopAmountExpr(rawExpr);
+    if (!parsed) {
+      return {
+        ok: false,
+        error: "Ange beloppet (t.ex. 450 eller 45+120).",
+      };
+    }
+    if (note.length > 500) {
+      return { ok: false, error: "Håll kommentaren under 500 tecken." };
+    }
+    patch.shop_location = shopLocation;
+    patch.shop_amount = parsed.total;
+    patch.shop_amount_expr = parsed.expression;
+    patch.note = note || null;
+  } else if (kind === "journal") {
+    if (!note) return { ok: false, error: "Anteckna vad du gjorde." };
+    if (note.length > 500) {
+      return { ok: false, error: "Håll anteckningen under 500 tecken." };
+    }
+    patch.note = note;
+  } else if (kind === "laundry") {
+    const loads = input.laundryLoads;
+    if (loads == null || !Number.isInteger(loads) || loads < 1 || loads > 30) {
+      return { ok: false, error: "Ange antal tvättar (1–30)." };
+    }
+    if (note.length > 500) {
+      return { ok: false, error: "Håll kommentaren under 500 tecken." };
+    }
+    patch.laundry_loads = loads;
+    patch.note = note || null;
+  } else if (kind === "music") {
+    const isLoggedEvent =
+      existing.music_log_kind === "gig" || existing.music_log_kind === "live";
+    if (isLoggedEvent) {
+      if (!musicTitle) return { ok: false, error: "Skriv en titel." };
+      if (musicTitle.length > 120) {
+        return { ok: false, error: "Håll titeln under 120 tecken." };
+      }
+      if (note.length > 280) {
+        return { ok: false, error: "Håll kommentaren under 280 tecken." };
+      }
+      patch.note = musicTitle;
+      if (existing.gig_id) {
+        const { error: gigError } = await supabase
+          .from("gigs")
+          .update({
+            title: musicTitle,
+            ...(input.note !== undefined ? { note: note.slice(0, 280) || null } : {}),
+          })
+          .eq("id", existing.gig_id)
+          .eq("user_id", user.id);
+        if (gigError) return { ok: false, error: gigError.message };
+      }
+      if (existing.live_event_id) {
+        const { error: liveError } = await supabase
+          .from("live_events")
+          .update({
+            title: musicTitle,
+            ...(input.note !== undefined ? { note: note.slice(0, 280) || null } : {}),
+          })
+          .eq("id", existing.live_event_id)
+          .eq("user_id", user.id);
+        if (liveError) return { ok: false, error: liveError.message };
+      }
+    } else {
+      if (note.length > 500) {
+        return { ok: false, error: "Håll kommentaren under 500 tecken." };
+      }
+      patch.note = note || null;
+    }
+  } else {
+    if (note.length > 500) {
+      return { ok: false, error: "Håll kommentaren under 500 tecken." };
+    }
+    patch.note = note || null;
+  }
+
+  const { error } = await supabase
+    .from("weekly_task_placements")
+    .update(patch)
+    .eq("id", existing.id)
+    .eq("user_id", user.id)
+    .not("done_at", "is", null);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  revalidatePath("/year", "page");
+  revalidatePath("/month", "page");
+  return { ok: true };
+}
+
 export async function uncompleteWeeklyTaskAction(input: {
   taskId: string;
   weekStart: string;
@@ -1661,13 +1848,20 @@ export async function toggleWeeklyTaskChecklistItemAction(input: {
     if (note && note.length > 500) {
       return { ok: false, error: "Håll kommentaren under 500 tecken." };
     }
+    const { data: existing } = await supabase
+      .from("weekly_task_checklist_completions")
+      .select("done_at")
+      .eq("checklist_item_id", input.itemId)
+      .eq("local_date", input.localDate)
+      .eq("user_id", user.id)
+      .maybeSingle();
     const { error } = await supabase.from("weekly_task_checklist_completions").upsert(
       {
         user_id: user.id,
         checklist_item_id: input.itemId,
         local_date: input.localDate,
         note,
-        done_at: new Date().toISOString(),
+        done_at: existing?.done_at ?? new Date().toISOString(),
       },
       { onConflict: "checklist_item_id,local_date" },
     );
@@ -2467,7 +2661,7 @@ export async function toggleMonthlyTaskDoneAction(input: {
   const { data: existing } = await supabase
     .from("monthly_task_completions")
     .select(
-      "id, amount, scheduled_day_of_month, scheduled_week_start, is_unscheduled",
+      "id, amount, done_at, scheduled_day_of_month, scheduled_week_start, is_unscheduled",
     )
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
@@ -2516,7 +2710,9 @@ export async function toggleMonthlyTaskDoneAction(input: {
   const transferAccount =
     task.key != null ? TRANSFER_TASK_ACCOUNT[task.key] : undefined;
 
-  const doneAt = input.done ? new Date().toISOString() : null;
+  const doneAt = input.done
+    ? (existing?.done_at ?? new Date().toISOString())
+    : null;
   const trimmedNote = (input.note ?? "").trim();
   const noteValue = input.done ? trimmedNote.slice(0, 500) || null : null;
   const setNote = input.done ? input.note !== undefined : true;
@@ -2571,7 +2767,9 @@ export async function toggleMonthlyTaskDoneAction(input: {
     (input.done ? amountValue != null : previousAmount != null)
   ) {
     const delta = input.done
-      ? (amountValue ?? 0)
+      ? existing?.done_at
+        ? (amountValue ?? 0) - (previousAmount ?? 0)
+        : (amountValue ?? 0)
       : -(previousAmount ?? 0);
     const syncRes = await syncTransferToFinanceSnapshot(
       supabase,

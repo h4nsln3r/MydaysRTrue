@@ -475,33 +475,46 @@ function SnackPlanRow(
       planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
+      <Input
+        label="Vad innehöll mellanmålet?"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="t.ex. äpple och nötter"
+        maxLength={280}
+        autoFocus={!done}
+        disabled={pending}
+      />
       {!done ? (
-        <>
-          <Input
-            label="Vad innehöll mellanmålet?"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="t.ex. äpple och nötter"
-            maxLength={280}
-            autoFocus
-            disabled={pending}
-          />
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            fullWidth
-            loading={pending && busy}
-            disabled={pending || !description.trim()}
-            onClick={save}
-          >
-            Markera äten
-          </Button>
-        </>
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          fullWidth
+          loading={pending && busy}
+          disabled={pending || !description.trim()}
+          onClick={save}
+        >
+          Markera äten
+        </Button>
       ) : (
-        <button type="button" className={styles.undoBtn} onClick={clear} disabled={pending}>
-          Ångra
-        </button>
+        <>
+          {description !== (entry?.description ?? "") ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              fullWidth
+              loading={pending && busy}
+              disabled={pending || !description.trim()}
+              onClick={save}
+            >
+              Spara
+            </Button>
+          ) : null}
+          <button type="button" className={styles.undoBtn} onClick={clear} disabled={pending}>
+            Ångra
+          </button>
+        </>
       )}
     </PlanRowShell>
   );
@@ -595,50 +608,67 @@ function IntakePlanRow(
       planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
+      <Input
+        label={INTAKE_DESCRIPTION_LABEL[kind]}
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder={INTAKE_DESCRIPTION_PLACEHOLDER[kind]}
+        maxLength={280}
+        autoFocus={!done}
+        required={requiresDescription}
+        disabled={pending}
+      />
+      {hasWater ? (
+        <Input
+          label="Vatten (valfritt)"
+          type="number"
+          min={0}
+          max={5000}
+          step={50}
+          value={waterMl}
+          onChange={(e) => setWaterMl(e.target.value)}
+          placeholder="0"
+          suffix="ml"
+          disabled={pending}
+        />
+      ) : null}
       {!done ? (
-        <>
-          <Input
-            label={INTAKE_DESCRIPTION_LABEL[kind]}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder={INTAKE_DESCRIPTION_PLACEHOLDER[kind]}
-            maxLength={280}
-            autoFocus
-            required={requiresDescription}
-            disabled={pending}
-          />
-          {hasWater ? (
-            <Input
-              label="Vatten (valfritt)"
-              type="number"
-              min={0}
-              max={5000}
-              step={50}
-              value={waterMl}
-              onChange={(e) => setWaterMl(e.target.value)}
-              placeholder="0"
-              suffix="ml"
-              disabled={pending}
-            />
-          ) : null}
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            fullWidth
-            loading={pending && busy}
-            disabled={
-              pending || (requiresDescription && !description.trim())
-            }
-            onClick={save}
-          >
-            Markera klart
-          </Button>
-        </>
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          fullWidth
+          loading={pending && busy}
+          disabled={
+            pending || (requiresDescription && !description.trim())
+          }
+          onClick={save}
+        >
+          Markera klart
+        </Button>
       ) : (
-        <button type="button" className={styles.undoBtn} onClick={clear} disabled={pending}>
-          Ångra
-        </button>
+        <>
+          {description !== (entry?.description ?? "") ||
+          (hasWater &&
+            waterMl !== (entry?.waterMl ? String(entry.waterMl) : "")) ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              fullWidth
+              loading={pending && busy}
+              disabled={
+                pending || (requiresDescription && !description.trim())
+              }
+              onClick={save}
+            >
+              Spara
+            </Button>
+          ) : null}
+          <button type="button" className={styles.undoBtn} onClick={clear} disabled={pending}>
+            Ångra
+          </button>
+        </>
       )}
     </PlanRowShell>
   );
@@ -727,37 +757,50 @@ function HabitPlanRow(
           </ul>
         </details>
       ) : null}
+      <Input
+        label="Kommentar (valfritt)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder={
+          item.habitKey === "gor_shake"
+            ? "t.ex. vanilj till idag och imorgon"
+            : "t.ex. plockade undan i vardagsrummet"
+        }
+        maxLength={280}
+        autoFocus={!done}
+        disabled={pending}
+      />
       {!done ? (
-        <>
-          <Input
-            label="Kommentar (valfritt)"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={
-              item.habitKey === "gor_shake"
-                ? "t.ex. vanilj till idag och imorgon"
-                : "t.ex. plockade undan i vardagsrummet"
-            }
-            maxLength={280}
-            autoFocus
-            disabled={pending}
-          />
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            fullWidth
-            loading={pending && busy}
-            disabled={pending}
-            onClick={save}
-          >
-            Markera klart
-          </Button>
-        </>
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          fullWidth
+          loading={pending && busy}
+          disabled={pending}
+          onClick={save}
+        >
+          Markera klart
+        </Button>
       ) : (
-        <button type="button" className={styles.undoBtn} onClick={clear} disabled={pending}>
-          Ångra
-        </button>
+        <>
+          {note !== (item.note ?? "") ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              fullWidth
+              loading={pending && busy}
+              disabled={pending}
+              onClick={save}
+            >
+              Spara kommentar
+            </Button>
+          ) : null}
+          <button type="button" className={styles.undoBtn} onClick={clear} disabled={pending}>
+            Ångra
+          </button>
+        </>
       )}
     </PlanRowShell>
   );
@@ -863,7 +906,7 @@ function WorkPlanRow(
         onChange={(e) => setNote(e.target.value)}
         placeholder={isStart ? "valfritt" : "t.ex. det var lugnt idag"}
         maxLength={500}
-        disabled={pending || (isStart ? done : !work.startedAt || done)}
+        disabled={pending || (!isStart && !work.startedAt)}
       />
       {canLogEnd ? (
         <Button

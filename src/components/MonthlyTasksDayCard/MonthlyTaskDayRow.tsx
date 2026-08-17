@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
@@ -68,8 +68,7 @@ export function MonthlyTaskDayRow({
   const category = task.categoryId
     ? categories.find((c) => c.id === task.categoryId) ?? null
     : null;
-  const needsExpand =
-    !isFinance && (isBill || task.completionKind === "amount");
+  const needsExpand = !isFinance;
   const monthHref = `/month?m=${monthStart.slice(0, 7)}&view=plan`;
   const ekonomiHref = monthPlanEkonomiHref(monthStart);
   const [, startTransition] = useTransition();
@@ -96,14 +95,36 @@ export function MonthlyTaskDayRow({
         : "",
   );
 
-  const run = (fn: () => Promise<{ ok: boolean; error?: string }>) => {
+  useEffect(() => {
+    setNote(savedNote);
+    setAmount(
+      task.completion?.amount != null
+        ? String(task.completion.amount)
+        : task.defaultAmountKr != null
+          ? String(task.defaultAmountKr)
+          : "",
+    );
+    setBillAmount(
+      task.completion?.amount != null
+        ? String(task.completion.amount)
+        : task.defaultAmountKr != null
+          ? String(task.defaultAmountKr)
+          : "",
+    );
+  }, [savedNote, task.completion?.amount, task.defaultAmountKr]);
+
+  const run = (
+    fn: () => Promise<{ ok: boolean; error?: string }>,
+    keepOpen = false,
+  ) => {
     onError(null);
     onPendingId(task.id);
     startTransition(async () => {
       const res = await fn();
       if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
       onPendingId(null);
-      onDone();
+      if (keepOpen) router.refresh();
+      else onDone();
     });
   };
 
@@ -161,7 +182,7 @@ export function MonthlyTaskDayRow({
         amount: isBill ? billAmountForDone() : undefined,
       });
       return res;
-    });
+    }, done);
 
   const completeAmount = () => {
     const parsed = parseKrInput(amount);
@@ -169,14 +190,16 @@ export function MonthlyTaskDayRow({
       onError("Ange ett belopp.");
       return;
     }
-    run(() =>
-      toggleMonthlyTaskDoneAction({
-        taskId: task.id,
-        monthStart,
-        done: true,
-        amount: parsed,
-        note,
-      }),
+    run(
+      () =>
+        toggleMonthlyTaskDoneAction({
+          taskId: task.id,
+          monthStart,
+          done: true,
+          amount: parsed,
+          note,
+        }),
+      done,
     );
   };
 
@@ -366,13 +389,55 @@ export function MonthlyTaskDayRow({
             </>
           ) : (
             <>
-              {isBill && billAmountLabel ? (
-                <p className={styles.taskDetail}>{billAmountLabel}</p>
-              ) : detail ? (
-                <p className={styles.taskDetail}>{detail}</p>
-              ) : (
-                <p className={styles.empty}>Ingen kommentar.</p>
-              )}
+              {task.completionKind === "amount" && task.notes ? (
+                <p className={styles.notesBlock}>{task.notes}</p>
+              ) : null}
+              {task.completionKind === "amount" ? (
+                <Input
+                  label="Belopp (kr)"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder={
+                    task.defaultAmountKr != null
+                      ? String(task.defaultAmountKr)
+                      : "t.ex. 1500"
+                  }
+                  inputMode="decimal"
+                  disabled={pending}
+                />
+              ) : null}
+              <Input
+                label="Kommentar (valfritt)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Skriv en kommentar"
+                maxLength={500}
+                disabled={pending}
+              />
+              {note !== savedNote ||
+              (task.completionKind === "amount" &&
+                amount !==
+                  (task.completion?.amount != null
+                    ? String(task.completion.amount)
+                    : task.defaultAmountKr != null
+                      ? String(task.defaultAmountKr)
+                      : "")) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={
+                    task.completionKind === "amount"
+                      ? completeAmount
+                      : completeSimple
+                  }
+                >
+                  Spara
+                </Button>
+              ) : null}
               <button
                 type="button"
                 className={styles.undoBtn}

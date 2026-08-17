@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useDayReschedule } from "@/lib/use-day-reschedule";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card/Card";
@@ -10,6 +10,7 @@ import { Input } from "@/components/Input/Input";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import {
   completeWeeklyTaskAction,
+  updateWeeklyTaskCompletionAction,
   createOneOffWeeklyTaskAction,
   deleteWeeklyTaskPlacementAction,
   moveWeeklyTaskPlacementAction,
@@ -421,6 +422,39 @@ export function WeeklyTaskRow({
   );
   const [newProjectTitle, setNewProjectTitle] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
+  const isLoggedMusicEvent =
+    task.completionKind === "music" &&
+    (musicActivityCreatesGig(musicActivity) ||
+      musicActivityCreatesLiveEvent(musicActivity) ||
+      Boolean(placement?.musicLogKind));
+
+  useEffect(() => {
+    setTaskNote(
+      placement?.musicLogKind ? "" : (placement?.note ?? ""),
+    );
+    setShopLocation(placement?.shopLocation ?? "");
+    setShopAmount(
+      placement?.shopAmountExpr?.trim() ||
+        (placement?.shopAmount != null ? String(placement.shopAmount) : ""),
+    );
+    setLaundryLoads(
+      placement?.laundryLoads != null ? String(placement.laundryLoads) : "",
+    );
+    setBand(placement?.band ?? null);
+    setMusicActivity(parseMusicActivity(placement?.musicActivity));
+    setMusicTitle(placement?.musicLogKind ? (placement.note ?? "") : "");
+    setCodingProjectId(placement?.codingProjectId ?? "");
+  }, [
+    placement?.note,
+    placement?.shopLocation,
+    placement?.shopAmount,
+    placement?.shopAmountExpr,
+    placement?.laundryLoads,
+    placement?.band,
+    placement?.musicActivity,
+    placement?.musicLogKind,
+    placement?.codingProjectId,
+  ]);
 
   const detail = placement ? formatWeeklyTaskDetail(placement) : null;
   const planNote = placement?.planNote?.trim() ?? "";
@@ -477,6 +511,27 @@ export function WeeklyTaskRow({
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
       onDone();
+    });
+  };
+
+  const saveCompletion = () => {
+    onError(null);
+    onPendingId(task.id);
+    startTransition(async () => {
+      const res = await updateWeeklyTaskCompletionAction({
+        taskId: task.id,
+        weekStart,
+        placementId,
+        note: isLoggedMusicEvent ? undefined : taskNote,
+        shopLocation,
+        shopAmountExpr: shopAmount,
+        laundryLoads:
+          laundryLoads.trim() === "" ? undefined : Number(laundryLoads),
+        musicTitle: isLoggedMusicEvent ? musicTitle : undefined,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
+      onPendingId(null);
+      onRefresh();
     });
   };
 
@@ -588,6 +643,22 @@ export function WeeklyTaskRow({
       onDone();
     });
   };
+
+  const savedNote = placement?.musicLogKind ? "" : (placement?.note ?? "");
+  const savedMusicTitle = placement?.musicLogKind ? (placement.note ?? "") : "";
+  const savedShopLocation = placement?.shopLocation ?? "";
+  const savedShopAmount =
+    placement?.shopAmountExpr?.trim() ||
+    (placement?.shopAmount != null ? String(placement.shopAmount) : "");
+  const savedLoads =
+    placement?.laundryLoads != null ? String(placement.laundryLoads) : "";
+  const completionDirty =
+    done &&
+    (taskNote !== savedNote ||
+      shopLocation !== savedShopLocation ||
+      shopAmount !== savedShopAmount ||
+      laundryLoads !== savedLoads ||
+      musicTitle !== savedMusicTitle);
 
   return (
     <li
@@ -754,247 +825,283 @@ export function WeeklyTaskRow({
             </p>
           ) : null}
 
-          {!done ? (
+          {task.completionKind === "shop" || task.completionKind === "expense" ? (
             <>
-              {task.completionKind === "shop" || task.completionKind === "expense" ? (
+              <Input
+                label={
+                  task.completionKind === "expense"
+                    ? "Vad gällde utgiften?"
+                    : "Var handlade du?"
+                }
+                value={shopLocation}
+                onChange={(e) => setShopLocation(e.target.value)}
+                placeholder={
+                  task.completionKind === "expense"
+                    ? "t.ex. Netflix, bensin, kläder"
+                    : "t.ex. ICA, Coop"
+                }
+                maxLength={120}
+                disabled={pending}
+              />
+              <Input
+                label="Summa (kr)"
+                inputMode="decimal"
+                value={shopAmount}
+                onChange={(e) => setShopAmount(e.target.value)}
+                placeholder="t.ex. 450 eller 45+120+8,50"
+                hint={shopAmountHint}
+                disabled={pending}
+              />
+            </>
+          ) : null}
+          {task.completionKind === "journal" ? (
+            <>
+              {isCoding && !done ? (
+                <div className={styles.bandPicker}>
+                  <span className={styles.bandLabel}>Projekt</span>
+                  {creatingProject ? (
+                    <div className={styles.quickAddActions}>
+                      <Input
+                        label="Nytt projekt"
+                        value={newProjectTitle}
+                        onChange={(e) => setNewProjectTitle(e.target.value)}
+                        placeholder="t.ex. Mydays, Portfolio"
+                        maxLength={120}
+                        disabled={pending}
+                      />
+                      <button
+                        type="button"
+                        className={styles.quickAddCancel}
+                        onClick={() => {
+                          setCreatingProject(false);
+                          setNewProjectTitle("");
+                        }}
+                        disabled={pending}
+                      >
+                        Avbryt
+                      </button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="md"
+                        loading={pending && busy}
+                        disabled={pending || !newProjectTitle.trim()}
+                        onClick={createProject}
+                      >
+                        Skapa
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        className={styles.rescheduleSelect}
+                        value={codingProjectId}
+                        disabled={pending}
+                        onChange={(e) => {
+                          if (e.target.value === "__new__") {
+                            setCreatingProject(true);
+                            return;
+                          }
+                          setCodingProjectId(e.target.value);
+                        }}
+                      >
+                        <option value="">Välj projekt…</option>
+                        {codingProjects.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.title}
+                          </option>
+                        ))}
+                        {codingProjectId &&
+                        !codingProjects.some((p) => p.id === codingProjectId) &&
+                        placement?.codingProjectTitle ? (
+                          <option value={codingProjectId}>
+                            {placement.codingProjectTitle}
+                          </option>
+                        ) : null}
+                        <option value="__new__">+ Nytt projekt</option>
+                      </select>
+                    </>
+                  )}
+                </div>
+              ) : null}
+              {isCoding && done && placement?.codingProjectTitle ? (
+                <p className={styles.planReadout}>
+                  <span className={styles.planReadoutLabel}>Projekt</span>
+                  {placement.codingProjectTitle}
+                </p>
+              ) : null}
+              <Input
+                label={isCoding ? "Vad gjorde du i projektet?" : "Vad gjorde du?"}
+                value={taskNote}
+                onChange={(e) => setTaskNote(e.target.value)}
+                placeholder={
+                  isCoding
+                    ? "t.ex. Byggde repeatable tasks"
+                    : "Anteckna resultatet"
+                }
+                maxLength={500}
+                disabled={pending}
+              />
+            </>
+          ) : null}
+          {task.completionKind === "simple" ||
+          task.completionKind === "note" ||
+          task.completionKind === "shop" ||
+          task.completionKind === "expense" ||
+          task.completionKind === "laundry" ? (
+            <Input
+              label="Kommentar (valfritt)"
+              value={taskNote}
+              onChange={(e) => setTaskNote(e.target.value)}
+              placeholder="Skriv en kommentar"
+              maxLength={500}
+              disabled={pending}
+            />
+          ) : null}
+          {task.completionKind === "laundry" ? (
+            <Input
+              label="Antal tvättar"
+              type="number"
+              inputMode="numeric"
+              value={laundryLoads}
+              onChange={(e) => setLaundryLoads(e.target.value)}
+              placeholder="t.ex. 2"
+              disabled={pending}
+            />
+          ) : null}
+          {task.completionKind === "music" ? (
+            <>
+              {!done ? (
+                <MusicActivityFields
+                  activity={musicActivity}
+                  onActivityChange={setMusicActivity}
+                  band={band}
+                  onBandChange={setBand}
+                  disabled={pending}
+                />
+              ) : null}
+              {!done &&
+              (musicActivityCreatesGig(musicActivity) ||
+                musicActivityCreatesLiveEvent(musicActivity)) ? (
                 <>
                   <Input
-                    label={
-                      task.completionKind === "expense"
-                        ? "Vad gällde utgiften?"
-                        : "Var handlade du?"
-                    }
-                    value={shopLocation}
-                    onChange={(e) => setShopLocation(e.target.value)}
+                    label="Titel"
+                    value={musicTitle}
+                    onChange={(e) => setMusicTitle(e.target.value)}
                     placeholder={
-                      task.completionKind === "expense"
-                        ? "t.ex. Netflix, bensin, kläder"
-                        : "t.ex. ICA, Coop"
+                      musicActivityCreatesGig(musicActivity)
+                        ? "t.ex. Ekenäsfestivalen, Kvarteret"
+                        : "t.ex. Artist / band på scen"
                     }
                     maxLength={120}
                     disabled={pending}
                   />
                   <Input
-                    label="Summa (kr)"
-                    inputMode="decimal"
-                    value={shopAmount}
-                    onChange={(e) => setShopAmount(e.target.value)}
-                    placeholder="t.ex. 450 eller 45+120+8,50"
-                    hint={shopAmountHint}
+                    label="Plats (valfritt)"
+                    value={musicPlace}
+                    onChange={(e) => setMusicPlace(e.target.value)}
+                    placeholder={
+                      musicActivityCreatesGig(musicActivity)
+                        ? "t.ex. Debaser, Malmö"
+                        : "t.ex. Annexet, Stockholm"
+                    }
+                    maxLength={120}
                     disabled={pending}
                   />
-                </>
-              ) : null}
-              {task.completionKind === "journal" ? (
-                <>
-                  {isCoding ? (
-                    <div className={styles.bandPicker}>
-                      <span className={styles.bandLabel}>Projekt</span>
-                      {creatingProject ? (
-                        <div className={styles.quickAddActions}>
-                          <Input
-                            label="Nytt projekt"
-                            value={newProjectTitle}
-                            onChange={(e) => setNewProjectTitle(e.target.value)}
-                            placeholder="t.ex. Mydays, Portfolio"
-                            maxLength={120}
-                            disabled={pending}
-                          />
-                          <button
-                            type="button"
-                            className={styles.quickAddCancel}
-                            onClick={() => {
-                              setCreatingProject(false);
-                              setNewProjectTitle("");
-                            }}
-                            disabled={pending}
-                          >
-                            Avbryt
-                          </button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="md"
-                            loading={pending && busy}
-                            disabled={pending || !newProjectTitle.trim()}
-                            onClick={createProject}
-                          >
-                            Skapa
-                          </Button>
-                        </div>
-                      ) : (
-                        <>
-                          <select
-                            className={styles.rescheduleSelect}
-                            value={codingProjectId}
-                            disabled={pending}
-                            onChange={(e) => {
-                              if (e.target.value === "__new__") {
-                                setCreatingProject(true);
-                                return;
-                              }
-                              setCodingProjectId(e.target.value);
-                            }}
-                          >
-                            <option value="">Välj projekt…</option>
-                            {codingProjects.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.title}
-                              </option>
-                            ))}
-                            {codingProjectId &&
-                            !codingProjects.some((p) => p.id === codingProjectId) &&
-                            placement?.codingProjectTitle ? (
-                              <option value={codingProjectId}>
-                                {placement.codingProjectTitle}
-                              </option>
-                            ) : null}
-                            <option value="__new__">+ Nytt projekt</option>
-                          </select>
-                        </>
-                      )}
-                    </div>
-                  ) : null}
                   <Input
-                    label={isCoding ? "Vad gjorde du i projektet?" : "Vad gjorde du?"}
+                    label="Kommentar (valfritt)"
                     value={taskNote}
                     onChange={(e) => setTaskNote(e.target.value)}
                     placeholder={
-                      isCoding
-                        ? "t.ex. Byggde repeatable tasks"
-                        : "Anteckna resultatet"
+                      musicActivityCreatesGig(musicActivity)
+                        ? "t.ex. Bra publik, lite nervös i början"
+                        : "t.ex. Fantastisk stämning, bra setlista!"
                     }
-                    maxLength={500}
+                    maxLength={280}
                     disabled={pending}
                   />
+                  <label className={styles.ratingField}>
+                    <span className={styles.ratingLabel}>Betyg</span>
+                    <select
+                      className={styles.ratingSelect}
+                      value={musicRating}
+                      onChange={(e) => setMusicRating(e.target.value)}
+                      disabled={pending}
+                    >
+                      <option value="">–</option>
+                      {Array.from(
+                        { length: GIG_RATING_MAX - GIG_RATING_MIN + 1 },
+                        (_, i) => GIG_RATING_MIN + i,
+                      ).map((n) => (
+                        <option key={n} value={n}>
+                          {n}/10
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </>
               ) : null}
-              {task.completionKind === "simple" ||
-              task.completionKind === "note" ||
-              task.completionKind === "shop" ||
-              task.completionKind === "expense" ||
-              task.completionKind === "laundry" ? (
+              {done && isLoggedMusicEvent ? (
+                <Input
+                  label="Titel"
+                  value={musicTitle}
+                  onChange={(e) => setMusicTitle(e.target.value)}
+                  placeholder="Titel"
+                  maxLength={120}
+                  disabled={pending}
+                />
+              ) : null}
+              {(done && !isLoggedMusicEvent) ||
+              (!done &&
+                !musicActivityCreatesGig(musicActivity) &&
+                !musicActivityCreatesLiveEvent(musicActivity)) ? (
                 <Input
                   label="Kommentar (valfritt)"
                   value={taskNote}
                   onChange={(e) => setTaskNote(e.target.value)}
-                  placeholder="Skriv en kommentar"
+                  placeholder="Vad gjorde du?"
                   maxLength={500}
                   disabled={pending}
                 />
               ) : null}
-              {task.completionKind === "laundry" ? (
-                <Input
-                  label="Antal tvättar"
-                  type="number"
-                  inputMode="numeric"
-                  value={laundryLoads}
-                  onChange={(e) => setLaundryLoads(e.target.value)}
-                  placeholder="t.ex. 2"
-                  disabled={pending}
-                />
-              ) : null}
-              {task.completionKind === "music" ? (
-                <>
-                  <MusicActivityFields
-                    activity={musicActivity}
-                    onActivityChange={setMusicActivity}
-                    band={band}
-                    onBandChange={setBand}
-                    disabled={pending}
-                  />
-                  {musicActivityCreatesGig(musicActivity) ||
-                  musicActivityCreatesLiveEvent(musicActivity) ? (
-                    <>
-                      <Input
-                        label="Titel"
-                        value={musicTitle}
-                        onChange={(e) => setMusicTitle(e.target.value)}
-                        placeholder={
-                          musicActivityCreatesGig(musicActivity)
-                            ? "t.ex. Ekenäsfestivalen, Kvarteret"
-                            : "t.ex. Artist / band på scen"
-                        }
-                        maxLength={120}
-                        disabled={pending}
-                      />
-                      <Input
-                        label="Plats (valfritt)"
-                        value={musicPlace}
-                        onChange={(e) => setMusicPlace(e.target.value)}
-                        placeholder={
-                          musicActivityCreatesGig(musicActivity)
-                            ? "t.ex. Debaser, Malmö"
-                            : "t.ex. Annexet, Stockholm"
-                        }
-                        maxLength={120}
-                        disabled={pending}
-                      />
-                      <Input
-                        label="Kommentar (valfritt)"
-                        value={taskNote}
-                        onChange={(e) => setTaskNote(e.target.value)}
-                        placeholder={
-                          musicActivityCreatesGig(musicActivity)
-                            ? "t.ex. Bra publik, lite nervös i början"
-                            : "t.ex. Fantastisk stämning, bra setlista!"
-                        }
-                        maxLength={280}
-                        disabled={pending}
-                      />
-                      <label className={styles.ratingField}>
-                        <span className={styles.ratingLabel}>Betyg</span>
-                        <select
-                          className={styles.ratingSelect}
-                          value={musicRating}
-                          onChange={(e) => setMusicRating(e.target.value)}
-                          disabled={pending}
-                        >
-                          <option value="">–</option>
-                          {Array.from(
-                            { length: GIG_RATING_MAX - GIG_RATING_MIN + 1 },
-                            (_, i) => GIG_RATING_MIN + i,
-                          ).map((n) => (
-                            <option key={n} value={n}>
-                              {n}/10
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </>
-                  ) : (
-                    <Input
-                      label="Kommentar (valfritt)"
-                      value={taskNote}
-                      onChange={(e) => setTaskNote(e.target.value)}
-                      placeholder="Vad gjorde du?"
-                      maxLength={500}
-                      disabled={pending}
-                    />
-                  )}
-                </>
-              ) : null}
-              <Button
-                type="button"
-                variant="primary"
-                size="md"
-                fullWidth
-                loading={pending && busy}
-                disabled={pending}
-                onClick={complete}
-              >
-                Markera klart
-              </Button>
             </>
-          ) : (
-            <button
+          ) : null}
+          {!done ? (
+            <Button
               type="button"
-              className={styles.undoBtn}
-              onClick={uncomplete}
+              variant="primary"
+              size="md"
+              fullWidth
+              loading={pending && busy}
               disabled={pending}
+              onClick={complete}
             >
-              Ångra klarmarkering
-            </button>
+              Markera klart
+            </Button>
+          ) : (
+            <>
+              {completionDirty ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={saveCompletion}
+                >
+                  Spara
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={uncomplete}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
+            </>
           )}
 
           {categories.length > 0 ? (

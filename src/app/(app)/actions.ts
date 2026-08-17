@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isLocalISODate, todayLocalISO } from "@/lib/date";
 import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
 import { MEAL_LABEL, mealHasCookingMeta, mealShowsMealBoxes } from "@/lib/habits";
 import { resolveMealRestaurant } from "@/lib/meals.server";
@@ -201,11 +202,35 @@ function slugify(label: string): string {
     .slice(0, 32);
 }
 
+function parseHabitInterval(input: {
+  intervalDays?: number;
+  intervalAnchorDate?: string | null;
+}): { ok: true; intervalDays: number; intervalAnchorDate: string | null } | {
+  ok: false;
+  error: string;
+} {
+  const raw = input.intervalDays ?? 1;
+  const intervalDays = Math.round(Number(raw));
+  if (!Number.isFinite(intervalDays) || intervalDays < 1 || intervalDays > 14) {
+    return { ok: false, error: "Återkomsten måste vara 1–14 dagar." };
+  }
+  if (intervalDays === 1) {
+    return { ok: true, intervalDays: 1, intervalAnchorDate: null };
+  }
+  const anchor = (input.intervalAnchorDate ?? todayLocalISO()).trim();
+  if (!isLocalISODate(anchor)) {
+    return { ok: false, error: "Ogiltigt startdatum för återkomsten." };
+  }
+  return { ok: true, intervalDays, intervalAnchorDate: anchor };
+}
+
 export async function createHabitAction(input: {
   label: string;
   icon?: string;
   accent?: string;
   categoryId?: string | null;
+  intervalDays?: number;
+  intervalAnchorDate?: string | null;
 }): Promise<ActionResult> {
   const label = input.label.trim();
   if (!label) return { ok: false, error: "Give your habit a name." };
@@ -261,6 +286,9 @@ export async function createHabitAction(input: {
     }
   }
 
+  const interval = parseHabitInterval(input);
+  if (!interval.ok) return interval;
+
   const { error } = await supabase.from("habits").insert({
     user_id: user.id,
     key,
@@ -270,6 +298,8 @@ export async function createHabitAction(input: {
     accent,
     sort_order: nextOrder,
     category_id: input.categoryId ?? null,
+    interval_days: interval.intervalDays,
+    interval_anchor_date: interval.intervalAnchorDate,
   });
   if (error) return { ok: false, error: error.message };
 
@@ -452,6 +482,8 @@ export async function updateHabitAction(input: {
   icon?: string;
   accent?: string;
   categoryId?: string | null;
+  intervalDays?: number;
+  intervalAnchorDate?: string | null;
 }): Promise<ActionResult> {
   if (!input.habitId) return { ok: false, error: "Missing habit id." };
 
@@ -460,6 +492,8 @@ export async function updateHabitAction(input: {
     icon?: string;
     accent?: string;
     category_id?: string | null;
+    interval_days?: number;
+    interval_anchor_date?: string | null;
   } = {};
 
   if (input.label !== undefined) {
@@ -498,6 +532,16 @@ export async function updateHabitAction(input: {
       }
     }
     patch.category_id = input.categoryId;
+  }
+
+  if (input.intervalDays !== undefined || input.intervalAnchorDate !== undefined) {
+    const interval = parseHabitInterval({
+      intervalDays: input.intervalDays,
+      intervalAnchorDate: input.intervalAnchorDate,
+    });
+    if (!interval.ok) return interval;
+    patch.interval_days = interval.intervalDays;
+    patch.interval_anchor_date = interval.intervalAnchorDate;
   }
 
   if (Object.keys(patch).length === 0) return { ok: true };

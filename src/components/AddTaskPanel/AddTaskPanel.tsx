@@ -11,6 +11,7 @@ import {
 } from "@/app/(app)/tasks-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { todayLocalISO } from "@/lib/date";
 import type { TaskCategory, TaskScope } from "@/lib/tasks";
 import styles from "./AddTaskPanel.module.scss";
 
@@ -27,6 +28,7 @@ const PRESET_ICONS = [
   "🍳",
   "💸",
   "📅",
+  "🥤",
 ];
 
 const PRESET_ACCENTS = [
@@ -81,6 +83,8 @@ export function AddTaskPanel({
   const [icon, setIcon] = useState(PRESET_ICONS[0]);
   const [accent, setAccent] = useState(PRESET_ACCENTS[0]);
   const [oneOff, setOneOff] = useState(false);
+  const [intervalDays, setIntervalDays] = useState(1);
+  const [intervalAnchorDate, setIntervalAnchorDate] = useState(todayLocalISO());
   const [error, setError] = useState<string | null>(null);
 
   const canOneOffWeekly = allowOneOff && weekStart != null && scope === "weekly";
@@ -103,6 +107,8 @@ export function AddTaskPanel({
     setIcon(PRESET_ICONS[0]);
     setAccent(PRESET_ACCENTS[0]);
     setOneOff(false);
+    setIntervalDays(1);
+    setIntervalAnchorDate(todayLocalISO());
     setError(null);
     setScope(weeklyOnly ? "weekly" : defaultScope);
   };
@@ -130,6 +136,8 @@ export function AddTaskPanel({
           icon,
           accent,
           categoryId: categoryId || null,
+          intervalDays,
+          intervalAnchorDate: intervalDays > 1 ? intervalAnchorDate : null,
         });
       } else if (scope === "weekly") {
         res =
@@ -250,6 +258,41 @@ export function AddTaskPanel({
               inputMode="numeric"
               maxLength={2}
             />
+          ) : null}
+
+          {scope === "daily" ? (
+            <>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="add-task-cadence">
+                  Återkomst
+                </label>
+                <select
+                  id="add-task-cadence"
+                  className={styles.select}
+                  value={intervalDays}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setIntervalDays(next);
+                    if (next > 1 && !intervalAnchorDate) {
+                      setIntervalAnchorDate(todayLocalISO());
+                    }
+                  }}
+                >
+                  <option value={1}>Varje dag</option>
+                  <option value={2}>Varannan dag</option>
+                </select>
+              </div>
+              {intervalDays > 1 ? (
+                <Input
+                  label="Startar"
+                  type="date"
+                  value={intervalAnchorDate}
+                  onChange={(e) => setIntervalAnchorDate(e.target.value)}
+                  required
+                  hint="Visas den dagen och sedan varannan dag"
+                />
+              ) : null}
+            </>
           ) : null}
 
           {scopeCategories.length > 0 ? (

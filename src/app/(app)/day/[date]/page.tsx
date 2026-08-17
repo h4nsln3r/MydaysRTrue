@@ -266,6 +266,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
           habits={dayPlan.habits}
           goals={dayPlan.goals}
           categories={allCategories}
+          date={date}
         />
       )}
     </main>

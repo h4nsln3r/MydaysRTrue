@@ -151,6 +151,8 @@ export interface Database {
           category_id: string | null;
           enabled: boolean;
           show_on_leave: boolean;
+          interval_days: number;
+          interval_anchor_date: string | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -178,6 +180,8 @@ export interface Database {
           category_id?: string | null;
           enabled?: boolean;
           show_on_leave?: boolean;
+          interval_days?: number;
+          interval_anchor_date?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -205,6 +209,8 @@ export interface Database {
           category_id?: string | null;
           enabled?: boolean;
           show_on_leave?: boolean;
+          interval_days?: number;
+          interval_anchor_date?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;

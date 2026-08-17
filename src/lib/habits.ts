@@ -1,6 +1,7 @@
 // Client-safe habit types and helpers.
 // Server-only queries live in `./habits.server`.
 
+import { diffDaysISO } from "@/lib/date";
 import type { IntakeKind } from "@/lib/intake";
 import type { MoodKey } from "@/lib/mood";
 
@@ -146,6 +147,15 @@ export interface Habit {
   enabled: boolean;
   /** When false the tracker is hidden on leave/vacation days. */
   showOnLeave: boolean;
+  /** 1 = every day; 2 = every other day from the anchor date. */
+  intervalDays: number;
+  /** First occurrence when intervalDays > 1. */
+  intervalAnchorDate: string | null;
+}
+
+export interface HabitIntervalRule {
+  intervalDays: number;
+  intervalAnchorDate: string | null;
 }
 
 /** Whether a habit should appear for this day given leave status. */
@@ -155,6 +165,30 @@ export function habitVisibleOnLeaveDay(
 ): boolean {
   if (!onLeave) return true;
   return habit.showOnLeave;
+}
+
+/**
+ * Whether a daily habit is due on `localDate`.
+ * Interval 1 is every day. Interval 2+ starts on the anchor date (inclusive)
+ * and then repeats every N calendar days.
+ */
+export function habitOccursOnDate(
+  habit: HabitIntervalRule,
+  localDate: string,
+): boolean {
+  const interval = Math.max(1, Math.round(habit.intervalDays || 1));
+  if (interval <= 1) return true;
+  const anchor = habit.intervalAnchorDate;
+  if (!anchor || localDate < anchor) return false;
+  const delta = diffDaysISO(anchor, localDate);
+  return delta % interval === 0;
+}
+
+/** Short Swedish cadence for settings and day-plan hints. */
+export function habitCadenceLabel(habit: HabitIntervalRule): string | null {
+  if (habit.intervalDays === 2) return "Varannan dag";
+  if (habit.intervalDays > 2) return `Var ${habit.intervalDays}:e dag`;
+  return null;
 }
 
 export interface DailyHabit extends Habit {

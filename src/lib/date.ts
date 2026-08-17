@@ -59,6 +59,22 @@ export function parseLocalISO(localDate: string): Date {
   return new Date(y, m - 1, d);
 }
 
+const LOCAL_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** True when `value` is a calendar date string YYYY-MM-DD. */
+export function isLocalISODate(value: string): boolean {
+  if (!LOCAL_ISO_RE.test(value)) return false;
+  const parsed = parseLocalISO(value);
+  return todayLocalISO(parsed) === value;
+}
+
+/** Whole days from `from` to `to` (negative if `to` is earlier). */
+export function diffDaysISO(from: string, to: string): number {
+  const a = parseLocalISO(from);
+  const b = parseLocalISO(to);
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
 /** ISO weekday from YYYY-MM-DD: 1 = Mon … 7 = Sun. */
 export function isoWeekdayFromLocalISO(localDate: string): number {
   const dt = parseLocalISO(localDate);

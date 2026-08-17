@@ -10,6 +10,7 @@ import {
   type MealEntry,
   type MealKey,
   type SnackSlot,
+  habitOccursOnDate,
   habitStatusPoints,
   mealStatusFor,
   numericGoalStatus,
@@ -62,10 +63,12 @@ interface HabitRow {
   category_id: string | null;
   enabled: boolean;
   show_on_leave: boolean | null;
+  interval_days: number | null;
+  interval_anchor_date: string | null;
 }
 
 const HABIT_COLUMNS =
-  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_leave";
+  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_leave, interval_days, interval_anchor_date";
 
 function rowToHabit(r: HabitRow): Habit {
   return {
@@ -79,6 +82,8 @@ function rowToHabit(r: HabitRow): Habit {
     categoryId: r.category_id,
     enabled: r.enabled ?? true,
     showOnLeave: r.show_on_leave ?? true,
+    intervalDays: Math.max(1, r.interval_days ?? 1),
+    intervalAnchorDate: r.interval_anchor_date,
   };
 }
 
@@ -347,7 +352,8 @@ export async function getDailyHabits(
     Boolean(smokeFreeRes.data),
   );
 
-  return habits.map((row): DailyHabit => {
+  return habits
+    .map((row): DailyHabit => {
     const habit = rowToHabit(row);
     if (habit.kind === "water") {
       const progress = goalMl > 0 ? waterMl / goalMl : 0;
@@ -457,7 +463,8 @@ export async function getDailyHabits(
       status: c?.status ?? null,
       note: c?.note ?? null,
     };
-  });
+  })
+    .filter((habit) => habitOccursOnDate(habit, localDate));
 }
 
 /**
@@ -779,6 +786,10 @@ export async function getMonthSummary(
     const statuses: Record<string, HabitStatus | null> = {};
 
     for (const h of habits) {
+      if (!habitOccursOnDate(h, date)) {
+        statuses[h.id] = null;
+        continue;
+      }
       let status: HabitStatus | null = null;
       if (!isFuture) {
         if (h.kind === "water") {
@@ -1104,6 +1115,10 @@ export async function getWeekHabitSummary(
     const statuses: Record<string, HabitStatus | null> = {};
 
     for (const h of habits) {
+      if (!habitOccursOnDate(h, date)) {
+        statuses[h.id] = null;
+        continue;
+      }
       let status: HabitStatus | null = null;
       if (!isFuture) {
         if (h.kind === "water") {

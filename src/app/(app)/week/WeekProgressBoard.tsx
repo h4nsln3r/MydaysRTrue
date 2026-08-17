@@ -934,7 +934,12 @@ function TotalCell({
   );
 }
 
-function TrainingRow<T extends { id: string; placement: { weekday: number | null; doneAt: string | null } }>({
+function TrainingRow<
+  T extends {
+    id: string;
+    placement: { id: string; weekday: number | null; doneAt: string | null };
+  },
+>({
   type,
   icon,
   label,
@@ -983,7 +988,7 @@ function TrainingRow<T extends { id: string; placement: { weekday: number | null
                   const meta = renderSession(s);
                   return (
                     <WeekTrainingChip
-                      key={s.id}
+                      key={s.placement.id}
                       type={type}
                       session={s as unknown as AnyTrainingSession}
                       meta={meta}

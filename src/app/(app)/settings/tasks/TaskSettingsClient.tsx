@@ -25,7 +25,8 @@ import {
   isMonthlyTaskCategoryName,
   UTGIFTER_CATEGORY_NAME,
 } from "@/lib/expenses";
-import type { Habit } from "@/lib/habits";
+import { habitCadenceLabel, type Habit } from "@/lib/habits";
+import { todayLocalISO } from "@/lib/date";
 import {
   WEEKDAY_SHORT,
   WEEKDAYS,
@@ -40,7 +41,7 @@ import styles from "./task-settings.module.scss";
 
 type Period = "day" | "week" | "month";
 
-const PRESET_ICONS = ["✓", "🏃", "🧺", "🛒", "📞", "📚", "💪", "🎵", "🧹", "🍳", "💸", "🎸"];
+const PRESET_ICONS = ["✓", "🏃", "🧺", "🛒", "📞", "📚", "💪", "🎵", "🧹", "🍳", "💸", "🎸", "🥤"];
 const PRESET_ACCENTS = [
   "#ff7a1a",
   "#6ee7a3",
@@ -76,6 +77,7 @@ export function TaskSettingsClient({
         <h1 className={styles.title}>Uppgiftsinställningar</h1>
         <p className={styles.muted}>
           Hantera dag-, vecko- och månadsuppgifter per kategori. För
+          dagliga vanor kan du välja varje dag eller varannan dag. För
           veckouppgifter kan du också välja om de får dras in flera gånger och
           hur många som behövs för godkänd vecka.
         </p>
@@ -151,6 +153,8 @@ function DaySection({
   const [categoryId, setCategoryId] = useState("");
   const [icon, setIcon] = useState(PRESET_ICONS[0]);
   const [accent, setAccent] = useState(PRESET_ACCENTS[0]);
+  const [intervalDays, setIntervalDays] = useState(1);
+  const [intervalAnchorDate, setIntervalAnchorDate] = useState(todayLocalISO());
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const groups = useMemo(() => {
@@ -166,6 +170,8 @@ function DaySection({
     setCategoryId("");
     setIcon(PRESET_ICONS[0]);
     setAccent(PRESET_ACCENTS[0]);
+    setIntervalDays(1);
+    setIntervalAnchorDate(todayLocalISO());
   };
 
   const submitAdd = (e: React.FormEvent) => {
@@ -177,6 +183,8 @@ function DaySection({
         icon,
         accent,
         categoryId: categoryId || null,
+        intervalDays,
+        intervalAnchorDate: intervalDays > 1 ? intervalAnchorDate : null,
       });
       if (!res.ok) {
         onError(res.error ?? "Kunde inte skapa vanan.");
@@ -219,6 +227,13 @@ function DaySection({
             accent={accent}
             onIcon={setIcon}
             onAccent={setAccent}
+            disabled={pending}
+          />
+          <HabitCadenceFields
+            intervalDays={intervalDays}
+            intervalAnchorDate={intervalAnchorDate}
+            onIntervalDays={setIntervalDays}
+            onAnchorDate={setIntervalAnchorDate}
             disabled={pending}
           />
           <div className={styles.actions}>
@@ -294,6 +309,10 @@ function HabitRow({
   const [categoryId, setCategoryId] = useState(habit.categoryId ?? "");
   const [icon, setIcon] = useState(habit.icon);
   const [accent, setAccent] = useState(habit.accent);
+  const [intervalDays, setIntervalDays] = useState(habit.intervalDays);
+  const [intervalAnchorDate, setIntervalAnchorDate] = useState(
+    habit.intervalAnchorDate ?? todayLocalISO(),
+  );
 
   const save = () => {
     onError(null);
@@ -304,6 +323,8 @@ function HabitRow({
         icon,
         accent,
         categoryId: categoryId || null,
+        intervalDays,
+        intervalAnchorDate: intervalDays > 1 ? intervalAnchorDate : null,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       router.refresh();
@@ -320,6 +341,7 @@ function HabitRow({
           <span className={styles.rowTitle}>{habit.label}</span>
           <span className={styles.rowSub}>
             {habit.enabled ? "På" : "Av"}
+            {habitCadenceLabel(habit) ? ` · ${habitCadenceLabel(habit)?.toLowerCase()}` : ""}
             {habit.showOnLeave ? " · visas på ledighet" : ""}
           </span>
         </span>
@@ -347,6 +369,13 @@ function HabitRow({
             accent={accent}
             onIcon={setIcon}
             onAccent={setAccent}
+            disabled={pending}
+          />
+          <HabitCadenceFields
+            intervalDays={intervalDays}
+            intervalAnchorDate={intervalAnchorDate}
+            onIntervalDays={setIntervalDays}
+            onAnchorDate={setIntervalAnchorDate}
             disabled={pending}
           />
           <div className={styles.toggles}>
@@ -1259,6 +1288,56 @@ function MonthlyTaskRow({
         </div>
       ) : null}
     </li>
+  );
+}
+
+function HabitCadenceFields({
+  intervalDays,
+  intervalAnchorDate,
+  onIntervalDays,
+  onAnchorDate,
+  disabled,
+}: {
+  intervalDays: number;
+  intervalAnchorDate: string;
+  onIntervalDays: (value: number) => void;
+  onAnchorDate: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <>
+      <div className={styles.field}>
+        <label className={styles.fieldLabel}>
+          Återkomst
+        </label>
+        <select
+          className={styles.select}
+          value={intervalDays}
+          disabled={disabled}
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            onIntervalDays(next);
+            if (next > 1 && !intervalAnchorDate) {
+              onAnchorDate(todayLocalISO());
+            }
+          }}
+        >
+          <option value={1}>Varje dag</option>
+          <option value={2}>Varannan dag</option>
+        </select>
+      </div>
+      {intervalDays > 1 ? (
+        <Input
+          label="Startar"
+          type="date"
+          value={intervalAnchorDate}
+          onChange={(e) => onAnchorDate(e.target.value)}
+          disabled={disabled}
+          required
+          hint="Visas den dagen och sedan varannan dag. Byt datum om du vill skifta cykeln."
+        />
+      ) : null}
+    </>
   );
 }
 

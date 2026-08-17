@@ -23,11 +23,12 @@ import {
   setHabitEnabledAction,
   setHabitShowOnLeaveAction,
   updateDailyTrackerGoalsAction,
+  updateHabitAction,
 } from "@/app/(app)/actions";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { Input } from "@/components/Input/Input";
 import { formatInteger } from "@/lib/format";
-import type { Habit, HabitKind } from "@/lib/habits";
+import { habitCadenceLabel, type Habit, type HabitKind } from "@/lib/habits";
 import type { DailyTrackerGoals } from "@/lib/habits.server";
 import type { TaskCategory } from "@/lib/tasks";
 import styles from "./DayPlanPanel.module.scss";
@@ -53,9 +54,10 @@ interface Props {
   habits: Habit[];
   goals: DailyTrackerGoals;
   categories: TaskCategory[];
+  date: string;
 }
 
-export function DayPlanPanel({ habits, goals, categories }: Props) {
+export function DayPlanPanel({ habits, goals, categories, date }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [localHabits, setLocalHabits] = useState(habits);
@@ -99,6 +101,35 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
       const res = await setHabitShowOnLeaveAction({
         habitId,
         showOnLeave: !showOnLeave,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte uppdatera.");
+        setLocalHabits(habits);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const toggleEveryOtherDay = (habitId: string, everyOtherDay: boolean) => {
+    const next = !everyOtherDay;
+    setError(null);
+    setLocalHabits((prev) =>
+      prev.map((h) =>
+        h.id === habitId
+          ? {
+              ...h,
+              intervalDays: next ? 2 : 1,
+              intervalAnchorDate: next ? date : null,
+            }
+          : h,
+      ),
+    );
+    startTransition(async () => {
+      const res = await updateHabitAction({
+        habitId,
+        intervalDays: next ? 2 : 1,
+        intervalAnchorDate: next ? date : null,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte uppdatera.");
@@ -161,6 +192,7 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
                   pending={pending}
                   onToggle={toggle}
                   onToggleLeave={toggleLeave}
+                  onToggleEveryOtherDay={toggleEveryOtherDay}
                   onGoalError={setError}
                 />
               ))}
@@ -182,6 +214,7 @@ interface SortableTrackerRowProps {
   pending: boolean;
   onToggle: (habitId: string, enabled: boolean) => void;
   onToggleLeave: (habitId: string, showOnLeave: boolean) => void;
+  onToggleEveryOtherDay: (habitId: string, everyOtherDay: boolean) => void;
   onGoalError: (message: string | null) => void;
 }
 
@@ -191,6 +224,7 @@ function SortableTrackerRow({
   pending,
   onToggle,
   onToggleLeave,
+  onToggleEveryOtherDay,
   onGoalError,
 }: SortableTrackerRowProps) {
   const {
@@ -208,6 +242,8 @@ function SortableTrackerRow({
   };
 
   const hasGoal = GOAL_KINDS.has(habit.kind);
+  const hasCadence = habit.key === "gor_shake";
+  const everyOtherDay = habit.intervalDays >= 2;
 
   return (
     <li
@@ -222,10 +258,10 @@ function SortableTrackerRow({
         .join(" ")}
     >
       <div
-        className={[
-          styles.trackerRow,
-          hasGoal ? styles.trackerRowWithGoal : "",
-        ]
+          className={[
+            styles.trackerRow,
+            hasGoal || hasCadence ? styles.trackerRowWithGoal : "",
+          ]
           .filter(Boolean)
           .join(" ")}
       >
@@ -256,7 +292,14 @@ function SortableTrackerRow({
         <div className={styles.trackerMeta}>
           <span className={styles.trackerLabel}>{habit.label}</span>
           <span className={styles.trackerHint}>
-            {KIND_HINT[habit.kind] ?? "Daglig uppföljning"}
+            {[
+              habit.key === "gor_shake"
+                ? "Förbered shake för idag och imorgon"
+                : (KIND_HINT[habit.kind] ?? "Daglig uppföljning"),
+              habitCadenceLabel(habit),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </span>
         </div>
         <div className={styles.toggleGroup}>
@@ -307,6 +350,33 @@ function SortableTrackerRow({
           </button>
         </div>
       </div>
+
+      {hasCadence ? (
+        <div className={styles.cadenceRow}>
+          <span className={styles.cadenceLabel}>Varannan dag</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={everyOtherDay}
+            aria-label={
+              everyOtherDay
+                ? "Visa Gör shake varje dag"
+                : "Visa Gör shake varannan dag"
+            }
+            title={everyOtherDay ? "Varannan dag" : "Varje dag"}
+            className={[
+              styles.toggle,
+              everyOtherDay ? styles.toggleOn : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => onToggleEveryOtherDay(habit.id, everyOtherDay)}
+            disabled={pending}
+          >
+            <span className={styles.toggleKnob} aria-hidden />
+          </button>
+        </div>
+      ) : null}
 
       {hasGoal ? (
         <TrackerGoalAccordion

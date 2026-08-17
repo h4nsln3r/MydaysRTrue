@@ -49,6 +49,7 @@ import {
   type IntakeKind,
 } from "@/lib/intake";
 import { formatTime } from "@/lib/date";
+import { SHAKE_RECIPE_INGREDIENTS } from "@/lib/shake-recipe";
 import { formatMl } from "@/lib/water";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
 import type { PlanSortableProps } from "./usePlanSortable";
@@ -710,13 +711,27 @@ function HabitPlanRow(
       planningMode={props.planningMode}
     >
       {error ? <p className={styles.error}>{error}</p> : null}
+      {item.habitKey === "gor_shake" ? (
+        <details className={styles.recipe}>
+          <summary className={styles.recipeSummary}>Recept</summary>
+          <ul className={styles.recipeList}>
+            {SHAKE_RECIPE_INGREDIENTS.map((ingredient) => (
+              <li key={ingredient}>{ingredient}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
       {!done ? (
         <>
           <Input
             label="Kommentar (valfritt)"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="t.ex. plockade undan i vardagsrummet"
+            placeholder={
+              item.habitKey === "gor_shake"
+                ? "t.ex. vanilj till idag och imorgon"
+                : "t.ex. plockade undan i vardagsrummet"
+            }
             maxLength={280}
             autoFocus
             disabled={pending}

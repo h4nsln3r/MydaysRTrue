@@ -6,6 +6,7 @@ import {
   SNACK_ICON,
   SNACK_LABEL,
   habitVisibleOnLeaveDay,
+  habitOccursOnDate,
   type DailyHabit,
   type DailySnacks,
   type HabitKind,
@@ -70,7 +71,7 @@ export const DAY_PLAN_HABIT_KINDS = new Set<HabitKind>([
 ]);
 
 /** Tri-state habits that only appear in Dagens plan — not in Dagen trackers. */
-export const DAY_PLAN_ONLY_HABIT_KEYS = new Set(["lite_stad"]);
+export const DAY_PLAN_ONLY_HABIT_KEYS = new Set(["lite_stad", "gor_shake"]);
 
 export function isDayPlanOnlyHabit(habit: { key: string }): boolean {
   return DAY_PLAN_ONLY_HABIT_KEYS.has(habit.key);
@@ -203,6 +204,7 @@ export type DayPlanItem =
       accent: string;
       status: HabitStatus | null;
       note: string | null;
+      intervalDays: number;
     }
   | {
       kind: "work_start";
@@ -351,6 +353,9 @@ function habitPlanDefaultRank(slots: HabitSortSlots, habitKey: string): number {
   if (habitKey === "lite_stad") {
     return intakeDefaultRank(slots, "fruit") + 1;
   }
+  if (habitKey === "gor_shake") {
+    return intakeDefaultRank(slots, "shake") + 1;
+  }
   const base = (slots.intake ?? 60) * 1000;
   return base + 50;
 }
@@ -445,8 +450,9 @@ function applySavedOrder(items: DayPlanItem[], savedOrder: Map<string, number>):
 export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
   const items: DayPlanItem[] = [];
   const onLeave = input.onLeave === true;
-  const planHabits = input.habits.filter((h) =>
-    habitVisibleOnLeaveDay(h, onLeave),
+  const planHabits = input.habits.filter(
+    (h) =>
+      habitVisibleOnLeaveDay(h, onLeave) && habitOccursOnDate(h, input.date),
   );
   const enabledKinds = new Set(planHabits.map((h) => h.kind));
   const slots = habitSortSlots(planHabits);
@@ -590,6 +596,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
       accent: habit.accent,
       status: habit.status,
       note: habit.note,
+      intervalDays: habit.intervalDays,
     });
   }
 

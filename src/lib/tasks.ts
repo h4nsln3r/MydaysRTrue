@@ -239,6 +239,10 @@ export function isCodingWeeklyTaskKey(key: string | null | undefined): boolean {
   return key === "dev_code";
 }
 
+export function isGameWeeklyTaskKey(key: string | null | undefined): boolean {
+  return key === "game_dnd";
+}
+
 /** Clamp a weekly goal to the allowed range. */
 export function normalizeWeeklyGoal(goal: number | null | undefined): number {
   const n = Math.round(Number(goal));

@@ -568,6 +568,7 @@ export async function ensureRepeatableWeeklyTasks(
 }
 
 export async function getWeeklyTasks(userId: string): Promise<WeeklyTask[]> {
+  await ensureGameWeeklyTask(userId);
   const supabase = await createClient();
   const { data } = await supabase
     .from("weekly_tasks")
@@ -670,6 +671,72 @@ async function carryOverIncompleteOneOffTasks(
   }
 }
 
+async function ensureGameWeeklyTask(userId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("weekly_tasks")
+    .select("id, archived_at")
+    .eq("user_id", userId)
+    .eq("key", "game_dnd")
+    .maybeSingle();
+
+  if (existing) {
+    if (existing.archived_at) {
+      await supabase
+        .from("weekly_tasks")
+        .update({ archived_at: null })
+        .eq("id", existing.id)
+        .eq("user_id", userId);
+    }
+    return;
+  }
+
+  let categoryId: string | null = null;
+  const { data: category } = await supabase
+    .from("task_categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("scope", "task")
+    .eq("name", "SPEL")
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (category) {
+    categoryId = category.id;
+  } else {
+    const { data: created } = await supabase
+      .from("task_categories")
+      .insert({
+        user_id: userId,
+        scope: "task",
+        name: "SPEL",
+        icon: "🎲",
+        accent: "#a78bfa",
+        sort_order: 5,
+      })
+      .select("id")
+      .maybeSingle();
+    categoryId = created?.id ?? null;
+  }
+
+  await supabase.from("weekly_tasks").insert({
+    user_id: userId,
+    category_id: categoryId,
+    key: "game_dnd",
+    title: "D&D",
+    notes:
+      "Spela med vänner — dra in kvällen och anteckna sessionen när du är klar. Mål: minst 1 gång per vecka.",
+    icon: "🎲",
+    accent: "#a78bfa",
+    sort_order: 0,
+    default_weekday: null,
+    completion_kind: "journal",
+    is_repeatable: true,
+    weekly_goal: 1,
+  });
+}
+
 export async function getWeekSummary(
   userId: string,
   weekStart: string,
@@ -677,6 +744,7 @@ export async function getWeekSummary(
   await repairMisplacedOneOffWeekPins(userId);
   await carryOverIncompleteOneOffTasks(userId, weekStart);
   await ensureRepeatableWeeklyTasks(userId);
+  await ensureGameWeeklyTask(userId);
 
   const weekEnd = addDaysISO(weekStart, 6);
   const supabase = await createClient();

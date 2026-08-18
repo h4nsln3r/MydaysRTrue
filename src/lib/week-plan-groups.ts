@@ -84,7 +84,7 @@ function isBacklogTrainingItem(item: WeekPlanItem): boolean {
   return TRAINING_KINDS.has(item.kind);
 }
 
-/** Groups everything in the left backlog: training, weight, HOME, DEV, MUSIC, Livet, bills, other. */
+/** Groups everything in the left backlog: training, weight, HOME, DEV, MUSIC, SPEL, Livet, bills, other. */
 export function groupWeekPlanBacklogItems(
   items: WeekPlanItem[],
   categories: TaskCategory[],
@@ -92,6 +92,7 @@ export function groupWeekPlanBacklogItems(
   const homeId = categoryIdByName(categories, "HOME");
   const devId = categoryIdByName(categories, "DEV");
   const musicId = categoryIdByName(categories, "MUSIC");
+  const spelId = categoryIdByName(categories, "SPEL");
   const lifeId = categoryIdByName(categories, "Livet");
   const billsId = categoryIdByName(categories, "Räkningar");
   const financeId = categoryIdByName(categories, "Ekonomi");
@@ -105,6 +106,9 @@ export function groupWeekPlanBacklogItems(
   const dev = items.filter((i) => i.kind === "task" && i.categoryId === devId);
   const music = items.filter(
     (i) => i.kind === "task" && i.categoryId === musicId,
+  );
+  const spel = items.filter(
+    (i) => i.kind === "task" && i.categoryId === spelId,
   );
   const life = items.filter(
     (i) => i.kind === "task" && i.categoryId === lifeId,
@@ -133,6 +137,7 @@ export function groupWeekPlanBacklogItems(
       i.categoryId !== homeId &&
       i.categoryId !== devId &&
       i.categoryId !== musicId &&
+      i.categoryId !== spelId &&
       i.categoryId !== lifeId &&
       i.categoryId !== billsId &&
       i.categoryId !== savingsId,
@@ -149,6 +154,9 @@ export function groupWeekPlanBacklogItems(
   if (dev.length > 0) groups.push({ id: "dev", label: "DEV", items: dev });
   if (music.length > 0) {
     groups.push({ id: "music", label: "MUSIC", items: music });
+  }
+  if (spel.length > 0) {
+    groups.push({ id: "spel", label: "SPEL", items: spel });
   }
   if (life.length > 0) {
     groups.push({ id: "life", label: "Livet", items: life });

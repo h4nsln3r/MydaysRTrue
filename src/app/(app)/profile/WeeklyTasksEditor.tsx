@@ -16,7 +16,7 @@ import {
 } from "@/app/(app)/tasks-actions";
 import styles from "./profile.module.scss";
 
-const PRESET_ICONS = ["✓", "🏃", "🧺", "🛒", "📞", "📚", "💪", "🎵", "🧹", "🍳"];
+const PRESET_ICONS = ["✓", "🏃", "🧺", "🛒", "📞", "📚", "💪", "🎵", "🧹", "🍳", "🎲"];
 const PRESET_ACCENTS = [
   "#ff7a1a",
   "#6ee7a3",

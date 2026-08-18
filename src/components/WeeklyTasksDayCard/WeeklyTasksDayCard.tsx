@@ -24,6 +24,7 @@ import {
 import {
   formatWeeklyTaskDetail,
   isCodingWeeklyTaskKey,
+  isGameWeeklyTaskKey,
   isWeeklyTaskRepeatable,
   musicActivityCreatesGig,
   musicActivityCreatesLiveEvent,
@@ -377,6 +378,7 @@ export function WeeklyTaskRow({
   const placement = task.placement;
   const placementId = placement?.id;
   const isCoding = isCodingWeeklyTaskKey(task.key);
+  const isGame = isGameWeeklyTaskKey(task.key);
   const done = Boolean(placement?.doneAt);
   // Quick tasks complete with one tap on the circle; everything is still
   // expandable so any task can carry an optional comment.
@@ -931,13 +933,21 @@ export function WeeklyTaskRow({
                 </p>
               ) : null}
               <Input
-                label={isCoding ? "Vad gjorde du i projektet?" : "Vad gjorde du?"}
+                label={
+                  isCoding
+                    ? "Vad gjorde du i projektet?"
+                    : isGame
+                      ? "Hur gick sessionen?"
+                      : "Vad gjorde du?"
+                }
                 value={taskNote}
                 onChange={(e) => setTaskNote(e.target.value)}
                 placeholder={
                   isCoding
                     ? "t.ex. Byggde repeatable tasks"
-                    : "Anteckna resultatet"
+                    : isGame
+                      ? "t.ex. kampanj, vad som hände, vilka som spelade"
+                      : "Anteckna resultatet"
                 }
                 maxLength={500}
                 disabled={pending}

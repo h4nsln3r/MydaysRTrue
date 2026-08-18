@@ -79,6 +79,7 @@ import {
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   WEEKDAYS,
+  isGameWeeklyTaskKey,
   parseMusicActivity,
   type MusicActivity,
   type TaskCategory,
@@ -2326,10 +2327,18 @@ function ItemRowContent({
             <>
               {item.completionKind === "journal" ? (
                 <Input
-                  label="Vad ska du jobba med?"
+                  label={
+                    isGameWeeklyTaskKey(item.taskKey)
+                      ? "Vad ska ni spela?"
+                      : "Vad ska du jobba med?"
+                  }
                   value={taskPlanNote}
                   onChange={(e) => setTaskPlanNote(e.target.value)}
-                  placeholder="Beskriv uppgiften"
+                  placeholder={
+                    isGameWeeklyTaskKey(item.taskKey)
+                      ? "t.ex. D&D med gänget, vilken kampanj"
+                      : "Beskriv uppgiften"
+                  }
                   maxLength={280}
                   disabled={pending}
                 />

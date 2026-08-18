@@ -9,6 +9,7 @@ import {
 } from "@/app/(app)/media-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { MediaItemQuickEdit } from "@/components/MediaItemQuickEdit/MediaItemQuickEdit";
 import { MediaItemReview } from "@/components/MediaItemReview/MediaItemReview";
 import {
   MEDIA_KIND_ICON,
@@ -296,14 +297,17 @@ export function MediaDayLogging({
                   {mediaDayLogDetail(item, log.position, log.didConsume)}
                 </span>
               </div>
-              <button
-                type="button"
-                className={styles.undoBtn}
-                onClick={() => undoLog(item.id)}
-                disabled={pending}
-              >
-                Ångra
-              </button>
+              <div className={styles.loggedActions}>
+                <MediaItemQuickEdit item={item} />
+                <button
+                  type="button"
+                  className={styles.undoBtn}
+                  onClick={() => undoLog(item.id)}
+                  disabled={pending}
+                >
+                  Ångra
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -413,23 +417,26 @@ export function MediaDayLogging({
           ) : null}
           <label className={styles.fieldLabel}>
             <span>Välj titel</span>
-            <select
-              className={styles.select}
-              value={selectedId}
-              onChange={(e) => {
-                setSelectedId(e.target.value);
-                setPosition("");
-                setDidConsume(false);
-                setReviewHighlight(false);
-              }}
-              disabled={pending}
-            >
-              {media.items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {MEDIA_KIND_ICON[item.kind]} {item.title}
-                </option>
-              ))}
-            </select>
+            <div className={styles.selectRow}>
+              <select
+                className={styles.select}
+                value={selectedId}
+                onChange={(e) => {
+                  setSelectedId(e.target.value);
+                  setPosition("");
+                  setDidConsume(false);
+                  setReviewHighlight(false);
+                }}
+                disabled={pending}
+              >
+                {media.items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {MEDIA_KIND_ICON[item.kind]} {item.title}
+                  </option>
+                ))}
+              </select>
+              {selected ? <MediaItemQuickEdit item={selected} /> : null}
+            </div>
           </label>
 
           <button

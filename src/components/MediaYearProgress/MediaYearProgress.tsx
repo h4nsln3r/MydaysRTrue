@@ -1,6 +1,7 @@
 "use client";
 
 import { CompletionQuickEdit } from "@/components/CompletionQuickEdit/CompletionQuickEdit";
+import { MediaItemQuickEdit } from "@/components/MediaItemQuickEdit/MediaItemQuickEdit";
 import { buildMediaCompletions } from "@/lib/completions";
 import {
   MEDIA_KIND_ICON,
@@ -33,7 +34,7 @@ export function MediaYearProgress({ yearMedia }: Props) {
     label: string,
     items: typeof yearMedia.items,
     variant: "" | "itemDone" | "itemProgress",
-    editable: boolean,
+    mode: "completed" | "open",
   ) => {
     if (items.length === 0) return null;
     return (
@@ -41,9 +42,8 @@ export function MediaYearProgress({ yearMedia }: Props) {
         <h3 className={styles.groupLabel}>{label}</h3>
         <ul className={styles.list}>
           {items.map((item) => {
-            const completion = editable
-              ? buildMediaCompletions([item])[0]
-              : null;
+            const completion =
+              mode === "completed" ? buildMediaCompletions([item])[0] : null;
             return (
               <li
                 key={item.id}
@@ -84,6 +84,7 @@ export function MediaYearProgress({ yearMedia }: Props) {
                   ) : null}
                 </div>
                 {completion ? <CompletionQuickEdit item={completion} /> : null}
+                {mode === "open" ? <MediaItemQuickEdit item={item} /> : null}
               </li>
             );
           })}
@@ -109,9 +110,9 @@ export function MediaYearProgress({ yearMedia }: Props) {
         </div>
       </div>
 
-      {renderGroup("Klart", completed, "itemDone", true)}
-      {renderGroup("Pågår", inProgress, "itemProgress", false)}
-      {renderGroup("Ej påbörjad", notStarted, "", false)}
+      {renderGroup("Klart", completed, "itemDone", "completed")}
+      {renderGroup("Pågår", inProgress, "itemProgress", "open")}
+      {renderGroup("Ej påbörjad", notStarted, "", "open")}
     </div>
   );
 }

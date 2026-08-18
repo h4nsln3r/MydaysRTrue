@@ -45,6 +45,24 @@
     font-family: $font-mono;
 }
 
+.loggedActions {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    flex-shrink: 0;
+}
+
+.selectRow {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+}
+
+.selectRow .select {
+    flex: 1;
+    min-width: 0;
+}
+
 .undoBtn {
     flex-shrink: 0;
     padding: 0;

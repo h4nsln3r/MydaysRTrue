@@ -64,26 +64,34 @@ export async function addSportPlacementAction(input: {
   });
 
   if (error) {
-    // Legacy DBs may still have unique (user, template, week) — move existing row.
+    // Legacy unique (user, template, week): reuse an unplaced orphan only.
+    // Never relocate a placed/completed session onto another weekday.
     if (error.code === "23505") {
-      const { data: existing } = await supabase
+      const { data: orphan } = await supabase
         .from("sport_week_placements")
         .select("id")
         .eq("user_id", user.id)
         .eq("template_id", input.templateId)
         .eq("week_start", input.weekStart)
+        .is("weekday", null)
         .maybeSingle();
 
-      if (existing) {
+      if (orphan) {
         const { error: updateError } = await supabase
           .from("sport_week_placements")
           .update({ weekday: input.weekday, day_sort_order: daySortOrder })
-          .eq("id", existing.id)
+          .eq("id", orphan.id)
           .eq("user_id", user.id);
         if (updateError) return { ok: false, error: updateError.message };
         revalidatePath("/", "layout");
         return { ok: true };
       }
+
+      return {
+        ok: false,
+        error:
+          "Kunde inte lägga till ett till sportpass. Databasen tillåter bara ett per vecka — kör senaste SQL-migreringen.",
+      };
     }
     return { ok: false, error: error.message };
   }

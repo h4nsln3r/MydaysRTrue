@@ -512,8 +512,8 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
   for (const session of input.sportSessions) {
     items.push({
       kind: "sport",
-      id: session.id,
-      itemKey: `sport:${session.id}`,
+      id: session.placement.id,
+      itemKey: `sport:${session.placement.id}`,
       sortOrder: 0,
       doneAt: session.placement.doneAt,
       session,

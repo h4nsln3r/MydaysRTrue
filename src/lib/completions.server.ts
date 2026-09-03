@@ -33,7 +33,7 @@ export async function getWeekCompletions(
     supabase
       .from("media_items")
       .select(
-        "id, year, kind, title, author, director, actors, note, rating, total_length, sort_order, completed_on",
+        "id, year, kind, title, author, director, actors, note, rating, season, total_length, sort_order, completed_on",
       )
       .eq("user_id", userId)
       .is("archived_at", null)
@@ -64,6 +64,7 @@ export async function getWeekCompletions(
       actors: r.actors,
       note: r.note,
       rating: r.rating,
+      season: r.kind === "series" ? r.season : null,
       totalLength: r.total_length,
       sortOrder: r.sort_order,
       bestPosition: 0,

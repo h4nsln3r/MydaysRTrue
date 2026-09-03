@@ -7,6 +7,7 @@ import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
   mediaCreditsLabel,
+  mediaDisplayTitle,
   mediaProgressLabel,
   mediaProgressPct,
   mediaRatingLabel,
@@ -55,7 +56,7 @@ export function MediaYearProgress({ yearMedia }: Props) {
                   {MEDIA_KIND_ICON[item.kind]}
                 </span>
                 <div className={styles.itemMeta}>
-                  <p className={styles.itemTitle}>{item.title}</p>
+                  <p className={styles.itemTitle}>{mediaDisplayTitle(item)}</p>
                   <p className={styles.itemSub}>
                     {MEDIA_KIND_LABEL[item.kind]}
                     {mediaCreditsLabel(item)

@@ -9,6 +9,7 @@ import type { Gig } from "@/lib/gigs";
 import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
+  mediaDisplayTitle,
   type MediaItem,
 } from "@/lib/media";
 
@@ -48,7 +49,7 @@ export function buildMediaCompletions(items: MediaItem[]): DayCompletion[] {
       entityId: item.id,
       domain: "media",
       date,
-      title: item.title,
+      title: mediaDisplayTitle(item),
       subtitle: `${MEDIA_KIND_ICON[item.kind]} ${MEDIA_KIND_LABEL[item.kind]}`,
       note: item.note,
     });

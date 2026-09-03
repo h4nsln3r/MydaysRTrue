@@ -129,7 +129,7 @@ export function MediaItemReview({
           kind === "book"
             ? "t.ex. Stark slut, rekommenderar!"
             : kind === "series"
-              ? "t.ex. Säsong 2 var bäst"
+              ? "t.ex. Bästa säsongen hittills"
               : "t.ex. Visuellt snygg, lite långsam"
         }
         maxLength={280}

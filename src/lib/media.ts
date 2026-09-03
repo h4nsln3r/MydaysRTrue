@@ -31,6 +31,8 @@ export interface MediaItem {
   note: string | null;
   /** Optional 1–10 rating. */
   rating: number | null;
+  /** Which season is being watched (series only). */
+  season: number | null;
   totalLength: number | null;
   sortOrder: number;
   /** Highest logged position this year for this item. */
@@ -88,6 +90,8 @@ export function yearFromLocalISO(localDate: string): number {
 
 export const MEDIA_RATING_MIN = 1;
 export const MEDIA_RATING_MAX = 10;
+export const MEDIA_SEASON_MIN = 1;
+export const MEDIA_SEASON_MAX = 100;
 
 export function mediaRatingLabel(rating: number | null): string | null {
   if (rating == null) return null;
@@ -106,9 +110,25 @@ export function mediaCreditsLabel(item: MediaItem): string | null {
   return null;
 }
 
+export function mediaSeasonLabel(season: number | null | undefined): string | null {
+  if (season == null) return null;
+  return `Säsong ${season}`;
+}
+
+export function mediaDisplayTitle(
+  item: Pick<MediaItem, "title" | "kind" | "season">,
+): string {
+  const season = item.kind === "series" ? mediaSeasonLabel(item.season) : null;
+  return season ? `${item.title} · ${season}` : item.title;
+}
+
+export function nextMediaSeason(season: number | null | undefined): number {
+  return (season ?? 0) + 1;
+}
+
 export function mediaCompletionPrompt(kind: MediaKind): string {
   if (kind === "book") return "Klart! Vad tyckte du om boken?";
-  if (kind === "series") return "Klart! Vad tyckte du om serien?";
+  if (kind === "series") return "Klart! Vad tyckte du om säsongen?";
   return "Klart! Vad tyckte du om filmen?";
 }
 
@@ -118,8 +138,9 @@ export function mediaDayLogDetail(
   position: number,
   didConsume: boolean,
 ): string {
+  const title = mediaDisplayTitle(item);
   if (item.kind === "movie") {
-    return didConsume ? `${item.title} · Sedd` : item.title;
+    return didConsume ? `${title} · Sedd` : title;
   }
   if (position > 0) {
     const unit = item.kind === "book" ? "sida" : "avsnitt";
@@ -127,9 +148,9 @@ export function mediaDayLogDetail(
       item.totalLength && item.totalLength > 0
         ? `${position}/${item.totalLength} ${unit}`
         : `${unit} ${position}`;
-    return `${item.title} · ${progress}`;
+    return `${title} · ${progress}`;
   }
-  return item.title;
+  return title;
 }
 
 export function isMediaDayLogDone(log: MediaDayLog): boolean {

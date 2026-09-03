@@ -310,6 +310,7 @@ export interface Database {
           actors: string | null;
           note: string | null;
           rating: number | null;
+          season: number | null;
           total_length: number | null;
           sort_order: number;
           completed_on: string | null;
@@ -328,6 +329,7 @@ export interface Database {
           actors?: string | null;
           note?: string | null;
           rating?: number | null;
+          season?: number | null;
           total_length?: number | null;
           sort_order?: number;
           completed_on?: string | null;
@@ -346,6 +348,7 @@ export interface Database {
           actors?: string | null;
           note?: string | null;
           rating?: number | null;
+          season?: number | null;
           total_length?: number | null;
           sort_order?: number;
           completed_on?: string | null;

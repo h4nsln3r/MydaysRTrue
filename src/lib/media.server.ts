@@ -26,6 +26,7 @@ interface ItemRow {
   actors: string | null;
   note: string | null;
   rating: number | null;
+  season: number | null;
   total_length: number | null;
   sort_order: number;
   completed_on: string | null;
@@ -81,6 +82,7 @@ function rowToItem(
     actors: r.actors,
     note: r.note,
     rating: r.rating,
+    season: r.kind === "series" ? r.season : null,
     totalLength: r.total_length,
     sortOrder: r.sort_order,
     bestPosition: stats.bestPosition,
@@ -93,7 +95,7 @@ function rowToItem(
 }
 
 const MEDIA_ITEM_SELECT =
-  "id, year, kind, title, author, director, actors, note, rating, total_length, sort_order, completed_on";
+  "id, year, kind, title, author, director, actors, note, rating, season, total_length, sort_order, completed_on";
 
 export async function getYearMedia(
   userId: string,

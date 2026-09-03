@@ -156,6 +156,12 @@
     border: 1px dashed $color-line;
 }
 
+.fieldRow {
+    display: grid;
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+    gap: $space-2;
+}
+
 .kindRow {
     display: flex;
     flex-wrap: wrap;

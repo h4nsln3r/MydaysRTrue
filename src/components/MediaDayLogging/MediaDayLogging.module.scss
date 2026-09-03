@@ -187,6 +187,12 @@
     gap: $space-2;
 }
 
+.fieldRow {
+    display: grid;
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+    gap: $space-2;
+}
+
 .select {
     width: 100%;
     padding: 10px 12px;

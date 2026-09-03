@@ -14,7 +14,7 @@ import {
   applicableIntakeKinds,
   type IntakeKind,
 } from "@/lib/intake";
-import { MEDIA_KIND_LABEL, type MediaKind } from "@/lib/media";
+import { MEDIA_KIND_LABEL, mediaDisplayTitle, type MediaKind } from "@/lib/media";
 import {
   LIVE_EVENT_KIND_ICON,
   LIVE_EVENT_KIND_LABEL,
@@ -347,17 +347,18 @@ export async function getJournalTrackersForWeek(
 
   const mediaItemMap = new Map<
     string,
-    { title: string; kind: MediaKind; note: string | null }
+    { title: string; kind: MediaKind; season: number | null; note: string | null }
   >();
   if (mediaItemIds.size > 0) {
     const { data: items } = await supabase
       .from("media_items")
-      .select("id, title, kind, note")
+      .select("id, title, kind, season, note")
       .in("id", [...mediaItemIds]);
     for (const item of items ?? []) {
       mediaItemMap.set(item.id, {
         title: item.title,
         kind: item.kind as MediaKind,
+        season: item.kind === "series" ? item.season : null,
         note: item.note ?? null,
       });
     }
@@ -377,7 +378,7 @@ export async function getJournalTrackersForWeek(
       detail = `avsnitt ${row.position}`;
     }
     day.media.push({
-      title: item.title,
+      title: mediaDisplayTitle(item),
       kind: item.kind,
       detail,
       note: item.note,

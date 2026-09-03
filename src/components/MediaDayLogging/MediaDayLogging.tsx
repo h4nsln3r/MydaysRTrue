@@ -15,9 +15,11 @@ import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
   mediaDayLogDetail,
+  mediaDisplayTitle,
   mediaPositionLabel,
   mediaProgressLabel,
   mediaProgressPct,
+  nextMediaSeason,
   willCompleteMediaItem,
   type DailyMediaContext,
   type MediaItem,
@@ -65,7 +67,11 @@ export function MediaDayLogging({
   const [newKind, setNewKind] = useState<MediaKind>("book");
   const [newTitle, setNewTitle] = useState("");
   const [newAuthor, setNewAuthor] = useState("");
+  const [newSeason, setNewSeason] = useState("1");
   const [newTotalLength, setNewTotalLength] = useState("");
+  const [offerNextSeason, setOfferNextSeason] = useState(false);
+  const [nextSeason, setNextSeason] = useState("");
+  const [nextEpisodes, setNextEpisodes] = useState("");
 
   const pending = parentPending || localPending;
   const hasLogged = media.loggedToday.length > 0;
@@ -120,6 +126,7 @@ export function MediaDayLogging({
   const resetCreateForm = () => {
     setNewTitle("");
     setNewAuthor("");
+    setNewSeason("1");
     setNewTotalLength("");
   };
 
@@ -137,6 +144,7 @@ export function MediaDayLogging({
         kind: newKind,
         title: newTitle,
         author: newKind === "book" ? newAuthor : undefined,
+        season: newKind === "series" ? Number(newSeason) : null,
         totalLength:
           newKind === "movie"
             ? null
@@ -213,6 +221,7 @@ export function MediaDayLogging({
       if (res.justCompleted || willComplete) {
         setPendingReviewItem({ ...item, completed: true, bestPosition: pos });
         setReviewHighlight(true);
+        setOfferNextSeason(false);
         onPendingChange?.(false);
         return;
       }
@@ -232,6 +241,61 @@ export function MediaDayLogging({
     });
   };
 
+  const finishReview = () => {
+    if (pendingReviewItem?.kind === "series") {
+      setNextSeason(String(nextMediaSeason(pendingReviewItem.season)));
+      setNextEpisodes("");
+      setOfferNextSeason(true);
+      setReviewHighlight(false);
+      return;
+    }
+    setPendingReviewItem(null);
+    setReviewHighlight(false);
+    setOfferNextSeason(false);
+    onDone();
+  };
+
+  const skipNextSeason = () => {
+    setPendingReviewItem(null);
+    setOfferNextSeason(false);
+    setReviewHighlight(false);
+    onDone();
+  };
+
+  const startNextSeason = () => {
+    if (!pendingReviewItem) return;
+    if (!nextSeason.trim() || !Number.isInteger(Number(nextSeason))) {
+      reportError("Ange vilken säsong du tittar på.");
+      return;
+    }
+    if (!nextEpisodes.trim() || !Number.isInteger(Number(nextEpisodes))) {
+      reportError("Ange antal avsnitt i säsongen.");
+      return;
+    }
+
+    reportError(null);
+    onPendingChange?.(true);
+    startTransition(async () => {
+      const res = await createMediaItemAction({
+        year: media.year,
+        kind: "series",
+        title: pendingReviewItem.title,
+        season: Number(nextSeason),
+        totalLength: Number(nextEpisodes),
+      });
+      if (!res.ok) {
+        reportError(res.error ?? "Kunde inte lägga till säsongen.");
+        onPendingChange?.(false);
+        return;
+      }
+      if (res.id) setPreferSelectId(res.id);
+      setPendingReviewItem(null);
+      setOfferNextSeason(false);
+      onPendingChange?.(false);
+      onDone();
+    });
+  };
+
   const openCreate = () => {
     reportError(null);
     setCreatingNew(true);
@@ -243,7 +307,7 @@ export function MediaDayLogging({
     setCreatingNew(false);
   };
 
-  if (pendingReviewItem) {
+  if (pendingReviewItem && offerNextSeason) {
     return (
       <div className={styles.section}>
         {hasLogged ? (
@@ -251,7 +315,9 @@ export function MediaDayLogging({
             {media.loggedToday.map(({ log, item }) => (
               <li key={item.id} className={styles.loggedItem}>
                 <div className={styles.loggedMeta}>
-                  <span className={styles.loggedTitle}>{item.title}</span>
+                  <span className={styles.loggedTitle}>
+                    {mediaDisplayTitle(item)}
+                  </span>
                   <span className={styles.loggedDetail}>
                     {mediaDayLogDetail(item, log.position, log.didConsume)}
                   </span>
@@ -261,7 +327,77 @@ export function MediaDayLogging({
           </ul>
         ) : null}
         <p className={styles.completedTitle}>
-          Klart: <strong>{pendingReviewItem.title}</strong>
+          <strong>{mediaDisplayTitle(pendingReviewItem)}</strong> är klar.
+        </p>
+        <div className={styles.form}>
+          <p className={styles.addMorePrompt}>Starta nästa säsong?</p>
+          <div className={styles.fieldRow}>
+            <Input
+              label="Säsong"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100}
+              value={nextSeason}
+              onChange={(e) => setNextSeason(e.target.value)}
+              disabled={pending}
+            />
+            <Input
+              label="Avsnitt i säsongen"
+              type="number"
+              inputMode="numeric"
+              value={nextEpisodes}
+              onChange={(e) => setNextEpisodes(e.target.value)}
+              placeholder="t.ex. 10"
+              disabled={pending}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            fullWidth
+            loading={pending}
+            disabled={pending}
+            onClick={startNextSeason}
+          >
+            Starta säsong {nextSeason || nextMediaSeason(pendingReviewItem.season)}
+          </Button>
+          <button
+            type="button"
+            className={styles.undoBtn}
+            onClick={skipNextSeason}
+            disabled={pending}
+          >
+            Inte nu
+          </button>
+        </div>
+        {error ? <p className={styles.error}>{error}</p> : null}
+      </div>
+    );
+  }
+
+  if (pendingReviewItem) {
+    return (
+      <div className={styles.section}>
+        {hasLogged ? (
+          <ul className={styles.loggedList}>
+            {media.loggedToday.map(({ log, item }) => (
+              <li key={item.id} className={styles.loggedItem}>
+                <div className={styles.loggedMeta}>
+                  <span className={styles.loggedTitle}>
+                    {mediaDisplayTitle(item)}
+                  </span>
+                  <span className={styles.loggedDetail}>
+                    {mediaDayLogDetail(item, log.position, log.didConsume)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className={styles.completedTitle}>
+          Klart: <strong>{mediaDisplayTitle(pendingReviewItem)}</strong>
         </p>
         <MediaItemReview
           itemId={pendingReviewItem.id}
@@ -270,16 +406,8 @@ export function MediaDayLogging({
           rating={pendingReviewItem.rating}
           completedOn={pendingReviewItem.completedOn ?? date}
           highlight={reviewHighlight}
-          onDismiss={() => {
-            setPendingReviewItem(null);
-            setReviewHighlight(false);
-            onDone();
-          }}
-          onSaved={() => {
-            setPendingReviewItem(null);
-            setReviewHighlight(false);
-            onDone();
-          }}
+          onDismiss={finishReview}
+          onSaved={finishReview}
         />
       </div>
     );
@@ -292,7 +420,9 @@ export function MediaDayLogging({
           {media.loggedToday.map(({ log, item }) => (
             <li key={item.id} className={styles.loggedItem}>
               <div className={styles.loggedMeta}>
-                <span className={styles.loggedTitle}>{item.title}</span>
+                <span className={styles.loggedTitle}>
+                  {mediaDisplayTitle(item)}
+                </span>
                 <span className={styles.loggedDetail}>
                   {mediaDayLogDetail(item, log.position, log.didConsume)}
                 </span>
@@ -329,7 +459,10 @@ export function MediaDayLogging({
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                onClick={() => setNewKind(k)}
+                onClick={() => {
+                  setNewKind(k);
+                  if (k === "series" && !newSeason.trim()) setNewSeason("1");
+                }}
                 disabled={pending}
               >
                 {MEDIA_KIND_ICON[k]} {MEDIA_KIND_LABEL[k]}
@@ -360,14 +493,38 @@ export function MediaDayLogging({
               disabled={pending}
             />
           ) : null}
-          {newKind !== "movie" ? (
+          {newKind === "series" ? (
+            <div className={styles.fieldRow}>
+              <Input
+                label="Säsong"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={100}
+                value={newSeason}
+                onChange={(e) => setNewSeason(e.target.value)}
+                placeholder="t.ex. 1"
+                disabled={pending}
+              />
+              <Input
+                label="Avsnitt i säsongen"
+                type="number"
+                inputMode="numeric"
+                value={newTotalLength}
+                onChange={(e) => setNewTotalLength(e.target.value)}
+                placeholder="t.ex. 10"
+                disabled={pending}
+              />
+            </div>
+          ) : null}
+          {newKind === "book" ? (
             <Input
-              label={newKind === "book" ? "Antal sidor" : "Antal avsnitt"}
+              label="Antal sidor"
               type="number"
               inputMode="numeric"
               value={newTotalLength}
               onChange={(e) => setNewTotalLength(e.target.value)}
-              placeholder={newKind === "book" ? "t.ex. 412" : "t.ex. 62"}
+              placeholder="t.ex. 412"
               disabled={pending}
             />
           ) : null}
@@ -431,7 +588,7 @@ export function MediaDayLogging({
               >
                 {media.items.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {MEDIA_KIND_ICON[item.kind]} {item.title}
+                    {MEDIA_KIND_ICON[item.kind]} {mediaDisplayTitle(item)}
                   </option>
                 ))}
               </select>
@@ -516,8 +673,11 @@ export function MediaDayLogging({
 
           {showInlineReview && selected ? (
             <p className={styles.completeHint}>
-              Spara sidan/avsnittet för att markera som klart och skriva en
-              recension.
+              {selected.kind === "series"
+                ? "Spara avsnittet för att markera säsongen som klar och skriva en recension."
+                : selected.kind === "book"
+                  ? "Spara sidan för att markera boken som klar och skriva en recension."
+                  : "Bocka i att du såg filmen för att skriva en recension."}
             </p>
           ) : null}
 

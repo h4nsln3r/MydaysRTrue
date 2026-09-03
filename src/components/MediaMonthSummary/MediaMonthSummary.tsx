@@ -3,6 +3,7 @@ import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
   mediaDayLogDetail,
+  mediaDisplayTitle,
   mediaRatingLabel,
   type MonthMediaContext,
 } from "@/lib/media";
@@ -67,7 +68,7 @@ export function MediaMonthSummary({ monthMedia, year }: Props) {
                 {MEDIA_KIND_ICON[item.kind]}
               </span>
               <div className={styles.meta}>
-                <p className={styles.itemTitle}>{item.title}</p>
+                <p className={styles.itemTitle}>{mediaDisplayTitle(item)}</p>
                 <p className={styles.itemSub}>
                   {MEDIA_KIND_LABEL[item.kind]}
                   {item.completed ? " · Klart" : ` · ${lastDetail.split(" · ").slice(1).join(" · ") || "Pågår"}`}

@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import {
   MEDIA_RATING_MAX,
   MEDIA_RATING_MIN,
+  MEDIA_SEASON_MAX,
+  MEDIA_SEASON_MIN,
   isMediaCompleted,
   yearFromLocalISO,
   type MediaKind,
@@ -58,6 +60,22 @@ function parseMediaRating(
   return { ok: true, rating: value };
 }
 
+function parseMediaSeason(
+  kind: MediaKind,
+  value: number | null | undefined,
+): { ok: true; season: number | null } | { ok: false; error: string } {
+  if (kind !== "series") return { ok: true, season: null };
+  if (
+    value == null ||
+    !Number.isInteger(value) ||
+    value < MEDIA_SEASON_MIN ||
+    value > MEDIA_SEASON_MAX
+  ) {
+    return { ok: false, error: "Ange vilken säsong du tittar på." };
+  }
+  return { ok: true, season: value };
+}
+
 function parseMediaCompletedOn(
   value: string | null | undefined,
 ): { ok: true; date: string | null } | { ok: false; error: string } {
@@ -92,6 +110,7 @@ export async function createMediaItemAction(input: {
   author?: string;
   director?: string;
   actors?: string;
+  season?: number | null;
   totalLength?: number | null;
 }): Promise<CreateMediaItemResult> {
   const title = input.title.trim();
@@ -131,6 +150,9 @@ export async function createMediaItemAction(input: {
       : { ok: true as const, credit: null };
   if (!actorsResult.ok) return actorsResult;
 
+  const seasonResult = parseMediaSeason(input.kind, input.season);
+  if (!seasonResult.ok) return seasonResult;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -159,6 +181,7 @@ export async function createMediaItemAction(input: {
       actors: actorsResult.credit,
       note: null,
       rating: null,
+      season: seasonResult.season,
       total_length:
         input.kind === "movie" ? null : (input.totalLength ?? null),
       sort_order: (last?.sort_order ?? -1) + 1,
@@ -180,6 +203,7 @@ export async function updateMediaItemAction(input: {
   actors?: string;
   note?: string;
   rating?: number | null;
+  season?: number | null;
   totalLength?: number | null;
   completedOn?: string | null;
 }): Promise<ActionResult> {
@@ -223,6 +247,9 @@ export async function updateMediaItemAction(input: {
       ? parseMediaCredit(input.actors)
       : { ok: true as const, credit: null };
   if (!actorsResult.ok) return actorsResult;
+
+  const seasonResult = parseMediaSeason(existing.kind as MediaKind, input.season);
+  if (!seasonResult.ok) return seasonResult;
 
   const ratingResult = parseMediaRating(input.rating);
   if (!ratingResult.ok) return ratingResult;
@@ -275,6 +302,7 @@ export async function updateMediaItemAction(input: {
       actors: actorsResult.credit,
       note: noteResult.note,
       rating: ratingResult.rating,
+      season: seasonResult.season,
       total_length: totalLength,
       ...(completedOnResult ? { completed_on: completedOnResult.date } : {}),
     })
@@ -443,6 +471,7 @@ export async function saveMediaDailyLogAction(input: {
     actors: null,
     note: null,
     rating: null,
+    season: null,
     totalLength: item.total_length,
     sortOrder: 0,
     bestPosition: prevBestPosition,
@@ -487,6 +516,7 @@ export async function saveMediaDailyLogAction(input: {
     actors: null,
     note: null,
     rating: null,
+    season: null,
     totalLength: item.total_length,
     sortOrder: 0,
     bestPosition: newBestPosition,

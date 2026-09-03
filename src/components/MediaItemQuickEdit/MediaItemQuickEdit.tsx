@@ -10,6 +10,7 @@ import { mediaCompletionDate } from "@/lib/completions";
 import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
+  mediaDisplayTitle,
   type MediaItem,
 } from "@/lib/media";
 import styles from "./MediaItemQuickEdit.module.scss";
@@ -29,7 +30,7 @@ export function MediaItemQuickEdit({ item, className }: Props) {
         type="button"
         className={[styles.pencil, className].filter(Boolean).join(" ")}
         onClick={() => setOpen(true)}
-        aria-label={`Redigera ${item.title}`}
+        aria-label={`Redigera ${mediaDisplayTitle(item)}`}
       >
         ✎
       </button>
@@ -54,6 +55,9 @@ function MediaItemEditModal({
   const [author, setAuthor] = useState(item.author ?? "");
   const [director, setDirector] = useState(item.director ?? "");
   const [actors, setActors] = useState(item.actors ?? "");
+  const [season, setSeason] = useState(
+    item.season != null ? String(item.season) : "1",
+  );
   const [totalLength, setTotalLength] = useState(
     item.totalLength != null ? String(item.totalLength) : "",
   );
@@ -65,6 +69,7 @@ function MediaItemEditModal({
     setAuthor(item.author ?? "");
     setDirector(item.director ?? "");
     setActors(item.actors ?? "");
+    setSeason(item.season != null ? String(item.season) : "1");
     setTotalLength(item.totalLength != null ? String(item.totalLength) : "");
     setError(null);
   }, [item]);
@@ -82,6 +87,7 @@ function MediaItemEditModal({
     };
   }, [close]);
 
+  const currentSeason = item.season != null ? String(item.season) : "1";
   const currentLength =
     item.totalLength != null ? String(item.totalLength) : "";
   const dirty =
@@ -90,6 +96,7 @@ function MediaItemEditModal({
     (item.kind === "movie" &&
       (director.trim() !== (item.director ?? "").trim() ||
         actors.trim() !== (item.actors ?? "").trim())) ||
+    (item.kind === "series" && season.trim() !== currentSeason) ||
     (item.kind !== "movie" && totalLength.trim() !== currentLength);
 
   const save = () => {
@@ -107,6 +114,12 @@ function MediaItemEditModal({
         actors: item.kind === "movie" ? actors : undefined,
         note: item.note ?? "",
         rating: item.rating,
+        season:
+          item.kind === "series"
+            ? season.trim() === ""
+              ? null
+              : Number(season)
+            : null,
         totalLength:
           item.kind === "movie"
             ? null
@@ -194,9 +207,22 @@ function MediaItemEditModal({
                 disabled={pending}
               />
             </>
-          ) : (
+          ) : null}
+          {item.kind === "series" ? (
             <Input
-              label={item.kind === "book" ? "Antal sidor" : "Antal avsnitt"}
+              label="Säsong"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100}
+              value={season}
+              onChange={(e) => setSeason(e.target.value)}
+              disabled={pending}
+            />
+          ) : null}
+          {item.kind !== "movie" ? (
+            <Input
+              label={item.kind === "book" ? "Antal sidor" : "Avsnitt i säsongen"}
               type="number"
               inputMode="numeric"
               value={totalLength}
@@ -204,7 +230,7 @@ function MediaItemEditModal({
               hint={progressHint ?? undefined}
               disabled={pending}
             />
-          )}
+          ) : null}
           {error ? <p className={styles.error}>{error}</p> : null}
           <div className={styles.actions}>
             <Button

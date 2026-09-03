@@ -16,6 +16,7 @@ import {
   MEDIA_RATING_MAX,
   MEDIA_RATING_MIN,
   mediaCreditsLabel,
+  mediaDisplayTitle,
   mediaProgressLabel,
   mediaRatingLabel,
   type MediaKind,
@@ -46,6 +47,7 @@ export function MediaYearBoard({ yearMedia, createOnly = false }: Props) {
   const [author, setAuthor] = useState("");
   const [director, setDirector] = useState("");
   const [actors, setActors] = useState("");
+  const [season, setSeason] = useState("1");
   const [totalLength, setTotalLength] = useState("");
 
   const add = () => {
@@ -63,6 +65,7 @@ export function MediaYearBoard({ yearMedia, createOnly = false }: Props) {
         author: kind === "book" ? author : undefined,
         director: kind === "movie" ? director : undefined,
         actors: kind === "movie" ? actors : undefined,
+        season: kind === "series" ? Number(season) : null,
         totalLength:
           kind === "movie"
             ? null
@@ -78,6 +81,7 @@ export function MediaYearBoard({ yearMedia, createOnly = false }: Props) {
       setAuthor("");
       setDirector("");
       setActors("");
+      setSeason("1");
       setTotalLength("");
       router.refresh();
     });
@@ -146,14 +150,38 @@ export function MediaYearBoard({ yearMedia, createOnly = false }: Props) {
           />
         </>
       ) : null}
-      {kind !== "movie" ? (
+      {kind === "series" ? (
+        <div className={styles.fieldRow}>
+          <Input
+            label="Säsong"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={100}
+            value={season}
+            onChange={(e) => setSeason(e.target.value)}
+            placeholder="t.ex. 1"
+            disabled={pending}
+          />
+          <Input
+            label="Avsnitt i säsongen"
+            type="number"
+            inputMode="numeric"
+            value={totalLength}
+            onChange={(e) => setTotalLength(e.target.value)}
+            placeholder="t.ex. 10"
+            disabled={pending}
+          />
+        </div>
+      ) : null}
+      {kind === "book" ? (
         <Input
-          label={kind === "book" ? "Antal sidor" : "Antal avsnitt"}
+          label="Antal sidor"
           type="number"
           inputMode="numeric"
           value={totalLength}
           onChange={(e) => setTotalLength(e.target.value)}
-          placeholder={kind === "book" ? "t.ex. 412" : "t.ex. 62"}
+          placeholder="t.ex. 412"
           disabled={pending}
         />
       ) : null}
@@ -179,9 +207,10 @@ export function MediaYearBoard({ yearMedia, createOnly = false }: Props) {
   return (
     <div className={styles.board}>
       <p className={styles.hint}>
-        Lägg till böcker, serier och filmer för {yearMedia.year}. I dagsvyn
-        väljer du titel och loggar sida eller avsnitt. När du är klar kan du
-        skriva en recension och ge betyg.
+        Lägg till böcker, serier och filmer för {yearMedia.year}. För serier
+        anger du säsong och hur många avsnitt den har — när en säsong är klar
+        startar du nästa. I dagsvyn loggar du sida eller avsnitt. När du är
+        klar kan du skriva en recension och ge betyg.
       </p>
 
       {yearMedia.items.length > 0 ? (
@@ -217,6 +246,9 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
   const [editAuthor, setEditAuthor] = useState(item.author ?? "");
   const [editDirector, setEditDirector] = useState(item.director ?? "");
   const [editActors, setEditActors] = useState(item.actors ?? "");
+  const [editSeason, setEditSeason] = useState(
+    item.season != null ? String(item.season) : "1",
+  );
   const [editNote, setEditNote] = useState(item.note ?? "");
   const [editRating, setEditRating] = useState(
     item.rating != null ? String(item.rating) : "",
@@ -237,6 +269,7 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
     setEditAuthor(item.author ?? "");
     setEditDirector(item.director ?? "");
     setEditActors(item.actors ?? "");
+    setEditSeason(item.season != null ? String(item.season) : "1");
     setEditNote(item.note ?? "");
     setEditRating(item.rating != null ? String(item.rating) : "");
     setEditTotalLength(
@@ -274,6 +307,12 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
         actors: item.kind === "movie" ? editActors : undefined,
         note: editNote,
         rating: editRating.trim() === "" ? null : Number(editRating),
+        season:
+          item.kind === "series"
+            ? editSeason.trim() === ""
+              ? null
+              : Number(editSeason)
+            : null,
         totalLength:
           item.kind === "movie"
             ? null
@@ -342,9 +381,31 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
                 />
               </>
             ) : null}
-            {item.kind !== "movie" ? (
+            {item.kind === "series" ? (
+              <div className={styles.fieldRow}>
+                <Input
+                  label="Säsong"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={100}
+                  value={editSeason}
+                  onChange={(e) => setEditSeason(e.target.value)}
+                  disabled={busy}
+                />
+                <Input
+                  label="Avsnitt i säsongen"
+                  type="number"
+                  inputMode="numeric"
+                  value={editTotalLength}
+                  onChange={(e) => setEditTotalLength(e.target.value)}
+                  disabled={busy}
+                />
+              </div>
+            ) : null}
+            {item.kind === "book" ? (
               <Input
-                label={item.kind === "book" ? "Antal sidor" : "Antal avsnitt"}
+                label="Antal sidor"
                 type="number"
                 inputMode="numeric"
                 value={editTotalLength}
@@ -424,7 +485,7 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
         </span>
         <div className={styles.itemMeta}>
           <span className={styles.itemTitle}>
-            {item.title}
+            {mediaDisplayTitle(item)}
             {item.completed ? (
               <span className={styles.doneBadge} aria-label="Klart">
                 {" "}

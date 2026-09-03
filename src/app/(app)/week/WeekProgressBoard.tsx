@@ -10,7 +10,7 @@ import {
   GYM_WARMUP_LABEL,
   type GymSessionForWeek,
 } from "@/lib/gym";
-import type { Habit, HabitStatus } from "@/lib/habits";
+import type { Habit, HabitStatus, MealRestaurant } from "@/lib/habits";
 import { formatHabitPoints } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekJournalSummary } from "@/lib/journal";
@@ -75,6 +75,7 @@ interface Props {
   journalWeek: WeekJournalSummary;
   layout: WeekProgressLayout;
   workByDate: Map<string, WorkDailyLog>;
+  savedRestaurants?: MealRestaurant[];
 }
 
 const WEEKDAY_HEAD = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
@@ -94,6 +95,7 @@ export function WeekProgressBoard({
   journalWeek,
   layout,
   workByDate,
+  savedRestaurants = [],
 }: Props) {
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
 
@@ -210,6 +212,7 @@ export function WeekProgressBoard({
                       mealsWeek={mealsWeek}
                       mediaWeek={mediaWeek}
                       dailyRows={layout.dailyRows}
+                      savedRestaurants={savedRestaurants}
                     />
                     <WorkKindRow
                       days={week.days}

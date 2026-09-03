@@ -159,6 +159,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           journalWeek={journalWeek}
           layout={weekProgressLayout}
           workByDate={workByDate}
+          savedRestaurants={mealRestaurants}
         />
         </>
       ) : (

@@ -18,6 +18,7 @@ import {
   type HabitStatus,
   type MealEntry,
   type MealKey,
+  type MealRestaurant,
   type SnackEntry,
   type SnackSlot,
 } from "@/lib/habits";
@@ -27,6 +28,7 @@ import {
   INTAKE_LABEL,
   INTAKE_ORDER,
   applicableIntakeKinds,
+  type IntakeKind,
 } from "@/lib/intake";
 import type { MoodKey } from "@/lib/mood";
 import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
@@ -40,8 +42,20 @@ import {
   parseDailyRowKey,
   type WeekProgressDailyRowKey,
 } from "@/lib/week-progress-layout";
+import { WeekMealLogDialog } from "./WeekMealLogDialog";
 import { WeekMediaLogDialog } from "./WeekMediaLogDialog";
 import { WeekMoodLogDialog } from "./WeekMoodLogDialog";
+import { WeekStepsLogDialog } from "./WeekStepsLogDialog";
+import {
+  WeekActivityLogDialog,
+  WeekFoodPickDialog,
+  WeekHabitStatusLogDialog,
+  WeekIntakeLogDialog,
+  WeekMobileGamesLogDialog,
+  WeekSmokeFreeLogDialog,
+  WeekSnackLogDialog,
+  WeekWaterLogDialog,
+} from "./WeekDailyLogDialogs";
 import styles from "./week-progress.module.scss";
 
 const MEAL_LABEL_SV: Record<MealKey, string> = {
@@ -171,12 +185,27 @@ interface SubRowCellContent {
   countable?: boolean;
 }
 
+type OpenLog =
+  | { type: "water"; date: string }
+  | { type: "food-pick"; date: string }
+  | { type: "meal"; date: string; meal: MealKey }
+  | { type: "snack"; date: string; slot: SnackSlot }
+  | { type: "intake"; date: string; kind?: IntakeKind }
+  | { type: "steps"; date: string }
+  | { type: "activity"; date: string }
+  | { type: "smoke"; date: string }
+  | { type: "status"; date: string; habitId: string; label: string }
+  | { type: "games"; date: string }
+  | { type: "media"; date: string }
+  | { type: "mood"; date: string };
+
 interface Props {
   week: WeekSummary;
   habitWeek: WeekHabitSummary;
   mealsWeek: WeekMealsSummary;
   mediaWeek: WeekMediaSummary;
   dailyRows: WeekProgressDailyRowKey[];
+  savedRestaurants?: MealRestaurant[];
 }
 
 export function WeekDailyHabitRows({
@@ -185,27 +214,70 @@ export function WeekDailyHabitRows({
   mealsWeek,
   mediaWeek,
   dailyRows,
+  savedRestaurants = [],
 }: Props) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [openMediaDate, setOpenMediaDate] = useState<string | null>(null);
-  const [openMoodDate, setOpenMoodDate] = useState<string | null>(null);
+  const [openLog, setOpenLog] = useState<OpenLog | null>(null);
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
   const habitDayByDate = new Map(habitWeek.days.map((d) => [d.date, d]));
   const mealDayByDate = new Map(mealsWeek.days.map((d) => [d.date, d]));
   const mediaDayByDate = new Map(mediaWeek.days.map((d) => [d.date, d]));
 
-  const openMediaDay = openMediaDate
-    ? mediaDayByDate.get(openMediaDate)
-    : null;
-  const openMoodValue = openMoodDate
-    ? (habitDayByDate.get(openMoodDate)?.mood ?? null)
-    : null;
-  const openMoodNote = openMoodDate
-    ? (habitDayByDate.get(openMoodDate)?.moodNote ?? null)
-    : null;
-
   const toggle = (key: string) => {
     setExpandedKey((prev) => (prev === key ? null : key));
+  };
+
+  const openHabitLog = (habit: Habit, date: string, subKey?: string) => {
+    switch (habit.kind) {
+      case "media":
+        setOpenLog({ type: "media", date });
+        return;
+      case "mood":
+        setOpenLog({ type: "mood", date });
+        return;
+      case "steps":
+        setOpenLog({ type: "steps", date });
+        return;
+      case "activity_hours":
+        setOpenLog({ type: "activity", date });
+        return;
+      case "meal": {
+        const snackSlot = parseSnackSlot(subKey);
+        if (snackSlot) {
+          setOpenLog({ type: "snack", date, slot: snackSlot });
+          return;
+        }
+        if (subKey && MEAL_ORDER.includes(subKey as MealKey)) {
+          setOpenLog({ type: "meal", date, meal: subKey as MealKey });
+          return;
+        }
+        setOpenLog({ type: "food-pick", date });
+        return;
+      }
+      case "intake":
+        setOpenLog({
+          type: "intake",
+          date,
+          kind: isIntakeKind(subKey) ? subKey : undefined,
+        });
+        return;
+      case "smoke_free":
+        setOpenLog({ type: "smoke", date });
+        return;
+      case "mobile_games":
+        setOpenLog({ type: "games", date });
+        return;
+      case "tri_state":
+        setOpenLog({
+          type: "status",
+          date,
+          habitId: habit.id,
+          label: habit.label,
+        });
+        return;
+      default:
+        return;
+    }
   };
 
   const habitByKey = new Map(habitWeek.habits.map((h) => [h.key, h]));
@@ -245,6 +317,7 @@ export function WeekDailyHabitRows({
                 highlight: week.daysHit === pastDays && pastDays > 0,
               }}
               isWater
+              onCellActivate={(date) => setOpenLog({ type: "water", date })}
             />
           );
         }
@@ -269,11 +342,9 @@ export function WeekDailyHabitRows({
             pastDays={pastDays}
             habit={habit}
             onCellActivate={
-              habit.kind === "media"
-                ? (date) => setOpenMediaDate(date)
-                : habit.kind === "mood"
-                  ? (date) => setOpenMoodDate(date)
-                  : undefined
+              canLogHabit(habit.kind)
+                ? (date, subKey) => openHabitLog(habit, date, subKey)
+                : undefined
             }
             renderSummary={(d) => {
               const habitDay = habitDayByDate.get(d.date);
@@ -302,6 +373,16 @@ export function WeekDailyHabitRows({
                 habit.kind === "meal"
                   ? formatMealsDayHover(d, mealDay)
                   : null;
+              const stepsDetail = habitDay?.details.steps;
+              const stepsTitle =
+                habit.kind === "steps" && stepsDetail
+                  ? `${stepsDetail.value.toLocaleString("sv-SE")} / ${stepsDetail.goal.toLocaleString("sv-SE")} steg`
+                  : null;
+              const activityDetail = habitDay?.details.activity;
+              const activityTitle =
+                habit.kind === "activity_hours" && activityDetail
+                  ? `${activityDetail.value} / ${activityDetail.goal} h`
+                  : null;
               const baseTitle = mealSummary
                 ? `${habit.label}, ${formatDayShort(d.date)}\n${mealSummary}`
                 : `${habit.label}, ${formatDayShort(d.date)}: ${
@@ -311,7 +392,11 @@ export function WeekDailyHabitRows({
                         ? MOOD_LABEL[moodKey]
                         : mediaDay?.summary
                           ? mediaDay.summary
-                          : HABIT_STATUS_LABEL[status ?? "empty"]
+                          : stepsTitle
+                            ? stepsTitle
+                            : activityTitle
+                              ? activityTitle
+                              : HABIT_STATUS_LABEL[status ?? "empty"]
                   }`;
               return {
                 status,
@@ -339,24 +424,176 @@ export function WeekDailyHabitRows({
         pastDays={pastDays}
       />
 
-      {openMediaDay ? (
-        <WeekMediaLogDialog
-          date={openMediaDay.date}
-          context={openMediaDay.context}
-          onClose={() => setOpenMediaDate(null)}
+      {openLog?.type === "water" ? (
+        <WeekWaterLogDialog
+          date={openLog.date}
+          totalMl={week.days.find((d) => d.date === openLog.date)?.totalMl ?? 0}
+          goalMl={week.days.find((d) => d.date === openLog.date)?.goalMl ?? 2500}
+          onClose={() => setOpenLog(null)}
         />
       ) : null}
 
-      {openMoodDate ? (
+      {openLog?.type === "food-pick" ? (
+        <WeekFoodPickDialog
+          date={openLog.date}
+          mealDay={mealDayByDate.get(openLog.date)}
+          onPickMeal={(meal) =>
+            setOpenLog({ type: "meal", date: openLog.date, meal })
+          }
+          onPickSnack={(slot) =>
+            setOpenLog({ type: "snack", date: openLog.date, slot })
+          }
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "meal" ? (
+        <WeekMealLogDialog
+          date={openLog.date}
+          meal={openLog.meal}
+          initial={mealDayByDate.get(openLog.date)?.meals[openLog.meal] ?? null}
+          savedRestaurants={savedRestaurants}
+          mealBoxStock={mealsWeek.stock}
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "snack" ? (
+        <WeekSnackLogDialog
+          date={openLog.date}
+          slot={openLog.slot}
+          initial={mealDayByDate.get(openLog.date)?.snacks[openLog.slot] ?? null}
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "intake" ? (
+        <WeekIntakeLogDialog
+          date={openLog.date}
+          kind={openLog.kind}
+          loggedByKind={habitDayByDate.get(openLog.date)?.details.intake ?? {}}
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "steps" ? (
+        <WeekStepsLogDialog
+          date={openLog.date}
+          currentSteps={
+            (habitDayByDate.get(openLog.date)?.details.steps?.value ?? 0) > 0
+              ? (habitDayByDate.get(openLog.date)?.details.steps?.value ?? 0)
+              : null
+          }
+          stepsGoal={
+            habitDayByDate.get(openLog.date)?.details.steps?.goal ?? 8000
+          }
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "activity" ? (
+        <WeekActivityLogDialog
+          date={openLog.date}
+          currentHours={
+            (habitDayByDate.get(openLog.date)?.details.activity?.value ?? 0) > 0
+              ? (habitDayByDate.get(openLog.date)?.details.activity?.value ?? 0)
+              : null
+          }
+          hoursGoal={
+            habitDayByDate.get(openLog.date)?.details.activity?.goal ?? 12
+          }
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "smoke" ? (
+        <WeekSmokeFreeLogDialog
+          date={openLog.date}
+          nicotine={
+            habitDayByDate.get(openLog.date)?.details.smokeFree?.nicotine ?? null
+          }
+          cannabis={
+            habitDayByDate.get(openLog.date)?.details.smokeFree?.cannabis ?? null
+          }
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "status" ? (
+        <WeekHabitStatusLogDialog
+          date={openLog.date}
+          habitId={openLog.habitId}
+          label={openLog.label}
+          currentStatus={
+            habitDayByDate.get(openLog.date)?.statuses[openLog.habitId] ?? null
+          }
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "games" ? (
+        <WeekMobileGamesLogDialog
+          date={openLog.date}
+          games={{
+            localDate: openLog.date,
+            chess:
+              habitDayByDate.get(openLog.date)?.details.mobileGames?.chess ??
+              false,
+            duolingo:
+              habitDayByDate.get(openLog.date)?.details.mobileGames?.duolingo ??
+              false,
+            pokemonGo:
+              habitDayByDate.get(openLog.date)?.details.mobileGames?.pokemonGo ??
+              false,
+            hasLog:
+              habitDayByDate.get(openLog.date)?.details.mobileGames != null,
+          }}
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "media" && mediaDayByDate.get(openLog.date) ? (
+        <WeekMediaLogDialog
+          date={openLog.date}
+          context={mediaDayByDate.get(openLog.date)!.context}
+          onClose={() => setOpenLog(null)}
+        />
+      ) : null}
+
+      {openLog?.type === "mood" ? (
         <WeekMoodLogDialog
-          date={openMoodDate}
-          currentMood={openMoodValue}
-          currentNote={openMoodNote}
-          onClose={() => setOpenMoodDate(null)}
+          date={openLog.date}
+          currentMood={habitDayByDate.get(openLog.date)?.mood ?? null}
+          currentNote={habitDayByDate.get(openLog.date)?.moodNote ?? null}
+          onClose={() => setOpenLog(null)}
         />
       ) : null}
     </>
   );
+}
+
+function canLogHabit(kind: Habit["kind"]): boolean {
+  return (
+    kind === "media" ||
+    kind === "mood" ||
+    kind === "steps" ||
+    kind === "activity_hours" ||
+    kind === "meal" ||
+    kind === "intake" ||
+    kind === "smoke_free" ||
+    kind === "mobile_games" ||
+    kind === "tri_state"
+  );
+}
+
+function isIntakeKind(key: string | undefined): key is IntakeKind {
+  return Boolean(key && INTAKE_ORDER.includes(key as IntakeKind));
+}
+
+function parseSnackSlot(key: string | undefined): SnackSlot | null {
+  if (key === "snack-1") return 1;
+  if (key === "snack-2") return 2;
+  return null;
 }
 
 function DailySectionTotalRow({
@@ -495,7 +732,7 @@ function HabitRowGroup({
   habit?: Habit;
   isWater?: boolean;
   /** When set, double-clicking a non-future cell logs that day directly. */
-  onCellActivate?: (date: string) => void;
+  onCellActivate?: (date: string, subKey?: string) => void;
 }) {
   const expanded = expandedKey === rowKey;
   const canExpand = subRows.length > 0;
@@ -599,6 +836,10 @@ function HabitRowGroup({
                   waterDay: d,
                   mealDay: mealDayByDate.get(d.date),
                 });
+                const interactive =
+                  Boolean(onCellActivate) &&
+                  !d.isFuture &&
+                  content.countable !== false;
                 return (
                   <td
                     key={d.date}
@@ -608,12 +849,22 @@ function HabitRowGroup({
                       content.food && styles.subCellFood,
                       d.isFuture && styles.cellFuture,
                       d.isToday && styles.cellToday,
+                      interactive && styles.cellInteractive,
                       !d.isFuture &&
                         (content.exceeded
                           ? styles.habitCell_crush
                           : styles[`habitCell_${content.status ?? "empty"}`]),
                     )}
-                    title={content.title}
+                    title={
+                      interactive
+                        ? `${content.title} · Dubbelklicka för att logga`
+                        : content.title
+                    }
+                    onDoubleClick={
+                      interactive
+                        ? () => onCellActivate!(d.date, sub.key)
+                        : undefined
+                    }
                   >
                     {!d.isFuture ? (
                       <SubRowCellMark content={content} />

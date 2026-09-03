@@ -1060,7 +1060,7 @@ export async function completeWeeklyTaskAction(input: {
   /** Venue (gig) or location (live). */
   musicPlace?: string;
   musicRating?: number | null;
-  /** Coding session project. */
+  /** Optional coding session project. */
   codingProjectId?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
@@ -1131,21 +1131,17 @@ export async function completeWeeklyTaskAction(input: {
   let codingProjectId: string | null = null;
   if (isCodingWeeklyTaskKey(task.key)) {
     codingProjectId = input.codingProjectId?.trim() || null;
-    if (!codingProjectId) {
-      return { ok: false, error: "Välj vilket projekt du jobbade med." };
-    }
-    const { data: project } = await supabase
-      .from("coding_projects")
-      .select("id")
-      .eq("id", codingProjectId)
-      .eq("user_id", user.id)
-      .is("archived_at", null)
-      .maybeSingle();
-    if (!project) {
-      return { ok: false, error: "Projektet hittades inte." };
-    }
-    if (!note) {
-      return { ok: false, error: "Anteckna vad du gjorde i projektet." };
+    if (codingProjectId) {
+      const { data: project } = await supabase
+        .from("coding_projects")
+        .select("id")
+        .eq("id", codingProjectId)
+        .eq("user_id", user.id)
+        .is("archived_at", null)
+        .maybeSingle();
+      if (!project) {
+        return { ok: false, error: "Projektet hittades inte." };
+      }
     }
   }
 

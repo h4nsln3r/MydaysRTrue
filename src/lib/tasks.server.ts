@@ -358,7 +358,7 @@ const REPEATABLE_CANONICAL: Array<{
     legacyLike: "dev_code_%",
     title: "Kodning",
     notes:
-      "Dra in hur många kodpass du vill — minst 2 per vecka. Välj projekt och anteckna vad du gjorde.",
+      "Dra in hur många kodpass du vill — minst 2 per vecka. Anteckna vad du gjorde; projekt är valfritt.",
     icon: "💻",
     accent: "#5fb6ff",
     completionKind: "journal",

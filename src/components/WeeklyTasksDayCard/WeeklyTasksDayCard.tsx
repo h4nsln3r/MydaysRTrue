@@ -860,7 +860,7 @@ export function WeeklyTaskRow({
             <>
               {isCoding && !done ? (
                 <div className={styles.bandPicker}>
-                  <span className={styles.bandLabel}>Projekt</span>
+                  <span className={styles.bandLabel}>Projekt (valfritt)</span>
                   {creatingProject ? (
                     <div className={styles.quickAddActions}>
                       <Input
@@ -907,7 +907,7 @@ export function WeeklyTaskRow({
                           setCodingProjectId(e.target.value);
                         }}
                       >
-                        <option value="">Välj projekt…</option>
+                        <option value="">Inget specifikt projekt</option>
                         {codingProjects.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.title}
@@ -933,18 +933,12 @@ export function WeeklyTaskRow({
                 </p>
               ) : null}
               <Input
-                label={
-                  isCoding
-                    ? "Vad gjorde du i projektet?"
-                    : isGame
-                      ? "Hur gick sessionen?"
-                      : "Vad gjorde du?"
-                }
+                label={isGame ? "Hur gick sessionen?" : "Vad gjorde du?"}
                 value={taskNote}
                 onChange={(e) => setTaskNote(e.target.value)}
                 placeholder={
                   isCoding
-                    ? "t.ex. Byggde repeatable tasks"
+                    ? "t.ex. Byggde UI, eller jobbade i flera projekt"
                     : isGame
                       ? "t.ex. kampanj, vad som hände, vilka som spelade"
                       : "Anteckna resultatet"

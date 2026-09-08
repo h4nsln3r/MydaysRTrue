@@ -1245,9 +1245,7 @@ function ItemRowContent({
   const taskPlanningExpand =
     item.kind === "task" &&
     item.taskRole !== "source" &&
-    (item.completionKind === "journal" ||
-      item.completionKind === "laundry" ||
-      item.completionKind === "music");
+    (item.completionKind === "journal" || item.completionKind === "music");
 
   const isOneOff = isOneOffTask(item);
   const canManage = canManageTask(item);
@@ -2340,16 +2338,6 @@ function ItemRowContent({
                       : "Beskriv uppgiften"
                   }
                   maxLength={280}
-                  disabled={pending}
-                />
-              ) : null}
-              {item.completionKind === "laundry" ? (
-                <Input
-                  label="Bokad tid"
-                  value={taskPlanNote}
-                  onChange={(e) => setTaskPlanNote(e.target.value)}
-                  placeholder="t.ex. 14:00"
-                  maxLength={80}
                   disabled={pending}
                 />
               ) : null}

@@ -4,7 +4,7 @@ import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getSportWeekSummary } from "@/lib/sport.server";
 import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
-import { formatWeeklyTaskDetail, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday } from "@/lib/tasks";
+import { formatWeeklyTaskDetail, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
@@ -43,11 +43,11 @@ function dayPlanSortOrder(
 }
 
 function weekTaskSubtitle(
-  task: { notes: string | null; completionKind: string },
+  task: { notes: string | null; completionKind: WeeklyTaskCompletionKind },
   placement: Parameters<typeof formatWeeklyTaskDetail>[0] | null | undefined,
 ): string | null {
   if (placement) {
-    const detail = formatWeeklyTaskDetail(placement);
+    const detail = formatWeeklyTaskDetail(placement, task.completionKind);
     if (detail) return detail;
   }
   if (task.completionKind === "music") {
@@ -293,6 +293,38 @@ export async function getUnifiedWeekPlan(
         singleWeekStart: t.singleWeekStart,
       });
 
+      for (const placement of placed) {
+        const done = Boolean(placement.doneAt);
+        items.push({
+          dragId: weekPlanTaskPlacementDragId(placement.id),
+          kind: "task",
+          taskRole: "placement",
+          taskId: t.id,
+          placementId: placement.id,
+          taskKey: t.key,
+          categoryId: t.categoryId,
+          completionKind: t.completionKind,
+          placement,
+          checklist: t.checklist,
+          label: musicSessionTitle(t, placement),
+          subtitle: weekTaskSubtitle(t, placement),
+          icon: musicSessionIcon(t, placement),
+          accent: t.accent,
+          defaultWeekday: t.defaultWeekday,
+          weekday: placement.weekday,
+          done,
+          sortOrder: dayPlanSortOrder(
+            placement.weekday,
+            placement.daySortOrder,
+            t.sortOrder,
+          ),
+          singleWeekStart: t.singleWeekStart,
+        });
+      }
+      continue;
+    }
+
+    if (t.completionKind === "laundry" && placed.length > 1) {
       for (const placement of placed) {
         const done = Boolean(placement.doneAt);
         items.push({

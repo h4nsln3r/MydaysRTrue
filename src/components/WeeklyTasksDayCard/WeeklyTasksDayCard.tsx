@@ -25,6 +25,8 @@ import {
   formatWeeklyTaskDetail,
   isCodingWeeklyTaskKey,
   isGameWeeklyTaskKey,
+  isLaundryBookingCompletion,
+  isLaundryFollowUpPlacement,
   isWeeklyTaskRepeatable,
   musicActivityCreatesGig,
   musicActivityCreatesLiveEvent,
@@ -51,7 +53,7 @@ import { GIG_RATING_MAX, GIG_RATING_MIN } from "@/lib/gigs";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import { taskCategory } from "@/lib/activity-category";
-import { isoWeekdayFromLocalISO } from "@/lib/date";
+import { addDaysISO, isoWeekdayFromLocalISO, todayLocalISO } from "@/lib/date";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
 import { TrainingRescheduleSelect } from "@/components/DayActivitiesCard/TrainingRescheduleSelect";
 import styles from "./WeeklyTasksDayCard.module.scss";
@@ -410,6 +412,11 @@ export function WeeklyTaskRow({
   const [laundryLoads, setLaundryLoads] = useState(
     placement?.laundryLoads != null ? String(placement.laundryLoads) : "",
   );
+  const [laundryMode, setLaundryMode] = useState<"wash" | "book">("wash");
+  const [laundryBookDate, setLaundryBookDate] = useState(
+    todayLocalISO(),
+  );
+  const [laundryBookTime, setLaundryBookTime] = useState("");
   const [band, setBand] = useState<string | null>(placement?.band ?? null);
   const [musicActivity, setMusicActivity] = useState<MusicActivity | null>(
     parseMusicActivity(placement?.musicActivity),
@@ -458,8 +465,14 @@ export function WeeklyTaskRow({
     placement?.codingProjectId,
   ]);
 
-  const detail = placement ? formatWeeklyTaskDetail(placement) : null;
+  const detail = placement ? formatWeeklyTaskDetail(placement, task.completionKind) : null;
   const planNote = placement?.planNote?.trim() ?? "";
+  const isLaundryFollowUp = isLaundryFollowUpPlacement(placement ?? {});
+  const isLaundryBookingDone = placement
+    ? isLaundryBookingCompletion(placement)
+    : false;
+  const showLaundryMode =
+    task.completionKind === "laundry" && !done && !isLaundryFollowUp;
   const category = taskCategory(task, categories);
 
   const toggleSimple = () => {
@@ -490,6 +503,14 @@ export function WeeklyTaskRow({
         shopAmountExpr: shopAmount,
         laundryLoads:
           laundryLoads.trim() === "" ? undefined : Number(laundryLoads),
+        laundryMode:
+          task.completionKind === "laundry"
+            ? isLaundryFollowUp
+              ? "wash"
+              : laundryMode
+            : undefined,
+        laundryBookDate: laundryBookDate,
+        laundryBookTime: laundryBookTime,
         band: band ?? undefined,
         musicActivity,
         musicTitle:
@@ -551,6 +572,9 @@ export function WeeklyTaskRow({
       setShopLocation("");
       setShopAmount("");
       setLaundryLoads("");
+      setLaundryMode("wash");
+      setLaundryBookDate(todayLocalISO());
+      setLaundryBookTime("");
       setBand(null);
       setMusicActivity(null);
       setMusicTitle("");
@@ -827,6 +851,61 @@ export function WeeklyTaskRow({
             </p>
           ) : null}
 
+          {showLaundryMode ? (
+            <div className={styles.bandPicker}>
+              <span className={styles.bandLabel}>Vad ska du göra?</span>
+              <div className={styles.bandBtns}>
+                <button
+                  type="button"
+                  className={[
+                    styles.bandBtn,
+                    laundryMode === "wash" ? styles.bandBtnActive : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  disabled={pending}
+                  onClick={() => setLaundryMode("wash")}
+                >
+                  Tvätta
+                </button>
+                <button
+                  type="button"
+                  className={[
+                    styles.bandBtn,
+                    laundryMode === "book" ? styles.bandBtnActive : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  disabled={pending}
+                  onClick={() => setLaundryMode("book")}
+                >
+                  Boka
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {showLaundryMode && laundryMode === "book" ? (
+            <>
+              <Input
+                label="Vilken dag"
+                type="date"
+                value={laundryBookDate}
+                min={todayLocalISO()}
+                max={addDaysISO(todayLocalISO(), 56)}
+                onChange={(e) => setLaundryBookDate(e.target.value)}
+                disabled={pending}
+              />
+              <Input
+                label="Tid"
+                type="time"
+                value={laundryBookTime}
+                onChange={(e) => setLaundryBookTime(e.target.value)}
+                disabled={pending}
+              />
+            </>
+          ) : null}
+
           {task.completionKind === "shop" || task.completionKind === "expense" ? (
             <>
               <Input
@@ -962,7 +1041,9 @@ export function WeeklyTaskRow({
               disabled={pending}
             />
           ) : null}
-          {task.completionKind === "laundry" ? (
+          {task.completionKind === "laundry" &&
+          !isLaundryBookingDone &&
+          !(showLaundryMode && laundryMode === "book") ? (
             <Input
               label="Antal tvättar"
               type="number"
@@ -1077,10 +1158,17 @@ export function WeeklyTaskRow({
               size="md"
               fullWidth
               loading={pending && busy}
-              disabled={pending}
+              disabled={
+                pending ||
+                (showLaundryMode &&
+                  laundryMode === "book" &&
+                  (!laundryBookDate || !laundryBookTime))
+              }
               onClick={complete}
             >
-              Markera klart
+              {showLaundryMode && laundryMode === "book"
+                ? "Boka tvätt"
+                : "Markera klart"}
             </Button>
           ) : (
             <>

@@ -681,7 +681,7 @@ function CategoryRecapCard({
           <ul className={styles.categoryDoneList}>
             {doneItems.map((t) => {
               const placement = t.placement!;
-              const detail = formatWeeklyTaskDetail(placement);
+              const detail = formatWeeklyTaskDetail(placement, t.completionKind);
               const dayLabel =
                 placement.weekday != null
                   ? WEEKDAY_LONG[placement.weekday as Weekday]

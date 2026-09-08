@@ -237,6 +237,7 @@ interface WeeklyPlacementRow {
   shop_amount: number | null;
   shop_amount_expr: string | null;
   laundry_loads: number | null;
+  laundry_booked_from_id: string | null;
   band: string | null;
   music_activity: string | null;
   plan_todo: string | null;
@@ -264,6 +265,7 @@ function rowToPlacement(
     shopAmount: r.shop_amount != null ? Number(r.shop_amount) : null,
     shopAmountExpr: r.shop_amount_expr,
     laundryLoads: r.laundry_loads,
+    laundryBookedFromId: r.laundry_booked_from_id,
     musicActivity: parseMusicActivity(r.music_activity),
     planTodo: r.plan_todo,
     band: r.band,
@@ -335,7 +337,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled, is_repeatable, weekly_goal";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, laundry_loads, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 
@@ -836,6 +838,8 @@ export async function getWeekSummary(
   const duplicatePlacementIds: string[] = [];
   for (const row of taskRows) {
     if (isWeeklyTaskRepeatable(rowToWeekly(row))) continue;
+    // Booking + wash can legitimately be two laundry rows in one week.
+    if (row.completion_kind === "laundry") continue;
     const list = placementsByTask.get(row.id);
     if (!list || list.length <= 1) continue;
     const ranked = [...list].sort((a, b) => {

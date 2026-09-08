@@ -293,13 +293,18 @@ export async function resetWeekPlanToDefaultsAction(
     const daySortOrder = dayOrderCursor.get(t.default_weekday) ?? 0;
     dayOrderCursor.set(t.default_weekday, daySortOrder + 1);
 
-    const { data: existing } = await supabase
+    const { data: existingRows } = await supabase
       .from("weekly_task_placements")
-      .select("id")
+      .select("id, laundry_booked_from_id, done_at")
       .eq("user_id", user.id)
       .eq("task_id", t.id)
-      .eq("week_start", weekStart)
-      .maybeSingle();
+      .eq("week_start", weekStart);
+
+    if ((existingRows ?? []).some((r) => r.laundry_booked_from_id || r.done_at)) {
+      continue;
+    }
+
+    const existing = existingRows?.[0] ?? null;
 
     if (existing) {
       await supabase

@@ -862,6 +862,7 @@ export interface Database {
           shop_amount: number | null;
           shop_amount_expr: string | null;
           laundry_loads: number | null;
+          laundry_booked_from_id: string | null;
           band: string | null;
           music_activity: "rep" | "bas" | "gitarr" | "piano" | "ovning" | "inspelning" | "live" | "spelning" | null;
           plan_todo: string | null;
@@ -887,6 +888,7 @@ export interface Database {
           shop_amount?: number | null;
           shop_amount_expr?: string | null;
           laundry_loads?: number | null;
+          laundry_booked_from_id?: string | null;
           band?: string | null;
           music_activity?: "rep" | "bas" | "gitarr" | "piano" | "ovning" | "inspelning" | "live" | "spelning" | null;
           plan_todo?: string | null;
@@ -912,6 +914,7 @@ export interface Database {
           shop_amount?: number | null;
           shop_amount_expr?: string | null;
           laundry_loads?: number | null;
+          laundry_booked_from_id?: string | null;
           band?: string | null;
           music_activity?: "rep" | "bas" | "gitarr" | "piano" | "ovning" | "inspelning" | "live" | "spelning" | null;
           plan_todo?: string | null;

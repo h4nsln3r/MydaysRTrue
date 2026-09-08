@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { addDaysISO, parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
+import { addDaysISO, diffDaysISO, isLocalISODate, isoWeekdayFromLocalISO, parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
 import { dateInMonth, monthStartFromDate, weeksInMonth } from "@/lib/monthly-bills";
 import { shiftMonthStartISO } from "@/lib/month-plan-horizon";
 import {
@@ -23,6 +23,8 @@ import {
   isHexColor,
   isKnownMusicBand,
   isWeeklyTaskRepeatable,
+  formatLaundryBookingNote,
+  parseLaundryBookTime,
   MUSIC_ACTIVITY_LABEL,
   musicActivityCreatesGig,
   musicActivityCreatesLiveEvent,
@@ -146,6 +148,74 @@ async function nextWeeklyDaySortOrder(
 ): Promise<number> {
   void supabase;
   return nextWeekDaySortOrder(userId, weekStart, weekday);
+}
+
+const LAUNDRY_BOOK_MAX_DAYS = 56;
+
+async function upsertLaundryWashPlacement(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  taskId: string;
+  bookingPlacementId: string;
+  bookDate: string;
+  bookTime: string;
+}): Promise<ActionResult> {
+  const { supabase, userId, taskId, bookingPlacementId, bookDate, bookTime } =
+    input;
+  const targetWeekStart = weekStartISO(parseLocalISO(bookDate));
+  const weekday = isoWeekdayFromLocalISO(bookDate) as Weekday;
+  const daySortOrder = await nextWeeklyDaySortOrder(
+    supabase,
+    userId,
+    targetWeekStart,
+    weekday,
+  );
+
+  const { data: weekRows } = await supabase
+    .from("weekly_task_placements")
+    .select("id, done_at, laundry_booked_from_id")
+    .eq("user_id", userId)
+    .eq("task_id", taskId)
+    .eq("week_start", targetWeekStart);
+
+  const followUp =
+    (weekRows ?? []).find((r) => r.laundry_booked_from_id === bookingPlacementId) ??
+    (weekRows ?? []).find(
+      (r) =>
+        r.id !== bookingPlacementId &&
+        !r.done_at &&
+        !r.laundry_booked_from_id,
+    ) ??
+    null;
+
+  if (followUp) {
+    const { error } = await supabase
+      .from("weekly_task_placements")
+      .update({
+        weekday,
+        day_sort_order: daySortOrder,
+        plan_note: bookTime,
+        laundry_booked_from_id: bookingPlacementId,
+        on_hold: false,
+      })
+      .eq("id", followUp.id)
+      .eq("user_id", userId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+
+  const { error } = await supabase.from("weekly_task_placements").insert({
+    user_id: userId,
+    task_id: taskId,
+    week_start: targetWeekStart,
+    weekday,
+    day_sort_order: daySortOrder,
+    plan_note: bookTime,
+    laundry_booked_from_id: bookingPlacementId,
+    on_hold: false,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }
 
 // ============================================================================
@@ -587,14 +657,17 @@ export async function placeWeeklyTaskAction(input: {
   // tasks can still have duplicate rows; keep one and remove the rest.
   const { data: existingRows } = await supabase
     .from("weekly_task_placements")
-    .select("id, done_at, note, weekday, day_sort_order")
+    .select("id, done_at, note, weekday, day_sort_order, laundry_booked_from_id")
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
     .eq("week_start", input.weekStart)
     .order("created_at", { ascending: true });
 
   const existing = existingRows?.[0] ?? null;
-  const duplicateIds = (existingRows ?? []).slice(1).map((r) => r.id);
+  const duplicateIds = (existingRows ?? [])
+    .slice(1)
+    .filter((r) => !r.laundry_booked_from_id)
+    .map((r) => r.id);
 
   const movingDay = existing?.weekday !== input.weekday;
   const daySortOrder = movingDay
@@ -1050,6 +1123,10 @@ export async function completeWeeklyTaskAction(input: {
   /** @deprecated Prefer shopAmountExpr; kept for older clients. */
   shopAmount?: number;
   laundryLoads?: number;
+  /** Laundry: book a slot vs actually washing. Default wash. */
+  laundryMode?: "wash" | "book";
+  laundryBookDate?: string;
+  laundryBookTime?: string;
   band?: string;
   /** Planned / completed music session type. */
   musicActivity?: string | null;
@@ -1205,6 +1282,51 @@ export async function completeWeeklyTaskAction(input: {
     }
     completionNote = note;
   } else if (kind === "laundry") {
+    if (input.laundryMode === "book") {
+      const bookDate = (input.laundryBookDate ?? "").trim();
+      const bookTime = parseLaundryBookTime(input.laundryBookTime ?? "");
+      if (!isLocalISODate(bookDate)) {
+        return { ok: false, error: "Välj vilken dag du har bokat." };
+      }
+      const today = todayLocalISO();
+      if (bookDate < today) {
+        return { ok: false, error: "Bokningen måste vara idag eller senare." };
+      }
+      if (diffDaysISO(today, bookDate) > LAUNDRY_BOOK_MAX_DAYS) {
+        return { ok: false, error: "Bokningen ligger för långt fram." };
+      }
+      if (!bookTime) {
+        return { ok: false, error: "Välj vilken tid du har bokat." };
+      }
+      laundryLoads = null;
+      const bookingNote = formatLaundryBookingNote(bookDate, bookTime);
+      const washRes = await upsertLaundryWashPlacement({
+        supabase,
+        userId: user.id,
+        taskId: input.taskId,
+        bookingPlacementId: existing.id,
+        bookDate,
+        bookTime,
+      });
+      if (!washRes.ok) return washRes;
+      // Complete the weekly laundry as a booking (no loads). The wash
+      // placement on the booked day is where loads are logged later.
+      const { error } = await supabase
+        .from("weekly_task_placements")
+        .update({
+          done_at: new Date().toISOString(),
+          plan_note: bookingNote,
+          note: (input.note ?? "").trim().slice(0, 500) || null,
+          laundry_loads: null,
+        })
+        .eq("id", existing.id)
+        .eq("user_id", user.id);
+      if (error) return { ok: false, error: error.message };
+      revalidatePath("/", "layout");
+      revalidatePath("/year", "page");
+      revalidatePath("/month", "page");
+      return { ok: true };
+    }
     const loads = input.laundryLoads;
     if (loads == null || !Number.isInteger(loads) || loads < 1 || loads > 30) {
       return { ok: false, error: "Ange antal tvättar (1–30)." };
@@ -1509,13 +1631,15 @@ export async function updateWeeklyTaskCompletionAction(input: {
     patch.note = note;
   } else if (kind === "laundry") {
     const loads = input.laundryLoads;
-    if (loads == null || !Number.isInteger(loads) || loads < 1 || loads > 30) {
-      return { ok: false, error: "Ange antal tvättar (1–30)." };
-    }
     if (note.length > 500) {
       return { ok: false, error: "Håll kommentaren under 500 tecken." };
     }
-    patch.laundry_loads = loads;
+    if (loads != null) {
+      if (!Number.isInteger(loads) || loads < 1 || loads > 30) {
+        return { ok: false, error: "Ange antal tvättar (1–30)." };
+      }
+      patch.laundry_loads = loads;
+    }
     patch.note = note || null;
   } else if (kind === "music") {
     const isLoggedEvent =
@@ -1639,6 +1763,13 @@ export async function uncompleteWeeklyTaskAction(input: {
     .eq("id", existing.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  await supabase
+    .from("weekly_task_placements")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("laundry_booked_from_id", existing.id)
+    .is("done_at", null);
 
   if (existing.gig_id) {
     await supabase

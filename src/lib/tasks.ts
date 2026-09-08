@@ -1,6 +1,7 @@
 // Client-safe types + helpers for categories, weekly tasks and monthly tasks.
 // Server-only queries live in `./tasks.server`.
 
+import { parseLocalISO } from "@/lib/date";
 import { transferTaskFinanceLabel } from "@/lib/monthly-finance";
 
 // 'daily' = habit categories. 'task' = shared categories used by BOTH weekly
@@ -235,6 +236,43 @@ export function isWeeklyTaskRepeatable(task: {
   return isRepeatableWeeklyTaskKey(task.key);
 }
 
+/** HH:MM from a time input (optional seconds). */
+export function parseLaundryBookTime(value: string): string | null {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/.exec(value.trim());
+  if (!m) return null;
+  return `${m[1]}:${m[2]}`;
+}
+
+/** e.g. "Torsdag 10 sep · 14:00" */
+export function formatLaundryBookingNote(date: string, time: string): string {
+  const weekday = parseLocalISO(date).toLocaleDateString("sv-SE", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  });
+  const label = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  return `${label} · ${time}`;
+}
+
+export function isLaundryFollowUpPlacement(placement: {
+  laundryBookedFromId?: string | null;
+}): boolean {
+  return Boolean(placement.laundryBookedFromId);
+}
+
+/** Weekly laundry marked done because a slot was booked (no loads yet). */
+export function isLaundryBookingCompletion(placement: {
+  laundryBookedFromId?: string | null;
+  laundryLoads: number | null;
+  doneAt: string | null;
+}): boolean {
+  return (
+    Boolean(placement.doneAt) &&
+    placement.laundryLoads == null &&
+    !placement.laundryBookedFromId
+  );
+}
+
 export function isCodingWeeklyTaskKey(key: string | null | undefined): boolean {
   return key === "dev_code";
 }
@@ -318,7 +356,14 @@ export function scoreCategoryFromTaskGoals(
   for (const task of tasks) {
     const goal = normalizeWeeklyGoal(task.weeklyGoal);
     total += goal;
-    done += countCompletedWeeklyPlacements([task]);
+    const completed = countCompletedWeeklyPlacements([task]);
+    // Non-repeatable laundry can have a booking row + a wash follow-up;
+    // the weekly goal stays 1 even if both rows are done.
+    if (isWeeklyTaskRepeatable(task)) {
+      done += completed;
+    } else {
+      done += Math.min(completed, goal);
+    }
   }
   return { done, total };
 }
@@ -431,6 +476,8 @@ export interface WeeklyPlacement {
   /** Raw sum text as typed (e.g. "45+120+8,50"); null for legacy rows. */
   shopAmountExpr: string | null;
   laundryLoads: number | null;
+  /** Wash follow-up created when the week's laundry was completed as a booking. */
+  laundryBookedFromId: string | null;
   /** Planned music session type (rep, bas, live, …). */
   musicActivity: MusicActivity | null;
   /** Optional to-do for this music occasion. */
@@ -538,7 +585,10 @@ function formatShopAmountLabel(placement: WeeklyPlacement): string {
   return `${amount} kr`;
 }
 
-export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | null {
+export function formatWeeklyTaskDetail(
+  placement: WeeklyPlacement,
+  completionKind?: WeeklyTaskCompletionKind,
+): string | null {
   if (placement.codingProjectTitle?.trim() && placement.note?.trim()) {
     return `${placement.codingProjectTitle.trim()} · ${placement.note.trim()}`;
   }
@@ -557,6 +607,9 @@ export function formatWeeklyTaskDetail(placement: WeeklyPlacement): string | nul
   if (placement.laundryLoads != null) {
     const time = placement.planNote ? `${placement.planNote} · ` : "";
     return `${time}${placement.laundryLoads} tvättar`;
+  }
+  if (completionKind === "laundry" && placement.planNote?.trim()) {
+    return placement.planNote.trim();
   }
   const musicParts: string[] = [];
   if (placement.band) musicParts.push(placement.band);

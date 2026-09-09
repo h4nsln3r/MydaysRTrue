@@ -53,6 +53,12 @@ function weekTaskSubtitle(
   if (task.completionKind === "music") {
     return placement?.musicActivity ? null : "Välj vad du ska göra";
   }
+  if (task.completionKind === "shop") {
+    return placement?.spendKind ? null : "Välj mat, privat eller delat";
+  }
+  if (task.completionKind === "expense") {
+    return placement?.spendKind ? null : "Välj privat eller delat";
+  }
   return task.notes;
 }
 

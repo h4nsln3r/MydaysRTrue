@@ -32,7 +32,10 @@ import {
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
 import { collectWeekExpenses, collectWeekShopping } from "@/lib/expenses";
-import { ExpensesSummary } from "@/components/ExpensesSummary/ExpensesSummary";
+import {
+  ExpensesSummary,
+  SpendSplitOverview,
+} from "@/components/ExpensesSummary/ExpensesSummary";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_TIME_LABEL } from "@/lib/weight";
@@ -143,6 +146,11 @@ export function WeekProgressBoard({
 
   return (
     <div className={styles.board}>
+      <SpendSplitOverview
+        shopping={shoppingSummary}
+        expenses={expenseSummary}
+        title="Pengar denna vecka"
+      />
       <ExpensesSummary
         summary={shoppingSummary}
         title="Handling denna vecka"

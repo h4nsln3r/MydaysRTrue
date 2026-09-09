@@ -52,6 +52,56 @@
     color: #4ade80;
 }
 
+.panelSplit {
+    border-left-color: #5fb6ff;
+}
+
+.split {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: $space-2;
+}
+
+.splitItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: $space-2 $space-3;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+}
+
+.splitLabel {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: $color-cream-dim;
+}
+
+.splitAmount {
+    font-family: $font-mono;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: $color-cream;
+}
+
+.splitHint {
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    color: $color-fog;
+}
+
+.kindBadge {
+    margin-left: $space-2;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: $color-cream-dim;
+    white-space: nowrap;
+}
+
 .list {
     list-style: none;
     margin: 0;
@@ -95,6 +145,10 @@
     font-size: 0.9rem;
     font-weight: 600;
     color: $color-cream;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
 }
 
 .rowDetail {

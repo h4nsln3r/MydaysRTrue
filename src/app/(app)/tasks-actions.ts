@@ -31,6 +31,7 @@ import {
   musicActivityNeedsBand,
   musicLogKindFromActivity,
   parseMusicActivity,
+  parseSpendKindFor,
   type MusicActivity,
   type MusicLogKind,
   type TaskScope,
@@ -1016,6 +1017,7 @@ export async function updateWeeklyTaskPlanAction(input: {
   musicActivity?: string | null;
   band?: string | null;
   planTodo?: string | null;
+  spendKind?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -1044,13 +1046,20 @@ export async function updateWeeklyTaskPlanAction(input: {
   if (kind === "laundry" && !planNote) {
     return { ok: false, error: "Skriv vilken tid du bokat." };
   }
-  if (kind !== "journal" && kind !== "laundry" && kind !== "music") {
+  if (
+    kind !== "journal" &&
+    kind !== "laundry" &&
+    kind !== "music" &&
+    kind !== "shop" &&
+    kind !== "expense"
+  ) {
     return { ok: false, error: "Uppgiften har inget att planera." };
   }
 
   let musicActivity: MusicActivity | null = null;
   let band: string | null = null;
   let planTodo: string | null = null;
+  let spendKind = parseSpendKindFor(kind, input.spendKind ?? null);
   if (kind === "music") {
     musicActivity = parseMusicActivity(input.musicActivity ?? null);
     if (!musicActivity) {
@@ -1062,6 +1071,17 @@ export async function updateWeeklyTaskPlanAction(input: {
     }
     const todo = (input.planTodo ?? "").trim().slice(0, 200);
     planTodo = todo || null;
+  }
+  if (kind === "shop" || kind === "expense") {
+    if (!spendKind) {
+      return {
+        ok: false,
+        error:
+          kind === "shop"
+            ? "Välj om det är mat, privat eller delat."
+            : "Välj om utgiften är privat eller delad.",
+      };
+    }
   }
 
   let existing: { id: string } | null = null;
@@ -1100,6 +1120,9 @@ export async function updateWeeklyTaskPlanAction(input: {
             plan_todo: planTodo,
           }
         : {}),
+      ...(kind === "shop" || kind === "expense"
+        ? { spend_kind: spendKind }
+        : {}),
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
@@ -1122,6 +1145,8 @@ export async function completeWeeklyTaskAction(input: {
   shopAmountExpr?: string;
   /** @deprecated Prefer shopAmountExpr; kept for older clients. */
   shopAmount?: number;
+  /** food / private / shared — required for shop and expense. */
+  spendKind?: string | null;
   laundryLoads?: number;
   /** Laundry: book a slot vs actually washing. Default wash. */
   laundryMode?: "wash" | "book";
@@ -1175,12 +1200,13 @@ export async function completeWeeklyTaskAction(input: {
     music_activity: string | null;
     band: string | null;
     plan_todo: string | null;
+    spend_kind: string | null;
   } | null = null;
 
   if (input.placementId) {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday, music_activity, band, plan_todo")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind")
       .eq("id", input.placementId)
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
@@ -1190,7 +1216,7 @@ export async function completeWeeklyTaskAction(input: {
   } else {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday, music_activity, band, plan_todo")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind")
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
       .eq("week_start", input.weekStart)
@@ -1227,6 +1253,7 @@ export async function completeWeeklyTaskAction(input: {
 
   let shopAmount: number | null = null;
   let shopAmountExpr: string | null = null;
+  let spendKind: ReturnType<typeof parseSpendKindFor> = null;
   let completionNote: string | null = null;
   let laundryLoads: number | null = null;
   let band: string | null = null;
@@ -1272,6 +1299,18 @@ export async function completeWeeklyTaskAction(input: {
       }
       shopAmount = Math.round(amount * 100) / 100;
       shopAmountExpr = String(shopAmount);
+    }
+    spendKind =
+      parseSpendKindFor(kind, input.spendKind ?? null) ??
+      parseSpendKindFor(kind, existing.spend_kind);
+    if (!spendKind) {
+      return {
+        ok: false,
+        error:
+          kind === "shop"
+            ? "Välj om det är mat, privat eller delat."
+            : "Välj om utgiften är privat eller delad.",
+      };
     }
   } else if (kind === "journal") {
     if (!note) {
@@ -1481,6 +1520,7 @@ export async function completeWeeklyTaskAction(input: {
         kind === "shop" || kind === "expense" ? shopAmount : null,
       shop_amount_expr:
         kind === "shop" || kind === "expense" ? shopAmountExpr : null,
+      spend_kind: kind === "shop" || kind === "expense" ? spendKind : null,
       laundry_loads: laundryLoads,
       band: kind === "music" ? band : null,
       music_activity: kind === "music" ? musicActivity : null,
@@ -1521,6 +1561,7 @@ export async function updateWeeklyTaskCompletionAction(input: {
   note?: string;
   shopLocation?: string;
   shopAmountExpr?: string;
+  spendKind?: string | null;
   laundryLoads?: number;
   musicTitle?: string;
 }): Promise<ActionResult> {
@@ -1585,6 +1626,7 @@ export async function updateWeeklyTaskCompletionAction(input: {
     shop_location?: string | null;
     shop_amount?: number | null;
     shop_amount_expr?: string | null;
+    spend_kind?: "food" | "private" | "shared" | null;
     laundry_loads?: number | null;
   } = {};
 
@@ -1619,9 +1661,20 @@ export async function updateWeeklyTaskCompletionAction(input: {
     if (note.length > 500) {
       return { ok: false, error: "Håll kommentaren under 500 tecken." };
     }
+    const spendKind = parseSpendKindFor(kind, input.spendKind ?? null);
+    if (!spendKind) {
+      return {
+        ok: false,
+        error:
+          kind === "shop"
+            ? "Välj om det är mat, privat eller delat."
+            : "Välj om utgiften är privat eller delad.",
+      };
+    }
     patch.shop_location = shopLocation;
     patch.shop_amount = parsed.total;
     patch.shop_amount_expr = parsed.expression;
+    patch.spend_kind = spendKind;
     patch.note = note || null;
   } else if (kind === "journal") {
     if (!note) return { ok: false, error: "Anteckna vad du gjorde." };

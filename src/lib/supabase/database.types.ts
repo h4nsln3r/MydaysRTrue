@@ -861,6 +861,7 @@ export interface Database {
           shop_location: string | null;
           shop_amount: number | null;
           shop_amount_expr: string | null;
+          spend_kind: "food" | "private" | "shared" | null;
           laundry_loads: number | null;
           laundry_booked_from_id: string | null;
           band: string | null;
@@ -887,6 +888,7 @@ export interface Database {
           shop_location?: string | null;
           shop_amount?: number | null;
           shop_amount_expr?: string | null;
+          spend_kind?: "food" | "private" | "shared" | null;
           laundry_loads?: number | null;
           laundry_booked_from_id?: string | null;
           band?: string | null;
@@ -913,6 +915,7 @@ export interface Database {
           shop_location?: string | null;
           shop_amount?: number | null;
           shop_amount_expr?: string | null;
+          spend_kind?: "food" | "private" | "shared" | null;
           laundry_loads?: number | null;
           laundry_booked_from_id?: string | null;
           band?: string | null;

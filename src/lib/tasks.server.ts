@@ -24,6 +24,7 @@ import {
   type MusicLogKind,
   musicActivityFromLegacyKey,
   parseMusicActivity,
+  parseSpendKind,
 } from "@/lib/tasks";
 import {
   balancesFromSnapshotRow,
@@ -236,6 +237,7 @@ interface WeeklyPlacementRow {
   shop_location: string | null;
   shop_amount: number | null;
   shop_amount_expr: string | null;
+  spend_kind: string | null;
   laundry_loads: number | null;
   laundry_booked_from_id: string | null;
   band: string | null;
@@ -264,6 +266,7 @@ function rowToPlacement(
     shopLocation: r.shop_location,
     shopAmount: r.shop_amount != null ? Number(r.shop_amount) : null,
     shopAmountExpr: r.shop_amount_expr,
+    spendKind: parseSpendKind(r.spend_kind),
     laundryLoads: r.laundry_loads,
     laundryBookedFromId: r.laundry_booked_from_id,
     musicActivity: parseMusicActivity(r.music_activity),
@@ -337,7 +340,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled, is_repeatable, weekly_goal";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, spend_kind, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 
@@ -372,7 +375,7 @@ const REPEATABLE_CANONICAL: Array<{
     legacyLike: "home_handla_%",
     title: "Handla",
     notes:
-      "Dra in hur många handlingar du vill — minst 2 per vecka. Ange butik och summa när du är klar.",
+      "Dra in hur många handlingar du vill — minst 2 per vecka. Välj mat, privat eller delat, och ange butik och summa när du är klar.",
     icon: "🛒",
     accent: "#6ee7a3",
     completionKind: "shop",

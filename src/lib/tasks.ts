@@ -57,6 +57,60 @@ export type WeeklyTaskCompletionKind =
   | "music"
   | "note";
 
+/** How a shop/expense amount is split: groceries, personal, or shared. */
+export const SPEND_KINDS = ["food", "private", "shared"] as const;
+export type SpendKind = (typeof SPEND_KINDS)[number];
+
+export const SHOP_SPEND_KINDS = SPEND_KINDS;
+export const EXPENSE_SPEND_KINDS = ["private", "shared"] as const;
+
+export const SPEND_KIND_LABEL: Record<SpendKind, string> = {
+  food: "Mat",
+  private: "Privat",
+  shared: "Delat",
+};
+
+export const SPEND_KIND_ICON: Record<SpendKind, string> = {
+  food: "🥗",
+  private: "🙋",
+  shared: "🤝",
+};
+
+export const SPEND_KIND_HINT: Record<SpendKind, string> = {
+  food: "Matinköp till hushållet",
+  private: "Bara du som betalar",
+  shared: "Delas mellan dig och Julia",
+};
+
+const SPEND_KIND_SET = new Set<string>(SPEND_KINDS);
+
+export function isSpendKind(value: string | null | undefined): value is SpendKind {
+  return value != null && SPEND_KIND_SET.has(value);
+}
+
+export function parseSpendKind(
+  value: string | null | undefined,
+): SpendKind | null {
+  return isSpendKind(value) ? value : null;
+}
+
+export function allowedSpendKinds(
+  completionKind: WeeklyTaskCompletionKind,
+): readonly SpendKind[] {
+  if (completionKind === "shop") return SHOP_SPEND_KINDS;
+  if (completionKind === "expense") return EXPENSE_SPEND_KINDS;
+  return [];
+}
+
+export function parseSpendKindFor(
+  completionKind: WeeklyTaskCompletionKind,
+  value: string | null | undefined,
+): SpendKind | null {
+  const parsed = parseSpendKind(value);
+  if (!parsed) return null;
+  return allowedSpendKinds(completionKind).includes(parsed) ? parsed : null;
+}
+
 export const MUSIC_BANDS = ["Totes", "Bojeng"] as const;
 export type MusicBand = (typeof MUSIC_BANDS)[number];
 
@@ -475,6 +529,8 @@ export interface WeeklyPlacement {
   shopAmount: number | null;
   /** Raw sum text as typed (e.g. "45+120+8,50"); null for legacy rows. */
   shopAmountExpr: string | null;
+  /** Grocery vs private vs shared — set when planning or completing shop/expense. */
+  spendKind: SpendKind | null;
   laundryLoads: number | null;
   /** Wash follow-up created when the week's laundry was completed as a booking. */
   laundryBookedFromId: string | null;
@@ -595,15 +651,22 @@ export function formatWeeklyTaskDetail(
   if (placement.codingProjectTitle?.trim()) {
     return placement.codingProjectTitle.trim();
   }
+  const spendLabel = placement.spendKind
+    ? SPEND_KIND_LABEL[placement.spendKind]
+    : null;
   if (placement.shopLocation && placement.shopAmount != null) {
-    return `${placement.shopLocation} · ${formatShopAmountLabel(placement)}`;
+    const core = `${placement.shopLocation} · ${formatShopAmountLabel(placement)}`;
+    return spendLabel ? `${spendLabel} · ${core}` : core;
   }
   if (placement.shopAmount != null && !placement.shopLocation) {
-    return formatShopAmountLabel(placement);
+    const core = formatShopAmountLabel(placement);
+    return spendLabel ? `${spendLabel} · ${core}` : core;
   }
   if (placement.shopLocation?.trim()) {
-    return placement.shopLocation.trim();
+    const loc = placement.shopLocation.trim();
+    return spendLabel ? `${spendLabel} · ${loc}` : loc;
   }
+  if (spendLabel) return spendLabel;
   if (placement.laundryLoads != null) {
     const time = placement.planNote ? `${placement.planNote} · ` : "";
     return `${time}${placement.laundryLoads} tvättar`;

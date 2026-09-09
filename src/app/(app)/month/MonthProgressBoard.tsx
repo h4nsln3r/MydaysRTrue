@@ -12,7 +12,10 @@ import { monthlyTaskDisplayTitle, type MonthlyFinanceSnapshot } from "@/lib/mont
 import type { TaskCategory } from "@/lib/tasks";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
-import { ExpensesSummary } from "@/components/ExpensesSummary/ExpensesSummary";
+import {
+  ExpensesSummary,
+  SpendSplitOverview,
+} from "@/components/ExpensesSummary/ExpensesSummary";
 import type { ExpenseSummary } from "@/lib/expenses";
 import {
   WORK_KINDS,
@@ -74,6 +77,11 @@ export function MonthProgressBoard({
 
   return (
     <div className={styles.board}>
+      <SpendSplitOverview
+        shopping={shoppingSummary}
+        expenses={expenseSummary}
+        title="Pengar denna månad"
+      />
       <ExpensesSummary
         summary={shoppingSummary}
         title="Handling denna månad"

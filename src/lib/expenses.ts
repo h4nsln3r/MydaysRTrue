@@ -1,10 +1,11 @@
 import { formatKr, shopAmountExprHasBreakdown } from "@/lib/monthly-finance";
 import type {
   MonthlyTaskForMonth,
+  SpendKind,
   TaskCategory,
   WeeklyTaskForWeek,
 } from "@/lib/tasks";
-import { expandWeeklyTaskPlacements } from "@/lib/tasks";
+import { expandWeeklyTaskPlacements, SPEND_KIND_LABEL } from "@/lib/tasks";
 
 export const UTGIFTER_CATEGORY_NAME = "Utgifter";
 
@@ -53,11 +54,31 @@ export interface ExpenseEntry {
   icon: string;
   accent: string;
   note: string | null;
+  spendKind: SpendKind | null;
 }
+
+export type SpendKindTotalKey = SpendKind | "unset";
 
 export interface ExpenseSummary {
   totalKr: number;
   entries: ExpenseEntry[];
+  totalsByKind: Record<SpendKindTotalKey, number>;
+}
+
+export const SPEND_KIND_TOTAL_ORDER: SpendKindTotalKey[] = [
+  "food",
+  "private",
+  "shared",
+  "unset",
+];
+
+export const SPEND_KIND_TOTAL_LABEL: Record<SpendKindTotalKey, string> = {
+  ...SPEND_KIND_LABEL,
+  unset: "Okategoriserat",
+};
+
+function emptyKindTotals(): Record<SpendKindTotalKey, number> {
+  return { food: 0, private: 0, shared: 0, unset: 0 };
 }
 
 function categoryMap(categories: TaskCategory[]): Map<string, TaskCategory> {
@@ -104,8 +125,20 @@ function summarizeEntries(entries: ExpenseEntry[]): ExpenseSummary {
   entries.sort(
     (a, b) => new Date(a.doneAt).getTime() - new Date(b.doneAt).getTime(),
   );
-  const totalKr = entries.reduce((sum, e) => sum + e.amountKr, 0);
-  return { totalKr, entries };
+  const totalsByKind = emptyKindTotals();
+  let totalKr = 0;
+  for (const e of entries) {
+    totalKr += e.amountKr;
+    const key: SpendKindTotalKey = e.spendKind ?? "unset";
+    totalsByKind[key] += e.amountKr;
+  }
+  return { totalKr, entries, totalsByKind };
+}
+
+export function mergeExpenseSummaries(
+  ...summaries: ExpenseSummary[]
+): ExpenseSummary {
+  return summarizeEntries(summaries.flatMap((s) => s.entries));
 }
 
 export function collectWeekExpenses(
@@ -137,6 +170,7 @@ export function collectWeekExpenses(
       icon: task.icon,
       accent: task.accent,
       note: placement.note,
+      spendKind: placement.spendKind,
     });
   }
 
@@ -172,6 +206,7 @@ export function collectWeekShopping(
       icon: task.icon,
       accent: task.accent,
       note: placement.note,
+      spendKind: placement.spendKind,
     });
   }
 
@@ -212,6 +247,7 @@ export function collectMonthExpenses(input: {
       icon: task.icon,
       accent: task.accent,
       note: placement.note,
+      spendKind: placement.spendKind,
     });
   }
 
@@ -235,6 +271,7 @@ export function collectMonthExpenses(input: {
       icon: task.icon,
       accent: task.accent,
       note: completion.note,
+      spendKind: null,
     });
   }
 
@@ -250,7 +287,7 @@ export function collectMonthShopping(input: {
   const monthEnd = `${input.monthStart.slice(0, 7)}-31`;
   const entries: ExpenseEntry[] = [];
 
-  for (const task of input.weeklyTasks) {
+  for (const task of expandWeeklyTaskPlacements(input.weeklyTasks)) {
     if (!isTrackedWeeklyShopping(task, cats)) continue;
     const placement = task.placement;
     if (!placement?.doneAt || placement.shopAmount == null) continue;
@@ -274,6 +311,7 @@ export function collectMonthShopping(input: {
       icon: task.icon,
       accent: task.accent,
       note: placement.note,
+      spendKind: placement.spendKind,
     });
   }
 

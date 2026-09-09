@@ -8,6 +8,7 @@ import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
+import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
 import {
   completeWeeklyTaskAction,
   updateWeeklyTaskCompletionAction,
@@ -33,8 +34,11 @@ import {
   musicSessionIcon,
   musicSessionTitle,
   parseMusicActivity,
+  parseSpendKind,
+  allowedSpendKinds,
   sortWeeklyDayTasks,
   type MusicActivity,
+  type SpendKind,
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   WEEKDAYS,
@@ -404,6 +408,9 @@ export function WeeklyTaskRow({
     placement?.shopAmountExpr?.trim() ||
       (placement?.shopAmount != null ? String(placement.shopAmount) : ""),
   );
+  const [spendKind, setSpendKind] = useState<SpendKind | null>(
+    parseSpendKind(placement?.spendKind),
+  );
   const shopAmountParsed = parseShopAmountExpr(shopAmount);
   const shopAmountHint =
     shopAmountParsed && shopAmountExprHasBreakdown(shopAmountParsed.expression)
@@ -446,6 +453,7 @@ export function WeeklyTaskRow({
       placement?.shopAmountExpr?.trim() ||
         (placement?.shopAmount != null ? String(placement.shopAmount) : ""),
     );
+    setSpendKind(parseSpendKind(placement?.spendKind));
     setLaundryLoads(
       placement?.laundryLoads != null ? String(placement.laundryLoads) : "",
     );
@@ -458,6 +466,7 @@ export function WeeklyTaskRow({
     placement?.shopLocation,
     placement?.shopAmount,
     placement?.shopAmountExpr,
+    placement?.spendKind,
     placement?.laundryLoads,
     placement?.band,
     placement?.musicActivity,
@@ -501,6 +510,7 @@ export function WeeklyTaskRow({
         note: taskNote,
         shopLocation,
         shopAmountExpr: shopAmount,
+        spendKind,
         laundryLoads:
           laundryLoads.trim() === "" ? undefined : Number(laundryLoads),
         laundryMode:
@@ -548,6 +558,7 @@ export function WeeklyTaskRow({
         note: isLoggedMusicEvent ? undefined : taskNote,
         shopLocation,
         shopAmountExpr: shopAmount,
+        spendKind,
         laundryLoads:
           laundryLoads.trim() === "" ? undefined : Number(laundryLoads),
         musicTitle: isLoggedMusicEvent ? musicTitle : undefined,
@@ -571,6 +582,7 @@ export function WeeklyTaskRow({
       setTaskNote("");
       setShopLocation("");
       setShopAmount("");
+      setSpendKind(null);
       setLaundryLoads("");
       setLaundryMode("wash");
       setLaundryBookDate(todayLocalISO());
@@ -678,11 +690,13 @@ export function WeeklyTaskRow({
     (placement?.shopAmount != null ? String(placement.shopAmount) : "");
   const savedLoads =
     placement?.laundryLoads != null ? String(placement.laundryLoads) : "";
+  const savedSpendKind = parseSpendKind(placement?.spendKind);
   const completionDirty =
     done &&
     (taskNote !== savedNote ||
       shopLocation !== savedShopLocation ||
       shopAmount !== savedShopAmount ||
+      spendKind !== savedSpendKind ||
       laundryLoads !== savedLoads ||
       musicTitle !== savedMusicTitle);
 
@@ -908,6 +922,17 @@ export function WeeklyTaskRow({
 
           {task.completionKind === "shop" || task.completionKind === "expense" ? (
             <>
+              <SpendKindFields
+                kinds={allowedSpendKinds(task.completionKind)}
+                value={spendKind}
+                onChange={setSpendKind}
+                disabled={pending}
+                label={
+                  task.completionKind === "expense"
+                    ? "Privat eller delat?"
+                    : "Mat, privat eller delat?"
+                }
+              />
               <Input
                 label={
                   task.completionKind === "expense"
@@ -1160,6 +1185,9 @@ export function WeeklyTaskRow({
               loading={pending && busy}
               disabled={
                 pending ||
+                ((task.completionKind === "shop" ||
+                  task.completionKind === "expense") &&
+                  spendKind == null) ||
                 (showLaundryMode &&
                   laundryMode === "book" &&
                   (!laundryBookDate || !laundryBookTime))

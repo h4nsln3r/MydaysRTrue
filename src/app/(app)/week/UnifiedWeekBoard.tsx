@@ -62,6 +62,7 @@ import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
+import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
 import { formatWeightKg } from "@/lib/format";
 import {
   bathingRequiresWaterTemp,
@@ -81,7 +82,10 @@ import {
   WEEKDAYS,
   isGameWeeklyTaskKey,
   parseMusicActivity,
+  parseSpendKind,
+  allowedSpendKinds,
   type MusicActivity,
+  type SpendKind,
   type TaskCategory,
   type Weekday,
 } from "@/lib/tasks";
@@ -1226,6 +1230,9 @@ function ItemRowContent({
   const [musicPlanTodo, setMusicPlanTodo] = useState(
     item.kind === "task" ? (item.placement?.planTodo ?? "") : "",
   );
+  const [spendKind, setSpendKind] = useState<SpendKind | null>(
+    item.kind === "task" ? parseSpendKind(item.placement?.spendKind) : null,
+  );
   const [placeOpen, setPlaceOpen] = useState(false);
   const [monthlyAmount, setMonthlyAmount] = useState(
     item.kind === "monthly_bill" && item.completion?.amount != null
@@ -1245,7 +1252,10 @@ function ItemRowContent({
   const taskPlanningExpand =
     item.kind === "task" &&
     item.taskRole !== "source" &&
-    (item.completionKind === "journal" || item.completionKind === "music");
+    (item.completionKind === "journal" ||
+      item.completionKind === "music" ||
+      item.completionKind === "shop" ||
+      item.completionKind === "expense");
 
   const isOneOff = isOneOffTask(item);
   const canManage = canManageTask(item);
@@ -1473,6 +1483,9 @@ function ItemRowContent({
               band: musicBand,
               planTodo: musicPlanTodo,
             }
+          : {}),
+        ...(item.completionKind === "shop" || item.completionKind === "expense"
+          ? { spendKind }
           : {}),
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
@@ -2368,6 +2381,20 @@ function ItemRowContent({
                   />
                 </>
               ) : null}
+              {item.completionKind === "shop" ||
+              item.completionKind === "expense" ? (
+                <SpendKindFields
+                  kinds={allowedSpendKinds(item.completionKind)}
+                  value={spendKind}
+                  onChange={setSpendKind}
+                  disabled={pending}
+                  label={
+                    item.completionKind === "expense"
+                      ? "Privat eller delat?"
+                      : "Mat, privat eller delat?"
+                  }
+                />
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
@@ -2376,7 +2403,10 @@ function ItemRowContent({
                 loading={pending && busy}
                 disabled={
                   pending ||
-                  (item.completionKind === "music" && musicActivity == null)
+                  (item.completionKind === "music" && musicActivity == null) ||
+                  ((item.completionKind === "shop" ||
+                    item.completionKind === "expense") &&
+                    spendKind == null)
                 }
                 onClick={saveTaskPlan}
               >

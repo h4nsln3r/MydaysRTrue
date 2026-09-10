@@ -357,6 +357,7 @@ const REPEATABLE_CANONICAL: Array<{
   completionKind: WeeklyTaskCompletionKind;
   categoryName: string;
   sortOrder: number;
+  weeklyGoal?: number;
 }> = [
   {
     key: "dev_code",
@@ -381,6 +382,19 @@ const REPEATABLE_CANONICAL: Array<{
     completionKind: "shop",
     categoryName: "HOME",
     sortOrder: 1,
+  },
+  {
+    key: "home_projekt",
+    legacyLike: "home_projekt_%",
+    title: "Hemmaprojekt",
+    notes:
+      "Dra in hur många hemmaprojekt du vill. Skriv vad du jobbar med — anteckna vad du gjorde när du är klar.",
+    icon: "🔨",
+    accent: "#6ee7a3",
+    completionKind: "journal",
+    categoryName: "HOME",
+    sortOrder: 3,
+    weeklyGoal: 1,
   },
   {
     key: "life_ring_mamma",
@@ -496,7 +510,7 @@ export async function ensureRepeatableWeeklyTasks(
             default_weekday: null,
             sort_order: spec.sortOrder,
             is_repeatable: true,
-            weekly_goal: REPEATABLE_WEEKLY_TASK_GOAL,
+            weekly_goal: spec.weeklyGoal ?? REPEATABLE_WEEKLY_TASK_GOAL,
           })
           .eq("id", legacy.id)
           .eq("user_id", userId);
@@ -528,7 +542,7 @@ export async function ensureRepeatableWeeklyTasks(
           default_weekday: null,
           completion_kind: spec.completionKind,
           is_repeatable: true,
-          weekly_goal: REPEATABLE_WEEKLY_TASK_GOAL,
+          weekly_goal: spec.weeklyGoal ?? REPEATABLE_WEEKLY_TASK_GOAL,
         })
         .select("id")
         .maybeSingle();
@@ -544,7 +558,7 @@ export async function ensureRepeatableWeeklyTasks(
         notes: spec.notes,
         default_weekday: null,
         is_repeatable: true,
-        weekly_goal: REPEATABLE_WEEKLY_TASK_GOAL,
+        weekly_goal: spec.weeklyGoal ?? REPEATABLE_WEEKLY_TASK_GOAL,
       })
       .eq("id", canonicalId)
       .eq("user_id", userId);

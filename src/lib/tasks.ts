@@ -258,6 +258,7 @@ export function isMusicRepTask(key: string | null): boolean {
 export const REPEATABLE_WEEKLY_TASK_KEYS = [
   "dev_code",
   "home_handla",
+  "home_projekt",
   "life_ring_mamma",
   "music",
   "music_rep",

@@ -22,6 +22,31 @@
     gap: $space-3;
 }
 
+.gearBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-fog;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-fog;
+    }
+}
+
+.gearBtnActive {
+    color: $color-cream;
+    border-color: #5fb6ff;
+    background: rgba(95, 182, 255, 0.12);
+}
+
 .heading {
     display: flex;
     align-items: center;
@@ -173,4 +198,33 @@
     font-weight: 700;
     color: $color-cream;
     white-space: nowrap;
+}
+
+.rowEnd {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    flex-shrink: 0;
+}
+
+.rowEditing {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: $space-3;
+}
+
+.editHead {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+
+    .rowBody {
+        flex: 1;
+    }
+}
+
+.editError {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #ff8a80;
 }

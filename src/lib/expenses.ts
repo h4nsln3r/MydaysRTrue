@@ -55,6 +55,15 @@ export interface ExpenseEntry {
   accent: string;
   note: string | null;
   spendKind: SpendKind | null;
+  /** Weekly shop/expense placements can be edited from week/month summaries. */
+  editable: boolean;
+  taskId: string | null;
+  weekStart: string | null;
+  placementId: string | null;
+  completionKind: "shop" | "expense" | "amount";
+  shopLocation: string | null;
+  /** Typed sum to edit, e.g. "450" or "45+120". */
+  shopAmountExpr: string;
 }
 
 export type SpendKindTotalKey = SpendKind | "unset";
@@ -121,6 +130,41 @@ function shopExprForEntry(expr: string | null | undefined): string | null {
   return trimmed && shopAmountExprHasBreakdown(trimmed) ? trimmed : null;
 }
 
+function weeklySpendEntry(
+  task: WeeklyTaskForWeek,
+  placement: NonNullable<WeeklyTaskForWeek["placement"]>,
+  id: string,
+): ExpenseEntry {
+  const description =
+    placement.shopLocation?.trim() ||
+    placement.note?.trim() ||
+    task.title;
+
+  return {
+    id,
+    title: task.title,
+    description,
+    amountKr: placement.shopAmount ?? 0,
+    amountExpr: shopExprForEntry(placement.shopAmountExpr),
+    doneAt: placement.doneAt!,
+    localDate: placement.doneAt!.slice(0, 10),
+    scope: "weekly",
+    icon: task.icon,
+    accent: task.accent,
+    note: placement.note,
+    spendKind: placement.spendKind,
+    editable: true,
+    taskId: task.id,
+    weekStart: placement.weekStart,
+    placementId: placement.id,
+    completionKind: task.completionKind === "expense" ? "expense" : "shop",
+    shopLocation: placement.shopLocation,
+    shopAmountExpr:
+      placement.shopAmountExpr?.trim() ||
+      (placement.shopAmount != null ? String(placement.shopAmount) : ""),
+  };
+}
+
 function summarizeEntries(entries: ExpenseEntry[]): ExpenseSummary {
   entries.sort(
     (a, b) => new Date(a.doneAt).getTime() - new Date(b.doneAt).getTime(),
@@ -152,26 +196,7 @@ export function collectWeekExpenses(
     if (!isTrackedWeeklyExpense(task, cats)) continue;
     const placement = task.placement;
     if (!placement?.doneAt || placement.shopAmount == null) continue;
-
-    const description =
-      placement.shopLocation?.trim() ||
-      placement.note?.trim() ||
-      task.title;
-
-    entries.push({
-      id: placement.id,
-      title: task.title,
-      description,
-      amountKr: placement.shopAmount,
-      amountExpr: shopExprForEntry(placement.shopAmountExpr),
-      doneAt: placement.doneAt,
-      localDate: placement.doneAt.slice(0, 10),
-      scope: "weekly",
-      icon: task.icon,
-      accent: task.accent,
-      note: placement.note,
-      spendKind: placement.spendKind,
-    });
+    entries.push(weeklySpendEntry(task, placement, placement.id));
   }
 
   return summarizeEntries(entries);
@@ -188,26 +213,7 @@ export function collectWeekShopping(
     if (!isTrackedWeeklyShopping(task, cats)) continue;
     const placement = task.placement;
     if (!placement?.doneAt || placement.shopAmount == null) continue;
-
-    const description =
-      placement.shopLocation?.trim() ||
-      placement.note?.trim() ||
-      task.title;
-
-    entries.push({
-      id: placement.id,
-      title: task.title,
-      description,
-      amountKr: placement.shopAmount,
-      amountExpr: shopExprForEntry(placement.shopAmountExpr),
-      doneAt: placement.doneAt,
-      localDate: placement.doneAt.slice(0, 10),
-      scope: "weekly",
-      icon: task.icon,
-      accent: task.accent,
-      note: placement.note,
-      spendKind: placement.spendKind,
-    });
+    entries.push(weeklySpendEntry(task, placement, placement.id));
   }
 
   return summarizeEntries(entries);
@@ -229,26 +235,7 @@ export function collectMonthExpenses(input: {
     if (!placement?.doneAt || placement.shopAmount == null) continue;
     const localDate = placement.doneAt.slice(0, 10);
     if (localDate < input.monthStart || localDate > monthEnd) continue;
-
-    const description =
-      placement.shopLocation?.trim() ||
-      placement.note?.trim() ||
-      task.title;
-
-    entries.push({
-      id: `w-${placement.id}`,
-      title: task.title,
-      description,
-      amountKr: placement.shopAmount,
-      amountExpr: shopExprForEntry(placement.shopAmountExpr),
-      doneAt: placement.doneAt,
-      localDate,
-      scope: "weekly",
-      icon: task.icon,
-      accent: task.accent,
-      note: placement.note,
-      spendKind: placement.spendKind,
-    });
+    entries.push(weeklySpendEntry(task, placement, `w-${placement.id}`));
   }
 
   for (const task of input.monthlyTasks) {
@@ -272,6 +259,13 @@ export function collectMonthExpenses(input: {
       accent: task.accent,
       note: completion.note,
       spendKind: null,
+      editable: false,
+      taskId: task.id,
+      weekStart: null,
+      placementId: null,
+      completionKind: "amount",
+      shopLocation: null,
+      shopAmountExpr: String(completion.amount),
     });
   }
 
@@ -293,26 +287,7 @@ export function collectMonthShopping(input: {
     if (!placement?.doneAt || placement.shopAmount == null) continue;
     const localDate = placement.doneAt.slice(0, 10);
     if (localDate < input.monthStart || localDate > monthEnd) continue;
-
-    const description =
-      placement.shopLocation?.trim() ||
-      placement.note?.trim() ||
-      task.title;
-
-    entries.push({
-      id: `w-${placement.id}`,
-      title: task.title,
-      description,
-      amountKr: placement.shopAmount,
-      amountExpr: shopExprForEntry(placement.shopAmountExpr),
-      doneAt: placement.doneAt,
-      localDate,
-      scope: "weekly",
-      icon: task.icon,
-      accent: task.accent,
-      note: placement.note,
-      spendKind: placement.spendKind,
-    });
+    entries.push(weeklySpendEntry(task, placement, `w-${placement.id}`));
   }
 
   return summarizeEntries(entries);

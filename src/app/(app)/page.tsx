@@ -111,6 +111,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     monthlyTasks: monthlyTasksDay.tasks,
     mood: mood.mood,
     moodNote: mood.note,
+    moodLoggedAt: mood.loggedAt,
     weightKg: weightDay.log?.weightKg ?? null,
     work,
   });

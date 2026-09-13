@@ -335,14 +335,20 @@ export function applyJournalEntryEdits(
   });
 }
 
+/** Day-feeling is a summary — keep it last unless the user has reordered it. */
+function compareJournalEntries(a: JournalDisplayEntry, b: JournalDisplayEntry): number {
+  const aMood = a.source === "mood";
+  const bMood = b.source === "mood";
+  if (aMood !== bMood) return aMood ? 1 : -1;
+  return new Date(a.at).getTime() - new Date(b.at).getTime();
+}
+
 /** Apply a saved custom order; unknown ids keep relative time order at the end. */
 export function applyJournalEntryOrder(
   entries: JournalDisplayEntry[],
   savedOrder?: Map<string, number> | null,
 ): JournalDisplayEntry[] {
-  const byTime = [...entries].sort(
-    (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
-  );
+  const byTime = [...entries].sort(compareJournalEntries);
   if (!savedOrder || savedOrder.size === 0) return byTime;
 
   const maxSaved = Math.max(...savedOrder.values());
@@ -354,6 +360,13 @@ export function applyJournalEntryOrder(
   });
   ranked.sort((a, b) => a.order - b.order || a.at - b.at);
   return ranked.map((r) => r.entry);
+}
+
+/** Food/note text from a tracker journal body (`description · extra`). */
+export function journalTrackedItemDescription(body: string): string {
+  const trimmed = body.trim();
+  const first = trimmed.split(" · ")[0]?.trim();
+  return first || trimmed;
 }
 
 /** Build narrative from entries in the given order (caller decides sort). */

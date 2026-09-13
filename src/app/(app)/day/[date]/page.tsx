@@ -128,6 +128,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     monthlyTasks: monthlyTasksDay.tasks,
     mood: mood.mood,
     moodNote: mood.note,
+    moodLoggedAt: mood.loggedAt,
     weightKg: weightDay.log?.weightKg ?? null,
     work,
   });

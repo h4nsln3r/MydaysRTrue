@@ -13,6 +13,7 @@ import {
   applyJournalEntryOrder,
   buildJournalNarrative,
   buildJournalPreview,
+  journalTrackedItemDescription,
   type DailyJournal,
   type JournalDisplayEntry,
   type ManualJournalEntry,
@@ -94,6 +95,8 @@ export interface JournalDayContext {
   monthlyTasks?: MonthlyTaskForMonth[];
   mood: MoodKey | null;
   moodNote: string | null;
+  /** First time the day's mood was saved. */
+  moodLoggedAt?: string | null;
   weightKg: number | null;
   work: WorkDailyLog | null;
   trackers?: JournalDailyTrackers;
@@ -413,7 +416,7 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
       icon: MOOD_ICON[ctx.mood],
       title: "Dagskänsla",
       body: note ? `${MOOD_LABEL[ctx.mood]} — ${note}` : MOOD_LABEL[ctx.mood],
-      at: `${ctx.localDate}T12:00:00.000Z`,
+      at: ctx.moodLoggedAt ?? `${ctx.localDate}T21:59:59.000Z`,
       editable: false,
     });
   }
@@ -580,12 +583,74 @@ export async function getJournalEntryEditsForWeek(
   return byDate;
 }
 
+const UUID_RE =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const MEAL_JOURNAL_ID_RE = new RegExp(`^meal-(${UUID_RE})$`, "i");
+const TRACKED_ITEM_DESC_MAX = 280;
+
+async function clearJournalEntryEdit(
+  userId: string,
+  localDate: string,
+  entryId: string,
+): Promise<void> {
+  const supabase = await createClient();
+  await supabase
+    .from("journal_entry_edits")
+    .delete()
+    .eq("user_id", userId)
+    .eq("local_date", localDate)
+    .eq("entry_id", entryId);
+}
+
+async function saveMealJournalEdit(
+  userId: string,
+  localDate: string,
+  entryId: string,
+  body: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const match = MEAL_JOURNAL_ID_RE.exec(entryId);
+  if (!match) return { ok: false, error: "Ogiltig måltid." };
+
+  const description = journalTrackedItemDescription(body);
+  if (!description) {
+    return { ok: false, error: "Skriv vad du åt." };
+  }
+  if (description.length > TRACKED_ITEM_DESC_MAX) {
+    return { ok: false, error: "Håll det under 280 tecken." };
+  }
+
+  const supabase = await createClient();
+  const { data: existing, error: lookupError } = await supabase
+    .from("meal_entries")
+    .select("id")
+    .eq("id", match[1])
+    .eq("user_id", userId)
+    .eq("local_date", localDate)
+    .maybeSingle();
+  if (lookupError) return { ok: false, error: lookupError.message };
+  if (!existing) return { ok: false, error: "Måltiden hittades inte." };
+
+  const { error } = await supabase
+    .from("meal_entries")
+    .update({ description })
+    .eq("id", existing.id)
+    .eq("user_id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  await clearJournalEntryEdit(userId, localDate, entryId);
+  return { ok: true };
+}
+
 export async function saveJournalEntryEdit(
   userId: string,
   localDate: string,
   entryId: string,
   body: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (MEAL_JOURNAL_ID_RE.test(entryId)) {
+    return saveMealJournalEdit(userId, localDate, entryId, body);
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("journal_entry_edits").upsert(
     {
@@ -633,22 +698,28 @@ export async function getManualJournalEntriesForWeek(
 async function getMoodsForWeek(
   userId: string,
   weekStart: string,
-): Promise<Map<string, { mood: MoodKey; note: string | null }>> {
+): Promise<
+  Map<string, { mood: MoodKey; note: string | null; loggedAt: string }>
+> {
   const weekEnd = addDaysISO(weekStart, 6);
   const supabase = await createClient();
   const { data } = await supabase
     .from("mood_daily_logs")
-    .select("local_date, mood, note")
+    .select("local_date, mood, note, created_at")
     .eq("user_id", userId)
     .gte("local_date", weekStart)
     .lte("local_date", weekEnd);
 
-  const map = new Map<string, { mood: MoodKey; note: string | null }>();
+  const map = new Map<
+    string,
+    { mood: MoodKey; note: string | null; loggedAt: string }
+  >();
   for (const row of data ?? []) {
     if (isMoodKey(row.mood)) {
       map.set(row.local_date, {
         mood: row.mood,
         note: row.note?.trim() || null,
+        loggedAt: row.created_at,
       });
     }
   }
@@ -816,6 +887,7 @@ export async function getWeekJournalSummary(
         : undefined,
       mood: moods.get(localDate)?.mood ?? null,
       moodNote: moods.get(localDate)?.note ?? null,
+      moodLoggedAt: moods.get(localDate)?.loggedAt ?? null,
       weightKg: weightForDate(context.weightPlan, localDate),
       work: context.workByDate.get(localDate) ?? null,
       trackers: trackersByDate.get(localDate),

@@ -29,6 +29,8 @@ export interface DailyMoodContext {
   localDate: string;
   mood: MoodKey | null;
   note: string | null;
+  /** When the mood was first logged — used to place Dagskänsla in the journal. */
+  loggedAt?: string | null;
 }
 
 export function isMoodKey(value: string): value is MoodKey {

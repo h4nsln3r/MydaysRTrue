@@ -1079,6 +1079,12 @@ export async function saveMealAction(input: {
       await rollbackMealBoxStock();
       return { ok: false, error: error.message };
     }
+    await supabase
+      .from("journal_entry_edits")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("local_date", input.localDate)
+      .eq("entry_id", `meal-${existing.id}`);
   } else {
     const { error } = await supabase.from("meal_entries").insert({
       user_id: user.id,
@@ -1159,6 +1165,13 @@ export async function clearMealAction(input: {
     .eq("id", existing.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  await supabase
+    .from("journal_entry_edits")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("local_date", input.localDate)
+    .eq("entry_id", `meal-${existing.id}`);
 
   revalidatePath("/", "layout");
   return { ok: true };

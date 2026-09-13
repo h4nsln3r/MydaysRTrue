@@ -30,6 +30,7 @@ import {
 import { mediaStatusFor, type MediaDayLog } from "@/lib/media";
 import { liveStatusFor } from "@/lib/live-events";
 import { isMoodKey, moodStatusFor, type MoodKey } from "@/lib/mood";
+import { journalTrackedItemDescription } from "@/lib/journal";
 
 function smokeFreeContextFromRow(
   localDate: string,
@@ -283,7 +284,7 @@ export async function getDailyHabits(
       .maybeSingle(),
     supabase
       .from("mood_daily_logs")
-      .select("mood, note")
+      .select("mood, note, created_at")
       .eq("user_id", userId)
       .eq("local_date", localDate)
       .maybeSingle(),
@@ -347,6 +348,7 @@ export async function getDailyHabits(
     localDate,
     mood: moodKey,
     note: moodKey ? (moodRes.data?.note?.trim() || null) : null,
+    loggedAt: moodKey ? (moodRes.data?.created_at ?? null) : null,
   };
   const smokeFreeCtx = smokeFreeContextFromRow(
     localDate,
@@ -524,6 +526,24 @@ export async function getDailyMeals(
       mealBoxStockId: r.meal_box_stock_id,
     };
   }
+
+  const { data: edits } = await supabase
+    .from("journal_entry_edits")
+    .select("entry_id, body")
+    .eq("user_id", userId)
+    .eq("local_date", localDate);
+  for (const edit of edits ?? []) {
+    if (!edit.entry_id.startsWith("meal-")) continue;
+    const mealId = edit.entry_id.slice("meal-".length);
+    const description = journalTrackedItemDescription(edit.body);
+    if (!description) continue;
+    for (const meal of Object.values(out)) {
+      if (meal && meal.id === mealId) {
+        meal.description = description;
+      }
+    }
+  }
+
   return out;
 }
 

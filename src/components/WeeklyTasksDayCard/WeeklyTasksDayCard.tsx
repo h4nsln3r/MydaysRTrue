@@ -227,6 +227,9 @@ interface QuickAddRowProps {
   weekday: Weekday;
   categories: TaskCategory[];
   onAdded: () => void;
+  /** Show the form immediately (parent owns the open/close toggle). */
+  alwaysOpen?: boolean;
+  onCancel?: () => void;
 }
 
 export function WeeklyTaskQuickAdd({
@@ -234,12 +237,22 @@ export function WeeklyTaskQuickAdd({
   weekday,
   categories,
   onAdded,
+  alwaysOpen = false,
+  onCancel,
 }: QuickAddRowProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(alwaysOpen);
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const close = () => {
+    setTitle("");
+    setCategoryId("");
+    setError(null);
+    setOpen(false);
+    onCancel?.();
+  };
 
   const submit = () => {
     const trimmed = title.trim();
@@ -265,7 +278,7 @@ export function WeeklyTaskQuickAdd({
     });
   };
 
-  if (!open) {
+  if (!alwaysOpen && !open) {
     return (
       <button
         type="button"
@@ -288,6 +301,12 @@ export function WeeklyTaskQuickAdd({
         maxLength={80}
         disabled={pending}
         autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          }
+        }}
       />
       {categories.length > 0 ? (
         <label className={styles.categoryField}>
@@ -312,11 +331,7 @@ export function WeeklyTaskQuickAdd({
         <button
           type="button"
           className={styles.quickAddCancel}
-          onClick={() => {
-            setOpen(false);
-            setTitle("");
-            setError(null);
-          }}
+          onClick={close}
           disabled={pending}
         >
           Avbryt

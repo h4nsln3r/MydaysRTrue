@@ -135,7 +135,7 @@ export function DayActivitiesCard({
   title = "Dagens plan",
   hideWhenEmpty = false,
   showWeekLink = true,
-  enableQuickAdd = false,
+  enableQuickAdd: _enableQuickAdd = false,
   bathingWeekday = null,
   enableExtraBath = false,
   planningMode = false,
@@ -145,6 +145,7 @@ export function DayActivitiesCard({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
   const reorderGen = useRef(0);
   const { clearQueuedNavigation } = useBackgroundSave(savingOrder);
@@ -224,20 +225,23 @@ export function DayActivitiesCard({
   const doneCount = localItems.filter((i) => i.doneAt).length;
   const itemKeys = localItems.map((i) => i.itemKey);
 
-  const quickAddWeekday =
-    enableQuickAdd && date != null
-      ? (isoWeekdayFromLocalISO(date) as Weekday)
-      : null;
+  const addWeekday =
+    date != null ? (isoWeekdayFromLocalISO(date) as Weekday) : null;
 
   const showExtraBath = enableExtraBath && bathingWeekday != null;
 
   const quickAdd =
-    quickAddWeekday != null ? (
+    addOpen && addWeekday != null ? (
       <WeeklyTaskQuickAdd
         weekStart={weekStart}
-        weekday={quickAddWeekday}
+        weekday={addWeekday}
         categories={categories}
-        onAdded={() => router.refresh()}
+        alwaysOpen
+        onCancel={() => setAddOpen(false)}
+        onAdded={() => {
+          setAddOpen(false);
+          router.refresh();
+        }}
       />
     ) : null;
 
@@ -289,52 +293,8 @@ export function DayActivitiesCard({
       });
   };
 
-  if (localItems.length === 0) {
-    if (hideWhenEmpty) {
-      if (!quickAdd && !extraBath && !onLeave) return null;
-      return (
-        <Card className={styles.card}>
-          {onLeave ? (
-            <p className={styles.planHint}>
-              Ledig idag — Jobb och spårare som är avstängda för ledighet visas
-              inte.{" "}
-              <Link href="/year?view=plan" className={styles.weekLink}>
-                Årskalender →
-              </Link>
-            </p>
-          ) : null}
-          {quickAdd}
-          {extraBath}
-        </Card>
-      );
-    }
-
-    return (
-      <Card className={styles.card}>
-        {onLeave ? (
-          <p className={styles.planHint}>
-            Ledig idag — Jobb och spårare som är avstängda för ledighet visas
-            inte.{" "}
-            <Link href="/year?view=plan" className={styles.weekLink}>
-              Årskalender →
-            </Link>
-          </p>
-        ) : null}
-        {localItems.length === 0 ? (
-          <p className={styles.empty}>Inget planerat idag.</p>
-        ) : null}
-        {quickAdd}
-        {extraBath}
-        {showWeekLink ? (
-          <Link
-            href={`/week?start=${weekStart}&view=plan`}
-            className={styles.weekLink}
-          >
-            Se veckoplan →
-          </Link>
-        ) : null}
-      </Card>
-    );
+  if (localItems.length === 0 && hideWhenEmpty && !addWeekday && !extraBath && !onLeave) {
+    return null;
   }
 
   return (
@@ -343,6 +303,19 @@ export function DayActivitiesCard({
         <div className={styles.titleRow}>
           <h2 className={styles.title}>
             {title}
+            {addWeekday != null ? (
+              <button
+                type="button"
+                className={styles.headerAdd}
+                aria-label="Lägg till engångsuppgift"
+                title="Lägg till engångsuppgift för den här dagen"
+                aria-pressed={addOpen}
+                aria-expanded={addOpen}
+                onClick={() => setAddOpen((open) => !open)}
+              >
+                +
+              </button>
+            ) : null}
             {savingOrder ? (
               <span
                 className={styles.saveSpinner}
@@ -352,28 +325,32 @@ export function DayActivitiesCard({
               />
             ) : null}
           </h2>
-          <span
-            className={[
-              styles.counter,
-              doneCount === localItems.length ? styles.counterDone : "",
-              doneCount > 0 && doneCount < localItems.length
-                ? styles.counterPartial
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            <span className={styles.counterBig}>{doneCount}</span>
-            <span className={styles.counterSlash}>/ {localItems.length}</span>
-          </span>
+          {localItems.length > 0 ? (
+            <span
+              className={[
+                styles.counter,
+                doneCount === localItems.length ? styles.counterDone : "",
+                doneCount > 0 && doneCount < localItems.length
+                  ? styles.counterPartial
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              <span className={styles.counterBig}>{doneCount}</span>
+              <span className={styles.counterSlash}>/ {localItems.length}</span>
+            </span>
+          ) : null}
         </div>
-        <p className={styles.planHint}>
-          {onLeave
-            ? "Ledig idag — Jobb och spårare som är avstängda för ledighet visas inte."
-            : planningMode
-              ? "Dra ⠿ för att planera ordningen inför dagen"
-              : "Dra ⠿ för att ändra ordning idag"}
-        </p>
+        {localItems.length > 0 || onLeave ? (
+          <p className={styles.planHint}>
+            {onLeave
+              ? "Ledig idag — Jobb och spårare som är avstängda för ledighet visas inte."
+              : planningMode
+                ? "Dra ⠿ för att planera ordningen inför dagen"
+                : "Dra ⠿ för att ändra ordning idag"}
+          </p>
+        ) : null}
         {onLeave ? (
           <Link href="/year?view=plan" className={styles.weekLink}>
             Årskalender →
@@ -391,56 +368,63 @@ export function DayActivitiesCard({
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
-      <DndContext
-        id="day-activities-dnd"
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext items={itemKeys} strategy={verticalListSortingStrategy}>
-          <ul className={styles.list}>
-            {localItems.map((item) => (
-              <PlanSortableRow key={item.itemKey} id={item.itemKey}>
-                {(sortable) => (
-                  <DayActivityRow
-                    item={item}
-                    date={planDate}
-                    weekStart={weekStart}
-                    categories={categories}
-                    codingProjects={codingProjects}
-                    savedRestaurants={savedRestaurants}
-                    mealBoxStock={mealBoxStock}
-                    canReschedule={canReschedule}
-                    isOverdue={isOverdue}
-                    rescheduleDays={rescheduleDays}
-                    expanded={expandedKey === item.itemKey}
-                    busy={pendingKey === item.itemKey}
-                    pending={pendingKey === item.itemKey}
-                    onToggleExpand={() =>
-                      setExpandedKey(
-                        expandedKey === item.itemKey ? null : item.itemKey,
-                      )
-                    }
-                    onError={setError}
-                    onPendingId={(id) =>
-                      setPendingKey(id ? item.itemKey : null)
-                    }
-                    onRefresh={() => router.refresh()}
-                    onDone={() => {
-                      setExpandedKey(null);
-                      router.refresh();
-                    }}
-                    planningMode={planningMode}
-                    {...sortable}
-                  />
-                )}
-              </PlanSortableRow>
-            ))}
-          </ul>
-        </SortableContext>
-      </DndContext>
-
       {quickAdd}
+
+      {localItems.length === 0 && !addOpen && !hideWhenEmpty ? (
+        <p className={styles.empty}>Inget planerat idag.</p>
+      ) : null}
+
+      {localItems.length > 0 ? (
+        <DndContext
+          id="day-activities-dnd"
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={itemKeys} strategy={verticalListSortingStrategy}>
+            <ul className={styles.list}>
+              {localItems.map((item) => (
+                <PlanSortableRow key={item.itemKey} id={item.itemKey}>
+                  {(sortable) => (
+                    <DayActivityRow
+                      item={item}
+                      date={planDate}
+                      weekStart={weekStart}
+                      categories={categories}
+                      codingProjects={codingProjects}
+                      savedRestaurants={savedRestaurants}
+                      mealBoxStock={mealBoxStock}
+                      canReschedule={canReschedule}
+                      isOverdue={isOverdue}
+                      rescheduleDays={rescheduleDays}
+                      expanded={expandedKey === item.itemKey}
+                      busy={pendingKey === item.itemKey}
+                      pending={pendingKey === item.itemKey}
+                      onToggleExpand={() =>
+                        setExpandedKey(
+                          expandedKey === item.itemKey ? null : item.itemKey,
+                        )
+                      }
+                      onError={setError}
+                      onPendingId={(id) =>
+                        setPendingKey(id ? item.itemKey : null)
+                      }
+                      onRefresh={() => router.refresh()}
+                      onDone={() => {
+                        setExpandedKey(null);
+                        router.refresh();
+                      }}
+                      planningMode={planningMode}
+                      {...sortable}
+                    />
+                  )}
+                </PlanSortableRow>
+              ))}
+            </ul>
+          </SortableContext>
+        </DndContext>
+      ) : null}
+
       {extraBath}
     </Card>
   );

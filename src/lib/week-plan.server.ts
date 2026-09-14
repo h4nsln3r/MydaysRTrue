@@ -4,12 +4,11 @@ import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getSportWeekSummary } from "@/lib/sport.server";
 import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
-import { formatWeeklyTaskDetail, isGameWeeklyTaskKey, isMonthlyTaskRepeatable, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
+import { formatWeeklyTaskDetail, formatFestOccasionWhen, formatMonthlyTaskDetail, isGameWeeklyTaskKey, isMonthlyTaskRepeatable, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
 import { monthlyTaskDisplayTitle } from "@/lib/monthly-finance";
-import { formatMonthlyTaskDetail } from "@/lib/tasks";
 import {
   weekPlanBathingPlacementDragId,
   weekPlanBathingSourceDragId,
@@ -452,8 +451,7 @@ export async function getUnifiedWeekPlan(
       defaultAmountKr: slot.task.defaultAmountKr,
       label: monthlyTaskDisplayTitle(slot.task, completion),
       subtitle: repeatable
-        ? completion?.occasion?.trim() ||
-          "Skriv vilken slags fest det är"
+        ? formatFestOccasionWhen(completion ?? { occasion: null, scheduledDayOfMonth: null, doneAt: null }, slot.monthStart)
         : slot.task.completionKind === "finance"
           ? formatMonthlyTaskDetail(slot.task, completion) ??
             slot.task.notes ??

@@ -1,7 +1,7 @@
 // Client-safe types + helpers for categories, weekly tasks and monthly tasks.
 // Server-only queries live in `./tasks.server`.
 
-import { parseLocalISO } from "@/lib/date";
+import { formatMonthDayLong, parseLocalISO } from "@/lib/date";
 import { GAME_KIND_ICON, GAME_KIND_LABEL, type GameKind } from "@/lib/games";
 import { transferTaskFinanceLabel } from "@/lib/monthly-finance";
 
@@ -766,8 +766,9 @@ export function expandMonthlyTaskOccurrences(
     }
     const instances = monthlyTaskCompletions(task).filter(
       (c) =>
-        !c.isUnscheduled &&
-        (c.scheduledDayOfMonth != null || c.doneAt != null),
+        c.isInstance ||
+        (!c.isUnscheduled &&
+          (c.scheduledDayOfMonth != null || c.doneAt != null)),
     );
     for (const completion of instances) {
       out.push({
@@ -789,6 +790,29 @@ export function parseFestOccasion(raw: string):
     return { ok: false, error: "Håll festnamnet under 80 tecken." };
   }
   return { ok: true, occasion };
+}
+
+export function formatFestOccasionWhen(
+  completion: Pick<
+    MonthlyCompletion,
+    "occasion" | "scheduledDayOfMonth" | "doneAt"
+  >,
+  monthStart: string,
+): string {
+  const when =
+    completion.scheduledDayOfMonth != null
+      ? formatMonthDayLong(monthStart, completion.scheduledDayOfMonth)
+      : completion.doneAt
+        ? formatMonthDayLong(
+            `${completion.doneAt.slice(0, 7)}-01`,
+            Number(completion.doneAt.slice(8, 10)),
+          )
+        : null;
+  const name = completion.occasion?.trim() || null;
+  if (name && when) return `${name} · ${when}`;
+  if (name) return `${name} · inte placerad på en dag`;
+  if (when) return when;
+  return "Fest · inte placerad på en dag";
 }
 
 export function formatMonthlyTaskDetail(

@@ -13,6 +13,7 @@ import {
 import { dateInMonth, formatBillAmountKr, isMonthlyBill, isMonthlyAmountTask, isMonthlyTaskComplete, monthStartFromDate, monthlyTaskVisualStatus, resolveMonthlyTaskSchedule } from "@/lib/monthly-bills";
 import { formatDayShort } from "@/lib/date";
 import { monthlyTaskDisplayTitle, type MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
+import { FestProgressCard, isFestProgressTask } from "./FestProgressCard";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
 import {
@@ -334,16 +335,25 @@ function MonthlyTasksSummary({
     <aside className={styles.monthlyAside} aria-label="Månadsuppgifter">
       <p className={styles.monthlyAsideTitle}>Månadsuppgifter</p>
       <div className={styles.monthlyGrid}>
-        {tasks.map((task) => (
-          <MonthlyTaskCard
-            key={task.id}
-            task={task}
-            category={task.categoryId ? catById.get(task.categoryId) ?? null : null}
-            categories={categories}
-            monthStart={monthStart}
-            today={today}
-          />
-        ))}
+        {tasks.map((task) =>
+          isFestProgressTask(task) ? (
+            <FestProgressCard
+              key={task.id}
+              task={task}
+              category={task.categoryId ? catById.get(task.categoryId) ?? null : null}
+              monthStart={monthStart}
+            />
+          ) : (
+            <MonthlyTaskCard
+              key={task.id}
+              task={task}
+              category={task.categoryId ? catById.get(task.categoryId) ?? null : null}
+              categories={categories}
+              monthStart={monthStart}
+              today={today}
+            />
+          ),
+        )}
       </div>
     </aside>
   );

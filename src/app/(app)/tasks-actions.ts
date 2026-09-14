@@ -2912,6 +2912,51 @@ export async function moveMonthlyTaskInstanceAction(input: {
   return { ok: true };
 }
 
+export async function scheduleMonthlyTaskInstanceDayAction(input: {
+  completionId: string;
+  monthStart: string;
+  dayOfMonth: number;
+}): Promise<ActionResult> {
+  if (!input.completionId) return { ok: false, error: "Saknar tillfälle." };
+  if (!MONTH_START_RE.test(input.monthStart)) {
+    return { ok: false, error: "Invalid month." };
+  }
+  if (input.dayOfMonth < 1 || input.dayOfMonth > 31) {
+    return { ok: false, error: "Ogiltig dag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const localDate = dateInMonth(input.monthStart, input.dayOfMonth);
+  const weekStart = weekStartISO(parseLocalISO(localDate));
+  const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
+  const daySortOrder = await nextWeekDaySortOrder(
+    user.id,
+    weekStart,
+    weekday,
+  );
+
+  const { error } = await supabase
+    .from("monthly_task_completions")
+    .update({
+      month_start: input.monthStart,
+      scheduled_day_of_month: input.dayOfMonth,
+      scheduled_week_start: weekStart,
+      is_unscheduled: false,
+      day_sort_order: daySortOrder,
+    })
+    .eq("id", input.completionId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function deleteMonthlyTaskInstanceAction(input: {
   completionId: string;
 }): Promise<ActionResult> {

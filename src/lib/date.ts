@@ -124,8 +124,36 @@ const SV_MONTH_SHORT = [
   "dec",
 ] as const;
 
+const SV_WEEKDAY_LONG = [
+  "söndag",
+  "måndag",
+  "tisdag",
+  "onsdag",
+  "torsdag",
+  "fredag",
+  "lördag",
+] as const;
+
+const SV_WEEKDAY_SHORT = [
+  "sön",
+  "mån",
+  "tis",
+  "ons",
+  "tors",
+  "fre",
+  "lör",
+] as const;
+
 function formatDayMonthSv(date: Date): string {
   return `${date.getDate()} ${SV_MONTH_SHORT[date.getMonth()]}`;
+}
+
+/** Calendar date YYYY-MM-DD for a day-of-month, clamped to the last day. */
+export function dateInMonthISO(monthStart: string, dayOfMonth: number): string {
+  const [y, m] = monthStart.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const day = Math.min(Math.max(1, dayOfMonth), lastDay);
+  return `${monthStart.slice(0, 7)}-${String(day).padStart(2, "0")}`;
 }
 
 /** e.g. "Vecka 22 · 25–31 maj" — collapses month suffix when range stays in one month. */
@@ -140,9 +168,7 @@ export function formatWeekLabel(weekStart: string): string {
 
 /** Short weekday for a YYYY-MM-DD — e.g. "mån". */
 export function formatWeekdayShort(localDate: string): string {
-  return parseLocalISO(localDate).toLocaleDateString(DISPLAY_LOCALE, {
-    weekday: "short",
-  });
+  return SV_WEEKDAY_SHORT[parseLocalISO(localDate).getDay()];
 }
 
 /** Short day-of-month for a YYYY-MM-DD — e.g. "25 maj". */
@@ -152,11 +178,13 @@ export function formatDayShort(localDate: string): string {
 
 /** Full long format for a YYYY-MM-DD — e.g. "tisdag 26 maj". */
 export function formatDayLong(localDate: string): string {
-  return parseLocalISO(localDate).toLocaleDateString(DISPLAY_LOCALE, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const d = parseLocalISO(localDate);
+  return `${SV_WEEKDAY_LONG[d.getDay()]} ${formatDayMonthSv(d)}`;
+}
+
+/** e.g. "lördag 20 sep" for day 20 in monthStart. */
+export function formatMonthDayLong(monthStart: string, dayOfMonth: number): string {
+  return formatDayLong(dateInMonthISO(monthStart, dayOfMonth));
 }
 
 /** Bottom nav badge — e.g. "22/06". */

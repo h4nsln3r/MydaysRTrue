@@ -422,6 +422,22 @@
     letter-spacing: 0.02em;
 }
 
+.festPlannedRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-2;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+.festListActions {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    flex-shrink: 0;
+}
+
 .taskPlanRow {
     display: flex;
     flex-wrap: wrap;

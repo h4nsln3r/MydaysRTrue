@@ -32,6 +32,8 @@ import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
 import type { MonthlyTaskForMonth, TaskCategory, Weekday, WeeklyTaskForWeek } from "@/lib/tasks";
 import type { CodingProject } from "@/lib/coding";
+import type { UserGame } from "@/lib/games";
+import type { UserSport } from "@/lib/sports";
 import type { WeightDayContext } from "@/lib/weight";
 import type { DailyMediaContext } from "@/lib/media";
 import type { DailyLiveEventsContext } from "@/lib/live-events";
@@ -104,6 +106,8 @@ interface Props {
   /** Future day in the current week — reorder only, no logging. */
   planningMode?: boolean;
   codingProjects?: CodingProject[];
+  games?: UserGame[];
+  sports?: UserSport[];
 }
 
 export function DayActivitiesCard({
@@ -140,6 +144,8 @@ export function DayActivitiesCard({
   enableExtraBath = false,
   planningMode = false,
   codingProjects = [],
+  games = [],
+  sports = [],
 }: Props) {
   const router = useRouter();
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -392,6 +398,8 @@ export function DayActivitiesCard({
                       weekStart={weekStart}
                       categories={categories}
                       codingProjects={codingProjects}
+                      games={games}
+                      sports={sports}
                       savedRestaurants={savedRestaurants}
                       mealBoxStock={mealBoxStock}
                       canReschedule={canReschedule}

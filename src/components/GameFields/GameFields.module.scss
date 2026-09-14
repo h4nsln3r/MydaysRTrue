@@ -1,0 +1,84 @@
+@use "abstracts" as *;
+
+.wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.label {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-weight: 600;
+}
+
+.select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-sans;
+    font-size: 0.92rem;
+}
+
+.create {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.createActions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: $space-3;
+}
+
+.cancel {
+    border: 0;
+    background: transparent;
+    color: $color-fog;
+    font-family: $font-sans;
+    font-size: 0.85rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+    }
+}
+
+.btns {
+    display: flex;
+    gap: $space-2;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 7px 12px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-family: $font-display;
+    font-size: 0.85rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-fog;
+    }
+}
+
+.btnActive {
+    border-color: $color-orange-bright;
+    color: $color-cream;
+    background: rgba($color-orange-bright, 0.12);
+}
+
+.error {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #f87171;
+}

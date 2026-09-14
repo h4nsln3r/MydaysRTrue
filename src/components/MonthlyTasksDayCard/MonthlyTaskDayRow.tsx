@@ -63,7 +63,7 @@ export function MonthlyTaskDayRow({
   const detail = formatMonthlyTaskDetail(task, task.completion);
   const billAmountLabel = formatBillAmountKr(task);
   const isBill = isMonthlyBill(task, categories);
-  const displayTitle = monthlyTaskDisplayTitle(task);
+  const displayTitle = monthlyTaskDisplayTitle(task, task.completion);
   const transferTarget = transferTaskFinanceLabel(task.key);
   const category = task.categoryId
     ? categories.find((c) => c.id === task.categoryId) ?? null
@@ -151,6 +151,7 @@ export function MonthlyTaskDayRow({
         taskId: task.id,
         monthStart,
         done: !done,
+        completionId: task.completion?.id,
       }),
     );
   };
@@ -178,6 +179,7 @@ export function MonthlyTaskDayRow({
         taskId: task.id,
         monthStart,
         done: true,
+        completionId: task.completion?.id,
         note,
         amount: isBill ? billAmountForDone() : undefined,
       });
@@ -196,6 +198,7 @@ export function MonthlyTaskDayRow({
           taskId: task.id,
           monthStart,
           done: true,
+          completionId: task.completion?.id,
           amount: parsed,
           note,
         }),
@@ -209,6 +212,7 @@ export function MonthlyTaskDayRow({
         taskId: task.id,
         monthStart,
         done: false,
+        completionId: task.completion?.id,
       }),
     );
 

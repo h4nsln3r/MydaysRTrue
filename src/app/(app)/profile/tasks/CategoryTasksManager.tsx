@@ -146,7 +146,11 @@ export function CategoryTasksManager({
                     </span>
                     <div className={styles.habitText}>
                       <span className={styles.habitLabel}>{task.title}</span>
-                      {task.dayOfMonth != null ? (
+                      {task.isRepeatable ? (
+                        <span className={styles.habitKind}>
+                          Flera tillfällen per månad
+                        </span>
+                      ) : task.dayOfMonth != null ? (
                         <span className={styles.habitKind}>
                           Föreslagen dag: {task.dayOfMonth}
                         </span>

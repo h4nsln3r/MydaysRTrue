@@ -25,6 +25,7 @@ export interface SportPlacement {
   daySortOrder: number;
   planSport: string | null;
   actualSport: string | null;
+  sportId: string | null;
   note: string | null;
   companions: string | null;
   doneAt: string | null;

@@ -30,6 +30,8 @@ import {
 } from "@/lib/gym";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { SportSessionForWeek } from "@/lib/sport";
+import { matchSportId, type UserSport } from "@/lib/sports";
+import { SportFields } from "@/components/SportFields/SportFields";
 import {
   bathingRequiresWaterTemp,
   formatWaterTemp,
@@ -53,10 +55,11 @@ export type AnyTrainingSession =
 interface Props {
   type: WeekTrainingType;
   session: AnyTrainingSession;
+  sports?: UserSport[];
   onClose: () => void;
 }
 
-export function WeekTrainingLogDialog({ type, session, onClose }: Props) {
+export function WeekTrainingLogDialog({ type, session, sports = [], onClose }: Props) {
   const router = useRouter();
   const close = useCallback(() => onClose(), [onClose]);
 
@@ -129,6 +132,7 @@ export function WeekTrainingLogDialog({ type, session, onClose }: Props) {
             <SportForm
               session={session as SportSessionForWeek}
               weekStart={weekStart}
+              sports={sports}
               onSaved={onSaved}
             />
           ) : (
@@ -344,15 +348,17 @@ function CardioForm({
 function SportForm({
   session,
   weekStart,
+  sports,
   onSaved,
 }: {
   session: SportSessionForWeek;
   weekStart: string;
+  sports: UserSport[];
   onSaved: () => void;
 }) {
   const done = Boolean(session.placement.doneAt);
-  const [actualSport, setActualSport] = useState(
-    session.placement.actualSport ?? session.placement.planSport ?? "",
+  const [sportId, setSportId] = useState(
+    () => matchSportId(sports, session.placement),
   );
   const [note, setNote] = useState(session.placement.note ?? "");
   const [companions, setCompanions] = useState(
@@ -362,8 +368,8 @@ function SportForm({
   const [pending, startTransition] = useTransition();
 
   const complete = () => {
-    if (!actualSport.trim()) {
-      setError("Skriv vilken sport det blev.");
+    if (!sportId) {
+      setError("Välj vilken sport det blev.");
       return;
     }
     setError(null);
@@ -371,7 +377,7 @@ function SportForm({
       const res = await completeSportSessionAction({
         placementId: session.placement.id,
         weekStart,
-        actualSport,
+        sportId,
         note,
         companions,
       });
@@ -400,13 +406,12 @@ function SportForm({
 
   return (
     <>
-      <Input
-        label="Vilken sport blev det?"
-        value={actualSport}
-        onChange={(e) => setActualSport(e.target.value)}
-        placeholder="t.ex. padel"
-        maxLength={120}
+      <SportFields
+        sports={sports}
+        value={sportId}
+        onChange={(id) => setSportId(id)}
         disabled={pending}
+        label="Vilken sport blev det?"
       />
       <Input
         label="Vilka var med? (valfritt)"

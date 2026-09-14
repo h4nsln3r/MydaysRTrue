@@ -401,7 +401,7 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
       id: `monthly-task-${completion.id}`,
       source: "task",
       icon: t.icon,
-      title: monthlyTaskDisplayTitle(t),
+      title: monthlyTaskDisplayTitle(t, completion),
       body: detail ?? "Klar.",
       at: completion.doneAt!,
       editable: false,
@@ -792,13 +792,18 @@ function monthlyTasksForDate(
   localDate: string,
 ): MonthlyTaskForMonth[] {
   const monthStart = `${localDate.slice(0, 7)}-01`;
-  const merged = billsWeek.tasks.map((task) => ({
-    ...task,
-    completion:
+  const merged = billsWeek.tasks.map((task) => {
+    const all =
       billsWeek.completionsByTaskMonth.get(`${task.id}|${monthStart}`) ??
-      task.completion ??
-      null,
-  }));
+      task.completions ??
+      [];
+    return {
+      ...task,
+      completion:
+        all.find((c) => !c.isInstance) ?? all[0] ?? task.completion ?? null,
+      completions: all,
+    };
+  });
   return monthlyTasksOnLocalDate(
     merged,
     localDate,

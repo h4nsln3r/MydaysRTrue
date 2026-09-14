@@ -49,6 +49,7 @@ import {
   archiveMonthlyTaskAction,
   archiveWeeklyTaskAction,
   setWeeklyTaskOnHoldAction,
+  updateMonthlyTaskInstanceAction,
 } from "@/app/(app)/tasks-actions";
 import { setWeightWeekEnabledAction } from "@/app/(app)/weight-actions";
 import {
@@ -63,6 +64,10 @@ import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
+import { GameFields } from "@/components/GameFields/GameFields";
+import { SportFields } from "@/components/SportFields/SportFields";
+import type { UserGame } from "@/lib/games";
+import { matchSportId, type UserSport } from "@/lib/sports";
 import { formatWeightKg } from "@/lib/format";
 import {
   bathingRequiresWaterTemp,
@@ -111,7 +116,8 @@ function isPlanSource(item: WeekPlanItem): boolean {
   return (
     (item.kind === "bathing" && item.bathingRole === "source") ||
     (item.kind === "sport" && item.sportRole === "source") ||
-    (item.kind === "task" && item.taskRole === "source")
+    (item.kind === "task" && item.taskRole === "source") ||
+    (item.kind === "monthly_bill" && item.monthlyRole === "source")
   );
 }
 
@@ -119,12 +125,16 @@ interface Props {
   weekStart: string;
   plan: UnifiedWeekPlan;
   weightEnabled: boolean;
+  games?: UserGame[];
+  sports?: UserSport[];
 }
 
 export function UnifiedWeekBoard({
   weekStart,
   plan,
   weightEnabled,
+  games = [],
+  sports = [],
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -133,6 +143,7 @@ export function UnifiedWeekBoard({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [festOccasion, setFestOccasion] = useState("");
 
   useSyncNavPending(pending || pendingId != null, plan.items);
 
@@ -156,13 +167,17 @@ export function UnifiedWeekBoard({
   const catById = new Map(plan.categories.map((c) => [c.id, c]));
   const weeklyBacklog = localItems.filter((i) => {
     if (isTaskOnHold(i)) return false;
-    if (i.kind === "monthly_bill") return false;
+    if (i.kind === "monthly_bill" && i.monthlyRole !== "source") return false;
     if (i.weekday != null) return false;
     if (isPlanSource(i)) return true;
     return true;
   });
   const monthlyBacklog = localItems.filter(
-    (i) => i.kind === "monthly_bill" && i.weekday == null && !i.done,
+    (i) =>
+      i.kind === "monthly_bill" &&
+      i.monthlyRole !== "source" &&
+      i.weekday == null &&
+      !i.done,
   );
   const onHoldTasks = localItems.filter(
     (i): i is WeekPlanTaskItem =>
@@ -195,7 +210,20 @@ export function UnifiedWeekBoard({
       item.kind === "bathing" && item.bathingRole === "source";
     const isSportSource = item.kind === "sport" && item.sportRole === "source";
     const isTaskSource = item.kind === "task" && item.taskRole === "source";
-    if (!isBathingSource && !isSportSource && !isTaskSource && item.weekday === weekday) return;
+    const isMonthlySource =
+      item.kind === "monthly_bill" && item.monthlyRole === "source";
+    if (isMonthlySource && !festOccasion.trim()) {
+      setError("Skriv vilken slags fest det är.");
+      return;
+    }
+    if (
+      !isBathingSource &&
+      !isSportSource &&
+      !isTaskSource &&
+      !isMonthlySource &&
+      item.weekday === weekday
+    )
+      return;
 
     setError(null);
     if (isBathingSource) {
@@ -282,6 +310,39 @@ export function UnifiedWeekBoard({
         };
         return [...prev, optimisticPlacement];
       });
+    } else if (isMonthlySource) {
+      setLocalItems((prev) => {
+        const source = prev.find((i) => i.dragId === dragId);
+        if (
+          !source ||
+          source.kind !== "monthly_bill" ||
+          source.monthlyRole !== "source"
+        ) {
+          return prev;
+        }
+        const uid = `${source.taskId}-${Date.now()}`;
+        const dayItems = prev.filter(
+          (i) => i.weekday === weekday && !isPlanSource(i),
+        );
+        const nextOrder =
+          dayItems.length > 0
+            ? Math.max(...dayItems.map((t) => t.sortOrder)) + 1
+            : 0;
+        const localDate = addDaysISO(weekStart, weekday - 1);
+        const occasion = festOccasion.trim();
+        const optimisticPlacement: WeekPlanItem = {
+          ...source,
+          dragId: `monthly_bill-instance:optimistic-${uid}`,
+          monthlyRole: "placement",
+          weekday,
+          sortOrder: nextOrder,
+          done: false,
+          scheduledDayOfMonth: Number(localDate.slice(8, 10)),
+          label: occasion ? `${source.label} · ${occasion}` : source.label,
+          subtitle: occasion || source.subtitle,
+        };
+        return [...prev, optimisticPlacement];
+      });
     } else {
       setLocalItems((prev) => {
         const moving = prev.find((i) => i.dragId === dragId);
@@ -324,13 +385,19 @@ export function UnifiedWeekBoard({
     }
     setPendingId(dragId);
     startTransition(async () => {
-      const res = await placeWeekPlanItemAction({ dragId, weekStart, weekday });
+      const res = await placeWeekPlanItemAction({
+        dragId,
+        weekStart,
+        weekday,
+        ...(isMonthlySource ? { occasion: festOccasion } : {}),
+      });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte placera.");
         setLocalItems(plan.items);
         setPendingId(null);
         return;
       }
+      if (isMonthlySource) setFestOccasion("");
       router.refresh();
     });
   };
@@ -384,6 +451,13 @@ export function UnifiedWeekBoard({
         dragId.startsWith("task-placement:")
       ) {
         // Repeatable task instance: remove placement; source stays in backlog.
+        return prev.filter((i) => i.dragId !== dragId);
+      }
+      if (
+        item.kind === "monthly_bill" &&
+        item.isRepeatable &&
+        item.monthlyRole === "placement"
+      ) {
         return prev.filter((i) => i.dragId !== dragId);
       }
       return prev.map((i) =>
@@ -554,6 +628,10 @@ export function UnifiedWeekBoard({
           setExpandedId(null);
           router.refresh();
         }}
+        games={games}
+        sports={sports}
+        festOccasion={festOccasion}
+        onFestOccasionChange={setFestOccasion}
       />
     ) : (
       <DraggableItemRow
@@ -583,6 +661,10 @@ export function UnifiedWeekBoard({
           setExpandedId(null);
           router.refresh();
         }}
+        games={games}
+        sports={sports}
+        festOccasion={festOccasion}
+        onFestOccasionChange={setFestOccasion}
       />
     )
   );
@@ -863,6 +945,24 @@ function OnHoldTaskRow({
     onPlace(item.dragId, weekday);
   };
 
+  const removeFromHold = () => {
+    if (
+      !window.confirm(
+        `Ta bort “${item.label}”? Den försvinner från den här veckan.`,
+      )
+    ) {
+      return;
+    }
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await archiveWeeklyTaskAction(item.taskId);
+      if (!res.ok) onError(res.error ?? "Kunde inte ta bort.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
   return (
     <li
       className={[
@@ -909,6 +1009,16 @@ function OnHoldTaskRow({
         ))}
         <option value="resume">Tillbaka till att placera</option>
       </select>
+      <button
+        type="button"
+        className={styles.onHoldRemove}
+        onClick={removeFromHold}
+        disabled={pending}
+        aria-label={`Ta bort ${item.label}`}
+        title="Ta bort"
+      >
+        ×
+      </button>
     </li>
   );
 }
@@ -954,12 +1064,25 @@ interface DraggableItemRowProps {
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
+  games?: UserGame[];
+  sports?: UserSport[];
+  festOccasion?: string;
+  onFestOccasionChange?: (value: string) => void;
+}
+
+function isFestPlacementItem(item: WeekPlanItem): boolean {
+  return (
+    item.kind === "monthly_bill" &&
+    item.isRepeatable &&
+    item.monthlyRole === "placement"
+  );
 }
 
 function hasDayActions(item: WeekPlanItem): boolean {
   return (
     canManageTask(item) ||
-    (item.kind === "task" && item.completionKind === "music")
+    (item.kind === "task" && item.completionKind === "music") ||
+    isFestPlacementItem(item)
   );
 }
 
@@ -1014,6 +1137,10 @@ function SortableItemRow(props: DraggableItemRowProps) {
         onError={props.onError}
         onPendingId={props.onPendingId}
         onDone={props.onDone}
+        games={props.games}
+        sports={props.sports}
+        festOccasion={props.festOccasion}
+        onFestOccasionChange={props.onFestOccasionChange}
       />
     </li>
   );
@@ -1036,6 +1163,10 @@ function DraggableItemRow({
   onError,
   onPendingId,
   onDone,
+  games = [],
+  sports = [],
+  festOccasion,
+  onFestOccasionChange,
 }: DraggableItemRowProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: item.dragId,
@@ -1078,6 +1209,10 @@ function DraggableItemRow({
         onError={onError}
         onPendingId={onPendingId}
         onDone={onDone}
+        games={games}
+        sports={sports}
+        festOccasion={festOccasion}
+        onFestOccasionChange={onFestOccasionChange}
       />
     </li>
   );
@@ -1142,6 +1277,10 @@ interface ItemRowContentProps {
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
+  games?: UserGame[];
+  sports?: UserSport[];
+  festOccasion?: string;
+  onFestOccasionChange?: (value: string) => void;
 }
 
 function isTaskOnHold(item: WeekPlanItem): boolean {
@@ -1182,6 +1321,10 @@ function ItemRowContent({
   onError,
   onPendingId,
   onDone,
+  games = [],
+  sports = [],
+  festOccasion,
+  onFestOccasionChange,
 }: ItemRowContentProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -1197,9 +1340,22 @@ function ItemRowContent({
   const [sportPlan, setSportPlan] = useState(
     item.kind === "sport" ? (item.session.placement.planSport ?? "") : "",
   );
+  const [sportPlanId, setSportPlanId] = useState(
+    item.kind === "sport"
+      ? (matchSportId(sports, item.session.placement) ?? "")
+      : "",
+  );
   const [sportActual, setSportActual] = useState(
     item.kind === "sport"
       ? (item.session.placement.actualSport ?? item.session.placement.planSport ?? "")
+      : "",
+  );
+  const [sportActualId, setSportActualId] = useState(
+    item.kind === "sport"
+      ? (matchSportId(sports, {
+          sportId: item.session.placement.sportId,
+          planSport: item.session.placement.actualSport ?? item.session.placement.planSport,
+        }) ?? "")
       : "",
   );
   const [sportNote, setSportNote] = useState(
@@ -1233,6 +1389,9 @@ function ItemRowContent({
   const [spendKind, setSpendKind] = useState<SpendKind | null>(
     item.kind === "task" ? parseSpendKind(item.placement?.spendKind) : null,
   );
+  const [gameId, setGameId] = useState(
+    item.kind === "task" ? (item.placement?.gameId ?? "") : "",
+  );
   const [placeOpen, setPlaceOpen] = useState(false);
   const [monthlyAmount, setMonthlyAmount] = useState(
     item.kind === "monthly_bill" && item.completion?.amount != null
@@ -1245,6 +1404,15 @@ function ItemRowContent({
     item.kind === "monthly_bill" && item.completionKind === "amount";
   const isMonthlyFinance =
     item.kind === "monthly_bill" && item.completionKind === "finance";
+  const isFestSource =
+    item.kind === "monthly_bill" && item.monthlyRole === "source";
+  const isFestPlacement =
+    item.kind === "monthly_bill" &&
+    item.isRepeatable &&
+    item.monthlyRole === "placement";
+  const [festInstanceOccasion, setFestInstanceOccasion] = useState(
+    item.kind === "monthly_bill" ? (item.completion?.occasion ?? "") : "",
+  );
   const isSalaryTask =
     item.kind === "monthly_bill" && item.taskKey === SALARY_TASK_KEY;
   const isCarpayTask =
@@ -1296,7 +1464,8 @@ function ItemRowContent({
     (item.kind === "bathing" && item.bathingRole === "placement") ||
     item.kind === "weight" ||
     isMonthlyAmount ||
-    isMonthlyFinance;
+    isMonthlyFinance ||
+    isFestPlacement;
 
   const taskCategories = categories.filter((c) => c.scope === "task");
   const [editTitle, setEditTitle] = useState(item.label);
@@ -1416,8 +1585,24 @@ function ItemRowContent({
         taskId: item.taskId,
         monthStart: item.monthStart,
         done: !item.done,
+        completionId: item.completion?.id,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const saveFestOccasion = () => {
+    if (item.kind !== "monthly_bill" || !item.completion?.id) return;
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await updateMonthlyTaskInstanceAction({
+        completionId: item.completion!.id,
+        occasion: festInstanceOccasion,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
       onDone();
     });
@@ -1487,6 +1672,7 @@ function ItemRowContent({
         ...(item.completionKind === "shop" || item.completionKind === "expense"
           ? { spendKind }
           : {}),
+        ...(isGameWeeklyTaskKey(item.taskKey) ? { gameId: gameId || null } : {}),
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -1566,6 +1752,10 @@ function ItemRowContent({
 
   const saveSportPlan = () => {
     if (item.kind !== "sport" || !item.placementId) return;
+    if (!sportPlanId) {
+      onError("Välj vilken sport det är.");
+      return;
+    }
     onError(null);
     onPendingId(item.dragId);
     startTransition(async () => {
@@ -1573,6 +1763,7 @@ function ItemRowContent({
         placementId: item.placementId!,
         weekStart,
         planSport: sportPlan,
+        sportId: sportPlanId || null,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara plan.");
       onPendingId(null);
@@ -1582,6 +1773,10 @@ function ItemRowContent({
 
   const completeSport = () => {
     if (item.kind !== "sport" || !item.placementId) return;
+    if (!(sportActualId || sportPlanId)) {
+      onError("Välj vilken sport det blev.");
+      return;
+    }
     onError(null);
     onPendingId(item.dragId);
     startTransition(async () => {
@@ -1589,6 +1784,7 @@ function ItemRowContent({
         placementId: item.placementId!,
         weekStart,
         actualSport: sportActual,
+        sportId: sportActualId || sportPlanId || null,
         note: sportNote,
         companions: sportCompanions,
       });
@@ -1816,7 +2012,7 @@ function ItemRowContent({
         ) : null}
       </button>
 
-      {!preview && (canManage || canHideFromPlan) ? (
+      {!preview && (canManage || canHideFromPlan || isFestPlacement) ? (
         <div className={styles.taskInlineActions}>
           {isOneOff && item.kind === "task" && !item.placement?.onHold ? (
             <button
@@ -1884,7 +2080,34 @@ function ItemRowContent({
             >
               ×
             </button>
+          ) : isFestPlacement && canUnplaceFromDay ? (
+            <button
+              type="button"
+              className={styles.taskRemoveBtn}
+              onClick={() => onUnplace(item.dragId)}
+              disabled={pending}
+              aria-label={`Avplanera ${item.label}`}
+              title="Avplanera"
+            >
+              ×
+            </button>
           ) : null}
+        </div>
+      ) : null}
+
+      {!preview && isFestSource ? (
+        <div
+          className={styles.festOccasion}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Input
+            label="Vilken slags fest?"
+            value={festOccasion ?? ""}
+            onChange={(e) => onFestOccasionChange?.(e.target.value)}
+            placeholder="t.ex. kräftskiva, födelsedag"
+            maxLength={80}
+            disabled={pending}
+          />
         </div>
       ) : null}
 
@@ -1936,6 +2159,31 @@ function ItemRowContent({
 
       {expanded && !preview ? (
         <div className={styles.taskActions}>
+          {isFestPlacement && item.kind === "monthly_bill" && item.completion?.id ? (
+            <>
+              <p className={styles.actionsLabel}>Vilken slags fest</p>
+              <Input
+                label="Slags fest"
+                value={festInstanceOccasion}
+                onChange={(e) => setFestInstanceOccasion(e.target.value)}
+                placeholder="t.ex. kräftskiva, födelsedag"
+                maxLength={80}
+                disabled={pending}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                fullWidth
+                loading={pending && busy}
+                disabled={pending}
+                onClick={saveFestOccasion}
+              >
+                Spara
+              </Button>
+            </>
+          ) : null}
+
           {canManage ? (
             <>
               <p className={styles.actionsLabel}>Redigera uppgift</p>
@@ -2014,7 +2262,9 @@ function ItemRowContent({
                   onClick={() => onUnplace(item.dragId)}
                   disabled={pending}
                 >
-                  Tillbaka till att placera
+                  {isFestPlacement
+                    ? "Avplanera"
+                    : "Tillbaka till att placera"}
                 </button>
               ) : null}
             </>
@@ -2115,13 +2365,15 @@ function ItemRowContent({
           item.sportRole === "placement" &&
           !item.done ? (
             <>
-              <Input
-                label="Planerad sport"
-                value={sportPlan}
-                onChange={(e) => setSportPlan(e.target.value)}
-                placeholder="t.ex. frisbee golf, badminton"
-                maxLength={80}
+              <SportFields
+                sports={sports}
+                value={sportPlanId || null}
+                onChange={(id, sport) => {
+                  setSportPlanId(id ?? "");
+                  setSportPlan(sport?.title ?? "");
+                }}
                 disabled={pending}
+                label="Planerad sport"
               />
               <button
                 type="button"
@@ -2131,13 +2383,15 @@ function ItemRowContent({
               >
                 Spara plan
               </button>
-              <Input
-                label="Vad blev det?"
-                value={sportActual}
-                onChange={(e) => setSportActual(e.target.value)}
-                placeholder="t.ex. frisbee golf på Berga"
-                maxLength={80}
+              <SportFields
+                sports={sports}
+                value={sportActualId || sportPlanId || null}
+                onChange={(id, sport) => {
+                  setSportActualId(id ?? "");
+                  setSportActual(sport?.title ?? "");
+                }}
                 disabled={pending}
+                label="Vad blev det?"
               />
               <Input
                 label="Hur gick det?"
@@ -2337,22 +2591,33 @@ function ItemRowContent({
           {item.kind === "task" && taskPlanningExpand ? (
             <>
               {item.completionKind === "journal" ? (
-                <Input
-                  label={
-                    isGameWeeklyTaskKey(item.taskKey)
-                      ? "Vad ska ni spela?"
-                      : "Vad ska du jobba med?"
-                  }
-                  value={taskPlanNote}
-                  onChange={(e) => setTaskPlanNote(e.target.value)}
-                  placeholder={
-                    isGameWeeklyTaskKey(item.taskKey)
-                      ? "t.ex. D&D med gänget, vilken kampanj"
-                      : "Beskriv uppgiften"
-                  }
-                  maxLength={280}
-                  disabled={pending}
-                />
+                isGameWeeklyTaskKey(item.taskKey) ? (
+                  <>
+                    <GameFields
+                      games={games}
+                      value={gameId || null}
+                      onChange={(id) => setGameId(id ?? "")}
+                      disabled={pending}
+                    />
+                    <Input
+                      label="Anteckning (valfritt)"
+                      value={taskPlanNote}
+                      onChange={(e) => setTaskPlanNote(e.target.value)}
+                      placeholder="t.ex. kampanj, vilka som kommer"
+                      maxLength={280}
+                      disabled={pending}
+                    />
+                  </>
+                ) : (
+                  <Input
+                    label="Vad ska du jobba med?"
+                    value={taskPlanNote}
+                    onChange={(e) => setTaskPlanNote(e.target.value)}
+                    placeholder="Beskriv uppgiften"
+                    maxLength={280}
+                    disabled={pending}
+                  />
+                )
               ) : null}
               {item.completionKind === "music" ? (
                 <>

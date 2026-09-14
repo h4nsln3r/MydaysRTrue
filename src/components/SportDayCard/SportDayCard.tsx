@@ -14,6 +14,8 @@ import {
   updateSportPlanAction,
 } from "@/app/(app)/sport-actions";
 import { formatSportDetail, type SportSessionForWeek } from "@/lib/sport";
+import { matchSportId, type UserSport } from "@/lib/sports";
+import { SportFields } from "@/components/SportFields/SportFields";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { trainingCategory } from "@/lib/activity-category";
 import { sortIncompleteFirst, type Weekday } from "@/lib/tasks";
@@ -27,6 +29,7 @@ interface Props {
   title?: string;
   hideWhenEmpty?: boolean;
   showWeekLink?: boolean;
+  sports?: UserSport[];
 }
 
 export function SportDayCard({
@@ -35,6 +38,7 @@ export function SportDayCard({
   title = "Sport",
   hideWhenEmpty = false,
   showWeekLink = true,
+  sports = [],
 }: Props) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -119,6 +123,7 @@ export function SportDayCard({
               setExpandedId(null);
               router.refresh();
             }}
+            sports={sports}
           />
         ))}
       </ul>
@@ -142,6 +147,7 @@ interface SessionRowProps extends PlanSortableProps {
   canReschedule?: boolean;
   isOverdue?: boolean;
   rescheduleDays?: RescheduleDay[];
+  sports?: UserSport[];
 }
 
 export function SportSessionRow({
@@ -161,14 +167,24 @@ export function SportSessionRow({
   canReschedule = false,
   isOverdue = false,
   rescheduleDays = [],
+  sports = [],
 }: SessionRowProps) {
   const done = Boolean(session.placement.doneAt);
   const showReschedule = canReschedule && !done && !planningMode;
   const category = trainingCategory("sport");
   const detail = formatSportDetail(session.placement);
   const [planSport, setPlanSport] = useState(session.placement.planSport ?? "");
+  const [planSportId, setPlanSportId] = useState(
+    matchSportId(sports, session.placement) ?? "",
+  );
   const [actualSport, setActualSport] = useState(
     session.placement.actualSport ?? session.placement.planSport ?? "",
+  );
+  const [actualSportId, setActualSportId] = useState(
+    matchSportId(sports, {
+      sportId: session.placement.sportId,
+      planSport: session.placement.actualSport ?? session.placement.planSport,
+    }) ?? "",
   );
   const [note, setNote] = useState(session.placement.note ?? "");
   const [companions, setCompanions] = useState(
@@ -177,6 +193,10 @@ export function SportSessionRow({
   const [, startTransition] = useTransition();
 
   const savePlan = () => {
+    if (!planSportId) {
+      onError("Välj vilken sport det är.");
+      return;
+    }
     onError(null);
     onPendingId(session.placement.id);
     startTransition(async () => {
@@ -184,6 +204,7 @@ export function SportSessionRow({
         placementId: session.placement.id,
         weekStart,
         planSport,
+        sportId: planSportId || null,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara plan.");
       onPendingId(null);
@@ -192,6 +213,10 @@ export function SportSessionRow({
   };
 
   const complete = () => {
+    if (!(actualSportId || planSportId)) {
+      onError("Välj vilken sport det blev.");
+      return;
+    }
     onError(null);
     onPendingId(session.placement.id);
     startTransition(async () => {
@@ -199,6 +224,7 @@ export function SportSessionRow({
         placementId: session.placement.id,
         weekStart,
         actualSport,
+        sportId: actualSportId || planSportId || null,
         note,
         companions,
       });
@@ -343,12 +369,15 @@ export function SportSessionRow({
         <div className={styles.sessionActions}>
           {!done ? (
             <>
-              <Input
+              <SportFields
+                sports={sports}
+                value={planSportId || null}
+                onChange={(id, sport) => {
+                  setPlanSportId(id ?? "");
+                  setPlanSport(sport?.title ?? "");
+                }}
+                disabled={pending}
                 label="Planerad sport"
-                value={planSport}
-                onChange={(e) => setPlanSport(e.target.value)}
-                placeholder="t.ex. frisbee golf, badminton"
-                maxLength={80}
               />
               <button
                 type="button"
@@ -358,13 +387,15 @@ export function SportSessionRow({
               >
                 Spara plan
               </button>
-              <Input
+              <SportFields
+                sports={sports}
+                value={actualSportId || planSportId || null}
+                onChange={(id, sport) => {
+                  setActualSportId(id ?? "");
+                  setActualSport(sport?.title ?? "");
+                }}
+                disabled={pending}
                 label="Vad blev det?"
-                value={actualSport}
-                onChange={(e) => setActualSport(e.target.value)}
-                placeholder="t.ex. frisbee golf på Berga"
-                maxLength={80}
-                required
               />
               <label className={styles.noteField}>
                 <span className={styles.fieldLabel}>Hur gick det?</span>

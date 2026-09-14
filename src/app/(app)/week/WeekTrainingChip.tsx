@@ -6,6 +6,7 @@ import {
   type AnyTrainingSession,
   type WeekTrainingType,
 } from "./WeekTrainingLogDialog";
+import type { UserSport } from "@/lib/sports";
 import styles from "./week-progress.module.scss";
 
 function cellClass(...classes: Array<string | false | undefined>): string {
@@ -24,9 +25,10 @@ interface Props {
   session: AnyTrainingSession;
   meta: ChipMeta;
   chipClass?: string;
+  sports?: UserSport[];
 }
 
-export function WeekTrainingChip({ type, session, meta, chipClass }: Props) {
+export function WeekTrainingChip({ type, session, meta, chipClass, sports = [] }: Props) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
 
@@ -67,7 +69,7 @@ export function WeekTrainingChip({ type, session, meta, chipClass }: Props) {
         )}
       </li>
       {open ? (
-        <WeekTrainingLogDialog type={type} session={session} onClose={close} />
+        <WeekTrainingLogDialog type={type} session={session} sports={sports} onClose={close} />
       ) : null}
     </>
   );

@@ -479,7 +479,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     items.push({
       kind: "monthly_task",
       id: task.id,
-      itemKey: `monthly_task:${task.id}`,
+      itemKey: `monthly_task:${task.completion?.id ?? task.id}`,
       sortOrder: 0,
       doneAt: task.completion?.doneAt ?? null,
       monthStart,

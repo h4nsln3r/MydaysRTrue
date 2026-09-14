@@ -11,6 +11,7 @@ import {
   type GymSessionForWeek,
 } from "@/lib/gym";
 import type { Habit, HabitStatus, MealRestaurant } from "@/lib/habits";
+import type { UserSport } from "@/lib/sports";
 import { formatHabitPoints } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekJournalSummary } from "@/lib/journal";
@@ -79,6 +80,7 @@ interface Props {
   layout: WeekProgressLayout;
   workByDate: Map<string, WorkDailyLog>;
   savedRestaurants?: MealRestaurant[];
+  sports?: UserSport[];
 }
 
 const WEEKDAY_HEAD = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
@@ -99,6 +101,7 @@ export function WeekProgressBoard({
   layout,
   workByDate,
   savedRestaurants = [],
+  sports = [],
 }: Props) {
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
 
@@ -253,6 +256,7 @@ export function WeekProgressBoard({
                           placedSport,
                           bathingDone,
                           placedBathing,
+                          sports,
                         })}
                       </Fragment>
                     ))}
@@ -444,6 +448,7 @@ interface TrainingRowContext {
   placedSport: SportSessionForWeek[];
   bathingDone: number;
   placedBathing: BathingSessionForWeek[];
+  sports: UserSport[];
 }
 
 function renderTrainingRow(
@@ -505,6 +510,7 @@ function renderTrainingRow(
           done={ctx.sportDone}
           total={ctx.placedSport.length}
           chipClass={styles.sportChip}
+          sports={ctx.sports}
           renderSession={(s) => ({
             icon: s.icon,
             done: Boolean(s.placement.doneAt),
@@ -1041,6 +1047,7 @@ function TrainingRow<
   done,
   total,
   chipClass,
+  sports = [],
   renderSession,
 }: {
   type: WeekProgressTrainingKey;
@@ -1051,6 +1058,7 @@ function TrainingRow<
   done: number;
   total: number;
   chipClass?: string;
+  sports?: UserSport[];
   renderSession: (item: T) => {
     icon: string;
     done: boolean;
@@ -1086,6 +1094,7 @@ function TrainingRow<
                       session={s as unknown as AnyTrainingSession}
                       meta={meta}
                       chipClass={chipClass}
+                      sports={sports}
                     />
                   );
                 })}

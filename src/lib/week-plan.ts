@@ -90,6 +90,7 @@ export interface WeekPlanWeightItem extends WeekPlanItemBase {
 
 export interface WeekPlanMonthlyBillItem extends WeekPlanItemBase {
   kind: "monthly_bill";
+  monthlyRole: MonthlyBillDragRole;
   taskId: string;
   taskKey: string | null;
   categoryId: string | null;
@@ -100,6 +101,7 @@ export interface WeekPlanMonthlyBillItem extends WeekPlanItemBase {
   notes: string | null;
   defaultAmountKr: number | null;
   singleMonthStart: string | null;
+  isRepeatable: boolean;
 }
 
 export type WeekPlanItem =
@@ -136,6 +138,7 @@ export function weekdayFromWeekPlanDropId(id: string): Weekday | null {
 export type BathingDragRole = "source" | "placement";
 export type SportDragRole = "source" | "placement";
 export type TaskDragRole = "source" | "placement";
+export type MonthlyBillDragRole = "source" | "placement";
 
 export interface ParsedWeekPlanDragId {
   kind: WeekPlanItemKind;
@@ -143,6 +146,7 @@ export interface ParsedWeekPlanDragId {
   bathingRole?: BathingDragRole;
   sportRole?: SportDragRole;
   taskRole?: TaskDragRole;
+  monthlyRole?: MonthlyBillDragRole;
   monthStart?: string;
 }
 
@@ -187,6 +191,14 @@ export function weekPlanMonthlyBillDragId(taskId: string, monthStart: string): s
   return `monthly_bill:${taskId}:${monthStart}`;
 }
 
+export function weekPlanMonthlySourceDragId(taskId: string, monthStart: string): string {
+  return `monthly_bill-source:${taskId}:${monthStart}`;
+}
+
+export function weekPlanMonthlyInstanceDragId(completionId: string): string {
+  return `monthly_bill-instance:${completionId}`;
+}
+
 export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null {
   const taskSource = /^task-source:(.+)$/.exec(dragId);
   if (taskSource) {
@@ -218,12 +230,32 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
     return { kind: "sport", entityId: sportPlacement[1], sportRole: "placement" };
   }
 
+  const monthlySource = /^monthly_bill-source:([^:]+):(\d{4}-\d{2}-\d{2})$/.exec(dragId);
+  if (monthlySource) {
+    return {
+      kind: "monthly_bill",
+      entityId: monthlySource[1],
+      monthStart: monthlySource[2],
+      monthlyRole: "source",
+    };
+  }
+
+  const monthlyInstance = /^monthly_bill-instance:(.+)$/.exec(dragId);
+  if (monthlyInstance) {
+    return {
+      kind: "monthly_bill",
+      entityId: monthlyInstance[1],
+      monthlyRole: "placement",
+    };
+  }
+
   const monthlyBill = /^monthly_bill:([^:]+):(\d{4}-\d{2}-\d{2})$/.exec(dragId);
   if (monthlyBill) {
     return {
       kind: "monthly_bill",
       entityId: monthlyBill[1],
       monthStart: monthlyBill[2],
+      monthlyRole: "placement",
     };
   }
 

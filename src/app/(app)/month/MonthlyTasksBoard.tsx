@@ -7,6 +7,7 @@ import { Button } from "@/components/Button/Button";
 import {
   archiveMonthlyTaskAction,
   copyMonthPlanFromPreviousAction,
+  deleteMonthlyTaskInstanceAction,
   scheduleMonthlyTaskPlanAction,
   setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
@@ -24,6 +25,10 @@ import {
 import {
   formatMonthlyTaskDetail,
   groupByCategory,
+  expandMonthlyTaskOccurrences,
+  isMonthlyTaskRepeatable,
+  monthlyTaskCompletions,
+  monthlyTaskInstanceKey,
   type MonthlyTaskForMonth,
   type TaskCategory,
 } from "@/lib/tasks";
@@ -74,6 +79,10 @@ export function MonthlyTasksBoard({
   };
 
   const toggleQuick = (task: MonthlyTaskForMonth) => {
+    if (isMonthlyTaskRepeatable(task) && !task.completion?.isInstance) {
+      setExpandedId(task.id);
+      return;
+    }
     if (isMonthlyFinanceTask(task)) {
       document.getElementById("ekonomi")?.scrollIntoView({ behavior: "smooth" });
       setExpandedId(task.id);
@@ -88,6 +97,7 @@ export function MonthlyTasksBoard({
         taskId: task.id,
         monthStart,
         done: !task.completion?.doneAt,
+        completionId: task.completion?.id,
         amount: isMonthlyBill(task, categories)
           ? effectiveBillAmountKr(task) ?? undefined
           : undefined,
@@ -102,6 +112,7 @@ export function MonthlyTasksBoard({
         monthStart,
         done: true,
         note,
+        completionId: task.completion?.id,
         amount: isMonthlyBill(task, categories)
           ? effectiveBillAmountKr(task) ?? undefined
           : undefined,
@@ -127,6 +138,7 @@ export function MonthlyTasksBoard({
         done: true,
         note,
         amount,
+        completionId: task.completion?.id,
       });
       if (res.ok) setExpandedId(null);
       return res;
@@ -139,6 +151,7 @@ export function MonthlyTasksBoard({
         taskId: task.id,
         monthStart,
         done: false,
+        completionId: task.completion?.id,
       }),
     );
 
@@ -146,6 +159,7 @@ export function MonthlyTasksBoard({
     task: MonthlyTaskForMonth,
     weekStart: string | null,
     dayOfMonth: number | null,
+    occasion?: string,
   ) => {
     if (dayOfMonth != null && (dayOfMonth < 1 || dayOfMonth > 31)) return;
     run(task.id, () =>
@@ -154,6 +168,7 @@ export function MonthlyTasksBoard({
         monthStart,
         weekStart,
         dayOfMonth,
+        occasion,
       }),
     );
   };
@@ -229,12 +244,22 @@ export function MonthlyTasksBoard({
     );
   }
 
+  const removeInstance = (completionId: string) =>
+    run(completionId, () => deleteMonthlyTaskInstanceAction({ completionId }));
+
   const toPlaceTasks = tasks.filter((t) =>
     needsMonthPlacement(t, t.completion, monthStart),
   );
-  const plannedTasks = tasks.filter(
-    (t) => !needsMonthPlacement(t, t.completion, monthStart),
-  );
+  const plannedTasks = [
+    ...tasks.filter(
+      (t) =>
+        !isMonthlyTaskRepeatable(t) &&
+        !needsMonthPlacement(t, t.completion, monthStart),
+    ),
+    ...expandMonthlyTaskOccurrences(
+      tasks.filter((t) => isMonthlyTaskRepeatable(t)),
+    ),
+  ];
   const groupedToPlace = groupByCategory(toPlaceTasks, categories);
   const groupedPlanned = groupByCategory(plannedTasks, categories);
   const doneCount = tasks.filter((t) =>
@@ -244,45 +269,58 @@ export function MonthlyTasksBoard({
     (t) => !needsMonthPlacement(t, t.completion, monthStart),
   ).length;
 
-  const renderTaskList = (items: MonthlyTaskForMonth[]) => (
+  const renderTaskList = (
+    items: MonthlyTaskForMonth[],
+    allowUnplanFest = false,
+  ) => (
     <ul className={styles.taskList}>
-      {items.map((t) => (
+      {items.map((t) => {
+        const rowKey = monthlyTaskInstanceKey(t);
+        const canUnplanFest = allowUnplanFest && Boolean(t.completion?.id);
+        return (
         <MonthlyTaskRow
-          key={t.id}
+          key={rowKey}
           task={t}
           monthStart={monthStart}
           categories={categories}
           pending={pending}
-          busy={pendingId === t.id}
-          expanded={expandedId === t.id}
+          busy={pendingId === rowKey || pendingId === t.id}
+          expanded={expandedId === rowKey}
           editing={editingId === t.id}
           onToggleExpand={() => {
             if (editingId === t.id) return;
-            setExpandedId(expandedId === t.id ? null : t.id);
+            setExpandedId(expandedId === rowKey ? null : rowKey);
           }}
           onStartEdit={() => {
             setEditingId(t.id);
-            setExpandedId(t.id);
+            setExpandedId(rowKey);
           }}
           onCancelEdit={() => setEditingId(null)}
           onSaveEdit={(values) => saveEdit(t.id, values, t)}
           onDelete={
-            t.singleMonthStart ? () => removeTask(t.id) : undefined
+            t.singleMonthStart
+              ? () => removeTask(t.id)
+              : canUnplanFest
+                ? () => removeInstance(t.completion!.id)
+                : undefined
           }
           onToggleQuick={toggleQuick}
           onCompleteSimple={completeSimple}
           onCompleteAmount={completeAmount}
           onUncomplete={uncomplete}
           onSchedulePlan={schedulePlan}
+          onRemoveInstance={removeInstance}
           onChangeCategory={changeCategory}
           onSaveBillAmount={saveBillAmount}
         />
-      ))}
+        );
+      })}
     </ul>
   );
 
   const renderGroupedSection = (
     grouped: { category: TaskCategory | null; items: MonthlyTaskForMonth[] }[],
+    allowUnplanFest = false,
   ) =>
     grouped.map(({ category, items }) => (
       <section
@@ -308,7 +346,7 @@ export function MonthlyTasksBoard({
             {items.filter((t) => isMonthlyTaskComplete(t, t.completion)).length}/{items.length}
           </span>
         </header>
-        {renderTaskList(items)}
+        {renderTaskList(items, allowUnplanFest)}
       </section>
     ));
 
@@ -374,7 +412,7 @@ export function MonthlyTasksBoard({
               {plannedTasks.length} klara
             </span>
           </header>
-          {renderGroupedSection(groupedPlanned)}
+          {renderGroupedSection(groupedPlanned, true)}
         </section>
       ) : null}
     </div>
@@ -406,7 +444,9 @@ interface MonthlyTaskRowProps {
     task: MonthlyTaskForMonth,
     weekStart: string | null,
     dayOfMonth: number | null,
+    occasion?: string,
   ) => void;
+  onRemoveInstance?: (completionId: string) => void;
   onChangeCategory: (task: MonthlyTaskForMonth, raw: string) => void;
   onSaveBillAmount: (task: MonthlyTaskForMonth, amountRaw: string) => void;
 }
@@ -429,6 +469,7 @@ function MonthlyTaskRow({
   onCompleteAmount,
   onUncomplete,
   onSchedulePlan,
+  onRemoveInstance,
   onChangeCategory,
   onSaveBillAmount,
 }: MonthlyTaskRowProps) {
@@ -438,7 +479,7 @@ function MonthlyTaskRow({
   const billAmountLabel = formatBillAmountKr(task);
   const amountDetail = formatMonthlyTaskDetail(task, task.completion);
   const isBill = isMonthlyBill(task, categories);
-  const displayTitle = monthlyTaskDisplayTitle(task);
+  const displayTitle = monthlyTaskDisplayTitle(task, task.completion);
   const transferTarget = transferTaskFinanceLabel(task.key);
   const done = isMonthlyTaskComplete(task, task.completion);
   const savedNote =
@@ -462,8 +503,20 @@ function MonthlyTaskRow({
         ? String(task.defaultAmountKr)
         : "",
   );
+  const [festOccasion, setFestOccasion] = useState("");
+  const [festDay, setFestDay] = useState("");
+  const [festHint, setFestHint] = useState<string | null>(null);
 
   const showDayPicker = !done;
+  const isFestSource =
+    isMonthlyTaskRepeatable(task) && !task.completion?.isInstance;
+  const festOccasions = isFestSource
+    ? monthlyTaskCompletions(task).filter(
+        (c) =>
+          !c.isUnscheduled &&
+          (c.scheduledDayOfMonth != null || c.doneAt != null),
+      )
+    : [];
 
   const planSummary =
     done && schedule.isPlanned && schedule.weekStart
@@ -505,6 +558,7 @@ function MonthlyTaskRow({
         done ? styles.taskDone : "",
         busy ? styles.taskBusy : "",
         task.singleMonthStart ? styles.taskOneOff : "",
+        onDelete ? styles.taskWithRemove : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -516,7 +570,7 @@ function MonthlyTaskRow({
           .join(" ")}
         aria-label={done ? "Markera som ej klar" : "Markera som klar"}
         aria-pressed={done}
-        disabled={pending}
+        disabled={pending || isFestSource}
         onClick={() => onToggleQuick(task)}
       >
         {done ? (
@@ -533,13 +587,18 @@ function MonthlyTaskRow({
           <span aria-hidden />
         )}
       </button>
-      {task.singleMonthStart && onDelete ? (
+      {onDelete ? (
         <button
           type="button"
           className={styles.taskRemoveBtn}
           onClick={onDelete}
           disabled={pending}
-          aria-label={`Ta bort ${task.title}`}
+          aria-label={
+            isMonthlyTaskRepeatable(task)
+              ? `Avplanera ${displayTitle}`
+              : `Ta bort ${task.title}`
+          }
+          title={isMonthlyTaskRepeatable(task) ? "Avplanera" : "Ta bort"}
         >
           ×
         </button>
@@ -569,6 +628,10 @@ function MonthlyTaskRow({
           </span>
           {amountDetail && !isBill && !billAmountLabel ? (
             <span className={styles.taskNoteHint}>{amountDetail}</span>
+          ) : isFestSource ? (
+            <span className={styles.taskNoteHint}>
+              Lägg till flera fester. Avplanera ett tillfälle med × under Planerade.
+            </span>
           ) : detail && !isBill ? <span className={styles.taskNoteHint}>{detail}</span> : null}
           {isBill && done && detail ? (
             <span className={styles.taskNoteHint}>{detail}</span>
@@ -582,7 +645,99 @@ function MonthlyTaskRow({
             ▾
           </span>
         </button>
-        {showDayPicker ? (
+        {isFestSource ? (
+          <div className={styles.festAdd}>
+            <Input
+              label="Vilken slags fest?"
+              value={festOccasion}
+              onChange={(e) => {
+                setFestOccasion(e.target.value);
+                setFestHint(null);
+              }}
+              placeholder="t.ex. kräftskiva, födelsedag"
+              maxLength={80}
+              disabled={pending}
+              error={festHint ?? undefined}
+            />
+            <div className={styles.taskPlanRow}>
+              <label className={styles.taskDay}>
+                <span className={styles.taskDayLabel}>Dag</span>
+                <select
+                  className={styles.taskDaySelect}
+                  value={festDay}
+                  disabled={pending}
+                  onChange={(e) => setFestDay(e.target.value)}
+                  aria-label={`Dag för ${task.title}`}
+                >
+                  <option value="">Välj dag…</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                disabled={pending}
+                onClick={() => {
+                  const dayOfMonth = Number(festDay);
+                  if (!festOccasion.trim()) {
+                    setFestHint("Skriv vilken slags fest det är.");
+                    return;
+                  }
+                  if (!festDay || dayOfMonth < 1 || dayOfMonth > 31) {
+                    setFestHint("Välj en dag.");
+                    return;
+                  }
+                  setFestHint(null);
+                  onSchedulePlan(task, null, dayOfMonth, festOccasion);
+                  setFestOccasion("");
+                  setFestDay("");
+                }}
+              >
+                Lägg till
+              </Button>
+            </div>
+            {festOccasions.length > 0 ? (
+              <ul className={styles.festList}>
+                {festOccasions.map((c) => (
+                  <li key={c.id} className={styles.festListItem}>
+                    <span>
+                      {c.occasion?.trim()
+                        ? `${c.occasion.trim()} · dag ${c.scheduledDayOfMonth ?? "?"}`
+                        : `Dag ${c.scheduledDayOfMonth ?? "?"}`}
+                      {c.doneAt ? " · klar" : ""}
+                    </span>
+                    {onRemoveInstance ? (
+                      <button
+                        type="button"
+                        className={styles.link}
+                        disabled={pending}
+                        onClick={() => onRemoveInstance(c.id)}
+                      >
+                        Avplanera
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.taskPlanSummary}>
+                Inga fester inlagda den här månaden ännu.
+              </p>
+            )}
+          </div>
+        ) : isMonthlyTaskRepeatable(task) ? (
+          <p className={styles.taskPlanSummary}>
+            {task.completion?.scheduledDayOfMonth != null
+              ? `Dag ${task.completion.scheduledDayOfMonth}`
+              : "Planerad"}
+            {done ? " · klar" : ""}
+          </p>
+        ) : showDayPicker ? (
           <div className={styles.taskPlanRow}>
             <label className={styles.taskDay}>
               <span className={styles.taskDayLabel}>Vecka</span>

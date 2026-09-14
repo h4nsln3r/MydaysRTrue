@@ -4,12 +4,15 @@ import { formatHabitPoints, habitStatusPoints } from "@/lib/habits";
 import type { MonthDay, MonthSummary } from "@/lib/habits.server";
 import {
   formatMonthlyTaskDetail,
+  expandMonthlyTaskOccurrences,
+  isMonthlyTaskRepeatable,
+  monthlyTaskCompletions,
   type MonthlyTaskForMonth,
+  type TaskCategory,
 } from "@/lib/tasks";
 import { dateInMonth, formatBillAmountKr, isMonthlyBill, isMonthlyAmountTask, isMonthlyTaskComplete, monthStartFromDate, monthlyTaskVisualStatus, resolveMonthlyTaskSchedule } from "@/lib/monthly-bills";
 import { formatDayShort } from "@/lib/date";
 import { monthlyTaskDisplayTitle, type MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
-import type { TaskCategory } from "@/lib/tasks";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
 import {
@@ -359,6 +362,13 @@ function MonthlyTaskCard({
   monthStart: string;
   today: string;
 }) {
+  const festOccasions = isMonthlyTaskRepeatable(task)
+    ? monthlyTaskCompletions(task).filter(
+        (c) =>
+          !c.isUnscheduled &&
+          (c.scheduledDayOfMonth != null || c.doneAt != null),
+      )
+    : [];
   const schedule = resolveMonthlyTaskSchedule(task, task.completion, monthStart, {
     includeWhenDone: true,
   });
@@ -378,7 +388,13 @@ function MonthlyTaskCard({
         ? "/"
         : `/day/${scheduledDate}`;
 
-  const status = monthlyTaskVisualStatus(task, task.completion, monthStart, today);
+  const status = isMonthlyTaskRepeatable(task)
+    ? festOccasions.length === 0
+      ? "unplaced"
+      : festOccasions.every((c) => isMonthlyTaskComplete(task, c))
+        ? "done"
+        : "planned"
+    : monthlyTaskVisualStatus(task, task.completion, monthStart, today);
 
   return (
     <div
@@ -406,7 +422,21 @@ function MonthlyTaskCard({
           ) : isMonthlyAmountTask(task) && amountDetail ? (
             <p className={styles.monthlyCardDetail}>{amountDetail}</p>
           ) : null}
-          {status === "unplaced" ? (
+          {isMonthlyTaskRepeatable(task) ? (
+            <p className={styles.monthlyCardDetail}>
+              {festOccasions.length === 0
+                ? "Inga tillfällen den här månaden"
+                : festOccasions
+                    .map(
+                      (c) =>
+                        c.occasion?.trim() ||
+                        (c.scheduledDayOfMonth != null
+                          ? `Dag ${c.scheduledDayOfMonth}`
+                          : "Fest"),
+                    )
+                    .join(" · ")}
+            </p>
+          ) : status === "unplaced" ? (
             <p className={styles.monthlyCardDetail}>Ej planerad den här månaden</p>
           ) : scheduledDay != null ? (
             <p className={styles.monthlyCardDetail}>
@@ -543,7 +573,7 @@ function DayScore({
     hit += habitStatusPoints(day.statuses[h.id]);
   }
 
-  for (const task of monthlyTasks) {
+  for (const task of expandMonthlyTaskOccurrences(monthlyTasks)) {
     const monthStart = monthStartFromDate(day.date);
     const schedule = resolveMonthlyTaskSchedule(
       task,

@@ -136,6 +136,10 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
                 onHold: false,
                 codingProjectId: t.placement?.codingProjectId ?? null,
                 codingProjectTitle: t.placement?.codingProjectTitle ?? null,
+                gameId: t.placement?.gameId ?? null,
+                gameTitle: t.placement?.gameTitle ?? null,
+                gameKind: t.placement?.gameKind ?? null,
+                gameIcon: t.placement?.gameIcon ?? null,
               },
             }
           : t,

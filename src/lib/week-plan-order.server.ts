@@ -165,6 +165,15 @@ export async function applyWeekDaySortOrder(
         break;
       }
       case "monthly_bill": {
+        if (parsed.monthlyRole === "placement" && !parsed.monthStart) {
+          const { error } = await supabase
+            .from("monthly_task_completions")
+            .update({ day_sort_order: i })
+            .eq("user_id", userId)
+            .eq("id", parsed.entityId);
+          if (error) return { ok: false, error: error.message };
+          break;
+        }
         if (!parsed.monthStart) {
           return { ok: false, error: "Ogiltig räkning." };
         }
@@ -174,7 +183,8 @@ export async function applyWeekDaySortOrder(
           .eq("user_id", userId)
           .eq("task_id", parsed.entityId)
           .eq("month_start", parsed.monthStart)
-          .eq("scheduled_day_of_month", dayOfMonth);
+          .eq("scheduled_day_of_month", dayOfMonth)
+          .eq("is_instance", false);
         if (error) return { ok: false, error: error.message };
         break;
       }

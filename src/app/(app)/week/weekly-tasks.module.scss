@@ -603,14 +603,44 @@
 }
 
 .onHoldRow {
+    position: relative;
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: start;
     gap: $space-2;
-    padding: $space-2 $space-3;
+    padding: $space-2 2.4rem $space-2 $space-3;
     background: $color-ink-elevated;
     border: 1px solid $color-line;
     border-radius: $radius-md;
+}
+
+.onHoldRemove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: #f87171;
+        background: rgba(#f87171, 0.12);
+    }
 }
 
 .onHoldMeta {
@@ -748,6 +778,11 @@
     padding-top: $space-3;
     margin-top: $space-2;
     border-top: 1px dashed $color-line;
+}
+
+.festOccasion {
+    grid-column: 1 / -1;
+    width: 100%;
 }
 
 .backlogPlace {

@@ -31,6 +31,7 @@ interface PlacementRow {
   note: string | null;
   companions: string | null;
   done_at: string | null;
+  sport_id: string | null;
 }
 
 function rowToTemplate(r: TemplateRow): SportSessionTemplate {
@@ -55,6 +56,7 @@ function rowToPlacement(r: PlacementRow): SportPlacement {
     daySortOrder: r.day_sort_order ?? 0,
     planSport: r.plan_sport,
     actualSport: r.actual_sport,
+    sportId: r.sport_id,
     note: r.note,
     companions: r.companions,
     doneAt: r.done_at,
@@ -62,7 +64,7 @@ function rowToPlacement(r: PlacementRow): SportPlacement {
 }
 
 const PLACEMENT_SELECT =
-  "id, template_id, week_start, weekday, day_sort_order, plan_sport, actual_sport, note, companions, done_at";
+  "id, template_id, week_start, weekday, day_sort_order, plan_sport, actual_sport, note, companions, done_at, sport_id";
 
 type SportSupabase = Awaited<ReturnType<typeof createClient>>;
 

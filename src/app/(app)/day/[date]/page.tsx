@@ -32,6 +32,8 @@ import { getGymSessionsForDate } from "@/lib/gym.server";
 import { getWeightForDate } from "@/lib/weight.server";
 import { getCategories, getMonthlyTasksForDate, getWeeklyTasksForDate } from "@/lib/tasks.server";
 import { getCodingProjects } from "@/lib/coding.server";
+import { getUserGames } from "@/lib/games.server";
+import { getUserSports } from "@/lib/sports.server";
 import { getDailyPlanOrder } from "@/lib/day-plan.server";
 import { getMealRestaurants } from "@/lib/meals.server";
 import { getMealBoxStock } from "@/lib/meal-box.server";
@@ -88,6 +90,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     mood,
     smokeFree,
     codingProjects,
+    games,
+    sports,
   ] = await Promise.all([
     getDailySummary(user.id, date),
     getDailyHabits(user.id, date),
@@ -110,6 +114,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getDailyMood(user.id, date),
     getDailySmokeFree(user.id, date),
     getCodingProjects(user.id),
+    getUserGames(user.id),
+    getUserSports(user.id),
   ]);
 
   const work = await getWorkDailyLog(user.id, date);
@@ -200,6 +206,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               bathingWeekday={bathingDay.weekday}
               enableExtraBath={!isUpcoming}
               codingProjects={codingProjects}
+              games={games}
+              sports={sports}
             />
           </section>
 

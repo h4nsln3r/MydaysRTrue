@@ -9,6 +9,7 @@ import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
+import type { UserSport } from "@/lib/sports";
 import type { Weekday } from "@/lib/tasks";
 import type { WeightDayContext } from "@/lib/weight";
 import styles from "./TrainingDaySection.module.scss";
@@ -29,6 +30,7 @@ interface Props {
   /** Weekday this section represents — enables one-tap extra bath logging. */
   bathingWeekday?: Weekday | null;
   enableExtraBath?: boolean;
+  sports?: UserSport[];
 }
 
 export function TrainingDaySection({
@@ -46,6 +48,7 @@ export function TrainingDaySection({
   weightTitle = "Vikt",
   bathingWeekday = null,
   enableExtraBath = false,
+  sports = [],
 }: Props) {
   const hasGym = gymSessions.length > 0;
   const hasCardio = cardioSessions.length > 0;
@@ -98,6 +101,7 @@ export function TrainingDaySection({
             title={sportTitle}
             hideWhenEmpty
             showWeekLink={false}
+            sports={sports}
           />
           <BathingDayCard
             weekStart={weekStart}

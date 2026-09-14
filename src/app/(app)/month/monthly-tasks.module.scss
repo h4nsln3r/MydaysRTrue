@@ -391,6 +391,37 @@
     letter-spacing: 0.02em;
 }
 
+.festAdd {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    margin-top: 6px;
+}
+
+.taskWithRemove {
+    grid-template-columns: auto auto auto 1fr;
+}
+
+.festList {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.festListItem {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-2;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    color: $color-cream-dim;
+    letter-spacing: 0.02em;
+}
+
 .taskPlanRow {
     display: flex;
     flex-wrap: wrap;

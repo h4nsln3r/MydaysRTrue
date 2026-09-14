@@ -265,6 +265,81 @@ export interface Database {
         };
         Relationships: [];
       };
+      user_games: {
+        Row: {
+          id: string;
+          user_id: string;
+          key: string | null;
+          title: string;
+          kind: "rpg" | "board" | "pc" | "card" | "console" | "other";
+          icon: string;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          key?: string | null;
+          title: string;
+          kind?: "rpg" | "board" | "pc" | "card" | "console" | "other";
+          icon?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          key?: string | null;
+          title?: string;
+          kind?: "rpg" | "board" | "pc" | "card" | "console" | "other";
+          icon?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      user_sports: {
+        Row: {
+          id: string;
+          user_id: string;
+          key: string | null;
+          title: string;
+          icon: string;
+          sort_order: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          key?: string | null;
+          title: string;
+          icon?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          key?: string | null;
+          title?: string;
+          icon?: string;
+          sort_order?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       coding_project_versions: {
         Row: {
           id: string;
@@ -872,6 +947,7 @@ export interface Database {
           live_event_id: string | null;
           on_hold: boolean;
           coding_project_id: string | null;
+          game_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -899,6 +975,7 @@ export interface Database {
           live_event_id?: string | null;
           on_hold?: boolean;
           coding_project_id?: string | null;
+          game_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -926,6 +1003,7 @@ export interface Database {
           live_event_id?: string | null;
           on_hold?: boolean;
           coding_project_id?: string | null;
+          game_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1013,6 +1091,7 @@ export interface Database {
           single_month_start: string | null;
           default_amount_kr: number | null;
           enabled: boolean;
+          is_repeatable: boolean;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -1032,6 +1111,7 @@ export interface Database {
           single_month_start?: string | null;
           default_amount_kr?: number | null;
           enabled?: boolean;
+          is_repeatable?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1051,6 +1131,7 @@ export interface Database {
           single_month_start?: string | null;
           default_amount_kr?: number | null;
           enabled?: boolean;
+          is_repeatable?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1069,6 +1150,8 @@ export interface Database {
           scheduled_day_of_month: number | null;
           scheduled_week_start: string | null;
           is_unscheduled: boolean;
+          is_instance: boolean;
+          occasion: string | null;
           day_sort_order: number;
           created_at: string;
           updated_at: string;
@@ -1084,6 +1167,8 @@ export interface Database {
           scheduled_day_of_month?: number | null;
           scheduled_week_start?: string | null;
           is_unscheduled?: boolean;
+          is_instance?: boolean;
+          occasion?: string | null;
           day_sort_order?: number;
           created_at?: string;
           updated_at?: string;
@@ -1099,6 +1184,8 @@ export interface Database {
           scheduled_day_of_month?: number | null;
           scheduled_week_start?: string | null;
           is_unscheduled?: boolean;
+          is_instance?: boolean;
+          occasion?: string | null;
           day_sort_order?: number;
           created_at?: string;
           updated_at?: string;
@@ -1589,6 +1676,7 @@ export interface Database {
           note: string | null;
           companions: string | null;
           done_at: string | null;
+          sport_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1604,6 +1692,7 @@ export interface Database {
           note?: string | null;
           companions?: string | null;
           done_at?: string | null;
+          sport_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1619,6 +1708,7 @@ export interface Database {
           note?: string | null;
           companions?: string | null;
           done_at?: string | null;
+          sport_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

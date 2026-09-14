@@ -2,6 +2,7 @@
 // Server-only queries live in `./tasks.server`.
 
 import { parseLocalISO } from "@/lib/date";
+import { GAME_KIND_ICON, GAME_KIND_LABEL, type GameKind } from "@/lib/games";
 import { transferTaskFinanceLabel } from "@/lib/monthly-finance";
 
 // 'daily' = habit categories. 'task' = shared categories used by BOTH weekly
@@ -210,9 +211,15 @@ export function musicActivityFromLegacyKey(
 }
 
 export function musicSessionTitle(
-  task: { title: string; completionKind?: WeeklyTaskCompletionKind },
-  placement: { musicActivity?: MusicActivity | null } | null | undefined,
+  task: { title: string; completionKind?: WeeklyTaskCompletionKind; key?: string | null },
+  placement: {
+    musicActivity?: MusicActivity | null;
+    gameTitle?: string | null;
+  } | null | undefined,
 ): string {
+  if (placement?.gameTitle?.trim()) {
+    return placement.gameTitle.trim();
+  }
   if (task.completionKind === "music" && placement?.musicActivity) {
     return MUSIC_ACTIVITY_LABEL[placement.musicActivity];
   }
@@ -221,8 +228,16 @@ export function musicSessionTitle(
 
 export function musicSessionIcon(
   task: { icon: string; completionKind?: WeeklyTaskCompletionKind },
-  placement: { musicActivity?: MusicActivity | null } | null | undefined,
+  placement: {
+    musicActivity?: MusicActivity | null;
+    gameKind?: GameKind | null;
+    gameIcon?: string | null;
+  } | null | undefined,
 ): string {
+  if (placement?.gameIcon?.trim()) return placement.gameIcon.trim();
+  if (placement?.gameKind) {
+    return GAME_KIND_ICON[placement.gameKind];
+  }
   if (task.completionKind === "music" && placement?.musicActivity) {
     return MUSIC_ACTIVITY_ICON[placement.musicActivity];
   }
@@ -333,7 +348,7 @@ export function isCodingWeeklyTaskKey(key: string | null | undefined): boolean {
 }
 
 export function isGameWeeklyTaskKey(key: string | null | undefined): boolean {
-  return key === "game_dnd";
+  return key === "game" || key === "game_dnd";
 }
 
 /** Clamp a weekly goal to the allowed range. */
@@ -511,6 +526,8 @@ export interface MonthlyTask {
   defaultAmountKr: number | null;
   /** When false, hidden from month/week planning until turned back on. */
   enabled: boolean;
+  /** Can be placed on several days in the same month (Fest). */
+  isRepeatable: boolean;
 }
 
 export interface WeeklyPlacement {
@@ -552,6 +569,11 @@ export interface WeeklyPlacement {
   /** Coding session project (dev_code only). */
   codingProjectId: string | null;
   codingProjectTitle: string | null;
+  /** Chosen game from the user catalog (SPEL / game task). */
+  gameId: string | null;
+  gameTitle: string | null;
+  gameKind: GameKind | null;
+  gameIcon: string | null;
 }
 
 export interface WeeklyTaskChecklistCompletion {
@@ -585,6 +607,10 @@ export interface MonthlyCompletion {
   scheduledWeekStart: string | null;
   /** User cleared planning for this month (overrides default day). */
   isUnscheduled: boolean;
+  /** Extra placement of a repeatable monthly task (Fest). */
+  isInstance: boolean;
+  /** Kind of party / occasion, e.g. kräftskiva. */
+  occasion: string | null;
   /** Order on the weekday when shown in the week plan. */
   daySortOrder: number;
 }
@@ -652,6 +678,17 @@ export function formatWeeklyTaskDetail(
   if (placement.codingProjectTitle?.trim()) {
     return placement.codingProjectTitle.trim();
   }
+  const gameKindLabel = placement.gameKind
+    ? GAME_KIND_LABEL[placement.gameKind]
+    : null;
+  if (gameKindLabel || placement.gameTitle?.trim()) {
+    const bits: string[] = [];
+    if (gameKindLabel) bits.push(gameKindLabel);
+    if (placement.planNote?.trim()) bits.push(placement.planNote.trim());
+    if (placement.note?.trim()) bits.push(placement.note.trim());
+    if (bits.length > 0) return bits.join(" · ");
+    if (placement.gameTitle?.trim()) return placement.gameTitle.trim();
+  }
   const spendLabel = placement.spendKind
     ? SPEND_KIND_LABEL[placement.spendKind]
     : null;
@@ -691,8 +728,67 @@ export function formatWeeklyTaskDetail(
 
 /** A monthly task in the context of a specific month. */
 export interface MonthlyTaskForMonth extends MonthlyTask {
-  /** null = not yet touched this month. */
+  /** Primary / first completion for this month (bills: the only row). */
   completion: MonthlyCompletion | null;
+  /** All completions this month (repeatable tasks may have many). */
+  completions: MonthlyCompletion[];
+}
+
+export const FEST_TASK_KEY = "life_fest";
+
+export function isMonthlyTaskRepeatable(task: {
+  isRepeatable?: boolean;
+  key?: string | null;
+}): boolean {
+  if (typeof task.isRepeatable === "boolean") return task.isRepeatable;
+  return task.key === FEST_TASK_KEY;
+}
+
+export function monthlyTaskCompletions(
+  task: Pick<MonthlyTaskForMonth, "completion" | "completions">,
+): MonthlyCompletion[] {
+  if (task.completions && task.completions.length > 0) return task.completions;
+  return task.completion ? [task.completion] : [];
+}
+
+/** One row per day placement for repeatable monthly tasks. */
+export function expandMonthlyTaskOccurrences(
+  tasks: MonthlyTaskForMonth[],
+): MonthlyTaskForMonth[] {
+  const out: MonthlyTaskForMonth[] = [];
+  for (const task of tasks) {
+    if (!isMonthlyTaskRepeatable(task)) {
+      out.push({
+        ...task,
+        completions: monthlyTaskCompletions(task),
+      });
+      continue;
+    }
+    const instances = monthlyTaskCompletions(task).filter(
+      (c) =>
+        !c.isUnscheduled &&
+        (c.scheduledDayOfMonth != null || c.doneAt != null),
+    );
+    for (const completion of instances) {
+      out.push({
+        ...task,
+        completion,
+        completions: [completion],
+      });
+    }
+  }
+  return out;
+}
+
+export function parseFestOccasion(raw: string):
+  | { ok: true; occasion: string }
+  | { ok: false; error: string } {
+  const occasion = raw.trim();
+  if (!occasion) return { ok: false, error: "Skriv vilken slags fest det är." };
+  if (occasion.length > 80) {
+    return { ok: false, error: "Håll festnamnet under 80 tecken." };
+  }
+  return { ok: true, occasion };
 }
 
 export function formatMonthlyTaskDetail(
@@ -721,6 +817,10 @@ export function formatMonthlyTaskDetail(
   }
 
   return note;
+}
+
+export function monthlyTaskInstanceKey(task: MonthlyTaskForMonth): string {
+  return task.completion?.id ?? task.id;
 }
 
 // ----------------------------------------------------------------------------

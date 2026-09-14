@@ -119,13 +119,18 @@ export function isSavingsTransferTaskKey(
   return key != null && key in SAVINGS_TRANSFER_TASKS;
 }
 
-export function monthlyTaskDisplayTitle(task: {
-  key: string | null;
-  title: string;
-}): string {
+export function monthlyTaskDisplayTitle(
+  task: {
+    key: string | null;
+    title: string;
+  },
+  completion?: { occasion?: string | null } | null,
+): string {
   if (isSavingsTransferTaskKey(task.key)) {
     return SAVINGS_TRANSFER_TASKS[task.key].title;
   }
+  const occasion = completion?.occasion?.trim();
+  if (occasion) return `${task.title} · ${occasion}`;
   return task.title;
 }
 

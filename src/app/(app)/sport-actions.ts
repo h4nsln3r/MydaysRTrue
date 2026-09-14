@@ -9,6 +9,7 @@ import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
 export interface ActionResult {
   ok: boolean;
   error?: string;
+  id?: string;
 }
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -254,19 +255,12 @@ export async function updateSportDefaultWeekdayAction(input: {
 export async function updateSportPlanAction(input: {
   placementId: string;
   weekStart: string;
-  planSport: string;
+  planSport?: string;
+  sportId?: string | null;
 }): Promise<ActionResult> {
   if (!input.placementId) return { ok: false, error: "Saknar placering." };
   if (!isMonday(input.weekStart)) {
     return { ok: false, error: "Veckan måste börja på en måndag." };
-  }
-
-  const planSport = (input.planSport ?? "").trim();
-  if (!planSport) {
-    return { ok: false, error: "Skriv vilken sport du planerar." };
-  }
-  if (planSport.length > 80) {
-    return { ok: false, error: "Håll sporten under 80 tecken." };
   }
 
   const supabase = await createClient();
@@ -275,9 +269,17 @@ export async function updateSportPlanAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
+  const resolved = await resolveCatalogSport(
+    supabase,
+    user.id,
+    input.sportId,
+    input.planSport,
+  );
+  if (!resolved.ok) return resolved;
+
   const { error } = await supabase
     .from("sport_week_placements")
-    .update({ plan_sport: planSport })
+    .update({ plan_sport: resolved.title, sport_id: resolved.sportId })
     .eq("id", input.placementId)
     .eq("user_id", user.id)
     .eq("week_start", input.weekStart);
@@ -290,7 +292,8 @@ export async function updateSportPlanAction(input: {
 export async function completeSportSessionAction(input: {
   placementId: string;
   weekStart: string;
-  actualSport: string;
+  actualSport?: string;
+  sportId?: string | null;
   note: string;
   companions: string;
 }): Promise<ActionResult> {
@@ -299,13 +302,19 @@ export async function completeSportSessionAction(input: {
     return { ok: false, error: "Veckan måste börja på en måndag." };
   }
 
-  const actualSport = (input.actualSport ?? "").trim();
-  if (!actualSport) {
-    return { ok: false, error: "Skriv vilken sport det blev." };
-  }
-  if (actualSport.length > 80) {
-    return { ok: false, error: "Håll sporten under 80 tecken." };
-  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const resolved = await resolveCatalogSport(
+    supabase,
+    user.id,
+    input.sportId,
+    input.actualSport,
+  );
+  if (!resolved.ok) return resolved;
 
   const note = (input.note ?? "").trim();
   const companions = (input.companions ?? "").trim();
@@ -315,12 +324,6 @@ export async function completeSportSessionAction(input: {
   if (companions.length > 120) {
     return { ok: false, error: "Håll med-spelare under 120 tecken." };
   }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Inte inloggad." };
 
   const { data: existing } = await supabase
     .from("sport_week_placements")
@@ -338,7 +341,8 @@ export async function completeSportSessionAction(input: {
     .from("sport_week_placements")
     .update({
       done_at: new Date().toISOString(),
-      actual_sport: actualSport,
+      actual_sport: resolved.title,
+      sport_id: resolved.sportId,
       note: note || null,
       companions: companions || null,
     })
@@ -402,6 +406,150 @@ export async function resetSportWeekToDefaultsAction(
     .delete()
     .eq("user_id", user.id)
     .eq("week_start", weekStart);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+type SportSupabase = Awaited<ReturnType<typeof createClient>>;
+
+async function resolveCatalogSport(
+  supabase: SportSupabase,
+  userId: string,
+  sportId: string | null | undefined,
+  fallbackTitle: string | null | undefined,
+): Promise<
+  | { ok: true; title: string; sportId: string | null }
+  | { ok: false; error: string }
+> {
+  const id = sportId?.trim() || null;
+  if (id) {
+    const { data: sport } = await supabase
+      .from("user_sports")
+      .select("id, title")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!sport) return { ok: false, error: "Sporten hittades inte." };
+    return { ok: true, title: sport.title, sportId: sport.id };
+  }
+
+  const title = (fallbackTitle ?? "").trim();
+  if (!title) return { ok: false, error: "Välj vilken sport det är." };
+  if (title.length > 80) {
+    return { ok: false, error: "Håll sporten under 80 tecken." };
+  }
+  return { ok: true, title, sportId: null };
+}
+
+function parseSportTitle(title: string):
+  | { ok: true; title: string }
+  | { ok: false; error: string } {
+  const trimmed = title.trim();
+  if (!trimmed) return { ok: false, error: "Skriv vilken sport det är." };
+  if (trimmed.length > 80) {
+    return { ok: false, error: "Håll sportnamnet under 80 tecken." };
+  }
+  return { ok: true, title: trimmed };
+}
+
+export async function createUserSportAction(input: {
+  title: string;
+  icon?: string;
+}): Promise<ActionResult> {
+  const parsed = parseSportTitle(input.title);
+  if (!parsed.ok) return parsed;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: last } = await supabase
+    .from("user_sports")
+    .select("sort_order")
+    .eq("user_id", user.id)
+    .is("archived_at", null)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const icon = (input.icon ?? "").trim() || "🏸";
+  const { data, error } = await supabase
+    .from("user_sports")
+    .insert({
+      user_id: user.id,
+      title: parsed.title,
+      icon,
+      sort_order: (last?.sort_order ?? -1) + 1,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === "23505") {
+      return { ok: false, error: "Du har redan en sport med det namnet." };
+    }
+    return { ok: false, error: error.message };
+  }
+  if (!data) return { ok: false, error: "Kunde inte skapa sporten." };
+
+  revalidatePath("/", "layout");
+  return { ok: true, id: data.id };
+}
+
+export async function updateUserSportAction(input: {
+  id: string;
+  title: string;
+  icon?: string;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar sport-id." };
+  const parsed = parseSportTitle(input.title);
+  if (!parsed.ok) return parsed;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const patch: { title: string; icon?: string } = { title: parsed.title };
+  if (input.icon != null) patch.icon = input.icon.trim() || "🏸";
+
+  const { error } = await supabase
+    .from("user_sports")
+    .update(patch)
+    .eq("id", input.id)
+    .eq("user_id", user.id);
+  if (error) {
+    if (error.code === "23505") {
+      return { ok: false, error: "Du har redan en sport med det namnet." };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true, id: input.id };
+}
+
+export async function archiveUserSportAction(input: {
+  id: string;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar sport-id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("user_sports")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", input.id)
+    .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");

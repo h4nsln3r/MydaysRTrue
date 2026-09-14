@@ -25,6 +25,7 @@ export function todayLocalISO(now: Date = new Date()): string {
 
 /** Keeps SSR (UTC server) and browser display in sync for Swedish local time. */
 export const DISPLAY_TIMEZONE = "Europe/Stockholm";
+export const DISPLAY_LOCALE = "sv-SE";
 
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("sv-SE", {
@@ -46,7 +47,7 @@ export function localHourFromISO(iso: string): number {
 }
 
 export function formatDateLong(date: Date = new Date()): string {
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(DISPLAY_LOCALE, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -108,34 +109,50 @@ export function isoWeekNumber(date: Date): number {
   return 1 + Math.round((daysFromWeek1 - 3 + ((week1.getDay() + 6) % 7)) / 7);
 }
 
-/** e.g. "Week 22 · May 25–31" — collapses month suffix when range stays in one month. */
+const SV_MONTH_SHORT = [
+  "jan",
+  "feb",
+  "mars",
+  "apr",
+  "maj",
+  "juni",
+  "juli",
+  "aug",
+  "sep",
+  "okt",
+  "nov",
+  "dec",
+] as const;
+
+function formatDayMonthSv(date: Date): string {
+  return `${date.getDate()} ${SV_MONTH_SHORT[date.getMonth()]}`;
+}
+
+/** e.g. "Vecka 22 · 25–31 maj" — collapses month suffix when range stays in one month. */
 export function formatWeekLabel(weekStart: string): string {
   const start = parseLocalISO(weekStart);
   const end = parseLocalISO(addDaysISO(weekStart, 6));
   const sameMonth = start.getMonth() === end.getMonth();
-  const startFmt = start.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  const endFmt = sameMonth
-    ? end.toLocaleDateString(undefined, { day: "numeric" })
-    : end.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return `Week ${isoWeekNumber(start)} · ${startFmt}–${endFmt}`;
+  const startFmt = formatDayMonthSv(start);
+  const endFmt = sameMonth ? String(end.getDate()) : formatDayMonthSv(end);
+  return `Vecka ${isoWeekNumber(start)} · ${startFmt}–${endFmt}`;
 }
 
-/** Short weekday for a YYYY-MM-DD — e.g. "Mon". */
+/** Short weekday for a YYYY-MM-DD — e.g. "mån". */
 export function formatWeekdayShort(localDate: string): string {
-  return parseLocalISO(localDate).toLocaleDateString(undefined, { weekday: "short" });
-}
-
-/** Short day-of-month for a YYYY-MM-DD — e.g. "May 25". */
-export function formatDayShort(localDate: string): string {
-  return parseLocalISO(localDate).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
+  return parseLocalISO(localDate).toLocaleDateString(DISPLAY_LOCALE, {
+    weekday: "short",
   });
 }
 
-/** Full long format for a YYYY-MM-DD — e.g. "Tuesday, May 26". */
+/** Short day-of-month for a YYYY-MM-DD — e.g. "25 maj". */
+export function formatDayShort(localDate: string): string {
+  return formatDayMonthSv(parseLocalISO(localDate));
+}
+
+/** Full long format for a YYYY-MM-DD — e.g. "tisdag 26 maj". */
 export function formatDayLong(localDate: string): string {
-  return parseLocalISO(localDate).toLocaleDateString(undefined, {
+  return parseLocalISO(localDate).toLocaleDateString(DISPLAY_LOCALE, {
     weekday: "long",
     day: "numeric",
     month: "long",

@@ -21,6 +21,8 @@ import { getWeekJournalSummary } from "@/lib/journal.server";
 import { getWorkLogsForWeek } from "@/lib/work.server";
 
 import { getUnifiedWeekPlan } from "@/lib/week-plan.server";
+import { getUserGames } from "@/lib/games.server";
+import { getUserSports } from "@/lib/sports.server";
 import { getWeekMealsSummary } from "@/lib/meal-box.server";
 import { getMealRestaurants } from "@/lib/meals.server";
 import { getWeekMediaSummary } from "@/lib/media.server";
@@ -96,6 +98,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     weekProgressLayout,
     weekCompletions,
     workByDate,
+    games,
+    sports,
   ] = await Promise.all([
     getWeeklySummary(user.id, start),
     getWeekHabitSummary(user.id, start),
@@ -113,6 +117,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getWeekProgressLayout(user.id, [...WEEK_PROGRESS_HABIT_KEYS]),
     getWeekCompletions(user.id, start),
     getWorkLogsForWeek(user.id, start),
+    getUserGames(user.id),
+    getUserSports(user.id),
   ]);
 
   const journalWeek = await getWeekJournalSummary(user.id, {
@@ -160,6 +166,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           layout={weekProgressLayout}
           workByDate={workByDate}
           savedRestaurants={mealRestaurants}
+          sports={sports}
         />
         </>
       ) : (
@@ -175,6 +182,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
             weekStart={start}
             plan={unifiedPlan}
             weightEnabled={weightPlan.enabled}
+            games={games}
+            sports={sports}
           />
         </section>
       )}

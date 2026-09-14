@@ -10,6 +10,7 @@ import type {
   MonthlyTaskForMonth,
   TaskCategory,
 } from "@/lib/tasks";
+import { isMonthlyTaskRepeatable, monthlyTaskCompletions } from "@/lib/tasks";
 
 export const BILLS_CATEGORY_NAME = "Räkningar";
 export const FINANCE_CATEGORY_NAME = "Ekonomi";
@@ -37,7 +38,7 @@ export function isMonthlyBill(
 
 /** Monthly tasks that can be placed on a day (bills, savings, salary, ekonomi). */
 export function isWeekPlannableMonthlyTask(
-  task: Pick<MonthlyTask, "categoryId" | "completionKind" | "key">,
+  task: Pick<MonthlyTask, "categoryId" | "completionKind" | "key" | "isRepeatable">,
   categories: TaskCategory[],
 ): boolean {
   if (isMonthlyBill(task, categories)) return true;
@@ -59,6 +60,7 @@ export function isWeekPlannableMonthlyTask(
       return true;
     }
   }
+  if (isMonthlyTaskRepeatable(task)) return true;
   return false;
 }
 
@@ -278,32 +280,74 @@ export function resolveMonthlyTaskSchedule(
   return none();
 }
 
+export function completionsForTaskMonth(
+  map: Map<string, MonthlyCompletion[]>,
+  taskId: string,
+  monthStart: string,
+): MonthlyCompletion[] {
+  return map.get(`${taskId}|${monthStart}`) ?? [];
+}
+
+export function primaryMonthlyCompletion(
+  completions: MonthlyCompletion[] | undefined,
+): MonthlyCompletion | null {
+  if (!completions?.length) return null;
+  return completions.find((c) => !c.isInstance) ?? completions[0];
+}
+
 /** Monthly tasks for a calendar day (day view / week parity). */
 export function monthlyTasksOnLocalDate(
   tasks: MonthlyTaskForMonth[],
   localDate: string,
-  completionsByTaskMonth?: Map<string, MonthlyCompletion>,
+  completionsByTaskMonth?: Map<string, MonthlyCompletion[]>,
   options?: MonthlyTaskScheduleOptions,
 ): MonthlyTaskForMonth[] {
   const monthStart = monthStartFromDate(localDate);
   const results: MonthlyTaskForMonth[] = [];
-  const seen = new Set<string>();
 
   const add = (task: MonthlyTaskForMonth) => {
-    if (seen.has(task.id)) return;
-    seen.add(task.id);
     results.push(task);
   };
 
   for (const task of tasks) {
     if (task.singleMonthStart && task.singleMonthStart !== monthStart) continue;
 
-    const completion =
-      completionsByTaskMonth?.get(`${task.id}|${monthStart}`) ??
-      task.completion ??
-      null;
+    const fromMap = completionsByTaskMonth
+      ? completionsForTaskMonth(completionsByTaskMonth, task.id, monthStart)
+      : null;
+    const all = fromMap ?? monthlyTaskCompletions(task);
 
-    const taskWithCompletion = { ...task, completion };
+    if (isMonthlyTaskRepeatable(task)) {
+      for (const completion of all) {
+        const taskWithCompletion: MonthlyTaskForMonth = {
+          ...task,
+          completion,
+          completions: [completion],
+        };
+        const schedule = resolveMonthlyTaskSchedule(
+          task,
+          completion,
+          monthStart,
+          options,
+        );
+        if (
+          schedule.isPlanned &&
+          schedule.dayOfMonth != null &&
+          dateInMonth(monthStart, schedule.dayOfMonth) === localDate
+        ) {
+          add(taskWithCompletion);
+          continue;
+        }
+        if (completion.doneAt && completion.doneAt.slice(0, 10) === localDate) {
+          add(taskWithCompletion);
+        }
+      }
+      continue;
+    }
+
+    const completion =
+      primaryMonthlyCompletion(all) ?? task.completion ?? null;
+    const taskWithCompletion = { ...task, completion, completions: all };
 
     const schedule = resolveMonthlyTaskSchedule(
       task,
@@ -334,10 +378,11 @@ export function monthlyTasksOnLocalDate(
 
 /** True when the task still needs week/day planning on the month board. */
 export function needsMonthPlacement(
-  task: Pick<MonthlyTask, "dayOfMonth" | "completionKind">,
+  task: Pick<MonthlyTask, "dayOfMonth" | "completionKind" | "isRepeatable" | "key">,
   completion: MonthlyCompletion | null,
   monthStart: string,
 ): boolean {
+  if (isMonthlyTaskRepeatable(task)) return true;
   if (isMonthlyTaskComplete(task, completion)) return false;
   if (
     completion?.scheduledWeekStart != null ||
@@ -394,7 +439,7 @@ export interface MonthlyBillForWeekBacklog {
 export function resolveMonthlyBillsForWeek(
   tasks: MonthlyTaskForMonth[],
   weekStart: string,
-  completionsByTaskMonth: Map<string, MonthlyCompletion>,
+  completionsByTaskMonth: Map<string, MonthlyCompletion[]>,
   categories: TaskCategory[],
 ): { placed: MonthlyBillWeekSlot[]; backlog: MonthlyBillForWeekBacklog[] } {
   const weekDates = new Set(weekDayDates(weekStart));
@@ -407,25 +452,80 @@ export function resolveMonthlyBillsForWeek(
 
   const markPlaced = (slot: MonthlyBillWeekSlot) => {
     placed.push(slot);
-    if (!slot.task.singleMonthStart) {
+    if (!slot.task.singleMonthStart && !isMonthlyTaskRepeatable(slot.task)) {
       placedTaskIds.add(slot.task.id);
     }
   };
 
   const skipRecurringBacklog = (task: MonthlyTaskForMonth): boolean =>
-    !task.singleMonthStart && placedTaskIds.has(task.id);
+    !isMonthlyTaskRepeatable(task) &&
+    !task.singleMonthStart &&
+    placedTaskIds.has(task.id);
 
   for (const task of tasks) {
     for (const monthStart of monthStarts) {
       if (task.singleMonthStart && task.singleMonthStart !== monthStart) continue;
       if (!isWeekPlannableMonthlyTask(task, categories)) continue;
 
-      const compKey = `${task.id}|${monthStart}`;
-      const completion = completionsByTaskMonth.get(compKey) ?? null;
+      const all = completionsForTaskMonth(
+        completionsByTaskMonth,
+        task.id,
+        monthStart,
+      );
+
+      if (isMonthlyTaskRepeatable(task)) {
+        for (const completion of all) {
+          if (completion.isUnscheduled) continue;
+          const taskWithCompletion: MonthlyTaskForMonth = {
+            ...task,
+            completion,
+            completions: [completion],
+          };
+          const schedule = resolveMonthlyTaskSchedule(
+            task,
+            completion,
+            monthStart,
+            { includeWhenDone: true },
+          );
+          const showDate =
+            schedule.isPlanned && schedule.dayOfMonth != null
+              ? dateInMonth(monthStart, schedule.dayOfMonth)
+              : completion.doneAt
+                ? completion.doneAt.slice(0, 10)
+                : null;
+          if (showDate && weekDates.has(showDate)) {
+            markPlaced({
+              task: taskWithCompletion,
+              monthStart,
+              scheduledDate: showDate,
+              weekday: isoWeekdayFromDate(showDate),
+            });
+          }
+        }
+        const overlapsMonth = [...weekDates].some(
+          (d) => monthStartFromDate(d) === monthStart,
+        );
+        if (overlapsMonth) {
+          const recurringBacklogKey = `${task.id}|${monthStart}|source`;
+          if (!unplannedRecurringBacklog.has(recurringBacklogKey)) {
+            unplannedRecurringBacklog.add(recurringBacklogKey);
+            backlog.push({
+              task: { ...task, completion: null, completions: all },
+              monthStart,
+            });
+          }
+        }
+        continue;
+      }
+
+      const completion = primaryMonthlyCompletion(all);
       const taskWithCompletion: MonthlyTaskForMonth = {
         ...task,
         completion,
+        completions: all,
       };
+
+      const compKey = `${task.id}|${monthStart}`;
 
       if (completion?.doneAt) {
         const schedule = resolveMonthlyTaskSchedule(
@@ -457,10 +557,15 @@ export function resolveMonthlyBillsForWeek(
           if (!unplannedRecurringBacklog.has(recurringBacklogKey)) {
             unplannedRecurringBacklog.add(recurringBacklogKey);
             const monthCompletion =
-              completionsByTaskMonth.get(`${task.id}|${monthStart}`) ??
-              null;
+              primaryMonthlyCompletion(
+                completionsForTaskMonth(
+                  completionsByTaskMonth,
+                  task.id,
+                  monthStart,
+                ),
+              );
             backlog.push({
-              task: { ...task, completion: monthCompletion },
+              task: { ...task, completion: monthCompletion, completions: all },
               monthStart,
             });
           }
@@ -505,6 +610,13 @@ export function resolveMonthlyBillsForWeek(
   const seenRecurringBacklog = new Set<string>();
   for (const entry of backlog) {
     if (entry.task.singleMonthStart) {
+      dedupedBacklog.push(entry);
+      continue;
+    }
+    if (isMonthlyTaskRepeatable(entry.task)) {
+      const key = `${entry.task.id}|${entry.monthStart}`;
+      if (seenRecurringBacklog.has(key)) continue;
+      seenRecurringBacklog.add(key);
       dedupedBacklog.push(entry);
       continue;
     }

@@ -20,6 +20,10 @@ import { getCategories, getMonthTaskSummary } from "@/lib/tasks.server";
 import { getMonthSpendSummaries } from "@/lib/expenses.server";
 import { SALARY_TASK_KEY } from "@/lib/monthly-finance";
 import { isMonthlyTaskComplete } from "@/lib/monthly-bills";
+import {
+  isMonthlyTaskRepeatable,
+  monthlyTaskCompletions,
+} from "@/lib/tasks";
 import { todayLocalISO } from "@/lib/date";
 import { getWorkLogsInRange } from "@/lib/work.server";
 import { parsePeriodView, type PeriodView } from "@/lib/period-view";
@@ -44,7 +48,7 @@ const MONTH_QS_RE = /^(\d{4})-(\d{2})$/;
 
 function formatMonthLabel(year: number, month: number): string {
   const d = new Date(year, month - 1, 1);
-  return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  return d.toLocaleDateString("sv-SE", { month: "long", year: "numeric" });
 }
 
 export default async function MonthPage({ searchParams }: MonthPageProps) {
@@ -80,9 +84,22 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     getMonthSpendSummaries(user.id, monthStart),
     getWorkLogsInRange(user.id, monthStart, monthEnd),
   ]);
-  const monthlyDone = monthlyTasks.tasks.filter((t) =>
-    isMonthlyTaskComplete(t, t.completion),
-  ).length;
+  let monthlyDone = 0;
+  let monthlyTotal = 0;
+  for (const t of monthlyTasks.tasks) {
+    if (isMonthlyTaskRepeatable(t)) {
+      const inst = monthlyTaskCompletions(t).filter(
+        (c) =>
+          !c.isUnscheduled &&
+          (c.scheduledDayOfMonth != null || c.doneAt != null),
+      );
+      monthlyTotal += inst.length;
+      monthlyDone += inst.filter((c) => isMonthlyTaskComplete(t, c)).length;
+    } else {
+      monthlyTotal += 1;
+      if (isMonthlyTaskComplete(t, t.completion)) monthlyDone += 1;
+    }
+  }
   const isCurrent = year === todayYM.year && month === todayYM.month;
   const isFuturePlan = view === "plan" && isFutureMonth(monthStart, today);
   const financeTask = monthlyTasks.tasks.find((t) => t.key === "finance_ekonomi");
@@ -160,7 +177,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             monthStart={monthStart}
             monthlyTasks={monthlyTasks.tasks}
             monthlyDone={monthlyDone}
-            monthlyTotal={monthlyTasks.tasks.length}
+            monthlyTotal={monthlyTotal}
             today={today}
             financeSnapshot={monthlyTasks.financeSnapshot}
             financeTaskId={financeTask?.id ?? null}

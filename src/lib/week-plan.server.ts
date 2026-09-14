@@ -4,7 +4,7 @@ import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getSportWeekSummary } from "@/lib/sport.server";
 import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
-import { formatWeeklyTaskDetail, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
+import { formatWeeklyTaskDetail, isGameWeeklyTaskKey, isMonthlyTaskRepeatable, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
@@ -15,6 +15,8 @@ import {
   weekPlanBathingSourceDragId,
   weekPlanDragId,
   weekPlanMonthlyBillDragId,
+  weekPlanMonthlyInstanceDragId,
+  weekPlanMonthlySourceDragId,
   weekPlanSportPlacementDragId,
   weekPlanSportSourceDragId,
   weekPlanTaskPlacementDragId,
@@ -43,9 +45,16 @@ function dayPlanSortOrder(
 }
 
 function weekTaskSubtitle(
-  task: { notes: string | null; completionKind: WeeklyTaskCompletionKind },
+  task: {
+    notes: string | null;
+    completionKind: WeeklyTaskCompletionKind;
+    key?: string | null;
+  },
   placement: Parameters<typeof formatWeeklyTaskDetail>[0] | null | undefined,
 ): string | null {
+  if (isGameWeeklyTaskKey(task.key) && !placement?.gameId) {
+    return "Välj vad ni ska spela";
+  }
   if (placement) {
     const detail = formatWeeklyTaskDetail(placement, task.completionKind);
     if (detail) return detail;
@@ -179,6 +188,7 @@ export async function getUnifiedWeekPlan(
           daySortOrder: 0,
           planSport: null,
           actualSport: null,
+          sportId: null,
           note: null,
           companions: null,
           doneAt: null,
@@ -422,12 +432,14 @@ export async function getUnifiedWeekPlan(
   );
 
   for (const slot of placed) {
-    const completion = billsWeek.completionsByTaskMonth.get(
-      `${slot.task.id}|${slot.monthStart}`,
-    ) ?? null;
+    const completion = slot.task.completion;
+    const repeatable = isMonthlyTaskRepeatable(slot.task);
     items.push({
-      dragId: weekPlanMonthlyBillDragId(slot.task.id, slot.monthStart),
+      dragId: repeatable && completion
+        ? weekPlanMonthlyInstanceDragId(completion.id)
+        : weekPlanMonthlyBillDragId(slot.task.id, slot.monthStart),
       kind: "monthly_bill",
+      monthlyRole: "placement",
       taskId: slot.task.id,
       taskKey: slot.task.key,
       categoryId: slot.task.categoryId,
@@ -438,9 +450,11 @@ export async function getUnifiedWeekPlan(
       completion,
       notes: slot.task.notes,
       defaultAmountKr: slot.task.defaultAmountKr,
-      label: monthlyTaskDisplayTitle(slot.task),
-      subtitle:
-        slot.task.completionKind === "finance"
+      label: monthlyTaskDisplayTitle(slot.task, completion),
+      subtitle: repeatable
+        ? completion?.occasion?.trim() ||
+          "Skriv vilken slags fest det är"
+        : slot.task.completionKind === "finance"
           ? formatMonthlyTaskDetail(slot.task, completion) ??
             slot.task.notes ??
             "Fyll i ekonomitabellen"
@@ -459,29 +473,32 @@ export async function getUnifiedWeekPlan(
         8000 + slot.task.sortOrder,
       ),
       singleMonthStart: slot.task.singleMonthStart,
+      isRepeatable: repeatable,
     });
   }
 
   for (const entry of backlog) {
-    const completion =
-      billsWeek.completionsByTaskMonth.get(
-        `${entry.task.id}|${entry.monthStart}`,
-      ) ?? null;
+    const completion = entry.task.completion;
+    const repeatable = isMonthlyTaskRepeatable(entry.task);
     items.push({
-      dragId: weekPlanMonthlyBillDragId(entry.task.id, entry.monthStart),
+      dragId: repeatable
+        ? weekPlanMonthlySourceDragId(entry.task.id, entry.monthStart)
+        : weekPlanMonthlyBillDragId(entry.task.id, entry.monthStart),
       kind: "monthly_bill",
+      monthlyRole: repeatable ? "source" : "placement",
       taskId: entry.task.id,
       taskKey: entry.task.key,
       categoryId: entry.task.categoryId,
       monthStart: entry.monthStart,
       scheduledDayOfMonth: null,
       completionKind: entry.task.completionKind,
-      completion,
+      completion: repeatable ? null : completion,
       notes: entry.task.notes,
       defaultAmountKr: entry.task.defaultAmountKr,
       label: monthlyTaskDisplayTitle(entry.task),
-      subtitle:
-        entry.task.completionKind === "finance"
+      subtitle: repeatable
+        ? "Skriv slags fest, dra till en dag — källan ligger kvar så du kan lägga fler"
+        : entry.task.completionKind === "finance"
           ? formatMonthlyTaskDetail(entry.task, completion) ??
             entry.task.notes ??
             "Placera på en dag — fyll i ekonomitabellen"
@@ -495,9 +512,10 @@ export async function getUnifiedWeekPlan(
       accent: entry.task.accent,
       defaultWeekday: null,
       weekday: null,
-      done: isMonthlyTaskComplete(entry.task, completion),
+      done: false,
       sortOrder: 8000 + entry.task.sortOrder,
       singleMonthStart: entry.task.singleMonthStart,
+      isRepeatable: repeatable,
     });
   }
 

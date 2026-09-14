@@ -16,6 +16,7 @@ import {
   deleteWeeklyTaskPlacementAction,
   moveWeeklyTaskPlacementAction,
   placeWeeklyTaskAction,
+  archiveWeeklyTaskAction,
   setWeeklyTaskCategoryAction,
   toggleWeeklyTaskDoneAction,
   uncompleteWeeklyTaskAction,
@@ -47,7 +48,10 @@ import {
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
 import type { CodingProject } from "@/lib/coding";
+import type { UserGame } from "@/lib/games";
+import { GAME_KIND_LABEL } from "@/lib/games";
 import { createCodingProjectAction } from "@/app/(app)/coding-actions";
+import { GameFields } from "@/components/GameFields/GameFields";
 import {
   formatKr,
   parseShopAmountExpr,
@@ -76,6 +80,7 @@ interface Props {
   showWeekLink?: boolean;
   /** Show a quick "add a task for this week only" affordance. */
   enableQuickAdd?: boolean;
+  games?: UserGame[];
 }
 
 export function WeeklyTasksDayCard({
@@ -89,6 +94,7 @@ export function WeeklyTasksDayCard({
   hideWhenEmpty = false,
   showWeekLink = true,
   enableQuickAdd = false,
+  games = [],
 }: Props) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -188,6 +194,7 @@ export function WeeklyTasksDayCard({
             task={task}
             weekStart={weekStart}
             categories={categories}
+            games={games}
             canReschedule={canReschedule}
             isOverdue={isOverdue}
             rescheduleDays={rescheduleDays}
@@ -356,6 +363,7 @@ interface TaskRowProps {
   weekStart: string;
   categories: TaskCategory[];
   codingProjects?: CodingProject[];
+  games?: UserGame[];
   canReschedule: boolean;
   isOverdue: boolean;
   rescheduleDays: RescheduleDay[];
@@ -379,6 +387,7 @@ export function WeeklyTaskRow({
   weekStart,
   categories,
   codingProjects = [],
+  games = [],
   canReschedule,
   isOverdue,
   rescheduleDays,
@@ -451,6 +460,7 @@ export function WeeklyTaskRow({
   const [codingProjectId, setCodingProjectId] = useState(
     placement?.codingProjectId ?? "",
   );
+  const [gameId, setGameId] = useState(placement?.gameId ?? "");
   const [newProjectTitle, setNewProjectTitle] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
   const isLoggedMusicEvent =
@@ -476,6 +486,7 @@ export function WeeklyTaskRow({
     setMusicActivity(parseMusicActivity(placement?.musicActivity));
     setMusicTitle(placement?.musicLogKind ? (placement.note ?? "") : "");
     setCodingProjectId(placement?.codingProjectId ?? "");
+    setGameId(placement?.gameId ?? "");
   }, [
     placement?.note,
     placement?.shopLocation,
@@ -487,6 +498,7 @@ export function WeeklyTaskRow({
     placement?.musicActivity,
     placement?.musicLogKind,
     placement?.codingProjectId,
+    placement?.gameId,
   ]);
 
   const detail = placement ? formatWeeklyTaskDetail(placement, task.completionKind) : null;
@@ -555,6 +567,7 @@ export function WeeklyTaskRow({
             ? Number(musicRating)
             : null,
         codingProjectId: isCoding ? codingProjectId || null : undefined,
+        gameId: isGame ? gameId || null : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -608,6 +621,7 @@ export function WeeklyTaskRow({
       setMusicPlace("");
       setMusicRating("");
       setCodingProjectId("");
+      setGameId("");
       setNewProjectTitle("");
       setCreatingProject(false);
       onPendingId(null);
@@ -977,6 +991,23 @@ export function WeeklyTaskRow({
           ) : null}
           {task.completionKind === "journal" ? (
             <>
+              {isGame && !done ? (
+                <GameFields
+                  games={games}
+                  value={gameId || null}
+                  onChange={(id) => setGameId(id ?? "")}
+                  disabled={pending}
+                />
+              ) : null}
+              {isGame && done && placement?.gameTitle ? (
+                <p className={styles.planReadout}>
+                  <span className={styles.planReadoutLabel}>Spel</span>
+                  {placement.gameTitle}
+                  {placement.gameKind
+                    ? ` · ${GAME_KIND_LABEL[placement.gameKind]}`
+                    : ""}
+                </p>
+              ) : null}
               {isCoding && !done ? (
                 <div className={styles.bandPicker}>
                   <span className={styles.bandLabel}>Projekt (valfritt)</span>
@@ -1340,6 +1371,22 @@ function WeeklyOnHoldTaskRow({
     });
   };
 
+  const removeFromHold = () => {
+    if (
+      !window.confirm(
+        `Ta bort “${task.title}”? Den försvinner från den här veckan.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const res = await archiveWeeklyTaskAction(task.id);
+      if (!res.ok) setError(res.error ?? "Kunde inte ta bort.");
+      onDone();
+    });
+  };
+
   return (
     <li className={styles.onHoldRow}>
       <span
@@ -1380,6 +1427,16 @@ function WeeklyOnHoldTaskRow({
         ))}
         <option value="resume">Tillbaka till att placera</option>
       </select>
+      <button
+        type="button"
+        className={styles.onHoldRemove}
+        onClick={removeFromHold}
+        disabled={pending}
+        aria-label={`Ta bort ${task.title}`}
+        title="Ta bort"
+      >
+        ×
+      </button>
     </li>
   );
 }

@@ -20,9 +20,12 @@ import {
 import type { Database } from "@/lib/supabase/database.types";
 import {
   isCodingWeeklyTaskKey,
+  isGameWeeklyTaskKey,
   isHexColor,
   isKnownMusicBand,
+  isMonthlyTaskRepeatable,
   isWeeklyTaskRepeatable,
+  parseFestOccasion,
   formatLaundryBookingNote,
   parseLaundryBookTime,
   MUSIC_ACTIVITY_LABEL,
@@ -1018,6 +1021,7 @@ export async function updateWeeklyTaskPlanAction(input: {
   band?: string | null;
   planTodo?: string | null;
   spendKind?: string | null;
+  gameId?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -1032,15 +1036,16 @@ export async function updateWeeklyTaskPlanAction(input: {
 
   const { data: task } = await supabase
     .from("weekly_tasks")
-    .select("completion_kind")
+    .select("completion_kind, key")
     .eq("id", input.taskId)
     .eq("user_id", user.id)
     .maybeSingle();
   if (!task) return { ok: false, error: "Uppgiften hittades inte." };
 
   const kind = task.completion_kind as WeeklyTaskCompletionKind;
+  const isGame = isGameWeeklyTaskKey(task.key);
   const planNote = input.planNote.trim();
-  if (kind === "journal" && !planNote) {
+  if (kind === "journal" && !isGame && !planNote) {
     return { ok: false, error: "Skriv vad du ska jobba med." };
   }
   if (kind === "laundry" && !planNote) {
@@ -1084,6 +1089,22 @@ export async function updateWeeklyTaskPlanAction(input: {
     }
   }
 
+  let gameId: string | null = null;
+  if (isGame) {
+    gameId = input.gameId?.trim() || null;
+    if (!gameId) {
+      return { ok: false, error: "Välj vad ni ska spela." };
+    }
+    const { data: game } = await supabase
+      .from("user_games")
+      .select("id")
+      .eq("id", gameId)
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (!game) return { ok: false, error: "Spelet hittades inte." };
+  }
+
   let existing: { id: string } | null = null;
   if (input.placementId) {
     const { data } = await supabase
@@ -1123,6 +1144,7 @@ export async function updateWeeklyTaskPlanAction(input: {
       ...(kind === "shop" || kind === "expense"
         ? { spend_kind: spendKind }
         : {}),
+      ...(isGame ? { game_id: gameId } : {}),
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
@@ -1164,6 +1186,8 @@ export async function completeWeeklyTaskAction(input: {
   musicRating?: number | null;
   /** Optional coding session project. */
   codingProjectId?: string | null;
+  /** Chosen game from the catalog (SPEL). */
+  gameId?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -1201,12 +1225,13 @@ export async function completeWeeklyTaskAction(input: {
     band: string | null;
     plan_todo: string | null;
     spend_kind: string | null;
+    game_id: string | null;
   } | null = null;
 
   if (input.placementId) {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id")
       .eq("id", input.placementId)
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
@@ -1216,7 +1241,7 @@ export async function completeWeeklyTaskAction(input: {
   } else {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id")
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
       .eq("week_start", input.weekStart)
@@ -1245,6 +1270,23 @@ export async function completeWeeklyTaskAction(input: {
       if (!project) {
         return { ok: false, error: "Projektet hittades inte." };
       }
+    }
+  }
+
+  let gameId: string | null = existing.game_id;
+  if (isGameWeeklyTaskKey(task.key)) {
+    gameId = input.gameId?.trim() || existing.game_id;
+    if (!gameId) {
+      return { ok: false, error: "Välj vilket spel det blev." };
+    }
+    const { data: game } = await supabase
+      .from("user_games")
+      .select("id")
+      .eq("id", gameId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!game) {
+      return { ok: false, error: "Spelet hittades inte." };
     }
   }
 
@@ -1530,6 +1572,7 @@ export async function completeWeeklyTaskAction(input: {
       coding_project_id: isCodingWeeklyTaskKey(task.key)
         ? codingProjectId
         : null,
+      game_id: isGameWeeklyTaskKey(task.key) ? gameId : null,
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
@@ -2342,6 +2385,7 @@ async function upsertMonthlyBillSchedule(
     .eq("user_id", userId)
     .eq("task_id", taskId)
     .eq("month_start", monthStart)
+    .eq("is_instance", false)
     .maybeSingle();
 
   const payload = {
@@ -2508,6 +2552,7 @@ export async function scheduleMonthlyTaskPlanAction(input: {
   monthStart: string;
   weekStart: string | null;
   dayOfMonth: number | null;
+  occasion?: string;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Missing task id." };
   if (!MONTH_START_RE.test(input.monthStart)) {
@@ -2528,6 +2573,28 @@ export async function scheduleMonthlyTaskPlanAction(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: monthlyTask } = await supabase
+    .from("monthly_tasks")
+    .select("is_repeatable, key")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (
+    monthlyTask &&
+    isMonthlyTaskRepeatable({
+      isRepeatable: monthlyTask.is_repeatable,
+      key: monthlyTask.key,
+    })
+  ) {
+    if (input.dayOfMonth == null) return { ok: true };
+    return addMonthlyTaskInstanceAction({
+      taskId: input.taskId,
+      monthStart: input.monthStart,
+      dayOfMonth: input.dayOfMonth,
+      occasion: input.occasion ?? "",
+    });
+  }
 
   if (input.weekStart == null && input.dayOfMonth == null) {
     return upsertMonthlyBillSchedule(
@@ -2586,7 +2653,7 @@ export async function copyMonthPlanFromPreviousAction(input: {
     await Promise.all([
       supabase
         .from("monthly_tasks")
-        .select("id, day_of_month, single_month_start")
+        .select("id, day_of_month, single_month_start, is_repeatable")
         .eq("user_id", user.id)
         .is("archived_at", null),
       supabase
@@ -2618,6 +2685,7 @@ export async function copyMonthPlanFromPreviousAction(input: {
     if (task.single_month_start && task.single_month_start !== input.monthStart) {
       continue;
     }
+    if (task.is_repeatable) continue;
     if (task.day_of_month != null) continue;
 
     const target = targetByTask.get(task.id);
@@ -2696,6 +2764,7 @@ export async function placeMonthlyBillFromWeekAction(input: {
   taskId: string;
   weekStart: string;
   weekday: Weekday;
+  occasion?: string;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Missing task id." };
   if (!ISO_DATE_RE.test(input.weekStart)) {
@@ -2718,6 +2787,34 @@ export async function placeMonthlyBillFromWeekAction(input: {
     input.weekday,
   );
 
+  const { data: task } = await supabase
+    .from("monthly_tasks")
+    .select("is_repeatable, key")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+
+  if (isMonthlyTaskRepeatable({ isRepeatable: task.is_repeatable, key: task.key })) {
+    const parsed = parseFestOccasion(input.occasion ?? "");
+    if (!parsed.ok) return parsed;
+    const { error } = await supabase.from("monthly_task_completions").insert({
+      user_id: user.id,
+      task_id: input.taskId,
+      month_start: monthStart,
+      done_at: null,
+      scheduled_day_of_month: dayOfMonth,
+      scheduled_week_start: input.weekStart,
+      is_unscheduled: false,
+      is_instance: true,
+      day_sort_order: daySortOrder,
+      occasion: parsed.occasion,
+    });
+    if (error) return { ok: false, error: error.message };
+    revalidatePath("/", "layout");
+    return { ok: true };
+  }
+
   const scheduleRes = await upsertMonthlyBillSchedule(
     supabase,
     user.id,
@@ -2734,7 +2831,8 @@ export async function placeMonthlyBillFromWeekAction(input: {
     .update({ day_sort_order: daySortOrder })
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
-    .eq("month_start", monthStart);
+    .eq("month_start", monthStart)
+    .eq("is_instance", false);
 
   if (error) return { ok: false, error: error.message };
   revalidatePath("/", "layout");
@@ -2770,6 +2868,174 @@ export async function unplaceMonthlyBillFromWeekAction(input: {
     input.weekStart,
     false,
   );
+}
+
+export async function moveMonthlyTaskInstanceAction(input: {
+  completionId: string;
+  weekStart: string;
+  weekday: Weekday;
+}): Promise<ActionResult> {
+  if (!input.completionId) return { ok: false, error: "Saknar tillfälle." };
+  if (!ISO_DATE_RE.test(input.weekStart)) {
+    return { ok: false, error: "Invalid week." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const localDate = addDaysISO(input.weekStart, input.weekday - 1);
+  const monthStart = monthStartFromDate(localDate);
+  const dayOfMonth = Number(localDate.split("-")[2]);
+  const daySortOrder = await nextWeekDaySortOrder(
+    user.id,
+    input.weekStart,
+    input.weekday,
+  );
+
+  const { error } = await supabase
+    .from("monthly_task_completions")
+    .update({
+      month_start: monthStart,
+      scheduled_day_of_month: dayOfMonth,
+      scheduled_week_start: input.weekStart,
+      is_unscheduled: false,
+      day_sort_order: daySortOrder,
+    })
+    .eq("id", input.completionId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function deleteMonthlyTaskInstanceAction(input: {
+  completionId: string;
+}): Promise<ActionResult> {
+  if (!input.completionId) return { ok: false, error: "Saknar tillfälle." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: row } = await supabase
+    .from("monthly_task_completions")
+    .select("id, task_id")
+    .eq("id", input.completionId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "Tillfället hittades inte." };
+
+  const { data: task } = await supabase
+    .from("monthly_tasks")
+    .select("is_repeatable, key")
+    .eq("id", row.task_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (
+    !task ||
+    !isMonthlyTaskRepeatable({
+      isRepeatable: task.is_repeatable,
+      key: task.key,
+    })
+  ) {
+    return { ok: false, error: "Bara festtillfällen kan avplaneras så." };
+  }
+
+  const { error } = await supabase
+    .from("monthly_task_completions")
+    .delete()
+    .eq("id", input.completionId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function addMonthlyTaskInstanceAction(input: {
+  taskId: string;
+  monthStart: string;
+  dayOfMonth: number;
+  occasion: string;
+}): Promise<ActionResult> {
+  if (!input.taskId) return { ok: false, error: "Saknar uppgift." };
+  if (!MONTH_START_RE.test(input.monthStart)) {
+    return { ok: false, error: "Invalid month." };
+  }
+  if (input.dayOfMonth < 1 || input.dayOfMonth > 31) {
+    return { ok: false, error: "Ogiltig dag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: task } = await supabase
+    .from("monthly_tasks")
+    .select("is_repeatable, key")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+  if (!isMonthlyTaskRepeatable({ isRepeatable: task.is_repeatable, key: task.key })) {
+    return { ok: false, error: "Den här uppgiften kan bara placeras en gång." };
+  }
+
+  const parsed = parseFestOccasion(input.occasion);
+  if (!parsed.ok) return parsed;
+
+  const localDate = dateInMonth(input.monthStart, input.dayOfMonth);
+  const weekStart = weekStartISO(parseLocalISO(localDate));
+
+  const { error } = await supabase.from("monthly_task_completions").insert({
+    user_id: user.id,
+    task_id: input.taskId,
+    month_start: input.monthStart,
+    done_at: null,
+    scheduled_day_of_month: input.dayOfMonth,
+    scheduled_week_start: weekStart,
+    is_unscheduled: false,
+    is_instance: true,
+    occasion: parsed.occasion,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function updateMonthlyTaskInstanceAction(input: {
+  completionId: string;
+  occasion: string;
+}): Promise<ActionResult> {
+  if (!input.completionId) return { ok: false, error: "Saknar tillfälle." };
+  const parsed = parseFestOccasion(input.occasion);
+  if (!parsed.ok) return parsed;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("monthly_task_completions")
+    .update({ occasion: parsed.occasion })
+    .eq("id", input.completionId)
+    .eq("user_id", user.id)
+    .eq("is_instance", true);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 async function syncTransferToFinanceSnapshot(
@@ -2818,6 +3084,7 @@ export async function toggleMonthlyTaskDoneAction(input: {
   done: boolean;
   note?: string;
   amount?: number;
+  completionId?: string;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Missing task id." };
   if (!MONTH_START_RE.test(input.monthStart)) {
@@ -2832,21 +3099,26 @@ export async function toggleMonthlyTaskDoneAction(input: {
 
   const { data: task } = await supabase
     .from("monthly_tasks")
-    .select("completion_kind, key, day_of_month, single_month_start")
+    .select("completion_kind, key, day_of_month, single_month_start, is_repeatable")
     .eq("id", input.taskId)
     .eq("user_id", user.id)
     .maybeSingle();
   if (!task) return { ok: false, error: "Task not found." };
 
-  const { data: existing } = await supabase
+  let existingQuery = supabase
     .from("monthly_task_completions")
     .select(
       "id, amount, done_at, scheduled_day_of_month, scheduled_week_start, is_unscheduled",
     )
     .eq("user_id", user.id)
     .eq("task_id", input.taskId)
-    .eq("month_start", input.monthStart)
-    .maybeSingle();
+    .eq("month_start", input.monthStart);
+  if (input.completionId) {
+    existingQuery = existingQuery.eq("id", input.completionId);
+  } else {
+    existingQuery = existingQuery.eq("is_instance", false);
+  }
+  const { data: existing } = await existingQuery.maybeSingle();
 
   const autoScheduleOnDone = (): {
     scheduled_day_of_month: number;

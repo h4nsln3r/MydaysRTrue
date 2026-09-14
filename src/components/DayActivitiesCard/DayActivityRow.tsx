@@ -11,6 +11,8 @@ import { MonthlyTaskDayRow } from "@/components/MonthlyTasksDayCard/MonthlyTaskD
 import type { MealBoxStockItem, MealRestaurant } from "@/lib/habits";
 import type { TaskCategory } from "@/lib/tasks";
 import type { CodingProject } from "@/lib/coding";
+import type { UserGame } from "@/lib/games";
+import type { UserSport } from "@/lib/sports";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
 import { WeightActivityRow } from "./WeightActivityRow";
 import { DayPlanDailyRow } from "./DayPlanDailyRow";
@@ -37,6 +39,8 @@ interface Props extends PlanSortableProps {
   weekStart: string;
   categories: TaskCategory[];
   codingProjects?: CodingProject[];
+  games?: UserGame[];
+  sports?: UserSport[];
   savedRestaurants?: MealRestaurant[];
   mealBoxStock?: MealBoxStockItem[];
   canReschedule: boolean;
@@ -92,6 +96,8 @@ export function DayActivityRow(props: Props) {
     weekStart,
     categories,
     codingProjects = [],
+    games = [],
+    sports = [],
     canReschedule,
     isOverdue,
     rescheduleDays,
@@ -179,6 +185,7 @@ export function DayActivityRow(props: Props) {
           weekStart={weekStart}
           categories={categories}
           codingProjects={codingProjects}
+          games={games}
           canReschedule={canReschedule}
           isOverdue={isOverdue}
           rescheduleDays={rescheduleDays}
@@ -266,6 +273,7 @@ export function DayActivityRow(props: Props) {
           canReschedule={canReschedule}
           isOverdue={isOverdue}
           rescheduleDays={rescheduleDays}
+          sports={sports}
           {...shared}
         />
       );

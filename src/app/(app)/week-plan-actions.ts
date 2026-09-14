@@ -13,6 +13,8 @@ import {
   unplaceWeeklyTaskAction,
   placeMonthlyBillFromWeekAction,
   unplaceMonthlyBillFromWeekAction,
+  moveMonthlyTaskInstanceAction,
+  deleteMonthlyTaskInstanceAction,
 } from "@/app/(app)/tasks-actions";
 import {
   placeWeightWeekAction,
@@ -64,6 +66,7 @@ export async function placeWeekPlanItemAction(input: {
   dragId: string;
   weekStart: string;
   weekday: Weekday;
+  occasion?: string;
 }): Promise<ActionResult> {
   const parsed = parseWeekPlanDragId(input.dragId);
   if (!parsed) return { ok: false, error: "Ogiltig aktivitet." };
@@ -136,6 +139,21 @@ export async function placeWeekPlanItemAction(input: {
         weekday: input.weekday,
       });
     case "monthly_bill":
+      if (parsed.monthlyRole === "source") {
+        return placeMonthlyBillFromWeekAction({
+          taskId: parsed.entityId,
+          weekStart: input.weekStart,
+          weekday: input.weekday,
+          occasion: input.occasion,
+        });
+      }
+      if (parsed.monthlyRole === "placement" && !parsed.monthStart) {
+        return moveMonthlyTaskInstanceAction({
+          completionId: parsed.entityId,
+          weekStart: input.weekStart,
+          weekday: input.weekday,
+        });
+      }
       return placeMonthlyBillFromWeekAction({
         taskId: parsed.entityId,
         weekStart: input.weekStart,
@@ -201,6 +219,14 @@ export async function unplaceWeekPlanItemAction(input: {
     case "weight":
       return unplaceWeightWeekAction(input.weekStart);
     case "monthly_bill":
+      if (parsed.monthlyRole === "source") {
+        return { ok: true };
+      }
+      if (parsed.monthlyRole === "placement" && !parsed.monthStart) {
+        return deleteMonthlyTaskInstanceAction({
+          completionId: parsed.entityId,
+        });
+      }
       if (!parsed.monthStart) {
         return { ok: false, error: "Ogiltig räkning." };
       }

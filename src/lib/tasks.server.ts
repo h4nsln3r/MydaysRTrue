@@ -4,6 +4,7 @@ import { addDaysISO, DISPLAY_TIMEZONE, isoWeekdayFromLocalISO, parseLocalISO, to
 import {
   dedupeMonthlyTasks,
   expandWeeklyTaskPlacements,
+  FEST_TASK_KEY,
   isRepeatableWeeklyTaskKey,
   isWeeklyTaskRepeatable,
   monthlyTaskKeeperScore,
@@ -38,6 +39,8 @@ import {
   monthlyTasksOnLocalDate,
 } from "@/lib/monthly-bills";
 import { repairAmountCompletionsMissingDone } from "@/app/(app)/tasks-actions";
+import { parseGameKind, type GameKind } from "@/lib/games";
+import { ensureDefaultUserGames } from "@/lib/games.server";
 
 // ----------------------------------------------------------------------------
 // Categories
@@ -248,12 +251,17 @@ interface WeeklyPlacementRow {
   live_event_id: string | null;
   on_hold: boolean;
   coding_project_id: string | null;
+  game_id: string | null;
 }
 
 function rowToPlacement(
   r: WeeklyPlacementRow,
-  projectTitleById?: Map<string, string>,
+  extras?: {
+    projectTitleById?: Map<string, string>;
+    gameById?: Map<string, { title: string; kind: GameKind | null; icon: string }>;
+  },
 ): WeeklyPlacement {
+  const game = r.game_id ? extras?.gameById?.get(r.game_id) : undefined;
   return {
     id: r.id,
     taskId: r.task_id,
@@ -278,8 +286,12 @@ function rowToPlacement(
     onHold: r.on_hold ?? false,
     codingProjectId: r.coding_project_id,
     codingProjectTitle: r.coding_project_id
-      ? (projectTitleById?.get(r.coding_project_id) ?? null)
+      ? (extras?.projectTitleById?.get(r.coding_project_id) ?? null)
       : null,
+    gameId: r.game_id,
+    gameTitle: game?.title ?? null,
+    gameKind: game?.kind ?? null,
+    gameIcon: game?.icon ?? null,
   };
 }
 
@@ -340,7 +352,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled, is_repeatable, weekly_goal";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, spend_kind, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, spend_kind, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id, game_id";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 
@@ -692,24 +704,24 @@ async function carryOverIncompleteOneOffTasks(
 
 async function ensureGameWeeklyTask(userId: string): Promise<void> {
   const supabase = await createClient();
+  await ensureDefaultUserGames(userId);
 
-  const { data: existing } = await supabase
+  const GAME_NOTES =
+    "Dra in hur många spelsessioner du vill — minst 1 per vecka. Välj spel och logga efteråt.";
+
+  const { data: canonical } = await supabase
+    .from("weekly_tasks")
+    .select("id, archived_at")
+    .eq("user_id", userId)
+    .eq("key", "game")
+    .maybeSingle();
+
+  const { data: legacy } = await supabase
     .from("weekly_tasks")
     .select("id, archived_at")
     .eq("user_id", userId)
     .eq("key", "game_dnd")
     .maybeSingle();
-
-  if (existing) {
-    if (existing.archived_at) {
-      await supabase
-        .from("weekly_tasks")
-        .update({ archived_at: null })
-        .eq("id", existing.id)
-        .eq("user_id", userId);
-    }
-    return;
-  }
 
   let categoryId: string | null = null;
   const { data: category } = await supabase
@@ -739,19 +751,53 @@ async function ensureGameWeeklyTask(userId: string): Promise<void> {
     categoryId = created?.id ?? null;
   }
 
-  await supabase.from("weekly_tasks").insert({
-    user_id: userId,
-    category_id: categoryId,
-    key: "game_dnd",
-    title: "D&D",
-    notes:
-      "Spela med vänner — dra in kvällen och anteckna sessionen när du är klar. Mål: minst 1 gång per vecka.",
+  const patch = {
+    archived_at: null,
+    title: "Spel",
+    notes: GAME_NOTES,
     icon: "🎲",
     accent: "#a78bfa",
-    sort_order: 0,
-    default_weekday: null,
-    completion_kind: "journal",
+    completion_kind: "journal" as const,
     is_repeatable: true,
+    category_id: categoryId,
+    sort_order: 0,
+    key: "game",
+  };
+
+  if (canonical) {
+    await supabase
+      .from("weekly_tasks")
+      .update(patch)
+      .eq("id", canonical.id)
+      .eq("user_id", userId);
+    if (legacy && legacy.id !== canonical.id) {
+      await supabase
+        .from("weekly_task_placements")
+        .update({ task_id: canonical.id })
+        .eq("user_id", userId)
+        .eq("task_id", legacy.id);
+      await supabase
+        .from("weekly_tasks")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", legacy.id)
+        .eq("user_id", userId);
+    }
+    return;
+  }
+
+  if (legacy) {
+    await supabase
+      .from("weekly_tasks")
+      .update(patch)
+      .eq("id", legacy.id)
+      .eq("user_id", userId);
+    return;
+  }
+
+  await supabase.from("weekly_tasks").insert({
+    user_id: userId,
+    ...patch,
+    default_weekday: null,
     weekly_goal: 1,
   });
 }
@@ -842,10 +888,38 @@ export async function getWeekSummary(
     }
   }
 
+  const gameIds = [
+    ...new Set(
+      (placementsRes.data ?? [])
+        .map((r) => r.game_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const gameById = new Map<
+    string,
+    { title: string; kind: GameKind | null; icon: string }
+  >();
+  if (gameIds.length > 0) {
+    const { data: games } = await supabase
+      .from("user_games")
+      .select("id, title, kind, icon")
+      .eq("user_id", userId)
+      .in("id", gameIds);
+    for (const g of games ?? []) {
+      gameById.set(g.id, {
+        title: g.title,
+        kind: parseGameKind(g.kind),
+        icon: g.icon,
+      });
+    }
+  }
+
+  const placementExtras = { projectTitleById, gameById };
+
   const placementsByTask = new Map<string, WeeklyPlacement[]>();
   for (const row of placementsRes.data ?? []) {
     const list = placementsByTask.get(row.task_id) ?? [];
-    list.push(rowToPlacement(row, projectTitleById));
+    list.push(rowToPlacement(row, placementExtras));
     placementsByTask.set(row.task_id, list);
   }
 
@@ -956,7 +1030,7 @@ export async function getWeekSummary(
       .select(WEEKLY_PLACEMENT_SELECT);
     for (const row of inserted ?? []) {
       const list = placementsByTask.get(row.task_id) ?? [];
-      list.push(rowToPlacement(row, projectTitleById));
+      list.push(rowToPlacement(row, placementExtras));
       placementsByTask.set(row.task_id, list);
     }
   }
@@ -1057,13 +1131,21 @@ export async function getMonthlyTasksForDate(
     if (!tasksById.has(task.id)) tasksById.set(task.id, task);
   }
 
-  const mergedTasks = [...tasksById.values()].map((task) => ({
-    ...task,
-    completion:
+  const mergedTasks = [...tasksById.values()].map((task) => {
+    const all =
       billsWeek.completionsByTaskMonth.get(`${task.id}|${monthStart}`) ??
-      task.completion ??
-      null,
-  }));
+      task.completions ??
+      [];
+    return {
+      ...task,
+      completion:
+        all.find((c) => !c.isInstance) ??
+        all[0] ??
+        task.completion ??
+        null,
+      completions: all.length > 0 ? all : task.completions,
+    };
+  });
 
   const forDay = monthlyTasksOnLocalDate(
     mergedTasks,
@@ -1093,6 +1175,7 @@ interface MonthlyTaskRow {
   single_month_start: string | null;
   default_amount_kr: number | null;
   enabled: boolean;
+  is_repeatable: boolean;
 }
 
 function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
@@ -1111,11 +1194,57 @@ function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
     defaultAmountKr:
       r.default_amount_kr != null ? Number(r.default_amount_kr) : null,
     enabled: r.enabled ?? true,
+    isRepeatable: r.is_repeatable ?? false,
   };
 }
 
 function isActiveMonthlyRow(r: MonthlyTaskRow): boolean {
   return r.single_month_start != null || (r.enabled ?? true);
+}
+
+async function ensureDefaultMonthlyFest(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<void> {
+  const { data: existing } = await supabase
+    .from("monthly_tasks")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("key", FEST_TASK_KEY)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (existing) {
+    await supabase
+      .from("monthly_tasks")
+      .update({ is_repeatable: true, enabled: true, archived_at: null })
+      .eq("id", existing.id)
+      .eq("user_id", userId);
+    return;
+  }
+
+  const { data: life } = await supabase
+    .from("task_categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("scope", "task")
+    .eq("name", "Livet")
+    .is("archived_at", null)
+    .maybeSingle();
+
+  await supabase.from("monthly_tasks").insert({
+    user_id: userId,
+    category_id: life?.id ?? null,
+    key: FEST_TASK_KEY,
+    title: "Fest",
+    notes:
+      "Dra in hur många fester du vill den här månaden — välj dag och logga efteråt.",
+    icon: "🎉",
+    accent: "#f472b6",
+    sort_order: 40,
+    day_of_month: null,
+    completion_kind: "simple",
+    is_repeatable: true,
+  });
 }
 
 interface MonthlyCompletionRow {
@@ -1128,6 +1257,8 @@ interface MonthlyCompletionRow {
   scheduled_day_of_month: number | null;
   scheduled_week_start: string | null;
   is_unscheduled: boolean;
+  is_instance: boolean;
+  occasion: string | null;
   day_sort_order: number;
 }
 
@@ -1142,15 +1273,17 @@ function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
     scheduledDayOfMonth: r.scheduled_day_of_month,
     scheduledWeekStart: r.scheduled_week_start,
     isUnscheduled: r.is_unscheduled,
+    isInstance: r.is_instance ?? false,
+    occasion: r.occasion?.trim() || null,
     daySortOrder: r.day_sort_order ?? 0,
   };
 }
 
 const MONTHLY_TASK_SELECT =
-  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start, default_amount_kr, enabled";
+  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start, default_amount_kr, enabled, is_repeatable";
 
 const MONTHLY_COMPLETION_SELECT =
-  "id, task_id, month_start, done_at, note, amount, scheduled_day_of_month, scheduled_week_start, is_unscheduled, day_sort_order";
+  "id, task_id, month_start, done_at, note, amount, scheduled_day_of_month, scheduled_week_start, is_unscheduled, is_instance, occasion, day_sort_order";
 
 interface MonthlyTaskDedupeRow {
   id: string;
@@ -1263,6 +1396,7 @@ export async function getMonthlyTasks(userId: string): Promise<MonthlyTask[]> {
   const supabase = await createClient();
   await repairDuplicateMonthlyTasks(supabase, userId);
   await repairMonthlySavingsTaskLabels(supabase, userId);
+  await ensureDefaultMonthlyFest(supabase, userId);
   const { data } = await supabase
     .from("monthly_tasks")
     .select(MONTHLY_TASK_SELECT)
@@ -1331,6 +1465,7 @@ export async function getMonthTaskSummary(
   await repairDuplicateMonthlyTasks(supabase, userId);
   await repairMonthlySavingsTaskLabels(supabase, userId);
   await repairAmountCompletionsMissingDone(userId);
+  await ensureDefaultMonthlyFest(supabase, userId);
   const [tasksRes, completionsRes, catsRes, financeRes] = await Promise.all([
     supabase
       .from("monthly_tasks")
@@ -1361,18 +1496,25 @@ export async function getMonthTaskSummary(
       .maybeSingle(),
   ]);
 
-  const compMap = new Map<string, MonthlyCompletion>();
+  const compsByTask = new Map<string, MonthlyCompletion[]>();
   for (const row of completionsRes.data ?? []) {
-    compMap.set(row.task_id, rowToCompletion(row));
+    const c = rowToCompletion(row);
+    const list = compsByTask.get(c.taskId) ?? [];
+    list.push(c);
+    compsByTask.set(c.taskId, list);
   }
 
   const tasks: MonthlyTaskForMonth[] = dedupeMonthlyTasks(
     (tasksRes.data ?? [])
       .filter(isActiveMonthlyRow)
-      .map((row) => ({
-        ...rowToMonthly(row),
-        completion: compMap.get(row.id) ?? null,
-      })),
+      .map((row) => {
+        const completions = compsByTask.get(row.id) ?? [];
+        return {
+          ...rowToMonthly(row),
+          completion: completions.find((c) => !c.isInstance) ?? completions[0] ?? null,
+          completions,
+        };
+      }),
   );
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
@@ -1385,7 +1527,7 @@ export async function getMonthTaskSummary(
 export interface MonthlyBillsWeekContext {
   tasks: MonthlyTaskForMonth[];
   categories: TaskCategory[];
-  completionsByTaskMonth: Map<string, MonthlyCompletion>;
+  completionsByTaskMonth: Map<string, MonthlyCompletion[]>;
 }
 
 /** Monthly bills + completions for all months touched by an ISO week. */
@@ -1397,6 +1539,7 @@ export async function getMonthlyBillsForWeek(
   await repairDuplicateMonthlyTasks(supabase, userId);
   await repairMonthlySavingsTaskLabels(supabase, userId);
   await repairAmountCompletionsMissingDone(userId);
+  await ensureDefaultMonthlyFest(supabase, userId);
   const weekDates = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const monthStarts = [...new Set(weekDates.map((d) => `${d.slice(0, 7)}-01`))];
   const oneOffFilter = monthStarts.map((m) => `single_month_start.eq.${m}`).join(",");
@@ -1426,10 +1569,13 @@ export async function getMonthlyBillsForWeek(
       .in("month_start", monthStarts),
   ]);
 
-  const completionsByTaskMonth = new Map<string, MonthlyCompletion>();
+  const completionsByTaskMonth = new Map<string, MonthlyCompletion[]>();
   for (const row of completionsRes.data ?? []) {
     const c = rowToCompletion(row);
-    completionsByTaskMonth.set(`${c.taskId}|${c.monthStart}`, c);
+    const key = `${c.taskId}|${c.monthStart}`;
+    const list = completionsByTaskMonth.get(key) ?? [];
+    list.push(c);
+    completionsByTaskMonth.set(key, list);
   }
 
   const categories = (catsRes.data ?? []).map(rowToCategory);
@@ -1439,6 +1585,7 @@ export async function getMonthlyBillsForWeek(
       .map((row) => ({
         ...rowToMonthly(row),
         completion: null,
+        completions: [],
       })),
   );
 

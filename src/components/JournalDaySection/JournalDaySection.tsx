@@ -95,9 +95,12 @@ export function JournalDaySection({ date, journal }: Props) {
             ...entry,
             body,
             customBody:
-            entry.source === "manual" || entry.source === "meal"
-              ? entry.customBody
-              : true,
+              entry.source === "manual" ||
+              entry.source === "meal" ||
+              entry.source === "snack" ||
+              entry.source === "intake"
+                ? entry.customBody
+                : true,
           }
         : entry,
     );

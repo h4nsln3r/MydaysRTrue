@@ -412,18 +412,40 @@ export async function saveSnackAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
-  const { error } = await supabase.from("snack_checks").upsert(
-    {
+  const { data: existing, error: lookupError } = await supabase
+    .from("snack_checks")
+    .select("slot")
+    .eq("user_id", user.id)
+    .eq("local_date", input.localDate)
+    .eq("slot", input.slot)
+    .maybeSingle();
+  if (lookupError) return { ok: false, error: lookupError.message };
+
+  if (existing) {
+    const { error } = await supabase
+      .from("snack_checks")
+      .update({ description })
+      .eq("user_id", user.id)
+      .eq("local_date", input.localDate)
+      .eq("slot", input.slot);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from("snack_checks").insert({
       user_id: user.id,
       local_date: input.localDate,
       slot: input.slot,
       description,
       done_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,local_date,slot" },
-  );
-  if (error) return { ok: false, error: error.message };
+    });
+    if (error) return { ok: false, error: error.message };
+  }
 
+  await supabase
+    .from("journal_entry_edits")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("local_date", input.localDate)
+    .or(`entry_id.eq.snack-${input.slot},entry_id.like.snack-${input.slot}-%`);
   revalidatePath("/", "layout");
   return { ok: true };
 }
@@ -454,6 +476,12 @@ export async function clearSnackAction(input: {
     .eq("slot", input.slot);
   if (error) return { ok: false, error: error.message };
 
+  await supabase
+    .from("journal_entry_edits")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("local_date", input.localDate)
+    .or(`entry_id.eq.snack-${input.slot},entry_id.like.snack-${input.slot}-%`);
   revalidatePath("/", "layout");
   return { ok: true };
 }

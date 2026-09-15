@@ -30,7 +30,10 @@ import {
 import { mediaStatusFor, type MediaDayLog } from "@/lib/media";
 import { liveStatusFor } from "@/lib/live-events";
 import { isMoodKey, moodStatusFor, type MoodKey } from "@/lib/mood";
-import { journalTrackedItemDescription } from "@/lib/journal";
+import {
+  journalTrackedItemDescription,
+  snackSlotFromJournalEntryId,
+} from "@/lib/journal";
 
 function smokeFreeContextFromRow(
   localDate: string,
@@ -161,6 +164,20 @@ export async function getDailySnacks(
       };
     }
   }
+
+  const { data: edits } = await supabase
+    .from("journal_entry_edits")
+    .select("entry_id, body")
+    .eq("user_id", userId)
+    .eq("local_date", localDate);
+  for (const edit of edits ?? []) {
+    const slot = snackSlotFromJournalEntryId(edit.entry_id);
+    const entry = slot ? out[slot] : null;
+    const description = journalTrackedItemDescription(edit.body);
+    if (!entry || !description) continue;
+    entry.description = description;
+  }
+
   return out;
 }
 

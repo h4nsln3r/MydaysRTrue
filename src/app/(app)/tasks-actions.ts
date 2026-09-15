@@ -144,6 +144,21 @@ function isMonday(localDate: string): boolean {
   return dt.getDay() === 1; // 1 = Monday
 }
 
+/** Keep a finished one-off on the week it was completed, not the week it was created. */
+async function keepOneOffOnCompletionWeek(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  taskId: string,
+  weekStart: string,
+): Promise<void> {
+  await supabase
+    .from("weekly_tasks")
+    .update({ single_week_start: weekStart })
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .not("single_week_start", "is", null);
+}
+
 async function nextWeeklyDaySortOrder(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
@@ -1403,6 +1418,7 @@ export async function completeWeeklyTaskAction(input: {
         .eq("id", existing.id)
         .eq("user_id", user.id);
       if (error) return { ok: false, error: error.message };
+      await keepOneOffOnCompletionWeek(supabase, user.id, input.taskId, input.weekStart);
       revalidatePath("/", "layout");
       revalidatePath("/year", "page");
       revalidatePath("/month", "page");
@@ -1589,6 +1605,8 @@ export async function completeWeeklyTaskAction(input: {
     }
     return { ok: false, error: error.message };
   }
+
+  await keepOneOffOnCompletionWeek(supabase, user.id, input.taskId, input.weekStart);
 
   revalidatePath("/", "layout");
   revalidatePath("/year", "page");
@@ -1952,6 +1970,13 @@ export async function toggleWeeklyTaskDoneAction(input: {
         .update({ archived_at: new Date().toISOString() })
         .eq("id", input.taskId)
         .eq("user_id", user.id);
+    } else if (task?.single_week_start) {
+      await keepOneOffOnCompletionWeek(
+        supabase,
+        user.id,
+        input.taskId,
+        input.weekStart,
+      );
     }
   }
 

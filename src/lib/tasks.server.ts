@@ -4,6 +4,7 @@ import { addDaysISO, DISPLAY_TIMEZONE, isoWeekdayFromLocalISO, parseLocalISO, to
 import {
   dedupeMonthlyTasks,
   expandWeeklyTaskPlacements,
+  weeklyTaskVisibleOnLocalDate,
   FEST_TASK_KEY,
   isRepeatableWeeklyTaskKey,
   isWeeklyTaskRepeatable,
@@ -144,10 +145,12 @@ function weekStartFromCreatedAt(createdAt: string): string {
 }
 
 /**
- * Fixes one-offs pinned to a later week than when they were created (carryOver bug).
- * Runs on every week load so existing bad rows heal without manual SQL.
+ * Fixes one-offs pinned to a *future* week (old carryOver bug when browsing
+ * ahead). Must not undo carry-over onto the current week — otherwise a
+ * completed one-off vanishes from the day it was finished.
  */
 async function repairMisplacedOneOffWeekPins(userId: string): Promise<void> {
+  const todayWeekStart = weekStartISO(parseLocalISO(todayLocalISO()));
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("weekly_tasks")
@@ -159,10 +162,12 @@ async function repairMisplacedOneOffWeekPins(userId: string): Promise<void> {
   const toRepair: { id: string; weekStart: string }[] = [];
   for (const row of rows ?? []) {
     if (!row.single_week_start) continue;
+    if (row.single_week_start <= todayWeekStart) continue;
     const createdWeek = weekStartFromCreatedAt(row.created_at);
-    if (row.single_week_start > createdWeek) {
-      toRepair.push({ id: row.id, weekStart: createdWeek });
-    }
+    toRepair.push({
+      id: row.id,
+      weekStart: createdWeek < todayWeekStart ? createdWeek : todayWeekStart,
+    });
   }
   if (toRepair.length === 0) return;
 
@@ -702,6 +707,62 @@ async function carryOverIncompleteOneOffTasks(
   }
 }
 
+/**
+ * Completed one-offs must stay pinned to the week of their done placement.
+ * Repair used to revert them to the created week, which hid them from the
+ * day they were actually finished.
+ */
+async function pinCompletedOneOffsToTheirCompletionWeek(
+  userId: string,
+): Promise<void> {
+  const supabase = await createClient();
+  const { data: oneOffs } = await supabase
+    .from("weekly_tasks")
+    .select("id, single_week_start")
+    .eq("user_id", userId)
+    .is("archived_at", null)
+    .not("single_week_start", "is", null);
+
+  if (!oneOffs?.length) return;
+
+  const { data: donePlacements } = await supabase
+    .from("weekly_task_placements")
+    .select("task_id, week_start")
+    .eq("user_id", userId)
+    .in(
+      "task_id",
+      oneOffs.map((t) => t.id),
+    )
+    .not("done_at", "is", null);
+
+  if (!donePlacements?.length) return;
+
+  const latestDoneWeek = new Map<string, string>();
+  for (const p of donePlacements) {
+    const prev = latestDoneWeek.get(p.task_id);
+    if (!prev || p.week_start > prev) latestDoneWeek.set(p.task_id, p.week_start);
+  }
+
+  const byWeek = new Map<string, string[]>();
+  for (const task of oneOffs) {
+    const doneWeek = latestDoneWeek.get(task.id);
+    if (!doneWeek || !task.single_week_start || doneWeek === task.single_week_start) {
+      continue;
+    }
+    const list = byWeek.get(doneWeek) ?? [];
+    list.push(task.id);
+    byWeek.set(doneWeek, list);
+  }
+
+  for (const [weekStart, taskIds] of byWeek) {
+    await supabase
+      .from("weekly_tasks")
+      .update({ single_week_start: weekStart })
+      .eq("user_id", userId)
+      .in("id", taskIds);
+  }
+}
+
 async function ensureGameWeeklyTask(userId: string): Promise<void> {
   const supabase = await createClient();
   await ensureDefaultUserGames(userId);
@@ -808,6 +869,7 @@ export async function getWeekSummary(
 ): Promise<WeekSummary> {
   await repairMisplacedOneOffWeekPins(userId);
   await carryOverIncompleteOneOffTasks(userId, weekStart);
+  await pinCompletedOneOffsToTheirCompletionWeek(userId);
   await ensureRepeatableWeeklyTasks(userId);
   await ensureGameWeeklyTask(userId);
 
@@ -1079,12 +1141,7 @@ export async function getWeeklyTasksForDate(
   const withCompletions = attachChecklistCompletionsForDate(tasks, localDate);
   const expanded = expandWeeklyTaskPlacements(withCompletions);
   const forDay = expanded
-    .filter(
-      (t) =>
-        t.placement?.weekday != null &&
-        t.placement.weekday === weekday &&
-        !t.placement.onHold,
-    )
+    .filter((t) => weeklyTaskVisibleOnLocalDate(t, localDate))
     .sort((a, b) => {
       const ao = a.placement?.daySortOrder ?? a.sortOrder;
       const bo = b.placement?.daySortOrder ?? b.sortOrder;

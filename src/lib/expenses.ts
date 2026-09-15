@@ -1,4 +1,5 @@
 import { formatKr, shopAmountExprHasBreakdown } from "@/lib/monthly-finance";
+import { localISOFromTimestamp } from "@/lib/date";
 import type {
   MonthlyTaskForMonth,
   SpendKind,
@@ -147,7 +148,7 @@ function weeklySpendEntry(
     amountKr: placement.shopAmount ?? 0,
     amountExpr: shopExprForEntry(placement.shopAmountExpr),
     doneAt: placement.doneAt!,
-    localDate: placement.doneAt!.slice(0, 10),
+    localDate: localISOFromTimestamp(placement.doneAt!),
     scope: "weekly",
     icon: task.icon,
     accent: task.accent,
@@ -233,7 +234,7 @@ export function collectMonthExpenses(input: {
     if (!isTrackedWeeklyExpense(task, cats)) continue;
     const placement = task.placement;
     if (!placement?.doneAt || placement.shopAmount == null) continue;
-    const localDate = placement.doneAt.slice(0, 10);
+    const localDate = localISOFromTimestamp(placement.doneAt);
     if (localDate < input.monthStart || localDate > monthEnd) continue;
     entries.push(weeklySpendEntry(task, placement, `w-${placement.id}`));
   }
@@ -253,7 +254,7 @@ export function collectMonthExpenses(input: {
       amountKr: completion.amount,
       amountExpr: null,
       doneAt: completion.doneAt,
-      localDate: completion.doneAt.slice(0, 10),
+      localDate: localISOFromTimestamp(completion.doneAt),
       scope: "monthly",
       icon: task.icon,
       accent: task.accent,
@@ -285,7 +286,7 @@ export function collectMonthShopping(input: {
     if (!isTrackedWeeklyShopping(task, cats)) continue;
     const placement = task.placement;
     if (!placement?.doneAt || placement.shopAmount == null) continue;
-    const localDate = placement.doneAt.slice(0, 10);
+    const localDate = localISOFromTimestamp(placement.doneAt);
     if (localDate < input.monthStart || localDate > monthEnd) continue;
     entries.push(weeklySpendEntry(task, placement, `w-${placement.id}`));
   }

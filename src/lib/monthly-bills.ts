@@ -1,5 +1,6 @@
 import {
   addDaysISO,
+  localISOFromTimestamp,
   parseLocalISO,
   weekStartISO,
 } from "@/lib/date";
@@ -338,7 +339,7 @@ export function monthlyTasksOnLocalDate(
           add(taskWithCompletion);
           continue;
         }
-        if (completion.doneAt && completion.doneAt.slice(0, 10) === localDate) {
+        if (completion.doneAt && localISOFromTimestamp(completion.doneAt) === localDate) {
           add(taskWithCompletion);
         }
       }
@@ -348,6 +349,13 @@ export function monthlyTasksOnLocalDate(
     const completion =
       primaryMonthlyCompletion(all) ?? task.completion ?? null;
     const taskWithCompletion = { ...task, completion, completions: all };
+
+    if (task.singleMonthStart && completion?.doneAt) {
+      if (localISOFromTimestamp(completion.doneAt) === localDate) {
+        add(taskWithCompletion);
+      }
+      continue;
+    }
 
     const schedule = resolveMonthlyTaskSchedule(
       task,
@@ -364,7 +372,7 @@ export function monthlyTasksOnLocalDate(
       continue;
     }
 
-    if (completion?.doneAt && completion.doneAt.slice(0, 10) === localDate) {
+    if (completion?.doneAt && localISOFromTimestamp(completion.doneAt) === localDate) {
       add(taskWithCompletion);
     }
   }
@@ -491,7 +499,7 @@ export function resolveMonthlyBillsForWeek(
             schedule.isPlanned && schedule.dayOfMonth != null
               ? dateInMonth(monthStart, schedule.dayOfMonth)
               : completion.doneAt
-                ? completion.doneAt.slice(0, 10)
+                ? localISOFromTimestamp(completion.doneAt)
                 : null;
           if (showDate && weekDates.has(showDate)) {
             markPlaced({
@@ -535,9 +543,11 @@ export function resolveMonthlyBillsForWeek(
           { includeWhenDone: true },
         );
         const showDate =
-          schedule.isPlanned && schedule.dayOfMonth != null
-            ? dateInMonth(monthStart, schedule.dayOfMonth)
-            : completion.doneAt.slice(0, 10);
+          task.singleMonthStart
+            ? localISOFromTimestamp(completion.doneAt)
+            : schedule.isPlanned && schedule.dayOfMonth != null
+              ? dateInMonth(monthStart, schedule.dayOfMonth)
+              : localISOFromTimestamp(completion.doneAt);
         if (weekDates.has(showDate)) {
           markPlaced({
             task: taskWithCompletion,

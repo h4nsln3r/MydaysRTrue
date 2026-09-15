@@ -1,7 +1,12 @@
 // Client-safe types + helpers for categories, weekly tasks and monthly tasks.
 // Server-only queries live in `./tasks.server`.
 
-import { formatMonthDayLong, parseLocalISO } from "@/lib/date";
+import {
+  addDaysISO,
+  formatMonthDayLong,
+  localISOFromTimestamp,
+  parseLocalISO,
+} from "@/lib/date";
 import { GAME_KIND_ICON, GAME_KIND_LABEL, type GameKind } from "@/lib/games";
 import { transferTaskFinanceLabel } from "@/lib/monthly-finance";
 
@@ -627,6 +632,30 @@ export interface WeeklyTaskForWeek extends WeeklyTask {
   checklist: WeeklyTaskChecklistItem[];
   /** All checklist completions in this week (for journal / day plan). */
   checklistCompletions: WeeklyTaskChecklistCompletion[];
+}
+
+/**
+ * Day-view / journal: incomplete tasks stay on the planned weekday.
+ * Completed one-offs land on the Stockholm calendar day they were finished.
+ */
+export function weeklyTaskVisibleOnLocalDate(
+  task: {
+    singleWeekStart: string | null;
+    placement?: {
+      weekday: number | null;
+      weekStart: string;
+      doneAt: string | null;
+      onHold?: boolean;
+    } | null;
+  },
+  localDate: string,
+): boolean {
+  const placement = task.placement;
+  if (!placement || placement.weekday == null || placement.onHold) return false;
+  if (task.singleWeekStart && placement.doneAt) {
+    return localISOFromTimestamp(placement.doneAt) === localDate;
+  }
+  return addDaysISO(placement.weekStart, placement.weekday - 1) === localDate;
 }
 
 /** One entry per day placement (repeatable tasks expand to multiple rows). */

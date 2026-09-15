@@ -27,6 +27,7 @@ import {
   formatWeeklyTaskDetail,
   musicSessionIcon,
   musicSessionTitle,
+  weeklyTaskVisibleOnLocalDate,
   type MonthlyTaskForMonth,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
@@ -736,16 +737,14 @@ function sessionsForDate<T extends { placement: { weekday: number | null } }>(
   );
 }
 
-/** Weekly tasks planned for this calendar day and marked done (even if late). */
+/** Weekly tasks completed on this calendar day (one-offs use finish date). */
 function journalWeeklyTasksForDate(
   tasks: WeeklyTaskForWeek[],
   localDate: string,
 ): WeeklyTaskForWeek[] {
-  return tasks.filter((t) => {
-    const placement = t.placement;
-    if (!placement?.doneAt || placement.weekday == null) return false;
-    return addDaysISO(placement.weekStart, placement.weekday - 1) === localDate;
-  });
+  return tasks.filter(
+    (t) => Boolean(t.placement?.doneAt) && weeklyTaskVisibleOnLocalDate(t, localDate),
+  );
 }
 
 /** Checklist sub-tasks completed on this calendar day. */

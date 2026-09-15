@@ -27,6 +27,13 @@ export function todayLocalISO(now: Date = new Date()): string {
 export const DISPLAY_TIMEZONE = "Europe/Stockholm";
 export const DISPLAY_LOCALE = "sv-SE";
 
+/** Calendar date YYYY-MM-DD in DISPLAY_TIMEZONE for a stored ISO timestamp. */
+export function localISOFromTimestamp(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", {
+    timeZone: DISPLAY_TIMEZONE,
+  });
+}
+
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("sv-SE", {
     hour: "2-digit",

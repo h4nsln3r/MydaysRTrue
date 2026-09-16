@@ -1587,6 +1587,8 @@ export interface Database {
           week_start: string;
           weekday: number | null;
           day_sort_order: number;
+          plan_kind: string | null;
+          actual_kind: string | null;
           done_at: string | null;
           note: string | null;
           created_at: string;
@@ -1599,6 +1601,8 @@ export interface Database {
           week_start: string;
           weekday?: number | null;
           day_sort_order?: number;
+          plan_kind?: string | null;
+          actual_kind?: string | null;
           done_at?: string | null;
           note?: string | null;
           created_at?: string;
@@ -1611,6 +1615,8 @@ export interface Database {
           week_start?: string;
           weekday?: number | null;
           day_sort_order?: number;
+          plan_kind?: string | null;
+          actual_kind?: string | null;
           done_at?: string | null;
           note?: string | null;
           created_at?: string;

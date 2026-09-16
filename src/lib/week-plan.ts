@@ -61,7 +61,9 @@ export interface WeekPlanGymItem extends WeekPlanItemBase {
 
 export interface WeekPlanCardioItem extends WeekPlanItemBase {
   kind: "cardio";
+  cardioRole: CardioDragRole;
   templateId: string;
+  placementId: string | null;
   session: CardioSessionForWeek;
 }
 
@@ -137,6 +139,7 @@ export function weekdayFromWeekPlanDropId(id: string): Weekday | null {
 
 export type BathingDragRole = "source" | "placement";
 export type SportDragRole = "source" | "placement";
+export type CardioDragRole = "source" | "placement";
 export type TaskDragRole = "source" | "placement";
 export type MonthlyBillDragRole = "source" | "placement";
 
@@ -145,6 +148,7 @@ export interface ParsedWeekPlanDragId {
   entityId: string;
   bathingRole?: BathingDragRole;
   sportRole?: SportDragRole;
+  cardioRole?: CardioDragRole;
   taskRole?: TaskDragRole;
   monthlyRole?: MonthlyBillDragRole;
   monthStart?: string;
@@ -165,6 +169,16 @@ export function weekPlanBathingSourceDragId(templateId: string): string {
 /** A bathing instance placed on a weekday. */
 export function weekPlanBathingPlacementDragId(placementId: string): string {
   return `bathing:${placementId}`;
+}
+
+/** Draggable cardio template in the left backlog. */
+export function weekPlanCardioSourceDragId(templateId: string): string {
+  return `cardio-source:${templateId}`;
+}
+
+/** A cardio instance placed on a weekday. */
+export function weekPlanCardioPlacementDragId(placementId: string): string {
+  return `cardio:${placementId}`;
 }
 
 /** Draggable sport template in the left backlog. */
@@ -230,6 +244,16 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
     return { kind: "sport", entityId: sportPlacement[1], sportRole: "placement" };
   }
 
+  const cardioSource = /^cardio-source:(.+)$/.exec(dragId);
+  if (cardioSource) {
+    return { kind: "cardio", entityId: cardioSource[1], cardioRole: "source" };
+  }
+
+  const cardioPlacement = /^cardio:(.+)$/.exec(dragId);
+  if (cardioPlacement) {
+    return { kind: "cardio", entityId: cardioPlacement[1], cardioRole: "placement" };
+  }
+
   const monthlySource = /^monthly_bill-source:([^:]+):(\d{4}-\d{2}-\d{2})$/.exec(dragId);
   if (monthlySource) {
     return {
@@ -259,7 +283,7 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
     };
   }
 
-  const m = /^(task|gym|cardio|weight):(.+)$/.exec(dragId);
+  const m = /^(task|gym|weight):(.+)$/.exec(dragId);
   if (!m) return null;
   return {
     kind: m[1] as WeekPlanItemKind,

@@ -35,7 +35,8 @@ export function groupWeekPlanDayItems(
     (i) =>
       TRAINING_KINDS.has(i.kind) &&
       !(i.kind === "bathing" && i.bathingRole === "source") &&
-      !(i.kind === "sport" && i.sportRole === "source"),
+      !(i.kind === "sport" && i.sportRole === "source") &&
+      !(i.kind === "cardio" && i.cardioRole === "source"),
   );
   const bills = items.filter(
     (i) =>
@@ -89,6 +90,7 @@ export function groupWeekPlanDayItems(
 function isBacklogTrainingItem(item: WeekPlanItem): boolean {
   if (item.kind === "bathing") return item.bathingRole === "source";
   if (item.kind === "sport") return item.sportRole === "source";
+  if (item.kind === "cardio") return item.cardioRole === "source";
   return TRAINING_KINDS.has(item.kind);
 }
 

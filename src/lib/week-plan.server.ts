@@ -2,6 +2,7 @@ import "server-only";
 import { getBathingWeekSummary } from "@/lib/bathing.server";
 import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { getSportWeekSummary } from "@/lib/sport.server";
+import { cardioSessionDisplay, formatCardioDetail } from "@/lib/cardio";
 import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
 import { formatWeeklyTaskDetail, formatFestOccasionWhen, formatMonthlyTaskDetail, isGameWeeklyTaskKey, isMonthlyTaskRepeatable, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
@@ -12,6 +13,8 @@ import { monthlyTaskDisplayTitle } from "@/lib/monthly-finance";
 import {
   weekPlanBathingPlacementDragId,
   weekPlanBathingSourceDragId,
+  weekPlanCardioPlacementDragId,
+  weekPlanCardioSourceDragId,
   weekPlanDragId,
   weekPlanMonthlyBillDragId,
   weekPlanMonthlyInstanceDragId,
@@ -141,15 +144,55 @@ export async function getUnifiedWeekPlan(
     });
   }
 
-  for (const s of cardioWeek.sessions) {
+  for (const t of cardioWeek.templates) {
     items.push({
-      dragId: weekPlanDragId("cardio", s.id),
+      dragId: weekPlanCardioSourceDragId(t.id),
       kind: "cardio",
+      cardioRole: "source",
+      templateId: t.id,
+      placementId: null,
+      label: t.label,
+      subtitle: t.description,
+      icon: t.icon,
+      accent: t.accent,
+      defaultWeekday: t.defaultWeekday,
+      weekday: null,
+      done: false,
+      sortOrder: t.sortOrder,
+      session: {
+        ...t,
+        placement: {
+          id: "",
+          templateId: t.id,
+          weekStart,
+          weekday: null,
+          daySortOrder: 0,
+          planKind: null,
+          actualKind: null,
+          note: null,
+          doneAt: null,
+        },
+      },
+    });
+  }
+
+  for (const s of cardioWeek.placedSessions) {
+    const display = cardioSessionDisplay(s);
+    const detail = formatCardioDetail(s.placement);
+    items.push({
+      dragId: weekPlanCardioPlacementDragId(s.placement.id),
+      kind: "cardio",
+      cardioRole: "placement",
       templateId: s.id,
-      label: s.label,
-      subtitle: s.description,
-      icon: s.icon,
-      accent: s.accent,
+      placementId: s.placement.id,
+      label: display.label,
+      subtitle: s.placement.doneAt
+        ? detail
+        : s.placement.planKind
+          ? `Plan: ${display.label}`
+          : s.description,
+      icon: display.icon,
+      accent: display.accent,
       defaultWeekday: s.defaultWeekday,
       weekday: s.placement.weekday,
       done: Boolean(s.placement.doneAt),

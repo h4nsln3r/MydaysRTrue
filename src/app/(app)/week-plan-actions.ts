@@ -34,8 +34,9 @@ import {
   moveBathingPlacementAction,
 } from "./bathing-actions";
 import {
-  moveCardioSessionAction,
-  unplaceCardioSessionAction,
+  addCardioPlacementAction,
+  deleteCardioPlacementAction,
+  moveCardioPlacementAction,
 } from "./cardio-actions";
 import {
   addSportPlacementAction,
@@ -102,8 +103,15 @@ export async function placeWeekPlanItemAction(input: {
         weekday: input.weekday,
       });
     case "cardio":
-      return moveCardioSessionAction({
-        templateId: parsed.entityId,
+      if (parsed.cardioRole === "source") {
+        return addCardioPlacementAction({
+          templateId: parsed.entityId,
+          weekStart: input.weekStart,
+          weekday: input.weekday,
+        });
+      }
+      return moveCardioPlacementAction({
+        placementId: parsed.entityId,
         weekStart: input.weekStart,
         weekday: input.weekday,
       });
@@ -196,8 +204,11 @@ export async function unplaceWeekPlanItemAction(input: {
         weekStart: input.weekStart,
       });
     case "cardio":
-      return unplaceCardioSessionAction({
-        templateId: parsed.entityId,
+      if (parsed.cardioRole === "source") {
+        return { ok: true };
+      }
+      return deleteCardioPlacementAction({
+        placementId: parsed.entityId,
         weekStart: input.weekStart,
       });
     case "sport":

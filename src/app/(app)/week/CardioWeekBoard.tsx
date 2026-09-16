@@ -82,27 +82,28 @@ export function CardioWeekBoard({ weekStart, sessions }: Props) {
 
   const doneCount = localSessions.filter((s) => s.placement.doneAt).length;
   const draggingSession = draggingId
-    ? localSessions.find((s) => s.id === draggingId)
+    ? localSessions.find((s) => s.placement.id === draggingId)
     : null;
 
-  const moveSession = (templateId: string, weekday: Weekday) => {
-    const session = localSessions.find((s) => s.id === templateId);
+  const moveSession = (placementId: string, weekday: Weekday) => {
+    const session = localSessions.find((s) => s.placement.id === placementId);
     if (!session || session.placement.weekday === weekday) return;
 
     setError(null);
     setLocalSessions((prev) =>
       prev.map((s) =>
-        s.id === templateId
+        s.placement.id === placementId
           ? { ...s, placement: { ...s.placement, weekday } }
           : s,
       ),
     );
-    setPendingId(templateId);
+    setPendingId(placementId);
     startTransition(async () => {
       const res = await moveCardioSessionAction({
-        templateId,
+        templateId: session.id,
         weekStart,
         weekday,
+        placementId,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte flytta passet.");
@@ -139,8 +140,8 @@ export function CardioWeekBoard({ weekStart, sessions }: Props) {
   if (sessions.length === 0) {
     return (
       <p className={styles.empty}>
-        Inga cardiopass ännu. Kör migrationen{" "}
-        <code className={styles.code}>0011_cardio.sql</code> mot Supabase.
+        Inga cardiopass den här veckan. Dra in pass från veckoplanen — minst 3,
+        gärna en löpning, en cykel och en simning.
       </p>
     );
   }
@@ -197,15 +198,17 @@ export function CardioWeekBoard({ weekStart, sessions }: Props) {
                 <ul className={styles.sessionList}>
                   {daySessions.map((s) => (
                     <DraggableSessionRow
-                      key={s.id}
+                      key={s.placement.id}
                       session={s}
                       weekStart={weekStart}
-                      expanded={expandedId === s.id}
-                      busy={pendingId === s.id}
-                      dragging={draggingId === s.id}
+                      expanded={expandedId === s.placement.id}
+                      busy={pendingId === s.placement.id}
+                      dragging={draggingId === s.placement.id}
                       pending={pending}
                       onToggleExpand={() =>
-                        setExpandedId(expandedId === s.id ? null : s.id)
+                        setExpandedId(
+                          expandedId === s.placement.id ? null : s.placement.id,
+                        )
                       }
                       onMove={moveSession}
                       onError={setError}
@@ -276,13 +279,13 @@ function DraggableSessionRow({
   dragging: boolean;
   pending: boolean;
   onToggleExpand: () => void;
-  onMove: (templateId: string, weekday: Weekday) => void;
+  onMove: (placementId: string, weekday: Weekday) => void;
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: session.id,
+    id: session.placement.id,
     disabled: pending,
   });
 
@@ -370,7 +373,7 @@ function SessionRowContent({
   preview?: boolean;
   dragHandleProps?: HTMLAttributes<HTMLButtonElement>;
   onToggleExpand: () => void;
-  onMove: (templateId: string, weekday: Weekday) => void;
+  onMove: (placementId: string, weekday: Weekday) => void;
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
@@ -381,10 +384,10 @@ function SessionRowContent({
 
   const complete = () => {
     onError(null);
-    onPendingId(session.id);
+    onPendingId(session.placement.id);
     startTransition(async () => {
       const res = await completeCardioSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
         note,
       });
@@ -396,10 +399,10 @@ function SessionRowContent({
 
   const uncomplete = () => {
     onError(null);
-    onPendingId(session.id);
+    onPendingId(session.placement.id);
     startTransition(async () => {
       const res = await uncompleteCardioSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
@@ -511,7 +514,7 @@ function SessionRowContent({
                   ]
                     .filter(Boolean)
                     .join(" ")}
-                  onClick={() => onMove(session.id, d)}
+                  onClick={() => onMove(session.placement.id, d)}
                   disabled={pending}
                 >
                   {WEEKDAY_SHORT[d]}

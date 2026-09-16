@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import { formatWaterTemp } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
+import { cardioSessionDisplay, formatCardioDetail } from "@/lib/cardio";
 import type { SportSessionForWeek } from "@/lib/sport";
 import { formatSportDetail } from "@/lib/sport";
 import { addDaysISO, isoWeekdayFromLocalISO } from "@/lib/date";
@@ -313,12 +314,13 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
 
   for (const s of ctx.cardioSessions) {
     if (!s.placement.doneAt) continue;
+    const display = cardioSessionDisplay(s);
     entries.push({
       id: `cardio-${s.placement.id}`,
       source: "cardio",
-      icon: s.icon,
-      title: s.label,
-      body: s.placement.note?.trim() || "Pass klart.",
+      icon: display.icon,
+      title: display.label,
+      body: formatCardioDetail(s.placement) ?? "Pass klart.",
       at: s.placement.doneAt,
       editable: false,
     });

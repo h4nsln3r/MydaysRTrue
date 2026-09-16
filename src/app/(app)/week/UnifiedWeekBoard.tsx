@@ -29,6 +29,7 @@ import {
 import {
   completeCardioSessionAction,
   uncompleteCardioSessionAction,
+  updateCardioPlanAction,
 } from "@/app/(app)/cardio-actions";
 import {
   completeSportSessionAction,
@@ -65,7 +66,9 @@ import { Input } from "@/components/Input/Input";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
 import { GameFields } from "@/components/GameFields/GameFields";
+import { CardioFields } from "@/components/CardioFields/CardioFields";
 import { SportFields } from "@/components/SportFields/SportFields";
+import { resolveCardioKind, type CardioKind } from "@/lib/cardio";
 import type { UserGame } from "@/lib/games";
 import { matchSportId, type UserSport } from "@/lib/sports";
 import { formatWeightKg } from "@/lib/format";
@@ -116,6 +119,7 @@ function isPlanSource(item: WeekPlanItem): boolean {
   return (
     (item.kind === "bathing" && item.bathingRole === "source") ||
     (item.kind === "sport" && item.sportRole === "source") ||
+    (item.kind === "cardio" && item.cardioRole === "source") ||
     (item.kind === "task" && item.taskRole === "source") ||
     (item.kind === "monthly_bill" && item.monthlyRole === "source")
   );
@@ -209,6 +213,7 @@ export function UnifiedWeekBoard({
     const isBathingSource =
       item.kind === "bathing" && item.bathingRole === "source";
     const isSportSource = item.kind === "sport" && item.sportRole === "source";
+    const isCardioSource = item.kind === "cardio" && item.cardioRole === "source";
     const isTaskSource = item.kind === "task" && item.taskRole === "source";
     const isMonthlySource =
       item.kind === "monthly_bill" && item.monthlyRole === "source";
@@ -219,6 +224,7 @@ export function UnifiedWeekBoard({
     if (
       !isBathingSource &&
       !isSportSource &&
+      !isCardioSource &&
       !isTaskSource &&
       !isMonthlySource &&
       item.weekday === weekday
@@ -273,6 +279,35 @@ export function UnifiedWeekBoard({
           ...source,
           dragId: `sport:optimistic-${uid}`,
           sportRole: "placement",
+          placementId: `optimistic-${uid}`,
+          weekday,
+          sortOrder: nextOrder,
+          done: false,
+        };
+        return [...prev, optimisticPlacement];
+      });
+    } else if (isCardioSource) {
+      setLocalItems((prev) => {
+        const source = prev.find((i) => i.dragId === dragId);
+        if (
+          !source ||
+          source.kind !== "cardio" ||
+          source.cardioRole !== "source"
+        ) {
+          return prev.filter((i) => i.dragId !== dragId);
+        }
+        const uid = `${source.templateId}-${Date.now()}`;
+        const dayItems = prev.filter(
+          (i) => i.weekday === weekday && !isPlanSource(i),
+        );
+        const nextOrder =
+          dayItems.length > 0
+            ? Math.max(...dayItems.map((t) => t.sortOrder)) + 1
+            : 0;
+        const optimisticPlacement: WeekPlanItem = {
+          ...source,
+          dragId: `cardio:optimistic-${uid}`,
+          cardioRole: "placement",
           placementId: `optimistic-${uid}`,
           weekday,
           sortOrder: nextOrder,
@@ -443,6 +478,9 @@ export function UnifiedWeekBoard({
       }
       if (item.kind === "sport" && item.sportRole === "placement") {
         // Repeatable sport instance: remove placement; source stays in backlog.
+        return prev.filter((i) => i.dragId !== dragId);
+      }
+      if (item.kind === "cardio" && item.cardioRole === "placement") {
         return prev.filter((i) => i.dragId !== dragId);
       }
       if (
@@ -1337,6 +1375,12 @@ function ItemRowContent({
   const [cardioNote, setCardioNote] = useState(
     item.kind === "cardio" ? (item.session.placement.note ?? "") : "",
   );
+  const [cardioPlanKind, setCardioPlanKind] = useState<CardioKind | null>(
+    item.kind === "cardio" ? item.session.placement.planKind : null,
+  );
+  const [cardioActualKind, setCardioActualKind] = useState<CardioKind | null>(
+    item.kind === "cardio" ? resolveCardioKind(item.session.placement) : null,
+  );
   const [sportPlan, setSportPlan] = useState(
     item.kind === "sport" ? (item.session.placement.planSport ?? "") : "",
   );
@@ -1459,7 +1503,7 @@ function ItemRowContent({
     canManage ||
     taskPlanningExpand ||
     item.kind === "gym" ||
-    item.kind === "cardio" ||
+    (item.kind === "cardio" && item.cardioRole === "placement") ||
     (item.kind === "sport" && item.sportRole === "placement") ||
     (item.kind === "bathing" && item.bathingRole === "placement") ||
     item.kind === "weight" ||
@@ -1719,13 +1763,18 @@ function ItemRowContent({
   };
 
   const completeCardio = () => {
-    if (item.kind !== "cardio") return;
+    if (item.kind !== "cardio" || !item.placementId) return;
+    if (!(cardioActualKind || cardioPlanKind)) {
+      onError("Välj löpning, cykling eller simning.");
+      return;
+    }
     onError(null);
     onPendingId(item.dragId);
     startTransition(async () => {
       const res = await completeCardioSessionAction({
-        templateId: item.templateId,
+        placementId: item.placementId!,
         weekStart,
+        actualKind: cardioActualKind || cardioPlanKind,
         note: cardioNote,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
@@ -1735,16 +1784,37 @@ function ItemRowContent({
   };
 
   const uncompleteCardio = () => {
-    if (item.kind !== "cardio") return;
+    if (item.kind !== "cardio" || !item.placementId) return;
     onError(null);
     onPendingId(item.dragId);
     startTransition(async () => {
       const res = await uncompleteCardioSessionAction({
-        templateId: item.templateId,
+        placementId: item.placementId!,
         weekStart,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
       setCardioNote("");
+      setCardioActualKind(item.session.placement.planKind);
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const saveCardioPlan = () => {
+    if (item.kind !== "cardio" || !item.placementId) return;
+    if (!cardioPlanKind) {
+      onError("Välj löpning, cykling eller simning.");
+      return;
+    }
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await updateCardioPlanAction({
+        placementId: item.placementId!,
+        weekStart,
+        planKind: cardioPlanKind,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara plan.");
       onPendingId(null);
       onDone();
     });
@@ -1893,7 +1963,7 @@ function ItemRowContent({
       {showCheck &&
         (item.kind === "task" ||
           item.kind === "gym" ||
-          item.kind === "cardio" ||
+          (item.kind === "cardio" && item.cardioRole === "placement") ||
           (item.kind === "sport" && item.sportRole === "placement") ||
           (item.kind === "bathing" && item.bathingRole === "placement") ||
           item.kind === "weight" ||
@@ -2326,13 +2396,38 @@ function ItemRowContent({
             </button>
           ) : null}
 
-          {item.kind === "cardio" && !item.done ? (
+          {item.kind === "cardio" &&
+          item.cardioRole === "placement" &&
+          !item.done ? (
             <>
+              <CardioFields
+                value={cardioPlanKind}
+                onChange={(kind) => {
+                  setCardioPlanKind(kind);
+                  if (!cardioActualKind) setCardioActualKind(kind);
+                }}
+                disabled={pending}
+                label="Planerad cardio"
+              />
+              <button
+                type="button"
+                className={styles.savePlanBtn}
+                onClick={saveCardioPlan}
+                disabled={pending && busy}
+              >
+                Spara plan
+              </button>
+              <CardioFields
+                value={cardioActualKind ?? cardioPlanKind}
+                onChange={setCardioActualKind}
+                disabled={pending}
+                label="Vad blev det?"
+              />
               <Input
                 label="Kommentar"
                 value={cardioNote}
                 onChange={(e) => setCardioNote(e.target.value)}
-                placeholder="T.ex. 5 km löpning"
+                placeholder="T.ex. 5 km lätt tempo"
                 maxLength={280}
                 disabled={pending}
               />
@@ -2350,7 +2445,9 @@ function ItemRowContent({
             </>
           ) : null}
 
-          {item.kind === "cardio" && item.done ? (
+          {item.kind === "cardio" &&
+          item.cardioRole === "placement" &&
+          item.done ? (
             <button
               type="button"
               className={styles.undoBtn}

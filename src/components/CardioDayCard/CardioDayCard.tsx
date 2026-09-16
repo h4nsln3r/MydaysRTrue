@@ -11,8 +11,16 @@ import {
   moveCardioSessionAction,
   uncompleteCardioSessionAction,
   unplaceCardioSessionAction,
+  updateCardioPlanAction,
 } from "@/app/(app)/cardio-actions";
-import type { CardioSessionForWeek } from "@/lib/cardio";
+import {
+  cardioSessionDisplay,
+  formatCardioDetail,
+  resolveCardioKind,
+  type CardioKind,
+  type CardioSessionForWeek,
+} from "@/lib/cardio";
+import { CardioFields } from "@/components/CardioFields/CardioFields";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { trainingCategory } from "@/lib/activity-category";
 import { sortIncompleteFirst, type Weekday } from "@/lib/tasks";
@@ -101,14 +109,16 @@ export function CardioDayCard({
       <ul className={styles.list}>
         {orderedSessions.map((s) => (
           <CardioSessionRow
-            key={s.id}
+            key={s.placement.id}
             session={s}
             weekStart={weekStart}
-            expanded={expandedId === s.id}
-            busy={pendingId === s.id}
+            expanded={expandedId === s.placement.id}
+            busy={pendingId === s.placement.id}
             pending={pending}
             onToggleExpand={() =>
-              setExpandedId(expandedId === s.id ? null : s.id)
+              setExpandedId(
+                expandedId === s.placement.id ? null : s.placement.id,
+              )
             }
             onError={setError}
             onPendingId={setPendingId}
@@ -162,16 +172,48 @@ export function CardioSessionRow({
   const done = Boolean(session.placement.doneAt);
   const showReschedule = canReschedule && !done && !planningMode;
   const category = trainingCategory("cardio");
+  const display = cardioSessionDisplay(session);
+  const detail = formatCardioDetail(session.placement);
+  const [planKind, setPlanKind] = useState<CardioKind | null>(
+    session.placement.planKind,
+  );
+  const [actualKind, setActualKind] = useState<CardioKind | null>(
+    resolveCardioKind(session.placement),
+  );
   const [note, setNote] = useState(session.placement.note ?? "");
   const [, startTransition] = useTransition();
 
-  const complete = () => {
+  const savePlan = () => {
+    if (!planKind) {
+      onError("Välj löpning, cykling eller simning.");
+      return;
+    }
     onError(null);
-    onPendingId(session.id);
+    onPendingId(session.placement.id);
+    startTransition(async () => {
+      const res = await updateCardioPlanAction({
+        placementId: session.placement.id,
+        weekStart,
+        planKind,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara plan.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const complete = () => {
+    if (!(actualKind || planKind)) {
+      onError("Välj löpning, cykling eller simning.");
+      return;
+    }
+    onError(null);
+    onPendingId(session.placement.id);
     startTransition(async () => {
       const res = await completeCardioSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
+        actualKind: actualKind || planKind,
         note,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
@@ -182,14 +224,15 @@ export function CardioSessionRow({
 
   const uncomplete = () => {
     onError(null);
-    onPendingId(session.id);
+    onPendingId(session.placement.id);
     startTransition(async () => {
       const res = await uncompleteCardioSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
       setNote("");
+      setActualKind(session.placement.planKind);
       onPendingId(null);
       onDone();
     });
@@ -198,18 +241,20 @@ export function CardioSessionRow({
   const reschedule = (value: string) => {
     if (!value) return;
     onError(null);
-    onPendingId(session.id);
+    onPendingId(session.placement.id);
     startTransition(async () => {
       const res =
         value === "remove"
           ? await unplaceCardioSessionAction({
               templateId: session.id,
               weekStart,
+              placementId: session.placement.id,
             })
           : await moveCardioSessionAction({
               templateId: session.id,
               weekStart,
               weekday: Number(value) as Weekday,
+              placementId: session.placement.id,
             });
       if (!res.ok) onError(res.error ?? "Kunde inte planera om.");
       onPendingId(null);
@@ -265,9 +310,9 @@ export function CardioSessionRow({
         <span
           className={styles.sessionIcon}
           aria-hidden
-          style={{ borderColor: session.accent }}
+          style={{ borderColor: display.accent }}
         >
-          {session.icon}
+          {display.icon}
         </span>
         <span className={styles.sessionMeta}>
           <ActivityCategoryBadge
@@ -276,12 +321,14 @@ export function CardioSessionRow({
             accent={category.accent}
             done={done}
           />
-          <span className={styles.sessionTitle}>{session.label}</span>
-          {session.description ? (
-            <span className={styles.sessionDesc}>{session.description}</span>
+          <span className={styles.sessionTitle}>{display.label}</span>
+          {!done && session.placement.planKind ? (
+            <span className={styles.sessionDesc}>
+              Planerat: {display.label}
+            </span>
           ) : null}
-          {done && session.placement.note ? (
-            <span className={styles.noteBadge}>{session.placement.note}</span>
+          {done && detail ? (
+            <span className={styles.noteBadge}>{detail}</span>
           ) : null}
         </span>
         {planningMode ? null : (
@@ -309,13 +356,35 @@ export function CardioSessionRow({
         <div className={styles.sessionActions}>
           {!done ? (
             <>
+              <CardioFields
+                value={planKind}
+                onChange={(kind) => {
+                  setPlanKind(kind);
+                  if (!actualKind) setActualKind(kind);
+                }}
+                disabled={pending}
+                label="Planerad cardio"
+              />
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={savePlan}
+                disabled={pending && busy}
+              >
+                Spara plan
+              </button>
+              <CardioFields
+                value={actualKind ?? planKind}
+                onChange={setActualKind}
+                disabled={pending}
+                label="Vad blev det?"
+              />
               <Input
                 label="Kommentar om passet"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="t.ex. 5 km lätt tempo, 30 min cykel"
                 maxLength={280}
-                required
               />
               <Button
                 type="button"

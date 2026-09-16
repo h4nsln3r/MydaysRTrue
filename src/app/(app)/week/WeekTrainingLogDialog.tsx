@@ -28,7 +28,14 @@ import {
   type GymSessionForWeek,
   type GymWarmup,
 } from "@/lib/gym";
-import type { CardioSessionForWeek } from "@/lib/cardio";
+import {
+  cardioSessionDisplay,
+  formatCardioDetail,
+  resolveCardioKind,
+  type CardioKind,
+  type CardioSessionForWeek,
+} from "@/lib/cardio";
+import { CardioFields } from "@/components/CardioFields/CardioFields";
 import type { SportSessionForWeek } from "@/lib/sport";
 import { matchSportId, type UserSport } from "@/lib/sports";
 import { SportFields } from "@/components/SportFields/SportFields";
@@ -279,20 +286,28 @@ function CardioForm({
   onSaved: () => void;
 }) {
   const done = Boolean(session.placement.doneAt);
+  const display = cardioSessionDisplay(session);
+  const [planKind, setPlanKind] = useState<CardioKind | null>(
+    session.placement.planKind,
+  );
+  const [actualKind, setActualKind] = useState<CardioKind | null>(
+    resolveCardioKind(session.placement),
+  );
   const [note, setNote] = useState(session.placement.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const complete = () => {
-    if (!note.trim()) {
-      setError("Skriv en kommentar om passet.");
+    if (!(actualKind || planKind)) {
+      setError("Välj löpning, cykling eller simning.");
       return;
     }
     setError(null);
     startTransition(async () => {
       const res = await completeCardioSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
+        actualKind: actualKind || planKind,
         note,
       });
       if (!res.ok) {
@@ -307,7 +322,7 @@ function CardioForm({
     setError(null);
     startTransition(async () => {
       const res = await uncompleteCardioSessionAction({
-        templateId: session.id,
+        placementId: session.placement.id,
         weekStart,
       });
       if (!res.ok) {
@@ -320,6 +335,21 @@ function CardioForm({
 
   return (
     <>
+      <p className={styles.kicker}>
+        {display.icon} {display.label}
+        {formatCardioDetail(session.placement)
+          ? ` · ${formatCardioDetail(session.placement)}`
+          : ""}
+      </p>
+      <CardioFields
+        value={actualKind ?? planKind}
+        onChange={(kind) => {
+          setActualKind(kind);
+          if (!planKind) setPlanKind(kind);
+        }}
+        disabled={pending}
+        label="Vilken sorts cardio?"
+      />
       <Input
         label="Kommentar"
         value={note}

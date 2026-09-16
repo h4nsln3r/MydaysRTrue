@@ -1,5 +1,8 @@
 import type { BathingSessionForWeek } from "@/lib/bathing";
-import type { CardioSessionForWeek } from "@/lib/cardio";
+import {
+  cardioSessionDisplay,
+  type CardioSessionForWeek,
+} from "@/lib/cardio";
 import {
   MEAL_ICON,
   MEAL_LABEL,
@@ -501,8 +504,8 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
   for (const session of input.cardioSessions) {
     items.push({
       kind: "cardio",
-      id: session.id,
-      itemKey: `cardio:${session.id}`,
+      id: session.placement.id,
+      itemKey: `cardio:${session.placement.id}`,
       sortOrder: 0,
       doneAt: session.placement.doneAt,
       session,
@@ -721,7 +724,7 @@ export function dayPlanItemLabel(item: DayPlanItem): string {
     case "gym":
       return item.session.label;
     case "cardio":
-      return item.session.label;
+      return cardioSessionDisplay(item.session).label;
     case "sport":
       return item.session.label;
     case "bathing":
@@ -764,7 +767,7 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
     case "gym":
       return item.session.icon;
     case "cardio":
-      return item.session.icon;
+      return cardioSessionDisplay(item.session).icon;
     case "sport":
       return item.session.icon;
     case "bathing":
@@ -805,7 +808,7 @@ export function dayPlanItemAccent(item: DayPlanItem): string {
     case "gym":
       return item.session.accent;
     case "cardio":
-      return item.session.accent;
+      return cardioSessionDisplay(item.session).accent;
     case "sport":
       return item.session.accent;
     case "bathing":

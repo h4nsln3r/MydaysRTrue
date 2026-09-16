@@ -919,6 +919,28 @@
     }
 }
 
+.savePlanBtn {
+    align-self: flex-start;
+    padding: 6px 12px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-orange;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
 .bathingFieldLabel {
     display: block;
     margin-bottom: 4px;

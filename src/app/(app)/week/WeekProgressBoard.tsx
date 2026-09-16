@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import { addDaysISO, formatDayShort, formatWeekdayShort, isoWeekdayFromLocalISO } from "@/lib/date";
 import { formatWaterTemp, type BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
+import { CARDIO_WEEKLY_GOAL, cardioSessionDisplay, formatCardioDetail } from "@/lib/cardio";
 import type { SportSessionForWeek } from "@/lib/sport";
 import { formatSportDetail } from "@/lib/sport";
 import {
@@ -136,6 +137,7 @@ export function WeekProgressBoard({
   const tasksTotal = taskScore.total;
   const gymDone = placedGym.filter((s) => s.placement.doneAt).length;
   const cardioDone = placedCardio.filter((s) => s.placement.doneAt).length;
+  const cardioTotal = CARDIO_WEEKLY_GOAL;
   const sportDone = placedSport.filter((s) => s.placement.doneAt).length;
   const bathingDone = placedBathing.filter((s) => s.placement.doneAt).length;
   const weightActive = weightPlan.enabled && weightPlan.weekday != null;
@@ -398,7 +400,7 @@ export function WeekProgressBoard({
                     gymDone,
                     gymTotal: placedGym.length,
                     cardioDone,
-                    cardioTotal: placedCardio.length,
+                    cardioTotal,
                     sportDone,
                     sportTotal: placedSport.length,
                     bathingDone,
@@ -490,13 +492,17 @@ function renderTrainingRow(
           days={ctx.week.days}
           byWeekday={ctx.cardioByWeekday}
           done={ctx.cardioDone}
-          total={ctx.placedCardio.length}
+          total={CARDIO_WEEKLY_GOAL}
           chipClass={styles.cardioChip}
-          renderSession={(s) => ({
-            icon: s.icon,
-            done: Boolean(s.placement.doneAt),
-            title: s.placement.note ? `${s.label}: ${s.placement.note}` : s.label,
-          })}
+          renderSession={(s) => {
+            const display = cardioSessionDisplay(s);
+            const detail = formatCardioDetail(s.placement);
+            return {
+              icon: display.icon,
+              done: Boolean(s.placement.doneAt),
+              title: detail ?? display.label,
+            };
+          }}
         />
       );
     case "sport":

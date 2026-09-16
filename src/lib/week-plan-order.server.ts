@@ -124,11 +124,12 @@ export async function applyWeekDaySortOrder(
         break;
       }
       case "cardio": {
+        if (parsed.cardioRole !== "placement") break;
         const { error } = await supabase
           .from("cardio_week_placements")
           .update({ day_sort_order: i })
           .eq("user_id", userId)
-          .eq("template_id", parsed.entityId)
+          .eq("id", parsed.entityId)
           .eq("week_start", weekStart);
         if (error) return { ok: false, error: error.message };
         break;

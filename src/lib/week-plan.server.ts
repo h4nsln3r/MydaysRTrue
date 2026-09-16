@@ -538,7 +538,7 @@ export async function getUnifiedWeekPlan(
       defaultAmountKr: entry.task.defaultAmountKr,
       label: monthlyTaskDisplayTitle(entry.task),
       subtitle: repeatable
-        ? "Skriv slags fest, dra till en dag — källan ligger kvar så du kan lägga fler"
+        ? "Dra till en dag — skriv slags fest där. Källan ligger kvar så du kan lägga fler"
         : entry.task.completionKind === "finance"
           ? formatMonthlyTaskDetail(entry.task, completion) ??
             entry.task.notes ??

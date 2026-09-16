@@ -147,7 +147,6 @@ export function UnifiedWeekBoard({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [festOccasion, setFestOccasion] = useState("");
 
   useSyncNavPending(pending || pendingId != null, plan.items);
 
@@ -217,10 +216,6 @@ export function UnifiedWeekBoard({
     const isTaskSource = item.kind === "task" && item.taskRole === "source";
     const isMonthlySource =
       item.kind === "monthly_bill" && item.monthlyRole === "source";
-    if (isMonthlySource && !festOccasion.trim()) {
-      setError("Skriv vilken slags fest det är.");
-      return;
-    }
     if (
       !isBathingSource &&
       !isSportSource &&
@@ -364,7 +359,6 @@ export function UnifiedWeekBoard({
             ? Math.max(...dayItems.map((t) => t.sortOrder)) + 1
             : 0;
         const localDate = addDaysISO(weekStart, weekday - 1);
-        const occasion = festOccasion.trim();
         const optimisticPlacement: WeekPlanItem = {
           ...source,
           dragId: `monthly_bill-instance:optimistic-${uid}`,
@@ -373,8 +367,9 @@ export function UnifiedWeekBoard({
           sortOrder: nextOrder,
           done: false,
           scheduledDayOfMonth: Number(localDate.slice(8, 10)),
-          label: occasion ? `${source.label} · ${occasion}` : source.label,
-          subtitle: occasion || source.subtitle,
+          completion: null,
+          label: source.label,
+          subtitle: "Vilken slags fest?",
         };
         return [...prev, optimisticPlacement];
       });
@@ -424,7 +419,6 @@ export function UnifiedWeekBoard({
         dragId,
         weekStart,
         weekday,
-        ...(isMonthlySource ? { occasion: festOccasion } : {}),
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte placera.");
@@ -432,7 +426,6 @@ export function UnifiedWeekBoard({
         setPendingId(null);
         return;
       }
-      if (isMonthlySource) setFestOccasion("");
       router.refresh();
     });
   };
@@ -668,8 +661,6 @@ export function UnifiedWeekBoard({
         }}
         games={games}
         sports={sports}
-        festOccasion={festOccasion}
-        onFestOccasionChange={setFestOccasion}
       />
     ) : (
       <DraggableItemRow
@@ -701,8 +692,6 @@ export function UnifiedWeekBoard({
         }}
         games={games}
         sports={sports}
-        festOccasion={festOccasion}
-        onFestOccasionChange={setFestOccasion}
       />
     )
   );
@@ -1104,8 +1093,6 @@ interface DraggableItemRowProps {
   onDone: () => void;
   games?: UserGame[];
   sports?: UserSport[];
-  festOccasion?: string;
-  onFestOccasionChange?: (value: string) => void;
 }
 
 function isFestPlacementItem(item: WeekPlanItem): boolean {
@@ -1177,8 +1164,6 @@ function SortableItemRow(props: DraggableItemRowProps) {
         onDone={props.onDone}
         games={props.games}
         sports={props.sports}
-        festOccasion={props.festOccasion}
-        onFestOccasionChange={props.onFestOccasionChange}
       />
     </li>
   );
@@ -1203,8 +1188,6 @@ function DraggableItemRow({
   onDone,
   games = [],
   sports = [],
-  festOccasion,
-  onFestOccasionChange,
 }: DraggableItemRowProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: item.dragId,
@@ -1249,8 +1232,6 @@ function DraggableItemRow({
         onDone={onDone}
         games={games}
         sports={sports}
-        festOccasion={festOccasion}
-        onFestOccasionChange={onFestOccasionChange}
       />
     </li>
   );
@@ -1317,8 +1298,6 @@ interface ItemRowContentProps {
   onDone: () => void;
   games?: UserGame[];
   sports?: UserSport[];
-  festOccasion?: string;
-  onFestOccasionChange?: (value: string) => void;
 }
 
 function isTaskOnHold(item: WeekPlanItem): boolean {
@@ -1361,8 +1340,6 @@ function ItemRowContent({
   onDone,
   games = [],
   sports = [],
-  festOccasion,
-  onFestOccasionChange,
 }: ItemRowContentProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -1448,8 +1425,6 @@ function ItemRowContent({
     item.kind === "monthly_bill" && item.completionKind === "amount";
   const isMonthlyFinance =
     item.kind === "monthly_bill" && item.completionKind === "finance";
-  const isFestSource =
-    item.kind === "monthly_bill" && item.monthlyRole === "source";
   const isFestPlacement =
     item.kind === "monthly_bill" &&
     item.isRepeatable &&
@@ -1457,6 +1432,15 @@ function ItemRowContent({
   const [festInstanceOccasion, setFestInstanceOccasion] = useState(
     item.kind === "monthly_bill" ? (item.completion?.occasion ?? "") : "",
   );
+  const festCompletionId =
+    item.kind === "monthly_bill" ? item.completion?.id : undefined;
+  const festCompletionOccasion =
+    item.kind === "monthly_bill" ? (item.completion?.occasion ?? "") : "";
+  useEffect(() => {
+    setFestInstanceOccasion(festCompletionOccasion);
+  }, [festCompletionId, festCompletionOccasion]);
+  const savedFestOccasion = festCompletionOccasion.trim();
+  const festOccasionMissing = isFestPlacement && !savedFestOccasion;
   const isSalaryTask =
     item.kind === "monthly_bill" && item.taskKey === SALARY_TASK_KEY;
   const isCarpayTask =
@@ -2165,20 +2149,34 @@ function ItemRowContent({
         </div>
       ) : null}
 
-      {!preview && isFestSource ? (
-        <div
+      {!preview && isFestPlacement && festOccasionMissing ? (
+        <form
           className={styles.festOccasion}
           onPointerDown={(e) => e.stopPropagation()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveFestOccasion();
+          }}
         >
           <Input
             label="Vilken slags fest?"
-            value={festOccasion ?? ""}
-            onChange={(e) => onFestOccasionChange?.(e.target.value)}
+            value={festInstanceOccasion}
+            onChange={(e) => setFestInstanceOccasion(e.target.value)}
             placeholder="t.ex. kräftskiva, födelsedag"
             maxLength={80}
-            disabled={pending}
+            disabled={pending || !festCompletionId}
           />
-        </div>
+          <Button
+            type="submit"
+            variant="outline"
+            size="md"
+            fullWidth
+            loading={pending && busy}
+            disabled={pending || !festCompletionId}
+          >
+            Spara
+          </Button>
+        </form>
       ) : null}
 
       {!preview && isUnplaced ? (
@@ -2229,7 +2227,10 @@ function ItemRowContent({
 
       {expanded && !preview ? (
         <div className={styles.taskActions}>
-          {isFestPlacement && item.kind === "monthly_bill" && item.completion?.id ? (
+          {isFestPlacement &&
+          item.kind === "monthly_bill" &&
+          item.completion?.id &&
+          !festOccasionMissing ? (
             <>
               <p className={styles.actionsLabel}>Vilken slags fest</p>
               <Input

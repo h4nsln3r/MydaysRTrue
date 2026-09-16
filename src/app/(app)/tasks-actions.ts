@@ -2821,8 +2821,10 @@ export async function placeMonthlyBillFromWeekAction(input: {
   if (!task) return { ok: false, error: "Uppgiften hittades inte." };
 
   if (isMonthlyTaskRepeatable({ isRepeatable: task.is_repeatable, key: task.key })) {
-    const parsed = parseFestOccasion(input.occasion ?? "");
-    if (!parsed.ok) return parsed;
+    const occasionRaw = (input.occasion ?? "").trim();
+    if (occasionRaw.length > 80) {
+      return { ok: false, error: "Håll festnamnet under 80 tecken." };
+    }
     const { error } = await supabase.from("monthly_task_completions").insert({
       user_id: user.id,
       task_id: input.taskId,
@@ -2833,7 +2835,7 @@ export async function placeMonthlyBillFromWeekAction(input: {
       is_unscheduled: false,
       is_instance: true,
       day_sort_order: daySortOrder,
-      occasion: parsed.occasion,
+      occasion: occasionRaw || null,
     });
     if (error) return { ok: false, error: error.message };
     revalidatePath("/", "layout");

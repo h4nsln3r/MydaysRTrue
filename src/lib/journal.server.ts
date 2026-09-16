@@ -14,13 +14,18 @@ import {
   applyJournalEntryOrder,
   buildJournalNarrative,
   buildJournalPreview,
+  intakeIdFromJournalEntryId,
   journalTrackedItemDescription,
+  mealIdFromJournalEntryId,
+  snackJournalEntryId,
+  snackSlotFromJournalEntryId,
   type DailyJournal,
   type JournalDisplayEntry,
   type ManualJournalEntry,
   type WeekJournalDay,
   type WeekJournalSummary,
 } from "@/lib/journal";
+import { INTAKE_REQUIRES_DESCRIPTION } from "@/lib/intake";
 import { MOOD_ICON, MOOD_LABEL, type MoodKey } from "@/lib/mood";
 import { isMoodKey } from "@/lib/mood";
 import {
@@ -141,7 +146,7 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
 
   for (const snack of trackers.snacks) {
     entries.push({
-      id: `snack-${snack.slot}-${snack.loggedAt}`,
+      id: snackJournalEntryId(snack.slot),
       source: "snack",
       icon: SNACK_ICON[snack.slot],
       title: SNACK_LABEL[snack.slot],
@@ -586,9 +591,6 @@ export async function getJournalEntryEditsForWeek(
   return byDate;
 }
 
-const UUID_RE =
-  "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-const MEAL_JOURNAL_ID_RE = new RegExp(`^meal-(${UUID_RE})$`, "i");
 const TRACKED_ITEM_DESC_MAX = 280;
 
 async function clearJournalEntryEdit(
@@ -605,28 +607,58 @@ async function clearJournalEntryEdit(
     .eq("entry_id", entryId);
 }
 
+export async function clearSnackJournalEdits(
+  userId: string,
+  localDate: string,
+  slot: 1 | 2,
+): Promise<void> {
+  const supabase = await createClient();
+  const prefix = snackJournalEntryId(slot);
+  await supabase
+    .from("journal_entry_edits")
+    .delete()
+    .eq("user_id", userId)
+    .eq("local_date", localDate)
+    .or(`entry_id.eq.${prefix},entry_id.like.${prefix}-%`);
+}
+
+export async function clearIntakeJournalEdits(
+  userId: string,
+  localDate: string,
+  intakeId: string,
+): Promise<void> {
+  await clearJournalEntryEdit(userId, localDate, `intake-${intakeId}`);
+}
+
+function trackedItemDescriptionFromJournalBody(
+  body: string,
+  requiredError: string,
+): { ok: true; description: string } | { ok: false; error: string } {
+  const description = journalTrackedItemDescription(body);
+  if (!description) return { ok: false, error: requiredError };
+  if (description.length > TRACKED_ITEM_DESC_MAX) {
+    return { ok: false, error: "Håll det under 280 tecken." };
+  }
+  return { ok: true, description };
+}
+
 async function saveMealJournalEdit(
   userId: string,
   localDate: string,
   entryId: string,
   body: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const match = MEAL_JOURNAL_ID_RE.exec(entryId);
-  if (!match) return { ok: false, error: "Ogiltig måltid." };
+  const mealId = mealIdFromJournalEntryId(entryId);
+  if (!mealId) return { ok: false, error: "Ogiltig måltid." };
 
-  const description = journalTrackedItemDescription(body);
-  if (!description) {
-    return { ok: false, error: "Skriv vad du åt." };
-  }
-  if (description.length > TRACKED_ITEM_DESC_MAX) {
-    return { ok: false, error: "Håll det under 280 tecken." };
-  }
+  const parsed = trackedItemDescriptionFromJournalBody(body, "Skriv vad du åt.");
+  if (!parsed.ok) return parsed;
 
   const supabase = await createClient();
   const { data: existing, error: lookupError } = await supabase
     .from("meal_entries")
     .select("id")
-    .eq("id", match[1])
+    .eq("id", mealId)
     .eq("user_id", userId)
     .eq("local_date", localDate)
     .maybeSingle();
@@ -635,12 +667,89 @@ async function saveMealJournalEdit(
 
   const { error } = await supabase
     .from("meal_entries")
-    .update({ description })
+    .update({ description: parsed.description })
     .eq("id", existing.id)
     .eq("user_id", userId);
   if (error) return { ok: false, error: error.message };
 
   await clearJournalEntryEdit(userId, localDate, entryId);
+  return { ok: true };
+}
+
+async function saveSnackJournalEdit(
+  userId: string,
+  localDate: string,
+  entryId: string,
+  body: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const slot = snackSlotFromJournalEntryId(entryId);
+  if (!slot) return { ok: false, error: "Ogiltigt mellanmål." };
+
+  const parsed = trackedItemDescriptionFromJournalBody(
+    body,
+    "Skriv vad mellanmålet innehöll.",
+  );
+  if (!parsed.ok) return parsed;
+
+  const supabase = await createClient();
+  const { data: existing, error: lookupError } = await supabase
+    .from("snack_checks")
+    .select("slot")
+    .eq("user_id", userId)
+    .eq("local_date", localDate)
+    .eq("slot", slot)
+    .maybeSingle();
+  if (lookupError) return { ok: false, error: lookupError.message };
+  if (!existing) return { ok: false, error: "Mellanmålet hittades inte." };
+
+  const { error } = await supabase
+    .from("snack_checks")
+    .update({ description: parsed.description })
+    .eq("user_id", userId)
+    .eq("local_date", localDate)
+    .eq("slot", slot);
+  if (error) return { ok: false, error: error.message };
+
+  await clearSnackJournalEdits(userId, localDate, slot);
+  return { ok: true };
+}
+
+async function saveIntakeJournalEdit(
+  userId: string,
+  localDate: string,
+  entryId: string,
+  body: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const intakeId = intakeIdFromJournalEntryId(entryId);
+  if (!intakeId) return { ok: false, error: "Ogiltig intake." };
+
+  const supabase = await createClient();
+  const { data: existing, error: lookupError } = await supabase
+    .from("intake_entries")
+    .select("id, kind")
+    .eq("id", intakeId)
+    .eq("user_id", userId)
+    .eq("local_date", localDate)
+    .maybeSingle();
+  if (lookupError) return { ok: false, error: lookupError.message };
+  if (!existing) return { ok: false, error: "Intaget hittades inte." };
+
+  const description = journalTrackedItemDescription(body);
+  if (INTAKE_REQUIRES_DESCRIPTION[existing.kind] && !description) {
+    return { ok: false, error: "Skriv vad du åt." };
+  }
+  if (description.length > TRACKED_ITEM_DESC_MAX) {
+    return { ok: false, error: "Håll det under 280 tecken." };
+  }
+
+  const { error } = await supabase
+    .from("intake_entries")
+    .update({ description })
+    .eq("id", existing.id)
+    .eq("user_id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  await clearIntakeJournalEdits(userId, localDate, existing.id);
   return { ok: true };
 }
 
@@ -650,8 +759,14 @@ export async function saveJournalEntryEdit(
   entryId: string,
   body: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (MEAL_JOURNAL_ID_RE.test(entryId)) {
+  if (mealIdFromJournalEntryId(entryId)) {
     return saveMealJournalEdit(userId, localDate, entryId, body);
+  }
+  if (snackSlotFromJournalEntryId(entryId)) {
+    return saveSnackJournalEdit(userId, localDate, entryId, body);
+  }
+  if (intakeIdFromJournalEntryId(entryId)) {
+    return saveIntakeJournalEdit(userId, localDate, entryId, body);
   }
 
   const supabase = await createClient();

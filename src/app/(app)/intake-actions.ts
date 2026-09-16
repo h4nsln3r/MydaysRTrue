@@ -123,6 +123,12 @@ export async function saveIntakeAction(input: {
       .eq("id", existing.id)
       .eq("user_id", user.id);
     if (error) return { ok: false, error: error.message };
+    await supabase
+      .from("journal_entry_edits")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("local_date", input.localDate)
+      .eq("entry_id", `intake-${existing.id}`);
   } else {
     const { error } = await supabase.from("intake_entries").insert({
       user_id: user.id,
@@ -185,6 +191,12 @@ export async function clearIntakeAction(input: {
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
 
+  await supabase
+    .from("journal_entry_edits")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("local_date", input.localDate)
+    .eq("entry_id", `intake-${existing.id}`);
   revalidatePath("/", "layout");
   return { ok: true };
 }

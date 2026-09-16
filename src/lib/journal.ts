@@ -323,6 +323,45 @@ function phraseEntry(entry: JournalDisplayEntry): string {
   }
 }
 
+export function snackJournalEntryId(slot: 1 | 2): string {
+  return `snack-${slot}`;
+}
+
+/** Stable snack ids (`snack-1`) plus legacy ids (`snack-1-{loggedAt}`). */
+export function snackSlotFromJournalEntryId(entryId: string): 1 | 2 | null {
+  if (entryId === "snack-1" || entryId.startsWith("snack-1-")) return 1;
+  if (entryId === "snack-2" || entryId.startsWith("snack-2-")) return 2;
+  return null;
+}
+
+const UUID_RE =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const INTAKE_JOURNAL_ID_RE = new RegExp(`^intake-(${UUID_RE})$`, "i");
+const MEAL_JOURNAL_ID_RE = new RegExp(`^meal-(${UUID_RE})$`, "i");
+
+export function intakeIdFromJournalEntryId(entryId: string): string | null {
+  return INTAKE_JOURNAL_ID_RE.exec(entryId)?.[1] ?? null;
+}
+
+export function mealIdFromJournalEntryId(entryId: string): string | null {
+  return MEAL_JOURNAL_ID_RE.exec(entryId)?.[1] ?? null;
+}
+
+function mapValueForJournalEntry<T>(
+  entry: JournalDisplayEntry,
+  values: Map<string, T>,
+): T | undefined {
+  const direct = values.get(entry.id);
+  if (direct != null) return direct;
+  if (entry.source !== "snack") return undefined;
+  const slot = snackSlotFromJournalEntryId(entry.id);
+  if (!slot) return undefined;
+  for (const [id, value] of values) {
+    if (snackSlotFromJournalEntryId(id) === slot) return value;
+  }
+  return undefined;
+}
+
 /** Apply saved body overrides for auto (and optionally manual) entries. */
 export function applyJournalEntryEdits(
   entries: JournalDisplayEntry[],
@@ -330,7 +369,7 @@ export function applyJournalEntryEdits(
 ): JournalDisplayEntry[] {
   if (!edits || edits.size === 0) return entries;
   return entries.map((entry) => {
-    const body = edits.get(entry.id);
+    const body = mapValueForJournalEntry(entry, edits);
     return body != null ? { ...entry, body, customBody: true } : entry;
   });
 }
@@ -354,7 +393,7 @@ export function applyJournalEntryOrder(
   const maxSaved = Math.max(...savedOrder.values());
   let fallback = maxSaved + 1;
   const ranked = byTime.map((entry) => {
-    const saved = savedOrder.get(entry.id);
+    const saved = mapValueForJournalEntry(entry, savedOrder);
     const order = saved ?? fallback++;
     return { entry, order, at: new Date(entry.at).getTime() };
   });

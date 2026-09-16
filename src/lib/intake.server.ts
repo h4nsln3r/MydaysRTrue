@@ -1,6 +1,10 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
+import {
+  intakeIdFromJournalEntryId,
+  journalTrackedItemDescription,
+} from "@/lib/journal";
 
 /**
  * Fetch the user's intake entries for a single day, normalised to the four
@@ -49,5 +53,22 @@ export async function getDailyIntake(
       waterLogId: r.water_log_id,
     };
   }
+
+  const { data: edits } = await supabase
+    .from("journal_entry_edits")
+    .select("entry_id, body")
+    .eq("user_id", userId)
+    .eq("local_date", localDate);
+  for (const edit of edits ?? []) {
+    const intakeId = intakeIdFromJournalEntryId(edit.entry_id);
+    const description = journalTrackedItemDescription(edit.body);
+    if (!intakeId || !description) continue;
+    for (const entry of Object.values(out)) {
+      if (entry && entry.id === intakeId) {
+        entry.description = description;
+      }
+    }
+  }
+
   return out;
 }

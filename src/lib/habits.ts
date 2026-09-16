@@ -5,6 +5,12 @@ import { diffDaysISO, isoWeekdayFromLocalISO } from "@/lib/date";
 import type { IntakeKind } from "@/lib/intake";
 import type { MoodKey } from "@/lib/mood";
 import { WEEKDAY_SHORT, type Weekday } from "@/lib/tasks";
+import {
+  gorShakeOccursOnDate,
+  isGorShakeHabit,
+  shakeDrinkWeekdays,
+  type ShakeBatch,
+} from "@/lib/shake-schedule";
 
 /** Per-day sub-item data for expandable week progress rows. */
 export interface WeekHabitDayDetails {
@@ -157,9 +163,17 @@ export interface Habit {
 }
 
 export interface HabitIntervalRule {
+  key?: string;
   intervalDays: number;
   intervalAnchorDate: string | null;
   weekdays: Weekday[];
+}
+
+export interface HabitOccurrenceContext {
+  /** Completed Gör shake (or any check) on this date — keep the row visible. */
+  shakeCompleted?: boolean;
+  /** Previous Gör shake batches used to compute leftover stock. */
+  shakeBatches?: ShakeBatch[];
 }
 
 /** Whether a habit should appear for this day given leave status. */
@@ -173,13 +187,20 @@ export function habitVisibleOnLeaveDay(
 
 /**
  * Whether a daily habit is due on `localDate`.
- * Selected weekdays win. Otherwise interval 1 is every day, and interval 2+
- * repeats every N calendar days from the anchor.
+ * Gör shake is stock-based: it appears the calendar day before the next
+ * uncovered drink day. Other habits use selected weekdays, else interval.
  */
 export function habitOccursOnDate(
   habit: HabitIntervalRule,
   localDate: string,
+  ctx?: HabitOccurrenceContext,
 ): boolean {
+  if (isGorShakeHabit(habit)) {
+    return gorShakeOccursOnDate(habit, localDate, {
+      completedOnDate: ctx?.shakeCompleted === true,
+      batches: ctx?.shakeBatches ?? [],
+    });
+  }
   if (habit.weekdays.length > 0) {
     const weekday = isoWeekdayFromLocalISO(localDate) as Weekday;
     return habit.weekdays.includes(weekday);
@@ -194,6 +215,11 @@ export function habitOccursOnDate(
 
 /** Short Swedish cadence for settings and day-plan hints. */
 export function habitCadenceLabel(habit: HabitIntervalRule): string | null {
+  if (isGorShakeHabit(habit)) {
+    return `Dricks ${shakeDrinkWeekdays(habit)
+      .map((d) => WEEKDAY_SHORT[d])
+      .join(" · ")}`;
+  }
   if (habit.weekdays.length > 0) {
     return habit.weekdays.map((d) => WEEKDAY_SHORT[d]).join(" · ");
   }
@@ -236,6 +262,10 @@ export interface DailyHabit extends Habit {
   intakeTotal?: number;
   /** Mood — selected feeling for the day. */
   moodKey?: MoodKey | null;
+  /** Gör shake — how many shakes were made this day. */
+  quantity?: number | null;
+  /** Gör shake — earlier batches used to hide the row until stock runs low. */
+  shakeBatches?: ShakeBatch[];
 }
 
 export interface SnackEntry {

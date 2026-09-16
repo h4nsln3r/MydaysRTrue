@@ -1389,6 +1389,7 @@ export interface Database {
           local_date: string;
           status: "yes" | "half" | "no";
           note: string | null;
+          quantity: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -1399,6 +1400,7 @@ export interface Database {
           local_date: string;
           status: "yes" | "half" | "no";
           note?: string | null;
+          quantity?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1409,6 +1411,7 @@ export interface Database {
           local_date?: string;
           status?: "yes" | "half" | "no";
           note?: string | null;
+          quantity?: number | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -51,6 +51,12 @@ import {
 import { formatTime } from "@/lib/date";
 import { SHAKE_RECIPE_INGREDIENTS } from "@/lib/shake-recipe";
 import {
+  parseShakeQuantity,
+  SHAKE_QUANTITY_MAX,
+  SHAKE_QUANTITY_MIN,
+  shakeScheduleHint,
+} from "@/lib/shake-schedule";
+import {
   WORK_KINDS,
   WORK_KIND_FULL_LABEL,
   WORK_KIND_ICON,
@@ -688,18 +694,40 @@ function HabitPlanRow(
     onPendingKey,
     onDone,
   } = props;
+  const isShake = item.habitKey === "gor_shake";
   const done = item.status === "yes";
   const [note, setNote] = useState(item.note ?? "");
+  const [quantity, setQuantity] = useState(
+    item.quantity != null ? String(item.quantity) : isShake ? "2" : "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
     setNote(item.note ?? "");
-  }, [item.note]);
+    setQuantity(
+      item.quantity != null ? String(item.quantity) : isShake ? "2" : "",
+    );
+  }, [item.note, item.quantity, isShake]);
 
-  const detail = item.note?.trim() || null;
+  const parsedQuantity = parseShakeQuantity(quantity);
+  const otherBatches = item.shakeBatches.filter((b) => b.madeOn !== date);
+  const shakeHint =
+    isShake && parsedQuantity != null
+      ? shakeScheduleHint(item, date, parsedQuantity, otherBatches)
+      : null;
+  const detail = [
+    isShake && item.quantity != null ? `${item.quantity} st` : null,
+    item.note?.trim() || null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const save = () => {
+    if (isShake && parsedQuantity == null) {
+      setError("Ange hur många shakes du gjorde (1–14).");
+      return;
+    }
     onError(null);
     onPendingKey(true);
     startTransition(async () => {
@@ -708,6 +736,7 @@ function HabitPlanRow(
         localDate: date,
         status: "yes",
         note: note.trim() || null,
+        quantity: isShake ? parsedQuantity : null,
       });
       if (!res.ok) {
         onError(res.error ?? "Kunde inte spara.");
@@ -757,17 +786,32 @@ function HabitPlanRow(
           </ul>
         </details>
       ) : null}
+      {isShake ? (
+        <Input
+          label="Antal shakes"
+          type="number"
+          inputMode="numeric"
+          min={SHAKE_QUANTITY_MIN}
+          max={SHAKE_QUANTITY_MAX}
+          step={1}
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          hint={shakeHint ?? "En shake per dryckesdag. Nästa gång blir dagen innan du behöver dricka igen."}
+          autoFocus={!done}
+          disabled={pending}
+        />
+      ) : null}
       <Input
         label="Kommentar (valfritt)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder={
-          item.habitKey === "gor_shake"
-            ? "t.ex. vanilj till idag och imorgon"
+          isShake
+            ? "t.ex. vanilj"
             : "t.ex. plockade undan i vardagsrummet"
         }
         maxLength={280}
-        autoFocus={!done}
+        autoFocus={!done && !isShake}
         disabled={pending}
       />
       {!done ? (
@@ -777,24 +821,25 @@ function HabitPlanRow(
           size="md"
           fullWidth
           loading={pending && busy}
-          disabled={pending}
+          disabled={pending || (isShake && parsedQuantity == null)}
           onClick={save}
         >
           Markera klart
         </Button>
       ) : (
         <>
-          {note !== (item.note ?? "") ? (
+          {note !== (item.note ?? "") ||
+          (isShake && parsedQuantity !== item.quantity) ? (
             <Button
               type="button"
               variant="outline"
               size="md"
               fullWidth
               loading={pending && busy}
-              disabled={pending}
+              disabled={pending || (isShake && parsedQuantity == null)}
               onClick={save}
             >
-              Spara kommentar
+              Spara
             </Button>
           ) : null}
           <button type="button" className={styles.undoBtn} onClick={clear} disabled={pending}>

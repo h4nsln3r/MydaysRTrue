@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isLocalISODate, todayLocalISO } from "@/lib/date";
 import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
 import { parseHabitWeekdays } from "@/lib/habits";
+import { parseShakeQuantity } from "@/lib/shake-schedule";
 import type { Weekday } from "@/lib/tasks";
 import { MEAL_LABEL, mealHasCookingMeta, mealShowsMealBoxes } from "@/lib/habits";
 import { resolveMealRestaurant } from "@/lib/meals.server";
@@ -133,6 +134,7 @@ export async function setHabitStatusAction(input: {
   localDate: string;
   status: HabitStatus | null;
   note?: string | null;
+  quantity?: number | null;
 }): Promise<ActionResult> {
   if (!input.habitId) return { ok: false, error: "Missing habit id." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
@@ -157,7 +159,7 @@ export async function setHabitStatusAction(input: {
   // (water status is derived from water_logs, not stored as a check).
   const { data: habit, error: lookupErr } = await supabase
     .from("habits")
-    .select("id, kind, user_id")
+    .select("id, kind, key, user_id")
     .eq("id", input.habitId)
     .maybeSingle();
   if (lookupErr) return { ok: false, error: lookupErr.message };
@@ -166,6 +168,16 @@ export async function setHabitStatusAction(input: {
   }
   if (habit.kind === "water") {
     return { ok: false, error: "Water status is computed from your logs." };
+  }
+
+  const isGorShake = habit.key === "gor_shake";
+  let quantity: number | null = null;
+  if (isGorShake && input.status === "yes") {
+    const parsed = parseShakeQuantity(input.quantity);
+    if (parsed == null) {
+      return { ok: false, error: "Ange hur många shakes du gjorde (1–14)." };
+    }
+    quantity = parsed;
   }
 
   if (input.status === null) {
@@ -184,6 +196,7 @@ export async function setHabitStatusAction(input: {
         local_date: input.localDate,
         status: input.status,
         note: input.note?.trim() || null,
+        quantity,
       },
       { onConflict: "user_id,habit_id,local_date" },
     );

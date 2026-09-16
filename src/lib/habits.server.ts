@@ -21,6 +21,7 @@ import {
   WEEK_PROGRESS_HABIT_KEYS,
   type WeekHabitDayDetails,
 } from "@/lib/habits";
+import { parseShakeQuantity, type ShakeBatch } from "@/lib/shake-schedule";
 import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
 import { mobileGamesStatusFor } from "@/lib/mobile-games";
 import {
@@ -92,6 +93,33 @@ function rowToHabit(r: HabitRow): Habit {
     intervalAnchorDate: r.interval_anchor_date,
     weekdays: parseHabitWeekdays(r.weekdays),
   };
+}
+
+async function getGorShakeBatches(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  habits: { id: string; key: string }[],
+  throughDate?: string,
+): Promise<ShakeBatch[]> {
+  const habit = habits.find((h) => h.key === "gor_shake");
+  if (!habit) return [];
+  let query = supabase
+    .from("habit_checks")
+    .select("local_date, quantity")
+    .eq("user_id", userId)
+    .eq("habit_id", habit.id)
+    .eq("status", "yes")
+    .not("quantity", "is", null)
+    .order("local_date", { ascending: true });
+  if (throughDate) query = query.lte("local_date", throughDate);
+  const { data } = await query;
+  const batches: ShakeBatch[] = [];
+  for (const row of data ?? []) {
+    const quantity = parseShakeQuantity(row.quantity);
+    if (quantity == null) continue;
+    batches.push({ madeOn: row.local_date, quantity });
+  }
+  return batches;
 }
 
 export interface DailyTrackerGoals {
@@ -252,7 +280,7 @@ export async function getDailyHabits(
       .order("sort_order", { ascending: true }),
     supabase
       .from("habit_checks")
-      .select("habit_id, status, note")
+      .select("habit_id, status, note, quantity")
       .eq("user_id", userId)
       .eq("local_date", localDate),
     supabase
@@ -321,6 +349,12 @@ export async function getDailyHabits(
 
   const habits = habitsRes.data ?? [];
   const checks = checksRes.data ?? [];
+  const shakeBatches = await getGorShakeBatches(
+    supabase,
+    userId,
+    habits,
+    localDate,
+  );
   const goalMl = profileRes.data?.daily_water_goal_ml ?? 2500;
   const stepsGoal = profileRes.data?.daily_steps_goal ?? 8000;
   const activityHoursGoal = Number(
@@ -340,9 +374,16 @@ export async function getDailyHabits(
       ? Number(activityRes.data.activity_hours)
       : 0;
 
-  const checkByHabit = new Map<string, { status: HabitStatus; note: string | null }>();
+  const checkByHabit = new Map<
+    string,
+    { status: HabitStatus; note: string | null; quantity: number | null }
+  >();
   for (const c of checks) {
-    checkByHabit.set(c.habit_id, { status: c.status, note: c.note });
+    checkByHabit.set(c.habit_id, {
+      status: c.status,
+      note: c.note,
+      quantity: parseShakeQuantity(c.quantity),
+    });
   }
 
   const mediaDayLogs: MediaDayLog[] = (mediaLogRes.data ?? []).map((row) => ({
@@ -484,9 +525,16 @@ export async function getDailyHabits(
       ...habit,
       status: c?.status ?? null,
       note: c?.note ?? null,
+      quantity: c?.quantity ?? null,
+      shakeBatches: habit.key === "gor_shake" ? shakeBatches : undefined,
     };
   })
-    .filter((habit) => habitOccursOnDate(habit, localDate));
+    .filter((habit) =>
+      habitOccursOnDate(habit, localDate, {
+        shakeCompleted: habit.status != null,
+        shakeBatches: habit.shakeBatches,
+      }),
+    );
 }
 
 /**
@@ -713,6 +761,12 @@ export async function getMonthSummary(
   ]);
 
   const habits = (habitsRes.data ?? []).map(rowToHabit);
+  const shakeBatches = await getGorShakeBatches(
+    supabase,
+    userId,
+    habits,
+    endISO,
+  );
   const goalMl = profileRes.data?.daily_water_goal_ml ?? 2500;
   const stepsGoal = profileRes.data?.daily_steps_goal ?? 8000;
   const activityHoursGoal = Number(
@@ -826,7 +880,12 @@ export async function getMonthSummary(
     const statuses: Record<string, HabitStatus | null> = {};
 
     for (const h of habits) {
-      if (!habitOccursOnDate(h, date)) {
+      if (
+        !habitOccursOnDate(h, date, {
+          shakeCompleted: checkMap.has(`${h.id}|${date}`),
+          shakeBatches,
+        })
+      ) {
         statuses[h.id] = null;
         continue;
       }
@@ -1043,6 +1102,12 @@ export async function getWeekHabitSummary(
 
   const allHabits = (habitsRes.data ?? []).map(rowToHabit);
   const habits = filterWeekProgressHabits(allHabits);
+  const shakeBatches = await getGorShakeBatches(
+    supabase,
+    userId,
+    allHabits,
+    weekEnd,
+  );
   const goalMl = profileRes.data?.daily_water_goal_ml ?? 2500;
   const stepsGoal = profileRes.data?.daily_steps_goal ?? 8000;
   const activityHoursGoal = Number(
@@ -1155,7 +1220,12 @@ export async function getWeekHabitSummary(
     const statuses: Record<string, HabitStatus | null> = {};
 
     for (const h of habits) {
-      if (!habitOccursOnDate(h, date)) {
+      if (
+        !habitOccursOnDate(h, date, {
+          shakeCompleted: checkMap.has(`${h.id}|${date}`),
+          shakeBatches,
+        })
+      ) {
         statuses[h.id] = null;
         continue;
       }

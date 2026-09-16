@@ -32,8 +32,10 @@ import type {
   MonthlyTaskForMonth,
   WeeklyTaskChecklistItem,
   WeeklyTaskForWeek,
+  Weekday,
 } from "@/lib/tasks";
 import { musicSessionIcon, musicSessionTitle } from "@/lib/tasks";
+import type { ShakeBatch } from "@/lib/shake-schedule";
 import {
   shouldShowWork,
   workNeedsEnd,
@@ -214,6 +216,9 @@ export type DayPlanItem =
       status: HabitStatus | null;
       note: string | null;
       intervalDays: number;
+      weekdays: Weekday[];
+      quantity: number | null;
+      shakeBatches: ShakeBatch[];
     }
   | {
       kind: "work_start";
@@ -461,7 +466,11 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
   const onLeave = input.onLeave === true;
   const planHabits = input.habits.filter(
     (h) =>
-      habitVisibleOnLeaveDay(h, onLeave) && habitOccursOnDate(h, input.date),
+      habitVisibleOnLeaveDay(h, onLeave) &&
+      habitOccursOnDate(h, input.date, {
+        shakeCompleted: h.status != null,
+        shakeBatches: h.shakeBatches,
+      }),
   );
   const enabledKinds = new Set(planHabits.map((h) => h.kind));
   const slots = habitSortSlots(planHabits);
@@ -606,6 +615,9 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
       status: habit.status,
       note: habit.note,
       intervalDays: habit.intervalDays,
+      weekdays: habit.weekdays,
+      quantity: habit.quantity ?? null,
+      shakeBatches: habit.shakeBatches ?? [],
     });
   }
 

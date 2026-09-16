@@ -288,7 +288,7 @@ function SortableTrackerRow({
           <span className={styles.trackerHint}>
             {[
               habit.key === "gor_shake"
-                ? "Förbered shake för idag och imorgon"
+                ? "Gör shakes i förväg — en per dryckesdag"
                 : (KIND_HINT[habit.kind] ?? "Daglig uppföljning"),
               habitCadenceLabel(habit),
             ]
@@ -354,7 +354,7 @@ function SortableTrackerRow({
             aria-controls={`cadence-${habit.id}`}
             onClick={() => setCadenceOpen((prev) => !prev)}
           >
-            <span className={styles.goalTriggerLabel}>Dagar</span>
+            <span className={styles.goalTriggerLabel}>Dryckesdagar</span>
             <span className={styles.goalTriggerValue}>
               {habitCadenceLabel(habit) ?? "Varje dag"}
             </span>
@@ -397,8 +397,8 @@ function SortableTrackerRow({
               label=""
               hint={
                 habit.weekdays.length > 0
-                  ? "Visas bara de valda dagarna"
-                  : "Inga dagar valda — visas varje dag"
+                  ? "Dagar du dricker en shake. Nästa Gör shake hamnar dagen innan förrådet tar slut."
+                  : "Inga dagar valda — dricks måndag–fredag"
               }
             />
           </div>

@@ -384,6 +384,23 @@ export function monthlyTasksOnLocalDate(
   });
 }
 
+/** Attach all week-context completions onto monthly tasks. */
+export function monthlyTasksWithWeekCompletions(input: {
+  tasks: MonthlyTaskForMonth[];
+  completionsByTaskMonth: Map<string, MonthlyCompletion[]>;
+}): MonthlyTaskForMonth[] {
+  return input.tasks.map((task) => {
+    const completions = [...input.completionsByTaskMonth.entries()]
+      .filter(([key]) => key.startsWith(`${task.id}|`))
+      .flatMap(([, list]) => list);
+    return {
+      ...task,
+      completions,
+      completion: primaryMonthlyCompletion(completions) ?? task.completion,
+    };
+  });
+}
+
 /** True when the task still needs week/day planning on the month board. */
 export function needsMonthPlacement(
   task: Pick<MonthlyTask, "dayOfMonth" | "completionKind" | "isRepeatable" | "key">,

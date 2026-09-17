@@ -32,6 +32,7 @@ import {
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   type TaskCategory,
+  type MonthlyTaskForMonth,
   type Weekday,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
@@ -65,6 +66,11 @@ import {
   type WorkDailyLog,
   type WorkKind,
 } from "@/lib/work";
+import { groupMonthlyTasksForDates } from "@/lib/month-progress";
+import {
+  isMonthlyTaskComplete,
+  monthlyTasksOnLocalDate,
+} from "@/lib/monthly-bills";
 import styles from "./week-progress.module.scss";
 
 interface Props {
@@ -84,6 +90,8 @@ interface Props {
   workByDate: Map<string, WorkDailyLog>;
   savedRestaurants?: MealRestaurant[];
   sports?: UserSport[];
+  monthlyTasks?: MonthlyTaskForMonth[];
+  monthlyCategories?: TaskCategory[];
 }
 
 const WEEKDAY_HEAD = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
@@ -105,6 +113,8 @@ export function WeekProgressBoard({
   workByDate,
   savedRestaurants = [],
   sports = [],
+  monthlyTasks = [],
+  monthlyCategories = [],
 }: Props) {
   const pastDays = habitWeek.days.filter((d) => !d.isFuture).length;
 
@@ -138,6 +148,13 @@ export function WeekProgressBoard({
   const taskScore = scoreWeeklyTasksForProgress(tasks);
   const tasksDone = taskScore.done;
   const tasksTotal = taskScore.total;
+  const monthlyGroups = groupMonthlyTasksForDates(
+    monthlyTasks,
+    week.days.map((d) => d.date),
+    monthlyCategories.length > 0 ? monthlyCategories : taskCategories,
+  );
+  const monthlyDone = monthlyGroups.reduce((sum, g) => sum + g.done, 0);
+  const monthlyTotal = monthlyGroups.reduce((sum, g) => sum + g.total, 0);
   const gymDone = placedGym.filter((s) => s.placement.doneAt).length;
   const cardioDone = placedCardio.filter((s) => s.placement.doneAt).length;
   const cardioTotal = CARDIO_WEEKLY_GOAL;
@@ -162,6 +179,8 @@ export function WeekProgressBoard({
     bathingTotal: placedBathing.length,
     tasksDone,
     tasksTotal,
+    monthlyDone,
+    monthlyTotal,
     waterHit: week.daysHit,
     waterTotal: pastDays,
     habitYes: Object.values(habitWeek.yesByHabit).reduce((a, b) => a + b, 0),
@@ -365,6 +384,64 @@ export function WeekProgressBoard({
                         </tr>
                       ))
                     )}
+                    {monthlyGroups.length > 0 ? (
+                      <>
+                        <SectionRow label="Månadsuppgifter" colSpan={colSpan} />
+                        {monthlyGroups.map((group) => (
+                          <tr key={`m-${group.category?.id ?? "uncategorized"}`}>
+                            <RowLabel
+                              sticky
+                              icon={group.category?.icon ?? "📅"}
+                              label={group.category?.name ?? "Övrigt"}
+                            />
+                            {week.days.map((d) => {
+                              const dayTasks = group.byDate.get(d.date) ?? [];
+                              const dayDone = dayTasks.filter((t) =>
+                                isMonthlyTaskComplete(t, t.completion),
+                              ).length;
+                              const allDone =
+                                dayTasks.length > 0 &&
+                                dayDone === dayTasks.length;
+                              return (
+                                <td
+                                  key={d.date}
+                                  className={cellClass(
+                                    styles.dataCell,
+                                    styles.taskCell,
+                                    d.isFuture && styles.cellFuture,
+                                    d.isToday && styles.cellToday,
+                                    allDone && styles.taskCellDone,
+                                  )}
+                                >
+                                  {dayTasks.length === 0 ? (
+                                    <span className={styles.emptyMark}>—</span>
+                                  ) : (
+                                    <span className={styles.taskFraction}>
+                                      {dayDone}/{dayTasks.length}
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                            <TotalCell
+                              value={group.done}
+                              total={group.total || null}
+                              extra={Math.max(0, group.done - group.total)}
+                              muted={group.total === 0 && group.done === 0}
+                              mutedLabel={
+                                group.total === 0 && group.done === 0
+                                  ? "—"
+                                  : undefined
+                              }
+                              highlight={
+                                group.total > 0 && group.done >= group.total
+                              }
+                              crush={group.done > group.total}
+                            />
+                          </tr>
+                        ))}
+                      </>
+                    ) : null}
                   </>
                 ) : null}
 
@@ -405,6 +482,12 @@ export function WeekProgressBoard({
                       sport={sportByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
                       bathing={bathingByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
                       tasks={tasksByWeekday.get(isoWeekdayFromLocalISO(d.date)) ?? []}
+                      monthlyTasks={monthlyTasksOnLocalDate(
+                        monthlyTasks,
+                        d.date,
+                        undefined,
+                        { includeWhenDone: true },
+                      )}
                       weightScheduled={
                         weightPlan.enabled && weightPlan.weekday === isoWeekdayFromLocalISO(d.date)
                       }
@@ -1271,6 +1354,7 @@ function DayScore({
   sport,
   bathing,
   tasks,
+  monthlyTasks,
   weightScheduled,
   weightLogged,
 }: {
@@ -1282,6 +1366,7 @@ function DayScore({
   sport: SportSessionForWeek[];
   bathing: BathingSessionForWeek[];
   tasks: WeeklyTaskForWeek[];
+  monthlyTasks: MonthlyTaskForMonth[];
   weightScheduled: boolean;
   weightLogged: boolean;
 }) {
@@ -1295,6 +1380,9 @@ function DayScore({
     tasksAllDone: tasks.length > 0 ? tasks.every((t) => t.placement?.doneAt) : null,
     weightScheduled,
     weightLogged,
+    monthlyDone: monthlyTasks.map((t) =>
+      isMonthlyTaskComplete(t, t.completion),
+    ),
   });
   const crushed = pct >= 100 && total > 0;
 
@@ -1419,6 +1507,8 @@ function summaryScore(parts: {
   bathingTotal: number;
   tasksDone: number;
   tasksTotal: number;
+  monthlyDone: number;
+  monthlyTotal: number;
   waterHit: number;
   waterTotal: number;
   habitYes: number;
@@ -1432,6 +1522,7 @@ function summaryScore(parts: {
     parts.sportDone +
     parts.bathingDone +
     parts.tasksDone +
+    parts.monthlyDone +
     parts.waterHit +
     parts.habitYes +
     parts.weightDone;
@@ -1441,6 +1532,7 @@ function summaryScore(parts: {
     parts.sportTotal +
     parts.bathingTotal +
     parts.tasksTotal +
+    parts.monthlyTotal +
     parts.waterTotal +
     parts.habitTotal +
     parts.weightTotal;
@@ -1450,6 +1542,7 @@ function summaryScore(parts: {
     extraOverGoal(parts.sportDone, parts.sportTotal) +
     extraOverGoal(parts.bathingDone, parts.bathingTotal) +
     extraOverGoal(parts.tasksDone, parts.tasksTotal) +
+    extraOverGoal(parts.monthlyDone, parts.monthlyTotal) +
     extraOverGoal(parts.waterHit, parts.waterTotal) +
     extraOverGoal(parts.habitYes, parts.habitTotal) +
     extraOverGoal(parts.weightDone, parts.weightTotal);

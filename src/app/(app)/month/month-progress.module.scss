@@ -172,8 +172,8 @@
 }
 
 .totalHead {
-    width: 40px;
-    min-width: 40px;
+    width: 52px;
+    min-width: 52px;
     background: rgba(255, 122, 26, 0.12);
     color: $color-orange-bright;
     font-family: $font-display;
@@ -316,6 +316,16 @@
     font-family: $font-mono;
 }
 
+.taskFraction {
+    display: inline-block;
+    padding: 1px 2px;
+    border-radius: 3px;
+    font-size: 0.55rem;
+    font-weight: 700;
+    color: $color-cream-dim;
+    line-height: 1.1;
+}
+
 .taskCellDone {
     background: rgba(110, 231, 163, 0.14);
 }
@@ -338,8 +348,8 @@
 }
 
 .totalCell {
-    width: 40px;
-    min-width: 40px;
+    width: 52px;
+    min-width: 52px;
     padding: $space-2 4px;
     text-align: center;
     vertical-align: middle;
@@ -355,6 +365,22 @@
     .totalValue {
         color: $color-success;
     }
+}
+
+.totalCellCrush {
+    background: rgba(244, 114, 182, 0.1);
+
+    .totalValue,
+    .totalExtra {
+        color: #f472b6;
+    }
+}
+
+.totalExtra {
+    margin-left: 2px;
+    color: #f472b6;
+    font-size: 0.52rem;
+    font-weight: 800;
 }
 
 .totalCellMuted {
@@ -410,11 +436,31 @@
     border-left: 2px solid rgba(255, 122, 26, 0.35);
 }
 
+.footerTotalCrush {
+    background: rgba(244, 114, 182, 0.12) !important;
+
+    .footerTotalValue {
+        color: #f472b6;
+    }
+}
+
 .footerTotalValue {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
     font-family: $font-display;
     font-weight: 800;
-    font-size: 0.82rem;
+    font-size: 0.72rem;
     color: $color-orange-bright;
+    line-height: 1.1;
+}
+
+.footerTotalExtra {
+    font-family: $font-mono;
+    font-size: 0.52rem;
+    font-weight: 800;
+    color: #f472b6;
 }
 
 .dayScore {

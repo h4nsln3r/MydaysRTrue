@@ -1,5 +1,5 @@
 import "server-only";
-import { addDaysISO, weekStartISO, parseLocalISO } from "@/lib/date";
+import { monthEndISO, weekStartsOverlappingRange } from "@/lib/date";
 import {
   collectMonthExpenses,
   collectMonthShopping,
@@ -17,14 +17,8 @@ export async function getMonthSpendSummaries(
   userId: string,
   monthStart: string,
 ): Promise<MonthSpendSummaries> {
-  const monthEnd = `${monthStart.slice(0, 7)}-31`;
-  const firstWeek = weekStartISO(parseLocalISO(monthStart));
-  const lastWeek = weekStartISO(parseLocalISO(monthEnd));
-
-  const weekStarts: string[] = [];
-  for (let ws = firstWeek; ws <= lastWeek; ws = addDaysISO(ws, 7)) {
-    weekStarts.push(ws);
-  }
+  const monthEnd = monthEndISO(monthStart);
+  const weekStarts = weekStartsOverlappingRange(monthStart, monthEnd);
 
   const [categories, monthTasks, ...weekSummaries] = await Promise.all([
     getCategories(userId, "task"),

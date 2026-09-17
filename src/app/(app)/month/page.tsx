@@ -17,7 +17,8 @@ import {
   todayYearMonth,
 } from "@/lib/month-plan-horizon";
 import { getCategories, getMonthTaskSummary } from "@/lib/tasks.server";
-import { getMonthSpendSummaries } from "@/lib/expenses.server";
+import { getMonthActivityProgress } from "@/lib/month-progress.server";
+import { collectMonthExpenses, collectMonthShopping } from "@/lib/expenses";
 import { SALARY_TASK_KEY } from "@/lib/monthly-finance";
 import { isMonthlyTaskComplete } from "@/lib/monthly-bills";
 import {
@@ -73,7 +74,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
-  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, spendSummaries, workByDate] =
+  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, activity, workByDate] =
     await Promise.all([
     getMonthSummary(user.id, year, month),
     getMonthTaskSummary(user.id, monthStart),
@@ -81,9 +82,25 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     getMonthMedia(user.id, monthStart),
     getMonthLiveEvents(user.id, monthStart),
     getMonthGigs(user.id, monthStart),
-    getMonthSpendSummaries(user.id, monthStart),
+    getMonthActivityProgress(user.id, monthStart),
     getWorkLogsInRange(user.id, monthStart, monthEnd),
   ]);
+  const weeklyTasks = activity.weeks.flatMap((w) => w.tasks);
+  const spendCategories =
+    activity.categories.length > 0 ? activity.categories : monthlyTasks.categories;
+  const spendSummaries = {
+    expenses: collectMonthExpenses({
+      weeklyTasks,
+      categories: spendCategories,
+      monthStart,
+      monthlyTasks: monthlyTasks.tasks,
+    }),
+    shopping: collectMonthShopping({
+      weeklyTasks,
+      categories: spendCategories,
+      monthStart,
+    }),
+  };
   let monthlyDone = 0;
   let monthlyTotal = 0;
   for (const t of monthlyTasks.tasks) {
@@ -187,6 +204,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             expenseSummary={spendSummaries.expenses}
             shoppingSummary={spendSummaries.shopping}
             workByDate={workByDate}
+            activity={activity}
         />
         <section className={styles.section}>
           <MediaMonthSummary monthMedia={monthMedia} year={year} />

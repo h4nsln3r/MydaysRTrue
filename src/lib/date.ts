@@ -217,3 +217,41 @@ export function formatNavMonthBadge(localDate: string = todayLocalISO()): string
 export function formatNavYearBadge(localDate: string = todayLocalISO()): string {
   return localDate.slice(0, 4);
 }
+
+/** Last calendar day of the month that contains `monthStart` (YYYY-MM-01). */
+export function monthEndISO(monthStart: string): string {
+  const year = Number(monthStart.slice(0, 4));
+  const month = Number(monthStart.slice(5, 7));
+  const last = new Date(year, month, 0).getDate();
+  return `${monthStart.slice(0, 7)}-${String(last).padStart(2, "0")}`;
+}
+
+/** Mondays of ISO weeks that overlap `[rangeStart, rangeEnd]`. */
+export function weekStartsOverlappingRange(
+  rangeStart: string,
+  rangeEnd: string,
+): string[] {
+  const first = weekStartISO(parseLocalISO(rangeStart));
+  const last = weekStartISO(parseLocalISO(rangeEnd));
+  const out: string[] = [];
+  for (let ws = first; ws <= last; ws = addDaysISO(ws, 7)) {
+    out.push(ws);
+  }
+  return out;
+}
+
+/** Mondays that fall inside `[rangeStart, rangeEnd]`. */
+export function mondaysInRange(rangeStart: string, rangeEnd: string): string[] {
+  return weekStartsOverlappingRange(rangeStart, rangeEnd).filter(
+    (ws) => ws >= rangeStart && ws <= rangeEnd,
+  );
+}
+
+/** Calendar date for a week placement, or null if unplaced. */
+export function placementLocalDate(placement: {
+  weekStart: string;
+  weekday: number | null;
+}): string | null {
+  if (placement.weekday == null) return null;
+  return addDaysISO(placement.weekStart, placement.weekday - 1);
+}

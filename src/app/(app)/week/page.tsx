@@ -46,8 +46,8 @@ import { WeekMealsBoard } from "./WeekMealsBoard";
 
 import { getWeekCompletions } from "@/lib/completions.server";
 import { WeekCompletionsList } from "./WeekCompletionsList";
-
 import { WeekViewTabs } from "./WeekViewTabs";
+import { monthlyTasksWithWeekCompletions } from "@/lib/monthly-bills";
 
 import { WeekNav } from "@/components/WeekNav/WeekNav";
 
@@ -167,6 +167,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
           workByDate={workByDate}
           savedRestaurants={mealRestaurants}
           sports={sports}
+          monthlyTasks={monthlyTasksWithWeekCompletions(monthlyBillsWeek)}
+          monthlyCategories={monthlyBillsWeek.categories}
         />
         </>
       ) : (

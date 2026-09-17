@@ -32,6 +32,8 @@ export function computeWeekDayScore(input: {
   tasksAllDone: boolean | null;
   weightScheduled: boolean;
   weightLogged: boolean;
+  /** One entry per monthly task on that day; true = done. */
+  monthlyDone?: boolean[];
 }): WeekDayScoreResult {
   if (input.isFuture) {
     return { hit: 0, total: 0, pct: 0, band: "future" };
@@ -69,6 +71,11 @@ export function computeWeekDayScore(input: {
   if (input.weightScheduled) {
     total += 1;
     if (input.weightLogged) hit += 1;
+  }
+
+  for (const done of input.monthlyDone ?? []) {
+    total += 1;
+    if (done) hit += 1;
   }
 
   const pct = total > 0 ? Math.round((hit / total) * 100) : 0;

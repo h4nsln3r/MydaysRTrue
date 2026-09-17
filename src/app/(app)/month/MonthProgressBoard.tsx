@@ -4,14 +4,14 @@ import { formatHabitPoints, habitStatusPoints } from "@/lib/habits";
 import type { MonthDay, MonthSummary } from "@/lib/habits.server";
 import {
   formatMonthlyTaskDetail,
-  expandMonthlyTaskOccurrences,
   isMonthlyTaskRepeatable,
   monthlyTaskCompletions,
   type MonthlyTaskForMonth,
   type TaskCategory,
+  type WeeklyTaskForWeek,
 } from "@/lib/tasks";
-import { dateInMonth, formatBillAmountKr, isMonthlyBill, isMonthlyAmountTask, isMonthlyTaskComplete, monthStartFromDate, monthlyTaskVisualStatus, resolveMonthlyTaskSchedule } from "@/lib/monthly-bills";
-import { formatDayShort } from "@/lib/date";
+import { dateInMonth, formatBillAmountKr, isMonthlyBill, isMonthlyAmountTask, isMonthlyTaskComplete, monthlyTaskVisualStatus, monthlyTasksOnLocalDate, resolveMonthlyTaskSchedule } from "@/lib/monthly-bills";
+import { formatDayShort, mondaysInRange, placementLocalDate } from "@/lib/date";
 import { monthlyTaskDisplayTitle, type MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
 import { FestProgressCard } from "./FestProgressCard";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
@@ -29,6 +29,17 @@ import {
   workKindCountTotal,
   type WorkDailyLog,
 } from "@/lib/work";
+import type { MonthActivityProgress } from "@/lib/month-progress";
+import {
+  cardioMonthGoal,
+  filterPlacedToRange,
+  groupMonthlyTasksForDates,
+  itemsOnDate,
+  scoreWeeklyTasksForMonth,
+  weeklyCategoryRowsForMonth,
+  weeklyTasksInMonthByDate,
+} from "@/lib/month-progress";
+import { WEEK_PROGRESS_TRAINING_META } from "@/lib/week-progress-layout";
 import styles from "./month-progress.module.scss";
 
 interface Props {
@@ -46,6 +57,7 @@ interface Props {
   expenseSummary: ExpenseSummary;
   shoppingSummary: ExpenseSummary;
   workByDate: Map<string, WorkDailyLog>;
+  activity: MonthActivityProgress;
 }
 
 const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
@@ -72,12 +84,76 @@ export function MonthProgressBoard({
   expenseSummary,
   shoppingSummary,
   workByDate,
+  activity,
 }: Props) {
   const pastDays = summary.days.filter((d) => !d.isFuture).length;
   const colSpan = summary.days.length + 2;
   const hasTasks = monthlyTasks.length > 0;
   const workCounts = summarizeWorkLogs(workByDate.values());
   const workTotal = workKindCountTotal(workCounts);
+  const monthEnd = activity.monthEnd;
+  const mondayCount = mondaysInRange(monthStart, monthEnd).length;
+  const gym = filterPlacedToRange(
+    activity.weeks.flatMap((w) => w.gym),
+    monthStart,
+    monthEnd,
+  );
+  const cardio = filterPlacedToRange(
+    activity.weeks.flatMap((w) => w.cardio),
+    monthStart,
+    monthEnd,
+  );
+  const sport = filterPlacedToRange(
+    activity.weeks.flatMap((w) => w.sport),
+    monthStart,
+    monthEnd,
+  );
+  const bathing = filterPlacedToRange(
+    activity.weeks.flatMap((w) => w.bathing),
+    monthStart,
+    monthEnd,
+  );
+  const gymDone = gym.filter((s) => s.placement.doneAt).length;
+  const cardioDone = cardio.filter((s) => s.placement.doneAt).length;
+  const cardioTotal = cardioMonthGoal(mondayCount);
+  const sportDone = sport.filter((s) => s.placement.doneAt).length;
+  const bathingDone = bathing.filter((s) => s.placement.doneAt).length;
+  const weeklyRows = weeklyCategoryRowsForMonth(
+    activity.weeks,
+    activity.categories,
+    monthStart,
+    monthEnd,
+  );
+  const weeklyExpanded = weeklyTasksInMonthByDate(
+    activity.weeks,
+    monthStart,
+    monthEnd,
+  );
+  const weeklyScore = scoreWeeklyTasksForMonth(
+    activity.weeks,
+    monthStart,
+    monthEnd,
+  );
+  const monthlyRows = groupMonthlyTasksForDates(
+    monthlyTasks,
+    summary.days.map((d) => d.date),
+    categories,
+  );
+  const weekScore = monthTotalScore({
+    summary,
+    monthlyDone,
+    monthlyTotal,
+    weeklyDone: weeklyScore.done,
+    weeklyTotal: weeklyScore.total,
+    gymDone,
+    gymTotal: gym.length,
+    cardioDone,
+    cardioTotal,
+    sportDone,
+    sportTotal: sport.length,
+    bathingDone,
+    bathingTotal: bathing.length,
+  });
 
   return (
     <div className={styles.board}>
@@ -233,10 +309,86 @@ export function MonthProgressBoard({
               />
             </tr>
 
+            <SectionRow label="Träning & hälsa" colSpan={colSpan} />
+            <SessionCountRow
+              icon={WEEK_PROGRESS_TRAINING_META.gym.icon}
+              label={WEEK_PROGRESS_TRAINING_META.gym.label}
+              days={summary.days}
+              sessions={gym}
+              done={gymDone}
+              total={gym.length}
+              extra={Math.max(0, gymDone - gym.length)}
+            />
+            <SessionCountRow
+              icon={WEEK_PROGRESS_TRAINING_META.cardio.icon}
+              label={WEEK_PROGRESS_TRAINING_META.cardio.label}
+              days={summary.days}
+              sessions={cardio}
+              done={cardioDone}
+              total={cardioTotal}
+              extra={Math.max(0, cardioDone - cardioTotal)}
+            />
+            <SessionCountRow
+              icon={WEEK_PROGRESS_TRAINING_META.sport.icon}
+              label={WEEK_PROGRESS_TRAINING_META.sport.label}
+              days={summary.days}
+              sessions={sport}
+              done={sportDone}
+              total={sport.length}
+              extra={Math.max(0, sportDone - sport.length)}
+            />
+            <SessionCountRow
+              icon={WEEK_PROGRESS_TRAINING_META.bathing.icon}
+              label={WEEK_PROGRESS_TRAINING_META.bathing.label}
+              days={summary.days}
+              sessions={bathing}
+              done={bathingDone}
+              total={bathing.length}
+              extra={Math.max(0, bathingDone - bathing.length)}
+            />
+
+            {weeklyRows.length > 0 ? (
+              <>
+                <SectionRow label="Veckouppgifter" colSpan={colSpan} />
+                {weeklyRows.map((group) => (
+                  <TaskCountRow
+                    key={group.category?.id ?? "weekly-uncategorized"}
+                    icon={group.category?.icon ?? "📋"}
+                    label={group.category?.name ?? "Övrigt"}
+                    days={summary.days}
+                    byDate={group.byDate}
+                    done={group.done}
+                    total={group.total}
+                    extra={group.extra}
+                    itemDone={(t) => Boolean(t.placement?.doneAt)}
+                  />
+                ))}
+              </>
+            ) : null}
+
+            {monthlyRows.length > 0 ? (
+              <>
+                <SectionRow label="Månadsuppgifter" colSpan={colSpan} />
+                {monthlyRows.map((group) => (
+                  <TaskCountRow
+                    key={group.category?.id ?? "monthly-uncategorized"}
+                    icon={group.category?.icon ?? "📅"}
+                    label={group.category?.name ?? "Övrigt"}
+                    days={summary.days}
+                    byDate={group.byDate}
+                    done={group.done}
+                    total={group.total}
+                    extra={Math.max(0, group.done - group.total)}
+                    itemDone={(t) => isMonthlyTaskComplete(t, t.completion)}
+                  />
+                ))}
+              </>
+            ) : null}
+
           </tbody>
           <tfoot>
             <tr className={styles.footerRow}>
-              <td className={[styles.footerLabel, styles.stickyCol].join(" ")}>Dagsresultat</td>
+              <td className={[styles.footerLabel, styles.stickyCol].join(" ")}>Månadens total</td>
               {summary.days.map((d) => (
                 <td
                   key={d.date}
@@ -251,13 +403,37 @@ export function MonthProgressBoard({
                       day={d}
                       habits={summary.habits}
                       monthlyTasks={monthlyTasks}
+                      weeklyTasks={weeklyExpanded}
+                      gym={gym}
+                      cardio={cardio}
+                      sport={sport}
+                      bathing={bathing}
                     />
                   ) : null}
                 </td>
               ))}
-              <td className={[styles.footerCell, styles.footerTotal, styles.stickyColRight].join(" ")}>
-                <span className={styles.footerTotalValue}>
-                  {monthTotalScore(summary, monthlyDone, monthlyTotal)}
+              <td
+                className={cellClass(
+                  styles.footerCell,
+                  styles.footerTotal,
+                  styles.stickyColRight,
+                  weekScore.extra > 0 && styles.footerTotalCrush,
+                )}
+              >
+                <span
+                  className={styles.footerTotalValue}
+                  title={
+                    weekScore.extra > 0
+                      ? `${weekScore.label} · +${formatHabitPoints(weekScore.extra)} extra`
+                      : undefined
+                  }
+                >
+                  {weekScore.label}
+                  {weekScore.extra > 0 ? (
+                    <span className={styles.footerTotalExtra}>
+                      +{formatHabitPoints(weekScore.extra)}
+                    </span>
+                  ) : null}
                 </span>
               </td>
             </tr>
@@ -536,12 +712,16 @@ function RowLabel({
 function TotalCell({
   value,
   total,
+  extra = 0,
   highlight,
+  crush,
   muted,
 }: {
   value: number;
   total: number | null;
+  extra?: number;
   highlight?: boolean;
+  crush?: boolean;
   muted?: boolean;
 }) {
   return (
@@ -549,6 +729,7 @@ function TotalCell({
       className={cellClass(
         styles.totalCell,
         highlight && styles.totalCellDone,
+        crush && styles.totalCellCrush,
         muted && styles.totalCellMuted,
       )}
     >
@@ -556,6 +737,9 @@ function TotalCell({
         <span className={styles.totalFraction}>
           <span className={styles.totalValue}>{formatHabitPoints(value)}</span>
           <span className={styles.totalSlash}>/{total}</span>
+          {extra > 0 ? (
+            <span className={styles.totalExtra}>+{formatHabitPoints(extra)}</span>
+          ) : null}
         </span>
       ) : value > 0 ? (
         <span className={styles.totalValue}>{value}</span>
@@ -566,14 +750,142 @@ function TotalCell({
   );
 }
 
+function SessionCountRow<
+  T extends { placement: { weekStart: string; weekday: number | null; doneAt: string | null } },
+>({
+  icon,
+  label,
+  days,
+  sessions,
+  done,
+  total,
+  extra,
+}: {
+  icon: string;
+  label: string;
+  days: MonthDay[];
+  sessions: T[];
+  done: number;
+  total: number;
+  extra: number;
+}) {
+  return (
+    <tr>
+      <RowLabel sticky icon={icon} label={label} />
+      {days.map((d) => {
+        const dayItems = itemsOnDate(sessions, d.date);
+        const dayDone = dayItems.filter((s) => s.placement.doneAt).length;
+        const allDone = dayItems.length > 0 && dayDone === dayItems.length;
+        return (
+          <td
+            key={d.date}
+            className={cellClass(
+              styles.dataCell,
+              styles.taskCell,
+              d.isFuture && styles.cellFuture,
+              d.isToday && styles.cellToday,
+              allDone && styles.taskCellDone,
+            )}
+          >
+            {dayItems.length === 0 ? (
+              <span className={styles.emptyMark}>—</span>
+            ) : (
+              <span className={styles.taskFraction}>
+                {dayDone}/{dayItems.length}
+              </span>
+            )}
+          </td>
+        );
+      })}
+      <TotalCell
+        value={done}
+        total={total || null}
+        extra={extra}
+        muted={total === 0 && done === 0}
+        highlight={total > 0 && done >= total}
+        crush={extra > 0}
+      />
+    </tr>
+  );
+}
+
+function TaskCountRow<T>({
+  icon,
+  label,
+  days,
+  byDate,
+  done,
+  total,
+  extra,
+  itemDone,
+}: {
+  icon: string;
+  label: string;
+  days: MonthDay[];
+  byDate: Map<string, T[]>;
+  done: number;
+  total: number;
+  extra: number;
+  itemDone: (item: T) => boolean;
+}) {
+  return (
+    <tr>
+      <RowLabel sticky icon={icon} label={label} />
+      {days.map((d) => {
+        const dayItems = byDate.get(d.date) ?? [];
+        const dayDone = dayItems.filter(itemDone).length;
+        const allDone = dayItems.length > 0 && dayDone === dayItems.length;
+        return (
+          <td
+            key={d.date}
+            className={cellClass(
+              styles.dataCell,
+              styles.taskCell,
+              d.isFuture && styles.cellFuture,
+              d.isToday && styles.cellToday,
+              allDone && styles.taskCellDone,
+            )}
+          >
+            {dayItems.length === 0 ? (
+              <span className={styles.emptyMark}>—</span>
+            ) : (
+              <span className={styles.taskFraction}>
+                {dayDone}/{dayItems.length}
+              </span>
+            )}
+          </td>
+        );
+      })}
+      <TotalCell
+        value={done}
+        total={total || null}
+        extra={extra}
+        muted={total === 0 && done === 0}
+        highlight={total > 0 && done >= total}
+        crush={extra > 0}
+      />
+    </tr>
+  );
+}
+
 function DayScore({
   day,
   habits,
   monthlyTasks,
+  weeklyTasks,
+  gym,
+  cardio,
+  sport,
+  bathing,
 }: {
   day: MonthDay;
   habits: Habit[];
   monthlyTasks: MonthlyTaskForMonth[];
+  weeklyTasks: WeeklyTaskForWeek[];
+  gym: Array<{ placement: { weekStart: string; weekday: number | null; doneAt: string | null } }>;
+  cardio: Array<{ placement: { weekStart: string; weekday: number | null; doneAt: string | null } }>;
+  sport: Array<{ placement: { weekStart: string; weekday: number | null; doneAt: string | null } }>;
+  bathing: Array<{ placement: { weekStart: string; weekday: number | null; doneAt: string | null } }>;
 }) {
   let hit = 0;
   let total = 0;
@@ -583,28 +895,42 @@ function DayScore({
     hit += habitStatusPoints(day.statuses[h.id]);
   }
 
-  for (const task of expandMonthlyTaskOccurrences(monthlyTasks)) {
-    const monthStart = monthStartFromDate(day.date);
-    const schedule = resolveMonthlyTaskSchedule(
-      task,
-      task.completion,
-      monthStart,
-    );
-    if (schedule.dayOfMonth === day.dayOfMonth) {
-      total += 1;
-      if (isMonthlyTaskComplete(task, task.completion)) hit += 1;
-    }
+  for (const session of [
+    ...itemsOnDate(gym, day.date),
+    ...itemsOnDate(cardio, day.date),
+    ...itemsOnDate(sport, day.date),
+    ...itemsOnDate(bathing, day.date),
+  ]) {
+    total += 1;
+    if (session.placement.doneAt) hit += 1;
+  }
+
+  const dayWeekly = weeklyTasks.filter(
+    (t) => t.placement && placementLocalDate(t.placement) === day.date,
+  );
+  if (dayWeekly.length > 0) {
+    total += 1;
+    if (dayWeekly.every((t) => t.placement?.doneAt)) hit += 1;
+  }
+
+  for (const task of monthlyTasksOnLocalDate(monthlyTasks, day.date, undefined, {
+    includeWhenDone: true,
+  })) {
+    total += 1;
+    if (isMonthlyTaskComplete(task, task.completion)) hit += 1;
   }
 
   if (total === 0) return <span className={styles.emptyMark}>—</span>;
 
   const pct = Math.round((hit / total) * 100);
+  const crushed = pct >= 100 && total > 0;
 
   return (
     <span
       className={cellClass(
         styles.dayScore,
-        pct >= 80 && styles.dayScoreGood,
+        crushed && styles.dayScoreGood,
+        !crushed && pct >= 80 && styles.dayScoreGood,
         pct >= 50 && pct < 80 && styles.dayScoreMid,
         pct < 50 && styles.dayScoreLow,
       )}
@@ -633,16 +959,59 @@ function cellClass(...parts: (string | false | undefined)[]) {
   return parts.filter(Boolean).join(" ");
 }
 
-function monthTotalScore(
-  summary: MonthSummary,
-  monthlyDone: number,
-  monthlyTotal: number,
-): string {
-  const pastDays = summary.days.filter((d) => !d.isFuture).length;
-  const habitYes = Object.values(summary.yesByHabit).reduce((a, b) => a + b, 0);
-  const habitTotal = summary.habits.length * pastDays;
-  const hit = habitYes + monthlyDone;
-  const total = habitTotal + monthlyTotal;
-  if (total === 0) return "—";
-  return `${formatHabitPoints(hit)}/${total}`;
+function extraOverGoal(done: number, total: number): number {
+  return Math.max(0, done - total);
+}
+
+function monthTotalScore(parts: {
+  summary: MonthSummary;
+  monthlyDone: number;
+  monthlyTotal: number;
+  weeklyDone: number;
+  weeklyTotal: number;
+  gymDone: number;
+  gymTotal: number;
+  cardioDone: number;
+  cardioTotal: number;
+  sportDone: number;
+  sportTotal: number;
+  bathingDone: number;
+  bathingTotal: number;
+}): { hit: number; total: number; extra: number; label: string } {
+  const pastDays = parts.summary.days.filter((d) => !d.isFuture).length;
+  const habitYes = Object.values(parts.summary.yesByHabit).reduce(
+    (a, b) => a + b,
+    0,
+  );
+  const habitTotal = parts.summary.habits.length * pastDays;
+  const hit =
+    habitYes +
+    parts.monthlyDone +
+    parts.weeklyDone +
+    parts.gymDone +
+    parts.cardioDone +
+    parts.sportDone +
+    parts.bathingDone;
+  const total =
+    habitTotal +
+    parts.monthlyTotal +
+    parts.weeklyTotal +
+    parts.gymTotal +
+    parts.cardioTotal +
+    parts.sportTotal +
+    parts.bathingTotal;
+  const extra =
+    extraOverGoal(parts.weeklyDone, parts.weeklyTotal) +
+    extraOverGoal(parts.monthlyDone, parts.monthlyTotal) +
+    extraOverGoal(parts.gymDone, parts.gymTotal) +
+    extraOverGoal(parts.cardioDone, parts.cardioTotal) +
+    extraOverGoal(parts.sportDone, parts.sportTotal) +
+    extraOverGoal(parts.bathingDone, parts.bathingTotal) +
+    extraOverGoal(habitYes, habitTotal);
+  return {
+    hit,
+    total,
+    extra,
+    label: total === 0 ? "—" : `${formatHabitPoints(hit)}/${total}`,
+  };
 }

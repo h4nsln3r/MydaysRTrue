@@ -20,9 +20,11 @@ import type { WeekSummary, WeekDay } from "@/lib/water.server";
 import type { WaterDayStatus } from "@/lib/water";
 import { computeWeekDayScore } from "@/lib/week-day-score";
 import {
+  categoryTaskGoalRows,
   expandWeeklyTaskPlacements,
   formatWeeklyTaskDetail,
   groupByCategory,
+  isRecurringWeeklyTask,
   musicSessionIcon,
   musicSessionTitle,
   scoreCategoryFromTaskGoals,
@@ -121,14 +123,15 @@ export function WeekProgressBoard({
   const taskGroups = groupByCategory(tasks, taskCategories).map(
     ({ category, items }) => {
       const scored = scoreWeeklyTasksForProgress(items);
+      const expanded = expandWeeklyTaskPlacements(items);
       return {
         category,
-        items: expandWeeklyTaskPlacements(items).filter(
-          (t) => t.placement?.weekday != null,
-        ),
-        byWeekday: groupTasksByWeekday(expandWeeklyTaskPlacements(items)),
+        weekTasks: items,
+        items: expanded.filter((t) => t.placement?.weekday != null),
+        byWeekday: groupTasksByWeekday(expanded),
         done: scored.done,
         total: scored.total,
+        extra: scored.extra,
       };
     },
   );
@@ -148,6 +151,24 @@ export function WeekProgressBoard({
   const colSpan = week.days.length + 2;
   const workCounts = summarizeWorkLogs(workByDate.values());
   const workTotal = workKindCountTotal(workCounts);
+  const weekScore = summaryScore({
+    gymDone,
+    gymTotal: placedGym.length,
+    cardioDone,
+    cardioTotal,
+    sportDone,
+    sportTotal: placedSport.length,
+    bathingDone,
+    bathingTotal: placedBathing.length,
+    tasksDone,
+    tasksTotal,
+    waterHit: week.daysHit,
+    waterTotal: pastDays,
+    habitYes: Object.values(habitWeek.yesByHabit).reduce((a, b) => a + b, 0),
+    habitTotal: habitWeek.habits.length * pastDays,
+    weightDone: weightActive && weightDone ? 1 : 0,
+    weightTotal: weightActive ? 1 : 0,
+  });
 
   return (
     <div className={styles.board}>
@@ -295,7 +316,7 @@ export function WeekProgressBoard({
                         />
                       </tr>
                     ) : (
-                      taskGroups.map(({ category, byWeekday, done, total }) => (
+                      taskGroups.map(({ category, byWeekday, done, total, extra }) => (
                         <tr key={category?.id ?? "uncategorized"}>
                           <RowLabel
                             sticky
@@ -335,9 +356,11 @@ export function WeekProgressBoard({
                           <TotalCell
                             value={done}
                             total={total || null}
-                            muted={total === 0}
-                            mutedLabel={total === 0 ? "—" : undefined}
-                            highlight={total > 0 && done === total}
+                            extra={extra}
+                            muted={total === 0 && done === 0}
+                            mutedLabel={total === 0 && done === 0 ? "—" : undefined}
+                            highlight={total > 0 && done >= total}
+                            crush={done > total && (total > 0 || extra > 0)}
                           />
                         </tr>
                       ))
@@ -394,26 +417,28 @@ export function WeekProgressBoard({
                   ) : null}
                 </td>
               ))}
-              <td className={[styles.footerCell, styles.footerTotal, styles.stickyColRight].join(" ")}>
-                <span className={styles.footerTotalValue}>
-                  {summaryScore({
-                    gymDone,
-                    gymTotal: placedGym.length,
-                    cardioDone,
-                    cardioTotal,
-                    sportDone,
-                    sportTotal: placedSport.length,
-                    bathingDone,
-                    bathingTotal: placedBathing.length,
-                    tasksDone,
-                    tasksTotal,
-                    waterHit: week.daysHit,
-                    waterTotal: pastDays,
-                    habitYes: Object.values(habitWeek.yesByHabit).reduce((a, b) => a + b, 0),
-                    habitTotal: habitWeek.habits.length * pastDays,
-                    weightDone: weightActive && weightDone ? 1 : 0,
-                    weightTotal: weightActive ? 1 : 0,
-                  })}
+              <td
+                className={cellClass(
+                  styles.footerCell,
+                  styles.footerTotal,
+                  styles.stickyColRight,
+                  weekScore.extra > 0 && styles.footerTotalCrush,
+                )}
+              >
+                <span
+                  className={styles.footerTotalValue}
+                  title={
+                    weekScore.extra > 0
+                      ? `${formatHabitPoints(weekScore.hit)}/${weekScore.total} · +${formatHabitPoints(weekScore.extra)} extra över målen`
+                      : undefined
+                  }
+                >
+                  {weekScore.label}
+                  {weekScore.extra > 0 ? (
+                    <span className={styles.footerTotalExtra}>
+                      +{formatHabitPoints(weekScore.extra)}
+                    </span>
+                  ) : null}
                 </span>
               </td>
             </tr>
@@ -552,10 +577,12 @@ function renderTrainingRow(
 
 interface TaskGroupRecap {
   category: TaskCategory | null;
+  weekTasks: WeeklyTaskForWeek[];
   items: WeeklyTaskForWeek[];
   byWeekday: Map<number, WeeklyTaskForWeek[]>;
   done: number;
   total: number;
+  extra: number;
 }
 
 function WeekCategoryRecap({
@@ -588,9 +615,17 @@ function CategoryRecapCard({
   group: TaskGroupRecap;
   days: WeekDay[];
 }) {
-  const { category, items, byWeekday, done, total } = group;
-  const backlog = items.filter(
-    (t) => t.placement?.weekday == null && !t.placement?.onHold,
+  const { category, weekTasks, items, byWeekday, done, total, extra } = group;
+  const goalRows = categoryTaskGoalRows(weekTasks);
+  const extraOneOffs = expandWeeklyTaskPlacements(weekTasks).filter(
+    (t) => !isRecurringWeeklyTask(t) && t.placement?.weekday != null,
+  );
+  const extraOneOffsDone = extraOneOffs.filter((t) => t.placement?.doneAt);
+  const extraOneOffsPending = extraOneOffs.filter((t) => !t.placement?.doneAt);
+  const backlog = weekTasks.filter(
+    (t) =>
+      isRecurringWeeklyTask(t) &&
+      !t.placements.some((p) => p.weekday != null && !p.onHold),
   );
   const placed = items.filter((t) => t.placement?.weekday != null);
   const doneItems = placed
@@ -602,16 +637,22 @@ function CategoryRecapCard({
       return a.sortOrder - b.sortOrder;
     });
   const pendingItems = placed
-    .filter((t) => !t.placement?.doneAt)
+    .filter((t) => !t.placement?.doneAt && isRecurringWeeklyTask(t))
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  const allDone = total > 0 && done === total;
+  const allDone = total > 0 && done >= total;
+  const crushed = extra > 0 && (total === 0 || done > total);
+  const formula =
+    goalRows.length > 0
+      ? `${goalRows.map((row) => `${row.title} ${row.goal}`).join(" + ")} = ${total}`
+      : null;
 
   return (
     <article
       className={cellClass(
         styles.categoryCard,
         allDone && styles.categoryCard_done,
-        done > 0 && done < total && styles.categoryCard_partial,
+        crushed && styles.categoryCard_crush,
+        !allDone && done > 0 && total > 0 && done < total && styles.categoryCard_partial,
       )}
       style={
         category?.accent
@@ -631,12 +672,101 @@ function CategoryRecapCard({
             className={cellClass(
               styles.categoryCardCounter,
               allDone && styles.categoryCardCounterDone,
+              crushed && styles.categoryCardCounterCrush,
             )}
           >
-            {done}/{total} klara
+            {total > 0
+              ? `${done}/${total} klara${extra > 0 ? ` · +${extra} extra` : ""}`
+              : extra > 0
+                ? `+${extra} extra`
+                : "0 klara"}
           </span>
         </div>
       </header>
+
+      {formula ? (
+        <p className={styles.categoryGoalFormula}>{formula}</p>
+      ) : null}
+
+      {goalRows.length > 0 ? (
+        <section className={styles.categorySection}>
+          <p className={styles.categorySectionLabel}>Kategorimål</p>
+          <ul className={styles.categoryGoalList}>
+            {goalRows.map((row) => (
+              <li
+                key={row.id}
+                className={cellClass(
+                  styles.categoryGoalRow,
+                  row.missing > 0 && styles.categoryGoalRow_missed,
+                  row.missing === 0 && styles.categoryGoalRow_done,
+                )}
+              >
+                <span className={styles.categoryGoalIcon} aria-hidden>
+                  {row.icon}
+                </span>
+                <span className={styles.categoryGoalTitle}>{row.title}</span>
+                <span className={styles.categoryGoalCount}>
+                  {row.towardGoal}/{row.goal}
+                </span>
+                {row.missing > 0 ? (
+                  <span className={styles.categoryGoalBadgeMissed}>
+                    {row.missing === 1
+                      ? "Saknas"
+                      : `Saknas ${row.missing} ggr`}
+                  </span>
+                ) : row.extra > 0 ? (
+                  <span className={styles.categoryGoalBadgeExtra}>
+                    +{row.extra} extra
+                  </span>
+                ) : (
+                  <span className={styles.categoryGoalBadgeDone}>Klar</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {(extraOneOffsDone.length > 0 || extraOneOffsPending.length > 0) ? (
+        <section className={styles.categorySection}>
+          <p className={styles.categorySectionLabel}>
+            Extra uppgifter denna vecka
+          </p>
+          <ul className={styles.categoryGoalList}>
+            {extraOneOffsDone.map((t) => (
+              <li
+                key={weeklyTaskInstanceKey(t)}
+                className={cellClass(
+                  styles.categoryGoalRow,
+                  styles.categoryGoalRow_extra,
+                )}
+              >
+                <span className={styles.categoryGoalIcon} aria-hidden>
+                  {musicSessionIcon(t, t.placement)}
+                </span>
+                <span className={styles.categoryGoalTitle}>
+                  {musicSessionTitle(t, t.placement)}
+                </span>
+                <span className={styles.categoryGoalBadgeExtra}>+1 extra</span>
+              </li>
+            ))}
+            {extraOneOffsPending.map((t) => (
+              <li
+                key={weeklyTaskInstanceKey(t)}
+                className={styles.categoryGoalRow}
+              >
+                <span className={styles.categoryGoalIcon} aria-hidden>
+                  {musicSessionIcon(t, t.placement)}
+                </span>
+                <span className={styles.categoryGoalTitle}>
+                  {musicSessionTitle(t, t.placement)}
+                </span>
+                <span className={styles.categoryGoalCount}>Planerad</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className={styles.categoryWeekGrid} role="grid" aria-label="Veckan">
         {days.map((d) => {
@@ -1007,13 +1137,17 @@ function RowLabel({
 function TotalCell({
   value,
   total,
+  extra = 0,
   highlight,
+  crush,
   muted,
   mutedLabel,
 }: {
   value: number | null;
   total: number | null;
+  extra?: number;
   highlight?: boolean;
+  crush?: boolean;
   muted?: boolean;
   mutedLabel?: string;
 }) {
@@ -1022,6 +1156,7 @@ function TotalCell({
       className={cellClass(
         styles.totalCell,
         highlight && styles.totalCellDone,
+        crush && styles.totalCellCrush,
         muted && styles.totalCellMuted,
       )}
     >
@@ -1031,6 +1166,13 @@ function TotalCell({
         <span className={styles.totalFraction}>
           <span className={styles.totalValue}>{value}</span>
           <span className={styles.totalSlash}>/{total}</span>
+          {extra > 0 ? (
+            <span className={styles.totalExtra}>+{extra}</span>
+          ) : null}
+        </span>
+      ) : value != null && extra > 0 ? (
+        <span className={styles.totalFraction}>
+          <span className={styles.totalExtra}>+{extra}</span>
         </span>
       ) : (
         <span className={styles.emptyMark}>—</span>
@@ -1257,8 +1399,13 @@ function groupTasksByWeekday(tasks: WeeklyTaskForWeek[]): Map<number, WeeklyTask
 function scoreWeeklyTasksForProgress(tasks: WeeklyTaskForWeek[]): {
   done: number;
   total: number;
+  extra: number;
 } {
   return scoreCategoryFromTaskGoals(tasks);
+}
+
+function extraOverGoal(done: number, total: number): number {
+  return Math.max(0, done - total);
 }
 
 function summaryScore(parts: {
@@ -1278,7 +1425,7 @@ function summaryScore(parts: {
   habitTotal: number;
   weightDone: number;
   weightTotal: number;
-}): string {
+}): { hit: number; total: number; extra: number; label: string } {
   const hit =
     parts.gymDone +
     parts.cardioDone +
@@ -1297,6 +1444,19 @@ function summaryScore(parts: {
     parts.waterTotal +
     parts.habitTotal +
     parts.weightTotal;
-  if (total === 0) return "—";
-  return `${formatHabitPoints(hit)}/${total}`;
+  const extra =
+    extraOverGoal(parts.gymDone, parts.gymTotal) +
+    extraOverGoal(parts.cardioDone, parts.cardioTotal) +
+    extraOverGoal(parts.sportDone, parts.sportTotal) +
+    extraOverGoal(parts.bathingDone, parts.bathingTotal) +
+    extraOverGoal(parts.tasksDone, parts.tasksTotal) +
+    extraOverGoal(parts.waterHit, parts.waterTotal) +
+    extraOverGoal(parts.habitYes, parts.habitTotal) +
+    extraOverGoal(parts.weightDone, parts.weightTotal);
+  return {
+    hit,
+    total,
+    extra,
+    label: total === 0 ? "—" : `${formatHabitPoints(hit)}/${total}`,
+  };
 }

@@ -10,7 +10,6 @@ import {
 import { isMonthlyTaskComplete } from "@/lib/monthly-bills";
 import {
   formatFestOccasionWhen,
-  isMonthlyTaskRepeatable,
   monthlyTaskCompletions,
   type MonthlyTaskForMonth,
   type TaskCategory,
@@ -156,8 +155,4 @@ export function FestProgressCard({ task, category, monthStart }: Props) {
       </div>
     </div>
   );
-}
-
-export function isFestProgressTask(task: MonthlyTaskForMonth): boolean {
-  return isMonthlyTaskRepeatable(task);
 }

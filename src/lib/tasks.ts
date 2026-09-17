@@ -405,42 +405,98 @@ export function countCompletedWeeklyPlacements(
   return done;
 }
 
+type WeeklyTaskScoreInput = {
+  id?: string;
+  title?: string;
+  icon?: string;
+  sortOrder?: number;
+  weeklyGoal?: number;
+  isRepeatable?: boolean;
+  key?: string | null;
+  singleWeekStart?: string | null;
+  placements?: Array<{
+    weekday: Weekday | null;
+    onHold?: boolean;
+    doneAt: string | null;
+  }>;
+  placement?: {
+    weekday: Weekday | null;
+    onHold?: boolean;
+    doneAt: string | null;
+  } | null;
+};
+
+/** Recurring templates count toward the category goal; one-offs are extra. */
+export function isRecurringWeeklyTask(task: {
+  singleWeekStart?: string | null;
+}): boolean {
+  return task.singleWeekStart == null;
+}
+
+function weeklyTaskCountedCompletions(task: WeeklyTaskScoreInput): number {
+  const goal = normalizeWeeklyGoal(task.weeklyGoal);
+  const completed = countCompletedWeeklyPlacements([task]);
+  // Non-repeatable laundry can have a booking row + a wash follow-up;
+  // the weekly goal stays 1 even if both rows are done.
+  if (isWeeklyTaskRepeatable(task) || !isRecurringWeeklyTask(task)) {
+    return completed;
+  }
+  return Math.min(completed, goal);
+}
+
 /**
- * Category week score = sum of task goals vs completed placements.
+ * Category week score = sum of recurring task goals vs all completions.
+ * One-offs and extra repeats can push `done` above `total` (bonus points).
  * Category-level weeklyGoal is ignored (auto from tasks).
  */
 export function scoreCategoryFromTaskGoals(
-  tasks: Array<{
-    weeklyGoal?: number;
-    isRepeatable?: boolean;
-    key?: string | null;
-    placements?: Array<{
-      weekday: Weekday | null;
-      onHold?: boolean;
-      doneAt: string | null;
-    }>;
-    placement?: {
-      weekday: Weekday | null;
-      onHold?: boolean;
-      doneAt: string | null;
-    } | null;
-  }>,
-): { done: number; total: number } {
+  tasks: WeeklyTaskScoreInput[],
+): { done: number; total: number; extra: number } {
   let done = 0;
   let total = 0;
   for (const task of tasks) {
-    const goal = normalizeWeeklyGoal(task.weeklyGoal);
-    total += goal;
-    const completed = countCompletedWeeklyPlacements([task]);
-    // Non-repeatable laundry can have a booking row + a wash follow-up;
-    // the weekly goal stays 1 even if both rows are done.
-    if (isWeeklyTaskRepeatable(task)) {
-      done += completed;
-    } else {
-      done += Math.min(completed, goal);
+    if (isRecurringWeeklyTask(task)) {
+      total += normalizeWeeklyGoal(task.weeklyGoal);
     }
+    done += weeklyTaskCountedCompletions(task);
   }
-  return { done, total };
+  return { done, total, extra: Math.max(0, done - total) };
+}
+
+export interface CategoryTaskGoalRow {
+  id: string;
+  title: string;
+  icon: string;
+  goal: number;
+  completed: number;
+  towardGoal: number;
+  extra: number;
+  missing: number;
+}
+
+/** Recurring tasks that make up a category’s weekly target. */
+export function categoryTaskGoalRows(
+  tasks: WeeklyTaskScoreInput[],
+): CategoryTaskGoalRow[] {
+  return tasks
+    .filter((task) => isRecurringWeeklyTask(task) && task.id)
+    .slice()
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((task) => {
+      const goal = normalizeWeeklyGoal(task.weeklyGoal);
+      const completed = weeklyTaskCountedCompletions(task);
+      const towardGoal = Math.min(completed, goal);
+      return {
+        id: task.id as string,
+        title: task.title ?? "",
+        icon: task.icon ?? "•",
+        goal,
+        completed,
+        towardGoal,
+        extra: Math.max(0, completed - goal),
+        missing: Math.max(0, goal - towardGoal),
+      };
+    });
 }
 
 /** @deprecated Prefer scoreCategoryFromTaskGoals — category goals are derived from tasks. */

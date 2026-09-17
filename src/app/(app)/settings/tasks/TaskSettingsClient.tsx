@@ -672,7 +672,8 @@ function CategoryGoalSummary({
       <p className={styles.categoryGoalHint}>
         <strong>Kategorimål / vecka: {total}</strong>
         {" — "}
-        summan av task-målen i {categoryName} (uppdateras automatiskt).
+        summan av de återkommande uppgifterna i {categoryName}. Engångsuppgifter
+        och extra repetitioner ger bonuspoäng utöver målet.
       </p>
     </div>
   );

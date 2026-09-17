@@ -13,7 +13,7 @@ import {
 import { dateInMonth, formatBillAmountKr, isMonthlyBill, isMonthlyAmountTask, isMonthlyTaskComplete, monthStartFromDate, monthlyTaskVisualStatus, resolveMonthlyTaskSchedule } from "@/lib/monthly-bills";
 import { formatDayShort } from "@/lib/date";
 import { monthlyTaskDisplayTitle, type MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
-import { FestProgressCard, isFestProgressTask } from "./FestProgressCard";
+import { FestProgressCard } from "./FestProgressCard";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
 import {
@@ -336,7 +336,7 @@ function MonthlyTasksSummary({
       <p className={styles.monthlyAsideTitle}>Månadsuppgifter</p>
       <div className={styles.monthlyGrid}>
         {tasks.map((task) =>
-          isFestProgressTask(task) ? (
+          isMonthlyTaskRepeatable(task) ? (
             <FestProgressCard
               key={task.id}
               task={task}

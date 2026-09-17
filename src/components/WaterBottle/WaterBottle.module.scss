@@ -1,3 +1,4 @@
+@use "sass:color";
 @use "abstracts" as *;
 
 .wrap {
@@ -106,7 +107,7 @@
 }
 
 .percentFull .unit {
-    color: lighten($color-success, 8%);
+    color: color.adjust($color-success, $lightness: 8%);
 }
 
 .stats {

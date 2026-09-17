@@ -134,22 +134,42 @@ export async function getGymWeekSummary(
   if (toInsert.length > 0) {
     const { data: inserted } = await supabase
       .from("gym_week_placements")
-      .insert(toInsert)
-      .select("id, template_id, week_start, weekday, day_sort_order, warmup, done_at, note");
+      .upsert(toInsert, {
+        onConflict: "user_id,template_id,week_start",
+        ignoreDuplicates: true,
+      })
+      .select(
+        "id, template_id, week_start, weekday, day_sort_order, warmup, done_at, note",
+      );
     for (const p of inserted ?? []) {
       placementByTemplate.set(p.template_id, p);
     }
+
+    // Concurrent week/month loads can race the insert. Re-read if anything is still missing.
+    const stillMissing = templates.some((t) => !placementByTemplate.has(t.id));
+    if (stillMissing) {
+      const { data: again } = await supabase
+        .from("gym_week_placements")
+        .select(
+          "id, template_id, week_start, weekday, day_sort_order, warmup, done_at, note",
+        )
+        .eq("user_id", userId)
+        .eq("week_start", weekStart);
+      for (const p of again ?? []) {
+        placementByTemplate.set(p.template_id, p);
+      }
+    }
   }
 
-  const sessions: GymSessionForWeek[] = templates.map((t) => {
+  const sessions: GymSessionForWeek[] = templates.flatMap((t) => {
     const placement = placementByTemplate.get(t.id);
-    if (!placement) {
-      throw new Error(`Missing gym placement for template ${t.id}`);
-    }
-    return {
-      ...rowToTemplate(t),
-      placement: rowToPlacement(placement),
-    };
+    if (!placement) return [];
+    return [
+      {
+        ...rowToTemplate(t),
+        placement: rowToPlacement(placement),
+      },
+    ];
   });
 
   sessions.sort((a, b) => a.sortOrder - b.sortOrder);

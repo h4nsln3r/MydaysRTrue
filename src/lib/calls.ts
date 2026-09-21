@@ -5,10 +5,10 @@ export const RING_MAMMA_GOAL = 2;
 export const RING_OTHER_GOAL = 1;
 
 export const RING_PERSONS = [
-  { key: "mamma", label: "Mamma", icon: "👩", group: "mamma" },
-  { key: "sanna", label: "Sanna", icon: "💛", group: "other" },
-  { key: "farmor", label: "Farmor", icon: "👵", group: "other" },
-  { key: "ovrigt", label: "Övrigt", icon: "🤝", group: "other" },
+  { key: "mamma", label: "Mamma", title: "Ring mamma", icon: "👩", group: "mamma" },
+  { key: "sanna", label: "Sanna", title: "Ring Sanna", icon: "💛", group: "other" },
+  { key: "farmor", label: "Farmor", title: "Ring farmor", icon: "👵", group: "other" },
+  { key: "ovrigt", label: "Övrigt", title: "Ring övrigt", icon: "🤝", group: "other" },
 ] as const;
 
 export type RingPerson = (typeof RING_PERSONS)[number]["key"];
@@ -73,6 +73,6 @@ export function ringCallTitle(placement: {
   const person = parseRingPerson(placement.callPerson);
   if (!person) return null;
   const other = placement.callOtherName?.trim();
-  if (person === "ovrigt" && other) return other;
-  return ringPersonLabel(person);
+  if (person === "ovrigt" && other) return `Ring ${other}`;
+  return PERSON_BY_KEY.get(person)?.title ?? `Ring ${ringPersonLabel(person)}`;
 }

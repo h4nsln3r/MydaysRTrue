@@ -954,6 +954,8 @@ export interface Database {
           on_hold: boolean;
           coding_project_id: string | null;
           game_id: string | null;
+          call_person: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
+          call_other_name: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -982,6 +984,8 @@ export interface Database {
           on_hold?: boolean;
           coding_project_id?: string | null;
           game_id?: string | null;
+          call_person?: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
+          call_other_name?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1010,6 +1014,8 @@ export interface Database {
           on_hold?: boolean;
           coding_project_id?: string | null;
           game_id?: string | null;
+          call_person?: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
+          call_other_name?: string | null;
           created_at?: string;
           updated_at?: string;
         };

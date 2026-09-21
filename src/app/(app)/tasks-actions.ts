@@ -35,8 +35,11 @@ import {
   musicLogKindFromActivity,
   parseMusicActivity,
   parseSpendKindFor,
+  isRingWeeklyTaskKey,
+  parseRingPerson,
   type MusicActivity,
   type MusicLogKind,
+  type RingPerson,
   type TaskScope,
   type Weekday,
   type WeeklyTaskCompletionKind,
@@ -1037,6 +1040,8 @@ export async function updateWeeklyTaskPlanAction(input: {
   planTodo?: string | null;
   spendKind?: string | null;
   gameId?: string | null;
+  callPerson?: string | null;
+  callOtherName?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -1059,8 +1064,9 @@ export async function updateWeeklyTaskPlanAction(input: {
 
   const kind = task.completion_kind as WeeklyTaskCompletionKind;
   const isGame = isGameWeeklyTaskKey(task.key);
+  const isRing = isRingWeeklyTaskKey(task.key);
   const planNote = input.planNote.trim();
-  if (kind === "journal" && !isGame && !planNote) {
+  if (kind === "journal" && !isGame && !isRing && !planNote) {
     return { ok: false, error: "Skriv vad du ska jobba med." };
   }
   if (kind === "laundry" && !planNote) {
@@ -1120,6 +1126,17 @@ export async function updateWeeklyTaskPlanAction(input: {
     if (!game) return { ok: false, error: "Spelet hittades inte." };
   }
 
+  let callPerson: RingPerson | null = null;
+  let callOtherName: string | null = null;
+  if (isRing) {
+    callPerson = parseRingPerson(input.callPerson ?? null);
+    if (!callPerson) {
+      return { ok: false, error: "Välj vem du ska ringa." };
+    }
+    const other = (input.callOtherName ?? "").trim().slice(0, 80);
+    callOtherName = callPerson === "ovrigt" && other ? other : null;
+  }
+
   let existing: { id: string } | null = null;
   if (input.placementId) {
     const { data } = await supabase
@@ -1160,6 +1177,12 @@ export async function updateWeeklyTaskPlanAction(input: {
         ? { spend_kind: spendKind }
         : {}),
       ...(isGame ? { game_id: gameId } : {}),
+      ...(isRing
+        ? {
+            call_person: callPerson,
+            call_other_name: callOtherName,
+          }
+        : {}),
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
@@ -1203,6 +1226,9 @@ export async function completeWeeklyTaskAction(input: {
   codingProjectId?: string | null;
   /** Chosen game from the catalog (SPEL). */
   gameId?: string | null;
+  /** Who the call is with (unified Ring task). */
+  callPerson?: string | null;
+  callOtherName?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -1241,12 +1267,14 @@ export async function completeWeeklyTaskAction(input: {
     plan_todo: string | null;
     spend_kind: string | null;
     game_id: string | null;
+    call_person: string | null;
+    call_other_name: string | null;
   } | null = null;
 
   if (input.placementId) {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id, call_person, call_other_name")
       .eq("id", input.placementId)
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
@@ -1256,7 +1284,7 @@ export async function completeWeeklyTaskAction(input: {
   } else {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id, call_person, call_other_name")
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
       .eq("week_start", input.weekStart)
@@ -1303,6 +1331,19 @@ export async function completeWeeklyTaskAction(input: {
     if (!game) {
       return { ok: false, error: "Spelet hittades inte." };
     }
+  }
+
+  let callPerson: RingPerson | null = parseRingPerson(existing.call_person);
+  let callOtherName: string | null =
+    existing.call_other_name?.trim() || null;
+  if (isRingWeeklyTaskKey(task.key)) {
+    callPerson =
+      parseRingPerson(input.callPerson ?? null) ?? callPerson;
+    if (!callPerson) {
+      return { ok: false, error: "Välj vem du ringde." };
+    }
+    const other = (input.callOtherName ?? "").trim().slice(0, 80);
+    callOtherName = callPerson === "ovrigt" && other ? other : null;
   }
 
   const planNote =
@@ -1370,13 +1411,17 @@ export async function completeWeeklyTaskAction(input: {
       };
     }
   } else if (kind === "journal") {
-    if (!note) {
-      return { ok: false, error: "Anteckna vad du gjorde." };
-    }
     if (note.length > 500) {
       return { ok: false, error: "Håll anteckningen under 500 tecken." };
     }
-    completionNote = note;
+    if (isRingWeeklyTaskKey(task.key)) {
+      completionNote = note || null;
+    } else {
+      if (!note) {
+        return { ok: false, error: "Anteckna vad du gjorde." };
+      }
+      completionNote = note;
+    }
   } else if (kind === "laundry") {
     if (input.laundryMode === "book") {
       const bookDate = (input.laundryBookDate ?? "").trim();
@@ -1589,6 +1634,12 @@ export async function completeWeeklyTaskAction(input: {
         ? codingProjectId
         : null,
       game_id: isGameWeeklyTaskKey(task.key) ? gameId : null,
+      ...(isRingWeeklyTaskKey(task.key)
+        ? {
+            call_person: callPerson,
+            call_other_name: callOtherName,
+          }
+        : {}),
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
@@ -1625,6 +1676,8 @@ export async function updateWeeklyTaskCompletionAction(input: {
   spendKind?: string | null;
   laundryLoads?: number;
   musicTitle?: string;
+  callPerson?: string | null;
+  callOtherName?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -1689,6 +1742,8 @@ export async function updateWeeklyTaskCompletionAction(input: {
     shop_amount_expr?: string | null;
     spend_kind?: "food" | "private" | "shared" | null;
     laundry_loads?: number | null;
+    call_person?: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
+    call_other_name?: string | null;
   } = {};
 
   if (kind === "shop" || kind === "expense") {
@@ -1738,11 +1793,23 @@ export async function updateWeeklyTaskCompletionAction(input: {
     patch.spend_kind = spendKind;
     patch.note = note || null;
   } else if (kind === "journal") {
-    if (!note) return { ok: false, error: "Anteckna vad du gjorde." };
     if (note.length > 500) {
       return { ok: false, error: "Håll anteckningen under 500 tecken." };
     }
-    patch.note = note;
+    if (isRingWeeklyTaskKey(task.key)) {
+      const callPerson = parseRingPerson(input.callPerson ?? null);
+      if (!callPerson) {
+        return { ok: false, error: "Välj vem du ringde." };
+      }
+      const other = (input.callOtherName ?? "").trim().slice(0, 80);
+      patch.call_person = callPerson;
+      patch.call_other_name =
+        callPerson === "ovrigt" && other ? other : null;
+      patch.note = note || null;
+    } else {
+      if (!note) return { ok: false, error: "Anteckna vad du gjorde." };
+      patch.note = note;
+    }
   } else if (kind === "laundry") {
     const loads = input.laundryLoads;
     if (note.length > 500) {

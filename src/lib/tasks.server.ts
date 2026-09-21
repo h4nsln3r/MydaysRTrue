@@ -27,6 +27,8 @@ import {
   musicActivityFromLegacyKey,
   parseMusicActivity,
   parseSpendKind,
+  ringPersonFromLegacyKey,
+  parseRingPerson,
 } from "@/lib/tasks";
 import {
   balancesFromSnapshotRow,
@@ -257,6 +259,8 @@ interface WeeklyPlacementRow {
   on_hold: boolean;
   coding_project_id: string | null;
   game_id: string | null;
+  call_person: string | null;
+  call_other_name: string | null;
 }
 
 function rowToPlacement(
@@ -293,6 +297,8 @@ function rowToPlacement(
     codingProjectTitle: r.coding_project_id
       ? (extras?.projectTitleById?.get(r.coding_project_id) ?? null)
       : null,
+    callPerson: parseRingPerson(r.call_person),
+    callOtherName: r.call_other_name?.trim() || null,
     gameId: r.game_id,
     gameTitle: game?.title ?? null,
     gameKind: game?.kind ?? null,
@@ -357,7 +363,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled, is_repeatable, weekly_goal";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, spend_kind, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id, game_id";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, spend_kind, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id, game_id, call_person, call_other_name";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 
@@ -414,15 +420,17 @@ const REPEATABLE_CANONICAL: Array<{
     weeklyGoal: 1,
   },
   {
-    key: "life_ring_mamma",
-    legacyLike: "life_ring_mamma_%",
-    title: "Ring mamma",
-    notes: "Dra in hur många samtal du vill — minst 2 per vecka.",
+    key: "life_ring",
+    legacyLike: "life_ring_%",
+    title: "Ring",
+    notes:
+      "Dra in hur många samtal du vill — mamma 2× och Sanna, farmor eller en vän 1× per vecka. Välj vem du ringer.",
     icon: "📞",
     accent: "#f472b6",
     completionKind: "journal",
     categoryName: "Livet",
     sortOrder: 0,
+    weeklyGoal: 3,
   },
   {
     key: "music",
@@ -506,7 +514,7 @@ export async function ensureRepeatableWeeklyTasks(
     if (!canonicalId) {
       const { data: legacy } = await supabase
         .from("weekly_tasks")
-        .select("id")
+        .select("id, key")
         .eq("user_id", userId)
         .like("key", spec.legacyLike)
         .is("archived_at", null)
@@ -515,6 +523,15 @@ export async function ensureRepeatableWeeklyTasks(
         .maybeSingle();
 
       if (legacy) {
+        const fromKey = ringPersonFromLegacyKey(legacy.key);
+        if (fromKey) {
+          await supabase
+            .from("weekly_task_placements")
+            .update({ call_person: fromKey })
+            .eq("user_id", userId)
+            .eq("task_id", legacy.id)
+            .is("call_person", null);
+        }
         const { error } = await supabase
           .from("weekly_tasks")
           .update({
@@ -582,13 +599,22 @@ export async function ensureRepeatableWeeklyTasks(
 
     const { data: leftovers } = await supabase
       .from("weekly_tasks")
-      .select("id")
+      .select("id, key")
       .eq("user_id", userId)
       .is("archived_at", null)
       .neq("id", canonicalId)
       .or(`key.eq.${spec.key},key.like.${spec.legacyLike}`);
 
     for (const leftover of leftovers ?? []) {
+      const fromKey = ringPersonFromLegacyKey(leftover.key);
+      if (fromKey) {
+        await supabase
+          .from("weekly_task_placements")
+          .update({ call_person: fromKey })
+          .eq("user_id", userId)
+          .eq("task_id", leftover.id)
+          .is("call_person", null);
+      }
       await supabase
         .from("weekly_task_placements")
         .update({ task_id: canonicalId })
@@ -604,6 +630,7 @@ export async function ensureRepeatableWeeklyTasks(
 }
 
 export async function getWeeklyTasks(userId: string): Promise<WeeklyTask[]> {
+  await ensureRepeatableWeeklyTasks(userId);
   await ensureGameWeeklyTask(userId);
   const supabase = await createClient();
   const { data } = await supabase

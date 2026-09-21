@@ -7,6 +7,12 @@ import {
   localISOFromTimestamp,
   parseLocalISO,
 } from "@/lib/date";
+import {
+  isRingWeeklyTaskKey,
+  ringCallTitle,
+  ringPersonIcon,
+  type RingPerson,
+} from "@/lib/calls";
 import { GAME_KIND_ICON, GAME_KIND_LABEL, type GameKind } from "@/lib/games";
 import { transferTaskFinanceLabel } from "@/lib/monthly-finance";
 
@@ -220,6 +226,8 @@ export function musicSessionTitle(
   placement: {
     musicActivity?: MusicActivity | null;
     gameTitle?: string | null;
+    callPerson?: RingPerson | null;
+    callOtherName?: string | null;
   } | null | undefined,
 ): string {
   if (placement?.gameTitle?.trim()) {
@@ -227,6 +235,13 @@ export function musicSessionTitle(
   }
   if (task.completionKind === "music" && placement?.musicActivity) {
     return MUSIC_ACTIVITY_LABEL[placement.musicActivity];
+  }
+  if (isRingWeeklyTaskKey(task.key)) {
+    const callTitle = ringCallTitle({
+      callPerson: placement?.callPerson,
+      callOtherName: placement?.callOtherName,
+    });
+    if (callTitle) return callTitle;
   }
   return task.title;
 }
@@ -237,6 +252,7 @@ export function musicSessionIcon(
     musicActivity?: MusicActivity | null;
     gameKind?: GameKind | null;
     gameIcon?: string | null;
+    callPerson?: RingPerson | null;
   } | null | undefined,
 ): string {
   if (placement?.gameIcon?.trim()) return placement.gameIcon.trim();
@@ -245,6 +261,9 @@ export function musicSessionIcon(
   }
   if (task.completionKind === "music" && placement?.musicActivity) {
     return MUSIC_ACTIVITY_ICON[placement.musicActivity];
+  }
+  if (placement?.callPerson) {
+    return ringPersonIcon(placement.callPerson);
   }
   return task.icon;
 }
@@ -279,6 +298,7 @@ export const REPEATABLE_WEEKLY_TASK_KEYS = [
   "dev_code",
   "home_handla",
   "home_projekt",
+  "life_ring",
   "life_ring_mamma",
   "music",
   "music_rep",
@@ -288,6 +308,15 @@ export const REPEATABLE_WEEKLY_TASK_KEYS = [
 
 export type RepeatableWeeklyTaskKey =
   (typeof REPEATABLE_WEEKLY_TASK_KEYS)[number];
+
+export {
+  isRingWeeklyTaskKey,
+  parseRingPerson,
+  ringPersonFromLegacyKey,
+  RING_TASK_KEY,
+  RING_WEEKLY_GOAL,
+} from "@/lib/calls";
+export type { RingPerson } from "@/lib/calls";
 
 /** Default goal when a task is marked repeatable. */
 export const REPEATABLE_WEEKLY_TASK_GOAL = 2;
@@ -630,6 +659,10 @@ export interface WeeklyPlacement {
   /** Coding session project (dev_code only). */
   codingProjectId: string | null;
   codingProjectTitle: string | null;
+  /** Who this call is with (unified Ring task). */
+  callPerson: RingPerson | null;
+  /** Free-text name when callPerson is Övrigt. */
+  callOtherName: string | null;
   /** Chosen game from the user catalog (SPEL / game task). */
   gameId: string | null;
   gameTitle: string | null;
@@ -757,6 +790,12 @@ export function formatWeeklyTaskDetail(
   placement: WeeklyPlacement,
   completionKind?: WeeklyTaskCompletionKind,
 ): string | null {
+  if (placement.callPerson) {
+    const parts: string[] = [];
+    if (placement.planNote?.trim()) parts.push(placement.planNote.trim());
+    if (placement.note?.trim()) parts.push(placement.note.trim());
+    if (parts.length > 0) return parts.join(" · ");
+  }
   if (placement.codingProjectTitle?.trim() && placement.note?.trim()) {
     return `${placement.codingProjectTitle.trim()} · ${placement.note.trim()}`;
   }

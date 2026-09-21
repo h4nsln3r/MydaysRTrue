@@ -66,6 +66,7 @@ import { Input } from "@/components/Input/Input";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
 import { GameFields } from "@/components/GameFields/GameFields";
+import { RingFields } from "@/components/RingFields/RingFields";
 import { CardioFields } from "@/components/CardioFields/CardioFields";
 import { SportFields } from "@/components/SportFields/SportFields";
 import { resolveCardioKind, type CardioKind } from "@/lib/cardio";
@@ -89,10 +90,13 @@ import {
   WEEKDAY_SHORT,
   WEEKDAYS,
   isGameWeeklyTaskKey,
+  isRingWeeklyTaskKey,
   parseMusicActivity,
+  parseRingPerson,
   parseSpendKind,
   allowedSpendKinds,
   type MusicActivity,
+  type RingPerson,
   type SpendKind,
   type TaskCategory,
   type Weekday,
@@ -1448,6 +1452,14 @@ function ItemRowContent({
   const [gameId, setGameId] = useState(
     item.kind === "task" ? (item.placement?.gameId ?? "") : "",
   );
+  const [callPerson, setCallPerson] = useState<RingPerson | null>(
+    item.kind === "task"
+      ? parseRingPerson(item.placement?.callPerson)
+      : null,
+  );
+  const [callOtherName, setCallOtherName] = useState(
+    item.kind === "task" ? (item.placement?.callOtherName ?? "") : "",
+  );
   const [placeOpen, setPlaceOpen] = useState(false);
   const [monthlyAmount, setMonthlyAmount] = useState(
     item.kind === "monthly_bill" && item.completion?.amount != null
@@ -1738,6 +1750,12 @@ function ItemRowContent({
           ? { spendKind }
           : {}),
         ...(isGameWeeklyTaskKey(item.taskKey) ? { gameId: gameId || null } : {}),
+        ...(isRingWeeklyTaskKey(item.taskKey)
+          ? {
+              callPerson,
+              callOtherName: callPerson === "ovrigt" ? callOtherName : null,
+            }
+          : {}),
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -2743,6 +2761,32 @@ function ItemRowContent({
                       disabled={pending}
                     />
                   </>
+                ) : isRingWeeklyTaskKey(item.taskKey) ? (
+                  <>
+                    <RingFields
+                      value={callPerson}
+                      onChange={setCallPerson}
+                      disabled={pending}
+                    />
+                    {callPerson === "ovrigt" ? (
+                      <Input
+                        label="Vem? (valfritt)"
+                        value={callOtherName}
+                        onChange={(e) => setCallOtherName(e.target.value)}
+                        placeholder="t.ex. namn på vän"
+                        maxLength={80}
+                        disabled={pending}
+                      />
+                    ) : null}
+                    <Input
+                      label="Anteckning (valfritt)"
+                      value={taskPlanNote}
+                      onChange={(e) => setTaskPlanNote(e.target.value)}
+                      placeholder="t.ex. vad ni ska prata om"
+                      maxLength={280}
+                      disabled={pending}
+                    />
+                  </>
                 ) : (
                   <Input
                     label="Vad ska du jobba med?"
@@ -2804,6 +2848,7 @@ function ItemRowContent({
                 disabled={
                   pending ||
                   (item.completionKind === "music" && musicActivity == null) ||
+                  (isRingWeeklyTaskKey(item.taskKey) && callPerson == null) ||
                   ((item.completionKind === "shop" ||
                     item.completionKind === "expense") &&
                     spendKind == null)

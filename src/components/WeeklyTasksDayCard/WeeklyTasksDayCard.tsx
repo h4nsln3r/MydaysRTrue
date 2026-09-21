@@ -29,16 +29,19 @@ import {
   isGameWeeklyTaskKey,
   isLaundryBookingCompletion,
   isLaundryFollowUpPlacement,
+  isRingWeeklyTaskKey,
   isWeeklyTaskRepeatable,
   musicActivityCreatesGig,
   musicActivityCreatesLiveEvent,
   musicSessionIcon,
   musicSessionTitle,
   parseMusicActivity,
+  parseRingPerson,
   parseSpendKind,
   allowedSpendKinds,
   sortWeeklyDayTasks,
   type MusicActivity,
+  type RingPerson,
   type SpendKind,
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
@@ -52,6 +55,7 @@ import type { UserGame } from "@/lib/games";
 import { GAME_KIND_LABEL } from "@/lib/games";
 import { createCodingProjectAction } from "@/app/(app)/coding-actions";
 import { GameFields } from "@/components/GameFields/GameFields";
+import { RingFields } from "@/components/RingFields/RingFields";
 import {
   formatKr,
   parseShopAmountExpr,
@@ -409,6 +413,7 @@ export function WeeklyTaskRow({
   const placementId = placement?.id;
   const isCoding = isCodingWeeklyTaskKey(task.key);
   const isGame = isGameWeeklyTaskKey(task.key);
+  const isRing = isRingWeeklyTaskKey(task.key);
   const done = Boolean(placement?.doneAt);
   // Quick tasks complete with one tap on the circle; everything is still
   // expandable so any task can carry an optional comment.
@@ -461,6 +466,12 @@ export function WeeklyTaskRow({
     placement?.codingProjectId ?? "",
   );
   const [gameId, setGameId] = useState(placement?.gameId ?? "");
+  const [callPerson, setCallPerson] = useState<RingPerson | null>(
+    parseRingPerson(placement?.callPerson),
+  );
+  const [callOtherName, setCallOtherName] = useState(
+    placement?.callOtherName ?? "",
+  );
   const [newProjectTitle, setNewProjectTitle] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
   const isLoggedMusicEvent =
@@ -487,6 +498,8 @@ export function WeeklyTaskRow({
     setMusicTitle(placement?.musicLogKind ? (placement.note ?? "") : "");
     setCodingProjectId(placement?.codingProjectId ?? "");
     setGameId(placement?.gameId ?? "");
+    setCallPerson(parseRingPerson(placement?.callPerson));
+    setCallOtherName(placement?.callOtherName ?? "");
   }, [
     placement?.note,
     placement?.shopLocation,
@@ -499,6 +512,8 @@ export function WeeklyTaskRow({
     placement?.musicLogKind,
     placement?.codingProjectId,
     placement?.gameId,
+    placement?.callPerson,
+    placement?.callOtherName,
   ]);
 
   const detail = placement ? formatWeeklyTaskDetail(placement, task.completionKind) : null;
@@ -568,6 +583,8 @@ export function WeeklyTaskRow({
             : null,
         codingProjectId: isCoding ? codingProjectId || null : undefined,
         gameId: isGame ? gameId || null : undefined,
+        callPerson: isRing ? callPerson : undefined,
+        callOtherName: isRing ? callOtherName : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -590,6 +607,8 @@ export function WeeklyTaskRow({
         laundryLoads:
           laundryLoads.trim() === "" ? undefined : Number(laundryLoads),
         musicTitle: isLoggedMusicEvent ? musicTitle : undefined,
+        callPerson: isRing ? callPerson : undefined,
+        callOtherName: isRing ? callOtherName : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -622,6 +641,8 @@ export function WeeklyTaskRow({
       setMusicRating("");
       setCodingProjectId("");
       setGameId("");
+      setCallPerson(null);
+      setCallOtherName("");
       setNewProjectTitle("");
       setCreatingProject(false);
       onPendingId(null);
@@ -720,6 +741,8 @@ export function WeeklyTaskRow({
   const savedLoads =
     placement?.laundryLoads != null ? String(placement.laundryLoads) : "";
   const savedSpendKind = parseSpendKind(placement?.spendKind);
+  const savedCallPerson = parseRingPerson(placement?.callPerson);
+  const savedCallOtherName = placement?.callOtherName ?? "";
   const completionDirty =
     done &&
     (taskNote !== savedNote ||
@@ -727,7 +750,9 @@ export function WeeklyTaskRow({
       shopAmount !== savedShopAmount ||
       spendKind !== savedSpendKind ||
       laundryLoads !== savedLoads ||
-      musicTitle !== savedMusicTitle);
+      musicTitle !== savedMusicTitle ||
+      callPerson !== savedCallPerson ||
+      callOtherName !== savedCallOtherName);
 
   return (
     <li
@@ -991,6 +1016,24 @@ export function WeeklyTaskRow({
           ) : null}
           {task.completionKind === "journal" ? (
             <>
+              {isRing ? (
+                <RingFields
+                  value={callPerson}
+                  onChange={setCallPerson}
+                  disabled={pending}
+                  label={done ? "Vem ringde du?" : "Vem ringer du?"}
+                />
+              ) : null}
+              {isRing && callPerson === "ovrigt" ? (
+                <Input
+                  label="Vem? (valfritt)"
+                  value={callOtherName}
+                  onChange={(e) => setCallOtherName(e.target.value)}
+                  placeholder="t.ex. namn på vän"
+                  maxLength={80}
+                  disabled={pending}
+                />
+              ) : null}
               {isGame && !done ? (
                 <GameFields
                   games={games}
@@ -1083,11 +1126,19 @@ export function WeeklyTaskRow({
                 </p>
               ) : null}
               <Input
-                label={isGame ? "Hur gick sessionen?" : "Vad gjorde du?"}
+                label={
+                  isRing
+                    ? "Vad pratade ni om? (valfritt)"
+                    : isGame
+                      ? "Hur gick sessionen?"
+                      : "Vad gjorde du?"
+                }
                 value={taskNote}
                 onChange={(e) => setTaskNote(e.target.value)}
                 placeholder={
-                  isCoding
+                  isRing
+                    ? "t.ex. hur det är, vad ni gick igenom"
+                    : isCoding
                     ? "t.ex. Byggde UI, eller jobbade i flera projekt"
                     : isGame
                       ? "t.ex. kampanj, vad som hände, vilka som spelade"
@@ -1234,6 +1285,7 @@ export function WeeklyTaskRow({
                 ((task.completionKind === "shop" ||
                   task.completionKind === "expense") &&
                   spendKind == null) ||
+                (isRing && callPerson == null) ||
                 (showLaundryMode &&
                   laundryMode === "book" &&
                   (!laundryBookDate || !laundryBookTime))

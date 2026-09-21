@@ -21,6 +21,7 @@ import {
   WEEK_PROGRESS_HABIT_KEYS,
   type WeekHabitDayDetails,
 } from "@/lib/habits";
+import type { Weekday } from "@/lib/tasks";
 import { parseShakeQuantity, type ShakeBatch } from "@/lib/shake-schedule";
 import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
 import { mobileGamesStatusFor } from "@/lib/mobile-games";
@@ -72,10 +73,12 @@ interface HabitRow {
   interval_days: number | null;
   interval_anchor_date: string | null;
   weekdays: number[] | null;
+  shake_reset_on: string | null;
+  shake_skipped_on: string | null;
 }
 
 const HABIT_COLUMNS =
-  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_leave, interval_days, interval_anchor_date, weekdays";
+  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_leave, interval_days, interval_anchor_date, weekdays, shake_reset_on, shake_skipped_on";
 
 function rowToHabit(r: HabitRow): Habit {
   return {
@@ -92,6 +95,8 @@ function rowToHabit(r: HabitRow): Habit {
     intervalDays: Math.max(1, r.interval_days ?? 1),
     intervalAnchorDate: r.interval_anchor_date,
     weekdays: parseHabitWeekdays(r.weekdays),
+    shakeResetOn: r.shake_reset_on,
+    shakeSkippedOn: r.shake_skipped_on,
   };
 }
 
@@ -120,6 +125,76 @@ async function getGorShakeBatches(
     batches.push({ madeOn: row.local_date, quantity });
   }
   return batches;
+}
+
+export interface GorShakeWeekPlan {
+  habitId: string;
+  label: string;
+  icon: string;
+  accent: string;
+  weekday: Weekday | null;
+  done: boolean;
+}
+
+/** Week-plan chip for Gör shake: on the due day this week, otherwise leftover. */
+export async function getGorShakeWeekPlan(
+  userId: string,
+  weekStart: string,
+): Promise<GorShakeWeekPlan | null> {
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("habits")
+    .select(HABIT_COLUMNS)
+    .eq("user_id", userId)
+    .eq("key", "gor_shake")
+    .is("archived_at", null)
+    .eq("enabled", true)
+    .maybeSingle();
+  if (!row) return null;
+
+  const habit = rowToHabit(row);
+  const batches = await getGorShakeBatches(supabase, userId, [habit]);
+  const weekEnd = addDaysISO(weekStart, 6);
+  const { data: checks } = await supabase
+    .from("habit_checks")
+    .select("local_date, status")
+    .eq("user_id", userId)
+    .eq("habit_id", habit.id)
+    .gte("local_date", weekStart)
+    .lte("local_date", weekEnd);
+
+  const checkByDate = new Map<string, HabitStatus>();
+  for (const c of checks ?? []) {
+    checkByDate.set(c.local_date, c.status);
+  }
+
+  const today = todayLocalISO();
+  let weekday: Weekday | null = null;
+  let done = false;
+  for (let i = 0; i < 7; i++) {
+    const date = addDaysISO(weekStart, i);
+    const status = checkByDate.get(date) ?? null;
+    const occurs = habitOccursOnDate(habit, date, {
+      shakeCompleted: status != null,
+      shakeBatches: batches,
+    });
+    if (!occurs) continue;
+    const isoDow = isoWeekdayFromLocalISO(date) as Weekday;
+    if (weekday == null || date === today) {
+      weekday = isoDow;
+      done = status === "yes";
+    }
+    if (date === today) break;
+  }
+
+  return {
+    habitId: habit.id,
+    label: habit.label,
+    icon: habit.icon,
+    accent: habit.accent,
+    weekday,
+    done,
+  };
 }
 
 export interface DailyTrackerGoals {

@@ -160,6 +160,10 @@ export interface Habit {
   intervalAnchorDate: string | null;
   /** ISO weekdays (1=Mon … 7=Sun). Empty = every day (unless interval applies). */
   weekdays: Weekday[];
+  /** Gör shake — ignore batches before this date after a week-plan reset. */
+  shakeResetOn: string | null;
+  /** Gör shake — hidden on this date after being removed from the day plan. */
+  shakeSkippedOn: string | null;
 }
 
 export interface HabitIntervalRule {
@@ -167,6 +171,8 @@ export interface HabitIntervalRule {
   intervalDays: number;
   intervalAnchorDate: string | null;
   weekdays: Weekday[];
+  shakeResetOn?: string | null;
+  shakeSkippedOn?: string | null;
 }
 
 export interface HabitOccurrenceContext {

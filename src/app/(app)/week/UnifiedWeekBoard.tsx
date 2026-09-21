@@ -107,6 +107,8 @@ import {
   WEEK_PLAN_BACKLOG_DROP_ID,
   weekPlanBathingSourceDragId,
   weekPlanDayDropId,
+  weekPlanDragId,
+  weekPlanShakeSourceDragId,
   weekdayFromWeekPlanDropId,
   type UnifiedWeekPlan,
   type WeekPlanItem,
@@ -121,7 +123,8 @@ function isPlanSource(item: WeekPlanItem): boolean {
     (item.kind === "sport" && item.sportRole === "source") ||
     (item.kind === "cardio" && item.cardioRole === "source") ||
     (item.kind === "task" && item.taskRole === "source") ||
-    (item.kind === "monthly_bill" && item.monthlyRole === "source")
+    (item.kind === "monthly_bill" && item.monthlyRole === "source") ||
+    (item.kind === "shake" && item.shakeRole === "source")
   );
 }
 
@@ -216,12 +219,14 @@ export function UnifiedWeekBoard({
     const isTaskSource = item.kind === "task" && item.taskRole === "source";
     const isMonthlySource =
       item.kind === "monthly_bill" && item.monthlyRole === "source";
+    const isShakeSource = item.kind === "shake" && item.shakeRole === "source";
     if (
       !isBathingSource &&
       !isSportSource &&
       !isCardioSource &&
       !isTaskSource &&
       !isMonthlySource &&
+      !isShakeSource &&
       item.weekday === weekday
     )
       return;
@@ -373,6 +378,33 @@ export function UnifiedWeekBoard({
         };
         return [...prev, optimisticPlacement];
       });
+    } else if (isShakeSource) {
+      setLocalItems((prev) => {
+        const source = prev.find((i) => i.dragId === dragId);
+        if (!source || source.kind !== "shake" || source.shakeRole !== "source") {
+          return prev;
+        }
+        const withoutOld = prev.filter(
+          (i) => !(i.kind === "shake" && i.shakeRole === "placement"),
+        );
+        const dayItems = withoutOld.filter(
+          (i) => i.weekday === weekday && !isPlanSource(i),
+        );
+        const nextOrder =
+          dayItems.length > 0
+            ? Math.max(...dayItems.map((t) => t.sortOrder)) + 1
+            : 0;
+        const optimisticPlacement: WeekPlanItem = {
+          ...source,
+          dragId: weekPlanDragId("shake", source.habitId),
+          shakeRole: "placement",
+          weekday,
+          sortOrder: nextOrder,
+          done: false,
+          subtitle: "Gör shakes — förrådet räknas från den här dagen",
+        };
+        return [...withoutOld, optimisticPlacement];
+      });
     } else {
       setLocalItems((prev) => {
         const moving = prev.find((i) => i.dragId === dragId);
@@ -489,6 +521,9 @@ export function UnifiedWeekBoard({
         item.isRepeatable &&
         item.monthlyRole === "placement"
       ) {
+        return prev.filter((i) => i.dragId !== dragId);
+      }
+      if (item.kind === "shake" && item.shakeRole === "placement") {
         return prev.filter((i) => i.dragId !== dragId);
       }
       return prev.map((i) =>
@@ -1584,6 +1619,8 @@ function ItemRowContent({
           ? "Bad & bastu"
           : item.kind === "weight"
             ? "Vikt"
+            : item.kind === "shake"
+              ? "Shake"
             : item.kind === "monthly_bill"
               ? isMonthlyFinance
                 ? "Ekonomi"

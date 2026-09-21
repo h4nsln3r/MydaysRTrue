@@ -896,7 +896,7 @@ function journalChecklistCompletionsForDate(
   return entries;
 }
 
-/** Monthly tasks for this day that are done (callers already scope by scheduled day). */
+/** Monthly tasks for this day that are done (callers already scope by planned day). */
 function journalMonthlyTasksForDate(
   tasks: MonthlyTaskForMonth[],
 ): MonthlyTaskForMonth[] {

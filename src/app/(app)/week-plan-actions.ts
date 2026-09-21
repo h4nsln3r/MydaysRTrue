@@ -22,6 +22,7 @@ import {
   unplaceWeightWeekAction,
 } from "@/app/(app)/weight-actions";
 import { createClient } from "@/lib/supabase/server";
+import { addDaysISO } from "@/lib/date";
 import type { Weekday } from "@/lib/tasks";
 import { getWeightDefaultWeekday } from "@/lib/weight.server";
 import { parseWeekPlanDragId } from "@/lib/week-plan";
@@ -60,6 +61,62 @@ function isMonday(localDate: string): boolean {
   const [y, m, d] = localDate.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   return dt.getDay() === 1;
+}
+
+async function placeGorShakeWeekAction(input: {
+  habitId: string;
+  weekStart: string;
+  weekday: Weekday;
+}): Promise<ActionResult> {
+  if (input.weekday < 1 || input.weekday > 7) {
+    return { ok: false, error: "Ogiltig veckodag." };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: habit, error: lookupErr } = await supabase
+    .from("habits")
+    .select("id, key")
+    .eq("id", input.habitId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (lookupErr) return { ok: false, error: lookupErr.message };
+  if (!habit || habit.key !== "gor_shake") {
+    return { ok: false, error: "Hittade inte Gör shake." };
+  }
+
+  const localDate = addDaysISO(input.weekStart, input.weekday - 1);
+  const { error } = await supabase
+    .from("habits")
+    .update({ shake_reset_on: localDate, shake_skipped_on: null })
+    .eq("id", habit.id)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+async function unplaceGorShakeWeekAction(habitId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("habits")
+    .update({ shake_reset_on: null })
+    .eq("id", habitId)
+    .eq("user_id", user.id)
+    .eq("key", "gor_shake");
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 /** Place any weekly activity onto a weekday. */
@@ -146,6 +203,12 @@ export async function placeWeekPlanItemAction(input: {
         weekStart: input.weekStart,
         weekday: input.weekday,
       });
+    case "shake":
+      return placeGorShakeWeekAction({
+        habitId: parsed.entityId,
+        weekStart: input.weekStart,
+        weekday: input.weekday,
+      });
     case "monthly_bill":
       if (parsed.monthlyRole === "source") {
         return placeMonthlyBillFromWeekAction({
@@ -229,6 +292,11 @@ export async function unplaceWeekPlanItemAction(input: {
       });
     case "weight":
       return unplaceWeightWeekAction(input.weekStart);
+    case "shake":
+      if (parsed.shakeRole === "source") {
+        return { ok: true };
+      }
+      return unplaceGorShakeWeekAction(parsed.entityId);
     case "monthly_bill":
       if (parsed.monthlyRole === "source") {
         return { ok: true };

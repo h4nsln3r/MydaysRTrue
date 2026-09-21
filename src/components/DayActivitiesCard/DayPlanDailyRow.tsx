@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import {
   clearMealAction,
   clearSnackAction,
@@ -8,6 +8,7 @@ import {
   saveMealAction,
   saveSnackAction,
   setHabitStatusAction,
+  skipGorShakeDayAction,
 } from "@/app/(app)/actions";
 import {
   clearIntakeAction,
@@ -123,7 +124,7 @@ interface ShellProps extends PlanSortableProps {
   pending: boolean;
   onToggleExpand: () => void;
   planningMode?: boolean;
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 function PlanRowShell({
@@ -711,10 +712,19 @@ function HabitPlanRow(
   }, [item.note, item.quantity, isShake]);
 
   const parsedQuantity = parseShakeQuantity(quantity);
-  const otherBatches = item.shakeBatches.filter((b) => b.madeOn !== date);
+  const otherBatches = item.shakeBatches.filter((b) => {
+    if (b.madeOn === date) return false;
+    if (item.shakeResetOn && b.madeOn < item.shakeResetOn) return false;
+    return true;
+  });
   const shakeHint =
     isShake && parsedQuantity != null
-      ? shakeScheduleHint(item, date, parsedQuantity, otherBatches)
+      ? shakeScheduleHint(
+          { weekdays: item.weekdays, shakeResetOn: item.shakeResetOn },
+          date,
+          parsedQuantity,
+          otherBatches,
+        )
       : null;
   const detail = [
     isShake && item.quantity != null ? `${item.quantity} st` : null,
@@ -757,6 +767,20 @@ function HabitPlanRow(
         status: null,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte ta bort.");
+      onPendingKey(false);
+      onDone();
+    });
+  };
+
+  const skipToday = () => {
+    onError(null);
+    onPendingKey(true);
+    startTransition(async () => {
+      const res = await skipGorShakeDayAction({
+        habitId: item.id,
+        localDate: date,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte ta bort från dagen.");
       onPendingKey(false);
       onDone();
     });
@@ -847,6 +871,16 @@ function HabitPlanRow(
           </button>
         </>
       )}
+      {isShake && !done ? (
+        <button
+          type="button"
+          className={styles.undoBtn}
+          onClick={skipToday}
+          disabled={pending}
+        >
+          Ta bort från dagen
+        </button>
+      ) : null}
     </PlanRowShell>
   );
 }

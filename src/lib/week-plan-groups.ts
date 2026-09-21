@@ -61,6 +61,7 @@ export function groupWeekPlanDayItems(
       i.categoryId !== lifeId,
   );
   const weight = items.filter((i) => i.kind === "weight");
+  const shake = items.filter((i) => i.kind === "shake");
 
   const groups: WeekPlanItemGroup[] = [];
   if (training.length > 0) {
@@ -83,6 +84,9 @@ export function groupWeekPlanDayItems(
   }
   if (weight.length > 0) {
     groups.push({ id: "weight", label: "Vikt", items: weight });
+  }
+  if (shake.length > 0) {
+    groups.push({ id: "shake", label: "Shake", items: shake });
   }
   return groups;
 }
@@ -110,6 +114,7 @@ export function groupWeekPlanBacklogItems(
 
   const training = items.filter((i) => isBacklogTrainingItem(i));
   const weight = items.filter((i) => i.kind === "weight");
+  const shake = items.filter((i) => i.kind === "shake");
   const home = items.filter(
     (i) => i.kind === "task" && i.categoryId === homeId,
   );
@@ -162,6 +167,9 @@ export function groupWeekPlanBacklogItems(
   }
   if (weight.length > 0) {
     groups.push({ id: "weight", label: "Vikt", items: weight });
+  }
+  if (shake.length > 0) {
+    groups.push({ id: "shake", label: "Shake", items: shake });
   }
   if (home.length > 0) groups.push({ id: "home", label: "HOME", items: home });
   if (dev.length > 0) groups.push({ id: "dev", label: "DEV", items: dev });

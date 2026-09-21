@@ -8,6 +8,7 @@ import { getGymWeekSummary } from "@/lib/gym.server";
 import { formatWeeklyTaskDetail, formatFestOccasionWhen, formatMonthlyTaskDetail, isGameWeeklyTaskKey, isMonthlyTaskRepeatable, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
+import { getGorShakeWeekPlan } from "@/lib/habits.server";
 import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
 import { monthlyTaskDisplayTitle } from "@/lib/monthly-finance";
 import {
@@ -19,6 +20,7 @@ import {
   weekPlanMonthlyBillDragId,
   weekPlanMonthlyInstanceDragId,
   weekPlanMonthlySourceDragId,
+  weekPlanShakeSourceDragId,
   weekPlanSportPlacementDragId,
   weekPlanSportSourceDragId,
   weekPlanTaskPlacementDragId,
@@ -36,6 +38,7 @@ const KIND_SORT: Record<WeekPlanItem["kind"], number> = {
   task: 4,
   monthly_bill: 5,
   weight: 6,
+  shake: 7,
 };
 
 function dayPlanSortOrder(
@@ -109,7 +112,7 @@ export async function getUnifiedWeekPlan(
   userId: string,
   weekStart: string,
 ): Promise<UnifiedWeekPlan> {
-  const [gymWeek, cardioWeek, sportWeek, bathingWeek, taskWeek, weightPlan, billsWeek] =
+  const [gymWeek, cardioWeek, sportWeek, bathingWeek, taskWeek, weightPlan, billsWeek, shakePlan] =
     await Promise.all([
       getGymWeekSummary(userId, weekStart),
       getCardioWeekSummary(userId, weekStart),
@@ -118,6 +121,7 @@ export async function getUnifiedWeekPlan(
       getWeekSummary(userId, weekStart),
       getWeightWeekPlan(userId, weekStart),
       getMonthlyBillsForWeek(userId, weekStart),
+      getGorShakeWeekPlan(userId, weekStart),
     ]);
 
   const items: WeekPlanItem[] = [];
@@ -464,6 +468,39 @@ export async function getUnifiedWeekPlan(
       log: weightPlan.log,
       plan: weightPlan,
     });
+  }
+
+  if (shakePlan) {
+    items.push({
+      dragId: weekPlanShakeSourceDragId(shakePlan.habitId),
+      kind: "shake",
+      shakeRole: "source",
+      habitId: shakePlan.habitId,
+      label: shakePlan.label,
+      subtitle: "Dra till en dag för att börja om",
+      icon: shakePlan.icon,
+      accent: shakePlan.accent,
+      defaultWeekday: null,
+      weekday: null,
+      done: false,
+      sortOrder: 50,
+    });
+    if (shakePlan.weekday != null) {
+      items.push({
+        dragId: weekPlanDragId("shake", shakePlan.habitId),
+        kind: "shake",
+        shakeRole: "placement",
+        habitId: shakePlan.habitId,
+        label: shakePlan.label,
+        subtitle: "Gör shakes — förrådet räknas från den här dagen",
+        icon: shakePlan.icon,
+        accent: shakePlan.accent,
+        defaultWeekday: null,
+        weekday: shakePlan.weekday,
+        done: shakePlan.done,
+        sortOrder: dayPlanSortOrder(shakePlan.weekday, 0, 50),
+      });
+    }
   }
 
   const { placed, backlog } = resolveMonthlyBillsForWeek(

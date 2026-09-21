@@ -23,7 +23,8 @@ export type WeekPlanItemKind =
   | "sport"
   | "bathing"
   | "weight"
-  | "monthly_bill";
+  | "monthly_bill"
+  | "shake";
 
 export interface WeekPlanItemBase {
   dragId: string;
@@ -106,6 +107,14 @@ export interface WeekPlanMonthlyBillItem extends WeekPlanItemBase {
   isRepeatable: boolean;
 }
 
+export type ShakeDragRole = "source" | "placement";
+
+export interface WeekPlanShakeItem extends WeekPlanItemBase {
+  kind: "shake";
+  shakeRole: ShakeDragRole;
+  habitId: string;
+}
+
 export type WeekPlanItem =
   | WeekPlanTaskItem
   | WeekPlanGymItem
@@ -113,7 +122,8 @@ export type WeekPlanItem =
   | WeekPlanSportItem
   | WeekPlanBathingItem
   | WeekPlanWeightItem
-  | WeekPlanMonthlyBillItem;
+  | WeekPlanMonthlyBillItem
+  | WeekPlanShakeItem;
 
 export interface UnifiedWeekPlan {
   weekStart: string;
@@ -151,6 +161,7 @@ export interface ParsedWeekPlanDragId {
   cardioRole?: CardioDragRole;
   taskRole?: TaskDragRole;
   monthlyRole?: MonthlyBillDragRole;
+  shakeRole?: ShakeDragRole;
   monthStart?: string;
 }
 
@@ -213,10 +224,19 @@ export function weekPlanMonthlyInstanceDragId(completionId: string): string {
   return `monthly_bill-instance:${completionId}`;
 }
 
+export function weekPlanShakeSourceDragId(habitId: string): string {
+  return `shake-source:${habitId}`;
+}
+
 export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null {
   const taskSource = /^task-source:(.+)$/.exec(dragId);
   if (taskSource) {
     return { kind: "task", entityId: taskSource[1], taskRole: "source" };
+  }
+
+  const shakeSource = /^shake-source:(.+)$/.exec(dragId);
+  if (shakeSource) {
+    return { kind: "shake", entityId: shakeSource[1], shakeRole: "source" };
   }
 
   const taskPlacement = /^task-placement:(.+)$/.exec(dragId);
@@ -283,12 +303,13 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
     };
   }
 
-  const m = /^(task|gym|weight):(.+)$/.exec(dragId);
+  const m = /^(task|gym|weight|shake):(.+)$/.exec(dragId);
   if (!m) return null;
   return {
     kind: m[1] as WeekPlanItemKind,
     entityId: m[2],
     ...(m[1] === "task" ? { taskRole: "placement" as const } : {}),
+    ...(m[1] === "shake" ? { shakeRole: "placement" as const } : {}),
   };
 }
 

@@ -219,6 +219,7 @@ export type DayPlanItem =
       weekdays: Weekday[];
       quantity: number | null;
       shakeBatches: ShakeBatch[];
+      shakeResetOn: string | null;
     }
   | {
       kind: "work_start";
@@ -618,6 +619,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
       weekdays: habit.weekdays,
       quantity: habit.quantity ?? null,
       shakeBatches: habit.shakeBatches ?? [],
+      shakeResetOn: habit.shakeResetOn,
     });
   }
 

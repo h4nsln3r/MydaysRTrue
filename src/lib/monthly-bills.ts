@@ -296,6 +296,42 @@ export function primaryMonthlyCompletion(
   return completions.find((c) => !c.isInstance) ?? completions[0];
 }
 
+/**
+ * Day-view / journal: a placed monthly task stays on its scheduled calendar
+ * day even if it was logged later. Completion date is only used when there is
+ * no day placement (or for one-offs, which land on the finish date).
+ */
+export function monthlyTaskVisibleOnLocalDate(
+  task: Pick<MonthlyTask, "dayOfMonth" | "singleMonthStart">,
+  completion: MonthlyCompletion | null | undefined,
+  localDate: string,
+  options?: MonthlyTaskScheduleOptions,
+): boolean {
+  const monthStart = monthStartFromDate(localDate);
+  if (task.singleMonthStart && task.singleMonthStart !== monthStart) {
+    return false;
+  }
+
+  if (task.singleMonthStart && completion?.doneAt) {
+    return localISOFromTimestamp(completion.doneAt) === localDate;
+  }
+
+  const schedule = resolveMonthlyTaskSchedule(
+    task,
+    completion ?? null,
+    monthStart,
+    options,
+  );
+  if (schedule.isPlanned && schedule.dayOfMonth != null) {
+    return dateInMonth(monthStart, schedule.dayOfMonth) === localDate;
+  }
+
+  return Boolean(
+    completion?.doneAt &&
+      localISOFromTimestamp(completion.doneAt) === localDate,
+  );
+}
+
 /** Monthly tasks for a calendar day (day view / week parity). */
 export function monthlyTasksOnLocalDate(
   tasks: MonthlyTaskForMonth[],
@@ -325,21 +361,14 @@ export function monthlyTasksOnLocalDate(
           completion,
           completions: [completion],
         };
-        const schedule = resolveMonthlyTaskSchedule(
-          task,
-          completion,
-          monthStart,
-          options,
-        );
         if (
-          schedule.isPlanned &&
-          schedule.dayOfMonth != null &&
-          dateInMonth(monthStart, schedule.dayOfMonth) === localDate
+          monthlyTaskVisibleOnLocalDate(
+            task,
+            completion,
+            localDate,
+            options,
+          )
         ) {
-          add(taskWithCompletion);
-          continue;
-        }
-        if (completion.doneAt && localISOFromTimestamp(completion.doneAt) === localDate) {
           add(taskWithCompletion);
         }
       }
@@ -350,29 +379,7 @@ export function monthlyTasksOnLocalDate(
       primaryMonthlyCompletion(all) ?? task.completion ?? null;
     const taskWithCompletion = { ...task, completion, completions: all };
 
-    if (task.singleMonthStart && completion?.doneAt) {
-      if (localISOFromTimestamp(completion.doneAt) === localDate) {
-        add(taskWithCompletion);
-      }
-      continue;
-    }
-
-    const schedule = resolveMonthlyTaskSchedule(
-      task,
-      completion,
-      monthStart,
-      options,
-    );
-    if (
-      schedule.isPlanned &&
-      schedule.dayOfMonth != null &&
-      dateInMonth(monthStart, schedule.dayOfMonth) === localDate
-    ) {
-      add(taskWithCompletion);
-      continue;
-    }
-
-    if (completion?.doneAt && localISOFromTimestamp(completion.doneAt) === localDate) {
+    if (monthlyTaskVisibleOnLocalDate(task, completion, localDate, options)) {
       add(taskWithCompletion);
     }
   }

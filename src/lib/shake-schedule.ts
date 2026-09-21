@@ -1,7 +1,13 @@
 import { addDaysISO, isoWeekdayFromLocalISO, todayLocalISO } from "@/lib/date";
 import { WEEKDAY_LONG, WEEKDAY_SHORT, type Weekday } from "@/lib/tasks";
 
-export type ShakeDrinkRule = { weekdays: Weekday[] };
+export type ShakeDrinkRule = {
+  weekdays: Weekday[];
+  /** Ignore stock made before this date (week-plan drag reset). */
+  shakeResetOn?: string | null;
+  /** Hide Gör shake on this calendar day (skipped from the day plan). */
+  shakeSkippedOn?: string | null;
+};
 
 export const GOR_SHAKE_HABIT_KEY = "gor_shake";
 export const SHAKE_QUANTITY_MIN = 1;
@@ -59,6 +65,15 @@ export function nextShakeDrinkDayAfter(
   return nextShakeDrinkDayOnOrAfter(habit, addDaysISO(localDate, 1));
 }
 
+function batchesAfterReset(
+  habit: ShakeDrinkRule,
+  batches: ShakeBatch[],
+): ShakeBatch[] {
+  const resetOn = habit.shakeResetOn ?? null;
+  if (!resetOn) return batches;
+  return batches.filter((b) => b.madeOn >= resetOn);
+}
+
 function sortedBatches(batches: ShakeBatch[]): ShakeBatch[] {
   return [...batches]
     .filter((b) => parseShakeQuantity(b.quantity) != null)
@@ -99,7 +114,7 @@ export function shakeCoversUntilFromBatches(
   beforeDate: string,
 ): string | null {
   let prev: string | null = null;
-  for (const batch of sortedBatches(batches)) {
+  for (const batch of sortedBatches(batchesAfterReset(habit, batches))) {
     if (batch.madeOn >= beforeDate) break;
     prev = shakeCoversUntil(habit, batch.madeOn, batch.quantity, prev);
   }
@@ -129,11 +144,16 @@ export function gorShakeOccursOnDate(
   } = {},
 ): boolean {
   if (options.completedOnDate) return true;
-  const coversUntil = shakeCoversUntilFromBatches(
-    habit,
-    options.batches ?? [],
-    localDate,
-  );
+  if (habit.shakeSkippedOn && habit.shakeSkippedOn === localDate) return false;
+  const resetOn = habit.shakeResetOn ?? null;
+  const relevant = batchesAfterReset(habit, options.batches ?? []);
+  if (resetOn && relevant.length === 0) {
+    if (localDate < resetOn) return false;
+    if (localDate === resetOn) return true;
+    const today = options.today ?? todayLocalISO();
+    return localDate <= today;
+  }
+  const coversUntil = shakeCoversUntilFromBatches(habit, relevant, localDate);
   const due = shakeMakeDueOn(habit, coversUntil, localDate);
   if (localDate < due) return false;
   if (localDate === due) return true;

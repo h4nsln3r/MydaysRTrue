@@ -189,6 +189,8 @@ export async function applyWeekDaySortOrder(
         if (error) return { ok: false, error: error.message };
         break;
       }
+      case "shake":
+        break;
       default:
         break;
     }

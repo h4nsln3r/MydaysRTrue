@@ -154,6 +154,8 @@ export interface Database {
           interval_days: number;
           interval_anchor_date: string | null;
           weekdays: number[] | null;
+          shake_reset_on: string | null;
+          shake_skipped_on: string | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -184,6 +186,8 @@ export interface Database {
           interval_days?: number;
           interval_anchor_date?: string | null;
           weekdays?: number[] | null;
+          shake_reset_on?: string | null;
+          shake_skipped_on?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -214,6 +218,8 @@ export interface Database {
           interval_days?: number;
           interval_anchor_date?: string | null;
           weekdays?: number[] | null;
+          shake_reset_on?: string | null;
+          shake_skipped_on?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;

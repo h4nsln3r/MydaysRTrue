@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isLocalISODate, todayLocalISO } from "@/lib/date";
+import { addDaysISO, isLocalISODate, todayLocalISO } from "@/lib/date";
 import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
 import { parseHabitWeekdays } from "@/lib/habits";
 import { parseShakeQuantity } from "@/lib/shake-schedule";
@@ -202,6 +202,50 @@ export async function setHabitStatusAction(input: {
     );
     if (error) return { ok: false, error: error.message };
   }
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Hide Gör shake from this day's plan; it comes back the next day (or when dragged). */
+export async function skipGorShakeDayAction(input: {
+  habitId: string;
+  localDate: string;
+}): Promise<ActionResult> {
+  if (!input.habitId) return { ok: false, error: "Missing habit id." };
+  if (!isLocalISODate(input.localDate)) {
+    return { ok: false, error: "Ogiltigt datum." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: habit, error: lookupErr } = await supabase
+    .from("habits")
+    .select("id, key, user_id, shake_reset_on")
+    .eq("id", input.habitId)
+    .maybeSingle();
+  if (lookupErr) return { ok: false, error: lookupErr.message };
+  if (!habit || habit.user_id !== user.id || habit.key !== "gor_shake") {
+    return { ok: false, error: "Hittade inte Gör shake." };
+  }
+
+  const patch: { shake_skipped_on: string; shake_reset_on?: string } = {
+    shake_skipped_on: input.localDate,
+  };
+  if (habit.shake_reset_on === input.localDate) {
+    patch.shake_reset_on = addDaysISO(input.localDate, 1);
+  }
+
+  const { error } = await supabase
+    .from("habits")
+    .update(patch)
+    .eq("id", habit.id)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
   return { ok: true };

@@ -20,7 +20,7 @@ import { getDailyMood } from "@/lib/mood.server";
 import { getDailySmokeFree } from "@/lib/smoke-free.server";
 import { getDailyJournal } from "@/lib/journal.server";
 import { getWorkDailyLog } from "@/lib/work.server";
-import { isUserOnLeave } from "@/lib/leave.server";
+import { getLeaveDayContext } from "@/lib/leave.server";
 import { getDailyMedia } from "@/lib/media.server";
 import { getDailyLiveEvents } from "@/lib/live-events.server";
 import { getBathingSessionsForDate } from "@/lib/bathing.server";
@@ -102,7 +102,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
   ]);
 
   const work = await getWorkDailyLog(user.id, today);
-  const onLeave = await isUserOnLeave(user.id, today);
+  const { onLeave, tripDay } = await getLeaveDayContext(user.id, today);
   const savedOrder = await getDailyPlanOrder(user.id, today);
   const savedRestaurants = await getMealRestaurants(user.id);
   const mealBoxStock = await getMealBoxStock(user.id);
@@ -120,6 +120,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     moodLoggedAt: mood.loggedAt,
     weightKg: weightDay.log?.weightKg ?? null,
     work,
+    tripDay,
   });
 
   return (
@@ -180,6 +181,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               intake={intake}
               work={work}
               onLeave={onLeave}
+              tripDay={tripDay}
               activityLog={activityLog}
               goals={dayPlan.goals}
               media={media}

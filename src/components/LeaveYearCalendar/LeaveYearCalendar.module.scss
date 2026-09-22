@@ -51,6 +51,11 @@
     border-color: $color-success;
 }
 
+.swatchTravel {
+    background: rgba(244, 114, 182, 0.45);
+    border-color: #f472b6;
+}
+
 .swatchSelected {
     background: rgba(255, 122, 26, 0.45);
     border-color: $color-orange;
@@ -417,6 +422,11 @@ button.day {
 
 .dayOff {
     background: rgba(110, 231, 163, 0.3);
+    color: $color-cream;
+}
+
+.dayTravel {
+    background: rgba(244, 114, 182, 0.35);
     color: $color-cream;
 }
 

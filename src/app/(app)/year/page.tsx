@@ -116,7 +116,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
 
       <section className={styles.section}>
         <header className={styles.sectionHeader}>
-          <h2 className={styles.h2}>Semester & ledighet</h2>
+          <h2 className={styles.h2}>Semester, ledighet & resor</h2>
           <span className={styles.muted}>hoppar över jobb</span>
         </header>
 

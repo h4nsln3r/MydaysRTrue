@@ -19,6 +19,7 @@ import { getWeightWeekPlan } from "@/lib/weight.server";
 import { getWeekJournalSummary } from "@/lib/journal.server";
 
 import { getWorkLogsForWeek } from "@/lib/work.server";
+import { getTripDaysInRange } from "@/lib/leave.server";
 
 import { getUnifiedWeekPlan } from "@/lib/week-plan.server";
 import { getUserGames } from "@/lib/games.server";
@@ -100,6 +101,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     workByDate,
     games,
     sports,
+    tripByDate,
   ] = await Promise.all([
     getWeeklySummary(user.id, start),
     getWeekHabitSummary(user.id, start),
@@ -119,6 +121,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getWorkLogsForWeek(user.id, start),
     getUserGames(user.id),
     getUserSports(user.id),
+    getTripDaysInRange(user.id, start, addDaysISO(start, 6)),
   ]);
 
   const journalWeek = await getWeekJournalSummary(user.id, {
@@ -131,6 +134,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     monthlyBillsWeek,
     weightPlan,
     workByDate,
+    tripByDate,
   });
 
   return (

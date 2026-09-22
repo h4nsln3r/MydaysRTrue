@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { isLeaveKind, type LeaveKind } from "@/lib/leave";
+import { isLeaveKind, LEAVE_TITLE_MAX, type LeaveKind } from "@/lib/leave";
 
 export interface ActionResult {
   ok: boolean;
@@ -19,6 +19,19 @@ function trimNote(note?: string): string | null {
   return trimmed;
 }
 
+function trimTitle(kind: LeaveKind, title?: string): {
+  title: string | null;
+  error?: string;
+} {
+  const trimmed = title?.trim() ?? "";
+  if (kind !== "travel") return { title: null };
+  if (!trimmed) return { title: null, error: "Skriv resans namn, t.ex. Japan." };
+  if (trimmed.length > LEAVE_TITLE_MAX) {
+    return { title: null, error: `Max ${LEAVE_TITLE_MAX} tecken.` };
+  }
+  return { title: trimmed };
+}
+
 function normalizeRange(startDate: string, endDate: string): {
   startDate: string;
   endDate: string;
@@ -33,6 +46,7 @@ export async function createLeavePeriodAction(input: {
   kind: LeaveKind;
   startDate: string;
   endDate: string;
+  title?: string;
   note?: string;
 }): Promise<ActionResult> {
   if (!isLeaveKind(input.kind)) {
@@ -43,6 +57,8 @@ export async function createLeavePeriodAction(input: {
   }
 
   const { startDate, endDate } = normalizeRange(input.startDate, input.endDate);
+  const { title, error: titleError } = trimTitle(input.kind, input.title);
+  if (titleError) return { ok: false, error: titleError };
   const note = trimNote(input.note);
   if (input.note?.trim() && !note) {
     return { ok: false, error: `Max ${NOTE_MAX} tecken.` };
@@ -59,6 +75,7 @@ export async function createLeavePeriodAction(input: {
     kind: input.kind,
     start_date: startDate,
     end_date: endDate,
+    title,
     note,
   });
   if (error) return { ok: false, error: error.message };
@@ -73,6 +90,7 @@ export async function updateLeavePeriodAction(input: {
   kind: LeaveKind;
   startDate: string;
   endDate: string;
+  title?: string;
   note?: string;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Saknar id." };
@@ -84,6 +102,8 @@ export async function updateLeavePeriodAction(input: {
   }
 
   const { startDate, endDate } = normalizeRange(input.startDate, input.endDate);
+  const { title, error: titleError } = trimTitle(input.kind, input.title);
+  if (titleError) return { ok: false, error: titleError };
   const note = trimNote(input.note);
   if (input.note?.trim() && !note) {
     return { ok: false, error: `Max ${NOTE_MAX} tecken.` };
@@ -101,6 +121,7 @@ export async function updateLeavePeriodAction(input: {
       kind: input.kind,
       start_date: startDate,
       end_date: endDate,
+      title,
       note,
     })
     .eq("id", input.id)

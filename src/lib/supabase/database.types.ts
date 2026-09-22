@@ -443,9 +443,10 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          kind: "vacation" | "day_off";
+          kind: "vacation" | "day_off" | "travel";
           start_date: string;
           end_date: string;
+          title: string | null;
           note: string | null;
           archived_at: string | null;
           created_at: string;
@@ -454,9 +455,10 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          kind: "vacation" | "day_off";
+          kind: "vacation" | "day_off" | "travel";
           start_date: string;
           end_date: string;
+          title?: string | null;
           note?: string | null;
           archived_at?: string | null;
           created_at?: string;
@@ -465,11 +467,45 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          kind?: "vacation" | "day_off";
+          kind?: "vacation" | "day_off" | "travel";
           start_date?: string;
           end_date?: string;
+          title?: string | null;
           note?: string | null;
           archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      trip_day_notes: {
+        Row: {
+          id: string;
+          user_id: string;
+          leave_period_id: string;
+          local_date: string;
+          body: string;
+          done_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          leave_period_id: string;
+          local_date: string;
+          body?: string;
+          done_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          leave_period_id?: string;
+          local_date?: string;
+          body?: string;
+          done_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

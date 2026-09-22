@@ -19,6 +19,7 @@ import { DayPlanDailyRow } from "./DayPlanDailyRow";
 import { TaskChecklistPlanRow } from "./TaskChecklistPlanRow";
 import { MediaPlanRow } from "./MediaPlanRow";
 import { LiveEventPlanRow } from "./LiveEventPlanRow";
+import { TripDayPlanRow } from "./TripDayPlanRow";
 import type { PlanSortableProps } from "./usePlanSortable";
 
 const DAILY_KINDS = new Set<DayPlanItem["kind"]>([
@@ -106,6 +107,27 @@ export function DayActivityRow(props: Props) {
     savedRestaurants = [],
     mealBoxStock = [],
   } = props;
+
+  if (item.kind === "trip_day") {
+    return (
+      <TripDayPlanRow
+        item={item}
+        expanded={planningMode ? false : props.expanded}
+        busy={props.busy}
+        pending={props.pending}
+        onToggleExpand={planningMode ? () => {} : props.onToggleExpand}
+        onError={props.onError}
+        onPendingKey={(active) =>
+          props.onPendingId(active ? item.itemKey : null)
+        }
+        onDone={props.onDone}
+        planningMode={planningMode}
+        dragHandle={props.dragHandle}
+        sortableRef={props.sortableRef}
+        sortableStyle={props.sortableStyle}
+      />
+    );
+  }
 
   if (item.kind === "live_event") {
     return (

@@ -23,7 +23,8 @@ export type JournalEntrySource =
   | "activity"
   | "media"
   | "mobile_game"
-  | "live_event";
+  | "live_event"
+  | "trip";
 
 export const JOURNAL_SOURCE_LABEL: Record<JournalEntrySource, string> = {
   manual: "Anteckning",
@@ -46,6 +47,7 @@ export const JOURNAL_SOURCE_LABEL: Record<JournalEntrySource, string> = {
   media: "Media",
   mobile_game: "Mobilspel",
   live_event: "Live",
+  trip: "Resa",
 };
 
 export interface ManualJournalEntry {
@@ -317,6 +319,12 @@ function phraseEntry(entry: JournalDisplayEntry): string {
       return note
         ? ensureSentence(note)
         : ensureSentence(`Var på ${lowercaseFirst(entry.title)}`);
+    }
+    case "trip": {
+      const note = entry.body.trim();
+      return note
+        ? ensureSentence(`${entry.title}: ${lowercaseFirst(note)}`)
+        : ensureSentence(entry.title);
     }
     default:
       return ensureSentence(entry.body || entry.title);

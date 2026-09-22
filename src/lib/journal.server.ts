@@ -43,6 +43,10 @@ import type { MonthlyBillsWeekContext } from "@/lib/tasks.server";
 import { formatWeightKg } from "@/lib/format";
 import type { WeightWeekPlan } from "@/lib/weight";
 import {
+  formatTripDayTitle,
+  type TripDayContext,
+} from "@/lib/leave";
+import {
   WORK_KIND_FULL_LABEL,
   WORK_KIND_ICON,
   workNeedsEnd,
@@ -106,6 +110,7 @@ export interface JournalDayContext {
   moodLoggedAt?: string | null;
   weightKg: number | null;
   work: WorkDailyLog | null;
+  tripDay?: TripDayContext | null;
   trackers?: JournalDailyTrackers;
 }
 
@@ -119,6 +124,7 @@ export interface WeekJournalContext {
   monthlyBillsWeek?: MonthlyBillsWeekContext;
   weightPlan: WeightWeekPlan;
   workByDate: Map<string, WorkDailyLog>;
+  tripByDate?: Map<string, TripDayContext>;
 }
 
 function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntry[] {
@@ -412,6 +418,20 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
       title: monthlyTaskDisplayTitle(t, completion),
       body: detail ?? "Klar.",
       at: completion.doneAt!,
+      editable: false,
+    });
+  }
+
+  const tripDay = ctx.tripDay;
+  if (tripDay && tripDay.doneAt) {
+    const note = tripDay.note.trim();
+    entries.push({
+      id: `trip-${tripDay.periodId}-${tripDay.localDate}`,
+      source: "trip",
+      icon: "✈️",
+      title: formatTripDayTitle(tripDay.title, tripDay.dayIndex, tripDay.dayCount),
+      body: note || "Resedag.",
+      at: tripDay.doneAt,
       editable: false,
     });
   }
@@ -1011,6 +1031,7 @@ export async function getWeekJournalSummary(
       moodLoggedAt: moods.get(localDate)?.loggedAt ?? null,
       weightKg: weightForDate(context.weightPlan, localDate),
       work: context.workByDate.get(localDate) ?? null,
+      tripDay: context.tripByDate?.get(localDate) ?? null,
       trackers: trackersByDate.get(localDate),
     };
     const manual = manualByDate.get(localDate) ?? [];

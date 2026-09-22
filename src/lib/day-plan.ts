@@ -49,6 +49,10 @@ import {
   type DailyMediaContext,
 } from "@/lib/media";
 import type { DailyLiveEventsContext, LiveEvent } from "@/lib/live-events";
+import {
+  formatTripDayTitle,
+  type TripDayContext,
+} from "@/lib/leave";
 
 export type DayPlanKind =
   | "task"
@@ -68,7 +72,8 @@ export type DayPlanKind =
   | "steps"
   | "activity_hours"
   | "media"
-  | "live_event";
+  | "live_event"
+  | "trip_day";
 
 /** Kinds shown in Dagens plan (excludes water, mood, mobile_games, etc.). */
 export const DAY_PLAN_HABIT_KINDS = new Set<HabitKind>([
@@ -274,6 +279,14 @@ export type DayPlanItem =
       sortOrder: number;
       doneAt: string | null;
       event: LiveEvent;
+    }
+  | {
+      kind: "trip_day";
+      id: string;
+      itemKey: string;
+      sortOrder: number;
+      doneAt: string | null;
+      trip: TripDayContext;
     };
 
 export interface DayPlanInput {
@@ -297,6 +310,7 @@ export interface DayPlanInput {
   goals: DailyTrackerGoals;
   media?: DailyMediaContext;
   liveEvents?: DailyLiveEventsContext;
+  tripDay?: TripDayContext | null;
   savedOrder?: Map<string, number>;
 }
 
@@ -444,6 +458,9 @@ function assignDefaultSortOrders(items: DayPlanItem[], slots: HabitSortSlots): v
         break;
       case "live_event":
         item.sortOrder = liveEventDefaultRank(item.event.eventDate);
+        break;
+      case "trip_day":
+        item.sortOrder = 80;
         break;
     }
   }
@@ -702,6 +719,17 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     }
   }
 
+  if (input.tripDay) {
+    items.push({
+      kind: "trip_day",
+      id: input.tripDay.periodId,
+      itemKey: `trip_day:${input.tripDay.periodId}`,
+      sortOrder: 0,
+      doneAt: input.tripDay.doneAt,
+      trip: input.tripDay,
+    });
+  }
+
   assignDefaultSortOrders(items, slots);
 
   if (input.savedOrder && input.savedOrder.size > 0) {
@@ -767,6 +795,12 @@ export function dayPlanItemLabel(item: DayPlanItem): string {
       return item.label;
     case "live_event":
       return item.event.title;
+    case "trip_day":
+      return formatTripDayTitle(
+        item.trip.title,
+        item.trip.dayIndex,
+        item.trip.dayCount,
+      );
   }
 }
 
@@ -808,6 +842,8 @@ export function dayPlanItemIcon(item: DayPlanItem): string {
       return item.icon;
     case "live_event":
       return "🎫";
+    case "trip_day":
+      return "✈️";
   }
 }
 
@@ -847,6 +883,8 @@ export function dayPlanItemAccent(item: DayPlanItem): string {
     case "media":
       return item.accent;
     case "live_event":
+      return "#f472b6";
+    case "trip_day":
       return "#f472b6";
   }
 }

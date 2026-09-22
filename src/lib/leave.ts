@@ -1,25 +1,43 @@
-// Client-safe leave / semester types and helpers.
+// Client-safe leave / semester / travel types and helpers.
 
-import { addDaysISO } from "@/lib/date";
+import { addDaysISO, diffDaysISO } from "@/lib/date";
 
-export type LeaveKind = "vacation" | "day_off";
+export type LeaveKind = "vacation" | "day_off" | "travel";
 
 export const LEAVE_KIND_LABEL: Record<LeaveKind, string> = {
   vacation: "Semester",
   day_off: "Ledig",
+  travel: "Resa",
 };
 
 export const LEAVE_KIND_ICON: Record<LeaveKind, string> = {
   vacation: "🏖",
   day_off: "☕",
+  travel: "✈️",
 };
+
+export const LEAVE_TITLE_MAX = 80;
 
 export interface LeavePeriod {
   id: string;
   kind: LeaveKind;
   startDate: string;
   endDate: string;
+  title: string | null;
   note: string | null;
+}
+
+export interface TripDayContext {
+  periodId: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  localDate: string;
+  /** 1-based day of the trip. */
+  dayIndex: number;
+  dayCount: number;
+  note: string;
+  doneAt: string | null;
 }
 
 export interface YearLeaveContext {
@@ -28,7 +46,73 @@ export interface YearLeaveContext {
 }
 
 export function isLeaveKind(value: string): value is LeaveKind {
-  return value === "vacation" || value === "day_off";
+  return value === "vacation" || value === "day_off" || value === "travel";
+}
+
+export function leavePeriodLabel(period: LeavePeriod): string {
+  if (period.kind === "travel") {
+    return period.title?.trim() || "Resa";
+  }
+  return LEAVE_KIND_LABEL[period.kind];
+}
+
+export function tripDayCount(
+  period: Pick<LeavePeriod, "startDate" | "endDate">,
+): number {
+  return diffDaysISO(period.startDate, period.endDate) + 1;
+}
+
+export function tripDayIndex(
+  period: Pick<LeavePeriod, "startDate" | "endDate">,
+  localDate: string,
+): { dayIndex: number; dayCount: number } {
+  const dayCount = tripDayCount(period);
+  const dayIndex = diffDaysISO(period.startDate, localDate) + 1;
+  return { dayIndex, dayCount };
+}
+
+export function formatTripDayTitle(
+  title: string,
+  dayIndex: number,
+  dayCount: number,
+): string {
+  return `${title.trim() || "Resa"} · dag ${dayIndex}/${dayCount}`;
+}
+
+export function travelPeriodForDate(
+  localDate: string,
+  periods: LeavePeriod[],
+): LeavePeriod | null {
+  for (let i = periods.length - 1; i >= 0; i--) {
+    const p = periods[i];
+    if (
+      p.kind === "travel" &&
+      localDate >= p.startDate &&
+      localDate <= p.endDate
+    ) {
+      return p;
+    }
+  }
+  return null;
+}
+
+export function toTripDayContext(
+  period: LeavePeriod,
+  localDate: string,
+  note: { body: string; doneAt: string | null } | null,
+): TripDayContext {
+  const { dayIndex, dayCount } = tripDayIndex(period, localDate);
+  return {
+    periodId: period.id,
+    title: period.title?.trim() || "Resa",
+    startDate: period.startDate,
+    endDate: period.endDate,
+    localDate,
+    dayIndex,
+    dayCount,
+    note: note?.body ?? "",
+    doneAt: note?.doneAt ?? null,
+  };
 }
 
 /** Inclusive list of YYYY-MM-DD dates covered by a period. */
@@ -79,7 +163,8 @@ export function formatLeaveRange(period: Pick<LeavePeriod, "startDate" | "endDat
 }
 
 export function leavePeriodDetail(period: LeavePeriod): string {
-  const parts = [LEAVE_KIND_LABEL[period.kind], formatLeaveRange(period)];
+  const parts = [leavePeriodLabel(period), formatLeaveRange(period)];
+  if (period.kind === "travel") parts.splice(1, 0, LEAVE_KIND_LABEL.travel);
   if (period.note) parts.push(period.note);
   return parts.join(" · ");
 }

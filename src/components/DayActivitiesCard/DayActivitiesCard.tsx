@@ -38,6 +38,7 @@ import type { WeightDayContext } from "@/lib/weight";
 import type { DailyMediaContext } from "@/lib/media";
 import type { DailyLiveEventsContext } from "@/lib/live-events";
 import type { WorkDailyLog } from "@/lib/work";
+import type { TripDayContext } from "@/lib/leave";
 import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
 import {
   useBackgroundSave,
@@ -93,6 +94,7 @@ interface Props {
   goals: DailyTrackerGoals;
   media?: DailyMediaContext;
   liveEvents?: DailyLiveEventsContext;
+  tripDay?: TripDayContext | null;
   savedOrder: Map<string, number>;
   categories: TaskCategory[];
   date?: string;
@@ -132,6 +134,7 @@ export function DayActivitiesCard({
   goals,
   media,
   liveEvents,
+  tripDay = null,
   savedOrder,
   categories,
   date,
@@ -180,6 +183,7 @@ export function DayActivitiesCard({
         goals,
         media,
         liveEvents,
+        tripDay,
         savedOrder,
       }),
     [
@@ -202,6 +206,7 @@ export function DayActivitiesCard({
       goals,
       media,
       liveEvents,
+      tripDay,
       savedOrder,
     ],
   );
@@ -350,7 +355,9 @@ export function DayActivitiesCard({
         </div>
         {localItems.length > 0 || onLeave ? (
           <p className={styles.planHint}>
-            {onLeave
+            {tripDay
+              ? `${tripDay.title} · dag ${tripDay.dayIndex}/${tripDay.dayCount} — Jobb visas inte. Dra ⠿ för att ändra ordning.`
+              : onLeave
               ? "Ledig idag — Jobb och spårare som är avstängda för ledighet visas inte."
               : planningMode
                 ? "Dra ⠿ för att planera ordningen inför dagen"

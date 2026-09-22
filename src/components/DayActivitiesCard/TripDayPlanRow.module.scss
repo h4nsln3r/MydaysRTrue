@@ -1,0 +1,47 @@
+@use "abstracts" as *;
+
+.prompt {
+    margin: 0;
+    font-size: 0.85rem;
+    color: $color-cream-dim;
+}
+
+.noteField {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.noteLabel {
+    color: $color-fog;
+    font-size: 0.75rem;
+    font-family: $font-mono;
+    letter-spacing: 0.04em;
+}
+
+.textarea {
+    width: 100%;
+    min-height: 5.5rem;
+    resize: vertical;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+    color: $color-cream;
+    font: inherit;
+    font-size: 0.9rem;
+    line-height: 1.4;
+
+    &::placeholder {
+        color: $color-fog;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: $color-orange;
+    }
+
+    &:disabled {
+        opacity: 0.6;
+    }
+}

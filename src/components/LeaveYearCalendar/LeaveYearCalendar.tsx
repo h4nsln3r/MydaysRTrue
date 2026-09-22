@@ -19,16 +19,18 @@ import { formatDayLong, todayLocalISO } from "@/lib/date";
 import {
   LEAVE_KIND_ICON,
   LEAVE_KIND_LABEL,
+  LEAVE_TITLE_MAX,
   countLeaveWeekdaysInYear,
   formatLeaveRange,
   leaveKindByDate,
+  leavePeriodLabel,
   type LeaveKind,
   type LeavePeriod,
   type YearLeaveContext,
 } from "@/lib/leave";
 import styles from "./LeaveYearCalendar.module.scss";
 
-const KINDS: LeaveKind[] = ["vacation", "day_off"];
+const KINDS: LeaveKind[] = ["vacation", "day_off", "travel"];
 const WEEKDAY_LABELS = ["M", "T", "O", "T", "F", "L", "S"];
 const MONTH_LABELS = [
   "Jan",
@@ -84,6 +86,7 @@ export function LeaveYearCalendar({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<LeaveKind>("vacation");
+  const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [rangeEnd, setRangeEnd] = useState<string | null>(null);
@@ -111,6 +114,7 @@ export function LeaveYearCalendar({
   const clearSelection = () => {
     setRangeStart(null);
     setRangeEnd(null);
+    setTitle("");
     setNote("");
     setError(null);
   };
@@ -147,6 +151,7 @@ export function LeaveYearCalendar({
         kind,
         startDate,
         endDate,
+        title,
         note,
       });
       if (!res.ok) {
@@ -162,8 +167,8 @@ export function LeaveYearCalendar({
     <div className={styles.board}>
       <p className={styles.hint}>
         {readOnly
-          ? `Semester och lediga dagar ${yearLeave.year}. Jobb start/slut visas inte på dessa dagar.`
-          : `Markera en dag eller ett intervall i kalendern. Då hoppas Jobb start och Jobb slut över automatiskt.`}
+          ? `Semester, ledighet och resor ${yearLeave.year}. Jobb start/slut visas inte på dessa dagar.`
+          : `Markera en dag eller ett intervall i kalendern. Då hoppas Jobb start och Jobb slut över automatiskt. Välj Resa för en dagsanteckning på dagsvyn.`}
       </p>
 
       {weekdayCount > 0 ? (
@@ -181,6 +186,10 @@ export function LeaveYearCalendar({
         <span className={styles.legendItem}>
           <span className={[styles.swatch, styles.swatchDayOff].join(" ")} />
           Ledig
+        </span>
+        <span className={styles.legendItem}>
+          <span className={[styles.swatch, styles.swatchTravel].join(" ")} />
+          Resa
         </span>
         <span className={styles.legendItem}>
           <span className={[styles.swatch, styles.swatchSelected].join(" ")} />
@@ -245,11 +254,23 @@ export function LeaveYearCalendar({
               </button>
             ))}
           </div>
+          {kind === "travel" ? (
+            <Input
+              label="Resans namn"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="t.ex. Japan"
+              maxLength={LEAVE_TITLE_MAX}
+              disabled={pending}
+            />
+          ) : null}
           <Input
             label="Anteckning (valfritt)"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="t.ex. sommaren, klämdag"
+            placeholder={
+              kind === "travel" ? "t.ex. Tokyo, Kyoto" : "t.ex. sommaren, klämdag"
+            }
             maxLength={280}
             disabled={pending}
           />
@@ -271,7 +292,7 @@ export function LeaveYearCalendar({
               disabled={pending}
               onClick={add}
             >
-              Spara ledighet
+              {kind === "travel" ? "Spara resa" : "Spara ledighet"}
             </Button>
           </div>
         </div>
@@ -290,7 +311,7 @@ export function LeaveYearCalendar({
           ))}
         </ul>
       ) : (
-        <p className={styles.empty}>Ingen ledighet inlagd ännu.</p>
+        <p className={styles.empty}>Ingen ledighet eller resa inlagd ännu.</p>
       )}
 
       {error ? <p className={styles.error}>{error}</p> : null}
@@ -580,6 +601,7 @@ function MonthGrid({
             styles.day,
             leaveKind === "vacation" ? styles.dayVacation : null,
             leaveKind === "day_off" ? styles.dayOff : null,
+            leaveKind === "travel" ? styles.dayTravel : null,
             selected ? styles.daySelected : null,
             isToday ? styles.dayToday : null,
             hasCompletion ? styles.dayHasCompletion : null,
@@ -652,6 +674,7 @@ function PeriodRow({
   const [editKind, setEditKind] = useState(period.kind);
   const [editStart, setEditStart] = useState(period.startDate);
   const [editEnd, setEditEnd] = useState(period.endDate);
+  const [editTitle, setEditTitle] = useState(period.title ?? "");
   const [editNote, setEditNote] = useState(period.note ?? "");
   const [localPending, startTransition] = useTransition();
   const [localError, setLocalError] = useState<string | null>(null);
@@ -666,6 +689,7 @@ function PeriodRow({
         kind: editKind,
         startDate: editStart,
         endDate: editEnd,
+        title: editTitle,
         note: editNote,
       });
       if (!res.ok) {
@@ -718,6 +742,16 @@ function PeriodRow({
             onChange={(e) => setEditEnd(e.target.value)}
             disabled={busy}
           />
+          {editKind === "travel" ? (
+            <Input
+              label="Resans namn"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="t.ex. Japan"
+              maxLength={LEAVE_TITLE_MAX}
+              disabled={busy}
+            />
+          ) : null}
           <Input
             label="Anteckning"
             value={editNote}
@@ -757,8 +791,12 @@ function PeriodRow({
         {LEAVE_KIND_ICON[period.kind]}
       </span>
       <div className={styles.itemMeta}>
-        <span className={styles.itemTitle}>{LEAVE_KIND_LABEL[period.kind]}</span>
-        <span className={styles.itemSub}>{formatLeaveRange(period)}</span>
+        <span className={styles.itemTitle}>{leavePeriodLabel(period)}</span>
+        <span className={styles.itemSub}>
+          {period.kind === "travel"
+            ? `${LEAVE_KIND_LABEL.travel} · ${formatLeaveRange(period)}`
+            : formatLeaveRange(period)}
+        </span>
         {period.note ? (
           <span className={styles.itemNote}>{period.note}</span>
         ) : null}

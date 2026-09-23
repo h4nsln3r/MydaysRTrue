@@ -144,7 +144,11 @@ export function gorShakeOccursOnDate(
   } = {},
 ): boolean {
   if (options.completedOnDate) return true;
-  if (habit.shakeSkippedOn && habit.shakeSkippedOn === localDate) return false;
+  if (habit.shakeSkippedOn) {
+    if (habit.shakeSkippedOn === localDate) return false;
+    const postponed = addDaysISO(habit.shakeSkippedOn, 1);
+    if (localDate === postponed) return true;
+  }
   const resetOn = habit.shakeResetOn ?? null;
   const relevant = batchesAfterReset(habit, options.batches ?? []);
   if (resetOn && relevant.length === 0) {

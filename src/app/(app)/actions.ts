@@ -225,7 +225,7 @@ export async function skipGorShakeDayAction(input: {
 
   const { data: habit, error: lookupErr } = await supabase
     .from("habits")
-    .select("id, key, user_id, shake_reset_on")
+    .select("id, key, user_id")
     .eq("id", input.habitId)
     .maybeSingle();
   if (lookupErr) return { ok: false, error: lookupErr.message };
@@ -233,12 +233,11 @@ export async function skipGorShakeDayAction(input: {
     return { ok: false, error: "Hittade inte Gör shake." };
   }
 
-  const patch: { shake_skipped_on: string; shake_reset_on?: string } = {
+  const nextDate = addDaysISO(input.localDate, 1);
+  const patch: { shake_skipped_on: string; shake_reset_on: string } = {
     shake_skipped_on: input.localDate,
+    shake_reset_on: nextDate,
   };
-  if (habit.shake_reset_on === input.localDate) {
-    patch.shake_reset_on = addDaysISO(input.localDate, 1);
-  }
 
   const { error } = await supabase
     .from("habits")

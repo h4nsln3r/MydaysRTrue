@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
-import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getMonthSummary, shiftMonth } from "@/lib/habits.server";
@@ -46,11 +45,6 @@ function monthNavHref(year: number, month: number, view: PeriodView): string {
 }
 
 const MONTH_QS_RE = /^(\d{4})-(\d{2})$/;
-
-function formatMonthLabel(year: number, month: number): string {
-  const d = new Date(year, month - 1, 1);
-  return d.toLocaleDateString("sv-SE", { month: "long", year: "numeric" });
-}
 
 export default async function MonthPage({ searchParams }: MonthPageProps) {
   const user = await getAuthUser();
@@ -117,7 +111,6 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
       if (isMonthlyTaskComplete(t, t.completion)) monthlyDone += 1;
     }
   }
-  const isCurrent = year === todayYM.year && month === todayYM.month;
   const isFuturePlan = view === "plan" && isFutureMonth(monthStart, today);
   const financeTask = monthlyTasks.tasks.find((t) => t.key === "finance_ekonomi");
   const salaryTask = monthlyTasks.tasks.find((t) => t.key === SALARY_TASK_KEY);
@@ -134,18 +127,9 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
       : next.year < todayYM.year ||
         (next.year === todayYM.year && next.month <= todayYM.month);
 
-  const kicker = isFuturePlan
-    ? "Planera framåt"
-    : isCurrent
-      ? "This month"
-      : "Past month";
-
   return (
     <main className={styles.main}>
       <header className={styles.header}>
-        <p className={styles.kicker}>
-          {kicker}
-        </p>
         <div className={styles.monthNav}>
           <Link
             href={monthNavHref(prev.year, prev.month, view)}
@@ -154,14 +138,13 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
           >
             ‹
           </Link>
-          <h1 className={styles.h1}>
-            <PeriodNavTitle
-              kind="month"
-              date={`${year}-${String(month).padStart(2, "0")}-01`}
-            >
-              {formatMonthLabel(year, month)}
-            </PeriodNavTitle>
-          </h1>
+          <div className={styles.titleCell}>
+            <ProgressPlanTabs
+              view={view}
+              progressHref={monthNavHref(year, month, "progress")}
+              planHref={monthNavHref(year, month, "plan")}
+            />
+          </div>
           {canGoForward ? (
             <Link
               href={monthNavHref(next.year, next.month, view)}
@@ -180,12 +163,6 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
           )}
         </div>
       </header>
-
-      <ProgressPlanTabs
-        view={view}
-        progressHref={monthNavHref(year, month, "progress")}
-        planHref={monthNavHref(year, month, "plan")}
-      />
 
       {view === "progress" ? (
         <>

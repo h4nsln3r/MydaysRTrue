@@ -309,10 +309,10 @@ export function DayActivitiesCard({
   }
 
   return (
-    <Card className={styles.card}>
-      <header className={styles.header}>
+    <Card className={[styles.card, styles.planCard].filter(Boolean).join(" ")}>
+      <header className={[styles.header, styles.planHeader].filter(Boolean).join(" ")}>
         <div className={styles.titleRow}>
-          <h2 className={styles.title}>
+          <h2 className={[styles.title, styles.planTitle].filter(Boolean).join(" ")}>
             {title}
             {addWeekday != null ? (
               <button

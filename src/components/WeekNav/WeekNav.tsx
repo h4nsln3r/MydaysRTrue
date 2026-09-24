@@ -2,12 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
-import {
-  weekNavHref,
-  weekNavKicker,
-  weekNavState,
-} from "@/lib/week-nav";
+import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
+import { weekNavHref, weekNavState } from "@/lib/week-nav";
 import type { PeriodView } from "@/lib/period-view";
 import styles from "./WeekNav.module.scss";
 
@@ -15,7 +11,6 @@ interface Props {
   weekStart: string;
   currentWeekStart: string;
   view: PeriodView;
-  title: string;
   maxWeekStart?: string;
 }
 
@@ -23,7 +18,6 @@ export function WeekNav({
   weekStart,
   currentWeekStart,
   view,
-  title,
   maxWeekStart,
 }: Props) {
   const router = useRouter();
@@ -43,9 +37,6 @@ export function WeekNav({
 
   return (
     <header className={styles.header}>
-      <p className={styles.kicker}>
-        {weekNavKicker(weekStart, currentWeekStart)}
-      </p>
       <nav className={styles.weekNav} aria-label="Veckonavigation">
         <button
           type="button"
@@ -56,11 +47,13 @@ export function WeekNav({
         >
           ‹
         </button>
-        <h1 className={styles.h1}>
-          <PeriodNavTitle kind="week" date={weekStart}>
-            {title}
-          </PeriodNavTitle>
-        </h1>
+        <div className={styles.titleCell}>
+          <ProgressPlanTabs
+            view={view}
+            progressHref={weekNavHref(weekStart, "progress")}
+            planHref={weekNavHref(weekStart, "plan")}
+          />
+        </div>
         {canGoForward ? (
           <button
             type="button"

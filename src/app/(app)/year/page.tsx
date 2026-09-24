@@ -5,7 +5,6 @@ import { MediaYearBoard } from "@/components/MediaYearBoard/MediaYearBoard";
 import { MediaYearProgress } from "@/components/MediaYearProgress/MediaYearProgress";
 import { CodingProjectsYearBoard } from "@/components/CodingProjectsYearBoard/CodingProjectsYearBoard";
 import { CodingProjectsYearProgress } from "@/components/CodingProjectsYearProgress/CodingProjectsYearProgress";
-import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getYearMedia } from "@/lib/media.server";
@@ -59,7 +58,6 @@ export default async function YearPage({ searchParams }: YearPageProps) {
       getYearLeave(user.id, year),
       getCodingProjects(user.id),
     ]);
-  const isCurrent = year === currentYear;
   const canGoForward = year < currentYear;
   const yearCompletions = filterCompletionsForYear(
     buildYearCompletions({
@@ -73,9 +71,6 @@ export default async function YearPage({ searchParams }: YearPageProps) {
   return (
     <main className={styles.main}>
       <header className={styles.header}>
-        <p className={styles.kicker}>
-          {isCurrent ? "Det här året" : "Tidigare år"}
-        </p>
         <div className={styles.yearNav}>
           <Link
             href={yearNavHref(year - 1, view)}
@@ -84,11 +79,13 @@ export default async function YearPage({ searchParams }: YearPageProps) {
           >
             ‹
           </Link>
-          <h1 className={styles.h1}>
-            <PeriodNavTitle kind="year" date={`${year}-01-01`}>
-              {year}
-            </PeriodNavTitle>
-          </h1>
+          <div className={styles.titleCell}>
+            <ProgressPlanTabs
+              view={view}
+              progressHref={yearNavHref(year, "progress")}
+              planHref={yearNavHref(year, "plan")}
+            />
+          </div>
           {canGoForward ? (
             <Link
               href={yearNavHref(year + 1, view)}
@@ -107,12 +104,6 @@ export default async function YearPage({ searchParams }: YearPageProps) {
           )}
         </div>
       </header>
-
-      <ProgressPlanTabs
-        view={view}
-        progressHref={yearNavHref(year, "progress")}
-        planHref={yearNavHref(year, "plan")}
-      />
 
       <section className={styles.section}>
         <header className={styles.sectionHeader}>

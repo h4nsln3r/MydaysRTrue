@@ -4,7 +4,6 @@ import { Card } from "@/components/Card/Card";
 import { JournalDaySection } from "@/components/JournalDaySection/JournalDaySection";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
-import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { WaterLogItem } from "@/components/WaterLogItem/WaterLogItem";
 import { DayActivitiesCard } from "@/components/DayActivitiesCard/DayActivitiesCard";
 import { createClient } from "@/lib/supabase/server";
@@ -163,12 +162,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
           ← Week
         </Link>
       </header>
-
-      <ProgressPlanTabs
-        view={view}
-        progressHref={dayPageHref(date, today, "progress")}
-        planHref={dayPageHref(date, today, "plan")}
-      />
 
       {view === "progress" ? (
         <>

@@ -22,40 +22,39 @@
 
 .monthNav {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: $space-3;
 }
 
-.h1 {
-    font-family: $font-display;
-    font-size: clamp(1.4rem, 6vw, 1.8rem);
-    letter-spacing: 0.02em;
-    text-align: center;
-    color: $color-cream;
+.titleCell {
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+
+    > * {
+        width: 100%;
+    }
 }
 
 .navBtn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: $color-ink-soft;
-    border: 1px solid $color-line;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: $radius-sm;
+    background: transparent;
+    border: none;
     color: $color-cream;
-    font-size: 1.4rem;
+    font-size: 2.4rem;
     line-height: 1;
     user-select: none;
-    transition:
-        border-color 160ms $ease-out,
-        color 160ms $ease-out,
-        background 160ms $ease-out,
-        transform 160ms $ease-bounce;
+    text-decoration: none;
+    transition: color 160ms $ease-out, transform 160ms $ease-bounce;
 
     &:hover {
-        border-color: $color-orange;
         color: $color-orange-bright;
         transform: translateY(-1px);
     }

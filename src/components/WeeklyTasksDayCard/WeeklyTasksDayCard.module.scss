@@ -31,6 +31,21 @@
     color: $color-cream;
 }
 
+.planCard {
+    gap: $space-2;
+}
+
+.planHeader {
+    gap: 2px;
+}
+
+.planTitle {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+}
+
 .headerAdd {
     display: inline-flex;
     align-items: center;

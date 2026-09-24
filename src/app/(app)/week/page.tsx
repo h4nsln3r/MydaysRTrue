@@ -32,7 +32,6 @@ import { WEEK_PROGRESS_HABIT_KEYS } from "@/lib/habits";
 
 import {
   addDaysISO,
-  formatWeekLabel,
   parseLocalISO,
   todayLocalISO,
   weekStartISO,
@@ -47,7 +46,6 @@ import { WeekMealsBoard } from "./WeekMealsBoard";
 
 import { getWeekCompletions } from "@/lib/completions.server";
 import { WeekCompletionsList } from "./WeekCompletionsList";
-import { WeekViewTabs } from "./WeekViewTabs";
 import { monthlyTasksWithWeekCompletions } from "@/lib/monthly-bills";
 
 import { WeekNav } from "@/components/WeekNav/WeekNav";
@@ -143,11 +141,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
         weekStart={start}
         currentWeekStart={currentWeekStart}
         view={view}
-        title={formatWeekLabel(start)}
         maxWeekStart={maxWeek}
       />
-
-      <WeekViewTabs weekStart={start} view={view} />
 
       {view === "progress" ? (
         <>

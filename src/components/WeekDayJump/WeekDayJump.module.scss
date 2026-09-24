@@ -1,8 +1,8 @@
 @use "abstracts" as *;
 
 .slot {
-    width: 62px;
-    height: 36px;
+    width: 92px;
+    height: 48px;
     flex-shrink: 0;
 }
 
@@ -14,47 +14,42 @@
 .trigger {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    height: 36px;
-    padding: 0 11px 0 12px;
-    border-radius: $radius-pill;
-    background: $color-ink-soft;
-    border: 1px solid $color-line;
-    color: $color-cream-dim;
+    gap: 6px;
+    height: 48px;
+    padding: 0 4px;
+    border-radius: $radius-sm;
+    background: transparent;
+    border: none;
+    color: $color-cream;
     cursor: pointer;
     transition:
-        border-color 180ms $ease-out,
         color 180ms $ease-out,
-        background 180ms $ease-out,
-        box-shadow 180ms $ease-out,
+        text-shadow 180ms $ease-out,
         transform 180ms $ease-bounce;
 
     &:hover {
-        border-color: $color-orange;
-        color: $color-cream;
+        color: $color-orange-bright;
+        text-shadow: 0 0 14px rgba(255, 154, 60, 0.45);
         transform: translateY(-1px);
     }
 }
 
 .triggerOpen {
-    border-color: $color-orange;
     color: $color-orange-bright;
-    background: rgba(255, 122, 26, 0.1);
-    box-shadow: 0 0 0 3px rgba(255, 122, 26, 0.12);
+    text-shadow: 0 0 14px rgba(255, 122, 26, 0.4);
 }
 
 .triggerLabel {
-    font-family: $font-mono;
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+    font-family: $font-display, $font-sans;
+    font-size: 1.35rem;
+    letter-spacing: 0.04em;
     line-height: 1;
 }
 
 .chevron {
-    font-size: 0.65rem;
+    font-size: 0.85rem;
     line-height: 1;
-    opacity: 0.7;
+    opacity: 0.75;
     transition: transform 220ms $ease-bounce;
 }
 

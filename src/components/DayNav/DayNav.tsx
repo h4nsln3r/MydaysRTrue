@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { PeriodNavTitle } from "@/components/PeriodBadge/PeriodBadge";
-import { addDaysISO, formatDayShort, formatWeekdayShort, weekEndISO } from "@/lib/date";
+import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
+import { addDaysISO, formatDayShort, weekEndISO } from "@/lib/date";
 import type { PeriodView } from "@/lib/period-view";
 import styles from "./DayNav.module.scss";
 
@@ -25,14 +25,6 @@ export function DayNav({ date, today, view, kicker }: Props) {
   const nextDay = addDaysISO(date, 1);
   const weekEnd = weekEndISO(today);
   const canGoForward = nextDay <= weekEnd;
-  const isToday = date === today;
-  const isUpcoming = date > today;
-
-  const title = isToday
-    ? "Idag"
-    : isUpcoming
-      ? `${formatWeekdayShort(date)} · planera`
-      : `${formatWeekdayShort(date)} · ${formatDayShort(date)}`;
 
   return (
     <div className={styles.wrap}>
@@ -46,9 +38,11 @@ export function DayNav({ date, today, view, kicker }: Props) {
           ‹
         </Link>
         <div className={styles.titleCell}>
-          <PeriodNavTitle kind="day" date={date}>
-            <span className={styles.title}>{title}</span>
-          </PeriodNavTitle>
+          <ProgressPlanTabs
+            view={view}
+            progressHref={dayPageHref(date, today, "progress")}
+            planHref={dayPageHref(date, today, "plan")}
+          />
         </div>
         {canGoForward ? (
           <Link

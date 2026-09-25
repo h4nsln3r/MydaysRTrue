@@ -21,7 +21,7 @@ export function ProgressPlanTabs({ view, progressHref, planHref }: Props) {
           .join(" ")}
         aria-current={view === "progress" ? "page" : undefined}
       >
-        Hur det går
+        Todo
       </Link>
       <Link
         href={planHref}
@@ -33,7 +33,7 @@ export function ProgressPlanTabs({ view, progressHref, planHref }: Props) {
           .join(" ")}
         aria-current={view === "plan" ? "page" : undefined}
       >
-        Planera
+        Plan
       </Link>
     </nav>
   );

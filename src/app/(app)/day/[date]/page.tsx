@@ -36,7 +36,7 @@ import { getUserSports } from "@/lib/sports.server";
 import { getDailyPlanOrder } from "@/lib/day-plan.server";
 import { getMealRestaurants } from "@/lib/meals.server";
 import { getMealBoxStock } from "@/lib/meal-box.server";
-import { parseLocalISO, todayLocalISO, weekEndISO, weekStartISO } from "@/lib/date";
+import { todayLocalISO, weekEndISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
 import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
 import { QuickAddRow } from "../../QuickAddRow";
@@ -139,28 +139,17 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     tripDay,
   });
 
-  const backToWeek = `/week?start=${weekStartISO(parseLocalISO(date))}`;
-
   return (
     <main className={styles.main}>
       <header className={styles.header}>
         <div className={styles.headerMain}>
           <DayNav date={date} today={today} view={view} />
-          <h1 className={styles.h1}>
-            {isUpcoming ? (
-              <>
-                Planera <span className={styles.accent}>dagen</span>
-              </>
-            ) : (
-              <>
-                Looking <span className={styles.accent}>back</span>
-              </>
-            )}
-          </h1>
+          {isUpcoming ? null : (
+            <h1 className={styles.h1}>
+              Looking <span className={styles.accent}>back</span>
+            </h1>
+          )}
         </div>
-        <Link href={backToWeek} className={styles.badge} aria-label="Back to week">
-          ← Week
-        </Link>
       </header>
 
       {view === "progress" ? (

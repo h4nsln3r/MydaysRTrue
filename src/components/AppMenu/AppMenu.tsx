@@ -325,7 +325,7 @@ function dayBarDate(pathname: string): string | null {
 
 function dayBarLabel(date: string, today: string): string {
   if (date === today) return "Idag";
-  if (date > today) return `${formatWeekdayShort(date)} · planera`;
+  if (date > today) return formatWeekdayShort(date);
   return `${formatWeekdayShort(date)} · ${formatDayShort(date)}`;
 }
 

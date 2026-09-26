@@ -155,6 +155,9 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
       {view === "progress" ? (
         <>
           <section className={styles.section}>
+            <header className={styles.sectionHeader}>
+              <h2 className={styles.h2}>Dagens plan</h2>
+            </header>
             <DayActivitiesCard
               weekStart={weeklyTasksDay.weekStart}
               tasks={weeklyTasksDay.tasks}
@@ -182,7 +185,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               categories={weeklyTasksDay.categories}
               date={date}
               today={today}
-              title="Dagens plan"
               planningMode={isUpcoming}
               hideWhenEmpty
               showWeekLink={false}

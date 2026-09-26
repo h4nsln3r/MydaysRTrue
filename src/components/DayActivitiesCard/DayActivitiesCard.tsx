@@ -99,7 +99,6 @@ interface Props {
   categories: TaskCategory[];
   date?: string;
   today?: string;
-  title?: string;
   hideWhenEmpty?: boolean;
   showWeekLink?: boolean;
   enableQuickAdd?: boolean;
@@ -139,7 +138,6 @@ export function DayActivitiesCard({
   categories,
   date,
   today,
-  title = "Dagens plan",
   hideWhenEmpty = false,
   showWeekLink = true,
   enableQuickAdd: _enableQuickAdd = false,
@@ -308,76 +306,87 @@ export function DayActivitiesCard({
     return null;
   }
 
+  const showCardHeader =
+    addWeekday != null ||
+    savingOrder ||
+    localItems.length > 0 ||
+    onLeave ||
+    showWeekLink ||
+    planningMode;
+
   return (
     <Card className={[styles.card, styles.planCard].filter(Boolean).join(" ")}>
-      <header className={[styles.header, styles.planHeader].filter(Boolean).join(" ")}>
-        <div className={styles.titleRow}>
-          <h2 className={[styles.title, styles.planTitle].filter(Boolean).join(" ")}>
-            {title}
-            {addWeekday != null ? (
-              <button
-                type="button"
-                className={styles.headerAdd}
-                aria-label="Lägg till engångsuppgift"
-                title="Lägg till engångsuppgift för den här dagen"
-                aria-pressed={addOpen}
-                aria-expanded={addOpen}
-                onClick={() => setAddOpen((open) => !open)}
-              >
-                +
-              </button>
-            ) : null}
-            {savingOrder ? (
-              <span
-                className={styles.saveSpinner}
-                role="status"
-                aria-live="polite"
-                aria-label="Sparar ordning"
-              />
-            ) : null}
-          </h2>
-          {localItems.length > 0 ? (
-            <span
-              className={[
-                styles.counter,
-                doneCount === localItems.length ? styles.counterDone : "",
-                doneCount > 0 && doneCount < localItems.length
-                  ? styles.counterPartial
-                  : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <span className={styles.counterBig}>{doneCount}</span>
-              <span className={styles.counterSlash}>/ {localItems.length}</span>
-            </span>
+      {showCardHeader ? (
+        <header className={[styles.header, styles.planHeader].filter(Boolean).join(" ")}>
+          {addWeekday != null || savingOrder || localItems.length > 0 ? (
+            <div className={styles.titleRow}>
+              <div className={styles.planActions}>
+                {addWeekday != null ? (
+                  <button
+                    type="button"
+                    className={styles.headerAdd}
+                    aria-label="Lägg till engångsuppgift"
+                    title="Lägg till engångsuppgift för den här dagen"
+                    aria-pressed={addOpen}
+                    aria-expanded={addOpen}
+                    onClick={() => setAddOpen((open) => !open)}
+                  >
+                    +
+                  </button>
+                ) : null}
+                {savingOrder ? (
+                  <span
+                    className={styles.saveSpinner}
+                    role="status"
+                    aria-live="polite"
+                    aria-label="Sparar ordning"
+                  />
+                ) : null}
+              </div>
+              {localItems.length > 0 ? (
+                <span
+                  className={[
+                    styles.counter,
+                    doneCount === localItems.length ? styles.counterDone : "",
+                    doneCount > 0 && doneCount < localItems.length
+                      ? styles.counterPartial
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  <span className={styles.counterBig}>{doneCount}</span>
+                  <span className={styles.counterSlash}>/ {localItems.length}</span>
+                </span>
+              ) : null}
+            </div>
           ) : null}
-        </div>
-        {localItems.length > 0 || onLeave ? (
-          <p className={styles.planHint}>
-            {tripDay
-              ? `${tripDay.title} · dag ${tripDay.dayIndex}/${tripDay.dayCount} — Jobb visas inte. Dra ⠿ för att ändra ordning.`
-              : onLeave
-              ? "Ledig idag — Jobb och spårare som är avstängda för ledighet visas inte."
-              : planningMode
-                ? "Dra ⠿ för att planera ordningen inför dagen"
-                : "Dra ⠿ för att ändra ordning idag"}
-          </p>
-        ) : null}
-        {onLeave ? (
-          <Link href="/year?view=plan" className={styles.weekLink}>
-            Årskalender →
-          </Link>
-        ) : null}
-        {showWeekLink || planningMode ? (
-          <Link
-            href={`/week?start=${weekStart}&view=plan`}
-            className={styles.weekLink}
-          >
-            Veckoplan →
-          </Link>
-        ) : null}
-      </header>
+          {localItems.length > 0 || onLeave ? (
+            <p className={styles.planHint}>
+              {tripDay
+                ? `${tripDay.title} · dag ${tripDay.dayIndex}/${tripDay.dayCount} — Jobb visas inte. Dra ⠿ för att ändra ordning.`
+                : onLeave
+                ? "Ledig idag — Jobb och spårare som är avstängda för ledighet visas inte."
+                : planningMode
+                  ? "Dra ⠿ för att planera ordningen inför dagen"
+                  : "Dra ⠿ för att ändra ordning idag"}
+            </p>
+          ) : null}
+          {onLeave ? (
+            <Link href="/year?view=plan" className={styles.weekLink}>
+              Årskalender →
+            </Link>
+          ) : null}
+          {showWeekLink || planningMode ? (
+            <Link
+              href={`/week?start=${weekStart}&view=plan`}
+              className={styles.weekLink}
+            >
+              Veckoplan →
+            </Link>
+          ) : null}
+        </header>
+      ) : null}
 
       {error ? <p className={styles.error}>{error}</p> : null}
 

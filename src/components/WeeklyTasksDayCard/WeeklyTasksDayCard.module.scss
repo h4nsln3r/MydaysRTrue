@@ -46,13 +46,18 @@
     line-height: 1.2;
 }
 
+.planActions {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+}
+
 .headerAdd {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 28px;
     height: 28px;
-    margin-left: 2px;
     border-radius: 50%;
     border: 1px solid $color-line;
     background: $color-ink-elevated;

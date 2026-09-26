@@ -133,6 +133,9 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
       {view === "progress" ? (
         <>
           <section className={styles.section}>
+            <header className={styles.sectionHeader}>
+              <h2 className={styles.h2}>Dagens plan</h2>
+            </header>
             <DayActivitiesCard
               weekStart={weeklyTasksDay.weekStart}
               tasks={weeklyTasksDay.tasks}
@@ -160,7 +163,6 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               categories={weeklyTasksDay.categories}
               date={today}
               today={today}
-              title="Dagens plan"
               hideWhenEmpty
               showWeekLink={false}
               enableQuickAdd

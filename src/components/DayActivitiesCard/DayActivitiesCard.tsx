@@ -38,7 +38,7 @@ import type { WeightDayContext } from "@/lib/weight";
 import type { DailyMediaContext } from "@/lib/media";
 import type { DailyLiveEventsContext } from "@/lib/live-events";
 import type { WorkDailyLog } from "@/lib/work";
-import type { TripDayContext } from "@/lib/leave";
+import type { LeaveKind, TripDayContext } from "@/lib/leave";
 import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
 import {
   useBackgroundSave,
@@ -90,6 +90,8 @@ interface Props {
   work: WorkDailyLog;
   /** When true, Jobb start/slut are omitted from the day plan. */
   onLeave?: boolean;
+  /** Semester, ledig or resa. Used to hide daily habits. */
+  leaveKind?: LeaveKind | null;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
   media?: DailyMediaContext;
@@ -129,6 +131,7 @@ export function DayActivitiesCard({
   intake,
   work,
   onLeave = false,
+  leaveKind = null,
   activityLog,
   goals,
   media,
@@ -177,6 +180,7 @@ export function DayActivitiesCard({
         intake,
         work,
         onLeave,
+        leaveKind,
         activityLog,
         goals,
         media,
@@ -200,6 +204,7 @@ export function DayActivitiesCard({
       intake,
       work,
       onLeave,
+      leaveKind,
       activityLog,
       goals,
       media,
@@ -366,7 +371,7 @@ export function DayActivitiesCard({
               {tripDay
                 ? `${tripDay.title} · dag ${tripDay.dayIndex}/${tripDay.dayCount} — Jobb visas inte. Dra ⠿ för att ändra ordning.`
                 : onLeave
-                ? "Ledig idag — Jobb och spårare som är avstängda för ledighet visas inte."
+                ? "Ledig idag — Jobb visas inte. Dagsuppgifter följer visningen under Inställningar."
                 : planningMode
                   ? "Dra ⠿ för att planera ordningen inför dagen"
                   : "Dra ⠿ för att ändra ordning idag"}

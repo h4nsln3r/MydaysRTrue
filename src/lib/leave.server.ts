@@ -103,11 +103,17 @@ export async function isUserOnLeave(
 export async function getLeaveDayContext(
   userId: string,
   localDate: string,
-): Promise<{ onLeave: boolean; tripDay: TripDayContext | null }> {
+): Promise<{
+  onLeave: boolean;
+  leaveKind: LeaveKind | null;
+  tripDay: TripDayContext | null;
+}> {
   const periods = await getLeavePeriodsInRange(userId, localDate, localDate);
-  const onLeave = isDateOnLeave(localDate, periods);
+  const period = leaveForDate(localDate, periods);
+  const onLeave = period != null;
+  const leaveKind = period?.kind ?? null;
   const travel = travelPeriodForDate(localDate, periods);
-  if (!travel) return { onLeave, tripDay: null };
+  if (!travel) return { onLeave, leaveKind, tripDay: null };
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -120,6 +126,7 @@ export async function getLeaveDayContext(
 
   return {
     onLeave,
+    leaveKind,
     tripDay: toTripDayContext(
       travel,
       localDate,

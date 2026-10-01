@@ -8,8 +8,9 @@ import {
   MEAL_LABEL,
   SNACK_ICON,
   SNACK_LABEL,
-  habitVisibleOnLeaveDay,
+  habitDayContext,
   habitOccursOnDate,
+  habitVisibleOnDay,
   type DailyHabit,
   type DailySnacks,
   type HabitKind,
@@ -19,6 +20,7 @@ import {
   type SnackSlot,
 } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
+import type { LeaveKind } from "@/lib/leave";
 import {
   INTAKE_ICON,
   INTAKE_LABEL,
@@ -306,6 +308,8 @@ export interface DayPlanInput {
   work: WorkDailyLog;
   /** When true, Jobb start/slut are omitted from the day plan. */
   onLeave?: boolean;
+  /** Semester, ledig or resa. Resa follows the semester visibility flag. */
+  leaveKind?: LeaveKind | null;
   activityLog: DailyActivityLog;
   goals: DailyTrackerGoals;
   media?: DailyMediaContext;
@@ -482,9 +486,14 @@ function applySavedOrder(items: DayPlanItem[], savedOrder: Map<string, number>):
 export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
   const items: DayPlanItem[] = [];
   const onLeave = input.onLeave === true;
+  const visibility = habitDayContext({
+    localDate: input.date,
+    leaveKind: input.leaveKind ?? null,
+    workKind: input.work.kind,
+  });
   const planHabits = input.habits.filter(
     (h) =>
-      habitVisibleOnLeaveDay(h, onLeave) &&
+      habitVisibleOnDay(h, visibility) &&
       habitOccursOnDate(h, input.date, {
         shakeCompleted: h.status != null,
         shakeBatches: h.shakeBatches,

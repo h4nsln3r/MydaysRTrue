@@ -8,7 +8,7 @@ import {
   archiveHabitAction,
   createHabitAction,
   setHabitEnabledAction,
-  setHabitShowOnLeaveAction,
+  setHabitVisibilityAction,
   updateHabitAction,
 } from "@/app/(app)/actions";
 import {
@@ -25,7 +25,8 @@ import {
   isMonthlyTaskCategoryName,
   UTGIFTER_CATEGORY_NAME,
 } from "@/lib/expenses";
-import { habitCadenceLabel, type Habit } from "@/lib/habits";
+import { habitCadenceLabel, habitVisibilityNote, type Habit } from "@/lib/habits";
+import { HabitVisibilityFields } from "@/components/HabitVisibilityFields/HabitVisibilityFields";
 import { todayLocalISO } from "@/lib/date";
 import {
   WEEKDAY_SHORT,
@@ -76,10 +77,10 @@ export function TaskSettingsClient({
         <p className={styles.eyebrow}>Task settings</p>
         <h1 className={styles.title}>Uppgiftsinställningar</h1>
         <p className={styles.muted}>
-          Hantera dag-, vecko- och månadsuppgifter per kategori. För
-          dagliga vanor kan du välja varje dag eller varannan dag. För
-          veckouppgifter kan du också välja om de får dras in flera gånger och
-          hur många som behövs för godkänd vecka.
+          Hantera dag-, vecko- och månadsuppgifter per kategori. Öppna en
+          daglig vana för att välja om den visas på semester, ledighet,
+          sjukdagar och helg. För veckouppgifter kan du också välja om de får
+          dras in flera gånger och hur många som behövs för godkänd vecka.
         </p>
       </header>
 
@@ -313,6 +314,7 @@ function HabitRow({
   const [intervalAnchorDate, setIntervalAnchorDate] = useState(
     habit.intervalAnchorDate ?? todayLocalISO(),
   );
+  const visibilityNote = habitVisibilityNote(habit);
 
   const save = () => {
     onError(null);
@@ -342,7 +344,7 @@ function HabitRow({
           <span className={styles.rowSub}>
             {habit.enabled ? "På" : "Av"}
             {habitCadenceLabel(habit) ? ` · ${habitCadenceLabel(habit)?.toLowerCase()}` : ""}
-            {habit.showOnLeave ? " · visas på ledighet" : ""}
+            {visibilityNote ? ` · ${visibilityNote}` : ""}
           </span>
         </span>
         <span className={styles.chevron} aria-hidden>
@@ -398,26 +400,22 @@ function HabitRow({
               />
               Aktiv
             </label>
-            <label className={styles.toggle}>
-              <input
-                type="checkbox"
-                checked={habit.showOnLeave}
-                disabled={pending}
-                onChange={(e) => {
-                  onError(null);
-                  startTransition(async () => {
-                    const res = await setHabitShowOnLeaveAction({
-                      habitId: habit.id,
-                      showOnLeave: e.target.checked,
-                    });
-                    if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
-                    router.refresh();
-                  });
-                }}
-              />
-              Visa på ledighet
-            </label>
           </div>
+          <HabitVisibilityFields
+            value={habit}
+            disabled={pending}
+            onChange={(key, checked) => {
+              onError(null);
+              startTransition(async () => {
+                const res = await setHabitVisibilityAction({
+                  habitId: habit.id,
+                  [key]: checked,
+                });
+                if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
+                router.refresh();
+              });
+            }}
+          />
           <div className={styles.actions}>
             <Button type="button" onClick={save} loading={pending}>
               Spara

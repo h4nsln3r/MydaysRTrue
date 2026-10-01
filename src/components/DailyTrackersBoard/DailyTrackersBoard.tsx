@@ -9,8 +9,9 @@ import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import { DAY_PLAN_HABIT_KINDS, isDayPlanOnlyHabit } from "@/lib/day-plan";
 import {
   sortOtherDailyTrackersIncompleteFirst,
-  habitVisibleOnLeaveDay,
+  habitVisibleOnDay,
   type DailyHabit,
+  type HabitDayContext,
   type DailySnacks,
   type HabitKind,
   type MealBoxStockItem,
@@ -42,8 +43,8 @@ interface Props {
   mobileGames: DailyMobileGamesContext;
   mood: DailyMoodContext;
   smokeFree: DailySmokeFreeContext;
-  /** When true, habits with showOnLeave=false are hidden. */
-  onLeave?: boolean;
+  /** Semester, ledig, sjuk and helg for this date. */
+  dayContext?: HabitDayContext;
   waterPlusHref?: string;
   waterPlusLabel?: string;
 }
@@ -62,17 +63,19 @@ export function DailyTrackersBoard({
   mobileGames,
   mood,
   smokeFree,
-  onLeave = false,
+  dayContext,
   waterPlusHref,
   waterPlusLabel,
 }: Props) {
-  const dayHabits = habits.filter((h) => habitVisibleOnLeaveDay(h, onLeave));
+  const dayHabits = dayContext
+    ? habits.filter((h) => habitVisibleOnDay(h, dayContext))
+    : habits;
 
   if (dayHabits.length === 0) {
     return (
       <p className={styles.empty}>
-        {onLeave
-          ? "Inga spårare visas under ledighet. Justera under Planera."
+        {habits.length > 0
+          ? "Inga spårare visas den här dagen. Styr det under Inställningar → Uppgifter."
           : "Inga spårare aktiva. Slå på några under Planera."}
       </p>
     );

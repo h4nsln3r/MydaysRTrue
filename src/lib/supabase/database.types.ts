@@ -151,6 +151,10 @@ export interface Database {
           category_id: string | null;
           enabled: boolean;
           show_on_leave: boolean;
+          show_on_vacation: boolean;
+          show_on_day_off: boolean;
+          show_on_sick: boolean;
+          show_on_weekend: boolean;
           interval_days: number;
           interval_anchor_date: string | null;
           weekdays: number[] | null;
@@ -183,6 +187,10 @@ export interface Database {
           category_id?: string | null;
           enabled?: boolean;
           show_on_leave?: boolean;
+          show_on_vacation?: boolean;
+          show_on_day_off?: boolean;
+          show_on_sick?: boolean;
+          show_on_weekend?: boolean;
           interval_days?: number;
           interval_anchor_date?: string | null;
           weekdays?: number[] | null;
@@ -215,6 +223,10 @@ export interface Database {
           category_id?: string | null;
           enabled?: boolean;
           show_on_leave?: boolean;
+          show_on_vacation?: boolean;
+          show_on_day_off?: boolean;
+          show_on_sick?: boolean;
+          show_on_weekend?: boolean;
           interval_days?: number;
           interval_anchor_date?: string | null;
           weekdays?: number[] | null;

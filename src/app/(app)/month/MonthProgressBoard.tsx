@@ -86,7 +86,6 @@ export function MonthProgressBoard({
   workByDate,
   activity,
 }: Props) {
-  const pastDays = summary.days.filter((d) => !d.isFuture).length;
   const colSpan = summary.days.length + 2;
   const hasTasks = monthlyTasks.length > 0;
   const workCounts = summarizeWorkLogs(workByDate.values());
@@ -245,6 +244,7 @@ export function MonthProgressBoard({
               <tr key={h.id}>
                 <RowLabel sticky icon={h.icon} label={h.label} />
                 {summary.days.map((d) => {
+                  const hidden = d.hiddenHabitIds.includes(h.id);
                   const status = d.statuses[h.id] ?? null;
                   return (
                     <td
@@ -253,20 +253,45 @@ export function MonthProgressBoard({
                         styles.dataCell,
                         d.isFuture && styles.cellFuture,
                         d.isToday && styles.cellToday,
-                        !d.isFuture && styles[`habitCell_${status ?? "empty"}`],
+                        hidden && !d.isFuture && styles.cellOff,
+                        !d.isFuture &&
+                          !hidden &&
+                          styles[`habitCell_${status ?? "empty"}`],
                       )}
-                      title={`${h.label}, dag ${d.dayOfMonth}: ${
-                        d.isFuture ? "Kommande" : HABIT_STATUS_LABEL[status ?? "empty"]
-                      }`}
+                      title={
+                        hidden
+                          ? `${h.label}, dag ${d.dayOfMonth}: Visas inte`
+                          : `${h.label}, dag ${d.dayOfMonth}: ${
+                              d.isFuture
+                                ? "Kommande"
+                                : HABIT_STATUS_LABEL[status ?? "empty"]
+                            }`
+                      }
                     >
-                      {!d.isFuture ? <StatusMark status={status} /> : null}
+                      {!d.isFuture && !hidden ? (
+                        <StatusMark status={status} />
+                      ) : hidden && !d.isFuture ? (
+                        <span className={styles.emptyMark}>–</span>
+                      ) : null}
                     </td>
                   );
                 })}
                 <TotalCell
                   value={summary.yesByHabit[h.id] ?? 0}
-                  total={pastDays}
-                  highlight={(summary.yesByHabit[h.id] ?? 0) === pastDays && pastDays > 0}
+                  total={
+                    summary.days.filter(
+                      (d) => !d.isFuture && !d.hiddenHabitIds.includes(h.id),
+                    ).length
+                  }
+                  highlight={
+                    (summary.yesByHabit[h.id] ?? 0) ===
+                      summary.days.filter(
+                        (d) => !d.isFuture && !d.hiddenHabitIds.includes(h.id),
+                      ).length &&
+                    summary.days.some(
+                      (d) => !d.isFuture && !d.hiddenHabitIds.includes(h.id),
+                    )
+                  }
                 />
               </tr>
             ))}
@@ -891,6 +916,7 @@ function DayScore({
   let total = 0;
 
   for (const h of habits) {
+    if (day.hiddenHabitIds.includes(h.id)) continue;
     total += 1;
     hit += habitStatusPoints(day.statuses[h.id]);
   }
@@ -978,12 +1004,15 @@ function monthTotalScore(parts: {
   bathingDone: number;
   bathingTotal: number;
 }): { hit: number; total: number; extra: number; label: string } {
-  const pastDays = parts.summary.days.filter((d) => !d.isFuture).length;
   const habitYes = Object.values(parts.summary.yesByHabit).reduce(
     (a, b) => a + b,
     0,
   );
-  const habitTotal = parts.summary.habits.length * pastDays;
+  const habitTotal = parts.summary.days.reduce((sum, day) => {
+    if (day.isFuture) return sum;
+    const hidden = new Set(day.hiddenHabitIds);
+    return sum + parts.summary.habits.filter((h) => !hidden.has(h.id)).length;
+  }, 0);
   const hit =
     habitYes +
     parts.monthlyDone +

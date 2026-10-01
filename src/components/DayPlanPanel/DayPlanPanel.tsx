@@ -21,15 +21,22 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   reorderHabitsAction,
   setHabitEnabledAction,
-  setHabitShowOnLeaveAction,
+  setHabitVisibilityAction,
   updateDailyTrackerGoalsAction,
   updateHabitAction,
 } from "@/app/(app)/actions";
+import { HabitVisibilityFields } from "@/components/HabitVisibilityFields/HabitVisibilityFields";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { WeekdayChips } from "@/components/WeekdayChips/WeekdayChips";
 import { Input } from "@/components/Input/Input";
 import { formatInteger } from "@/lib/format";
-import { habitCadenceLabel, type Habit, type HabitKind } from "@/lib/habits";
+import {
+  habitCadenceLabel,
+  habitVisibilityNote,
+  type Habit,
+  type HabitKind,
+  type HabitVisibility,
+} from "@/lib/habits";
 import type { DailyTrackerGoals } from "@/lib/habits.server";
 import type { TaskCategory, Weekday } from "@/lib/tasks";
 import styles from "./DayPlanPanel.module.scss";
@@ -62,6 +69,10 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
   const [pending, startTransition] = useTransition();
   const [localHabits, setLocalHabits] = useState(habits);
   const [error, setError] = useState<string | null>(null);
+  const [savingVisibility, setSavingVisibility] = useState<{
+    habitId: string;
+    key: keyof HabitVisibility;
+  } | null>(null);
 
   useEffect(() => {
     setLocalHabits(habits);
@@ -90,24 +101,30 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
     });
   };
 
-  const toggleLeave = (habitId: string, showOnLeave: boolean) => {
+  const setVisibility = (
+    habitId: string,
+    key: keyof HabitVisibility,
+    checked: boolean,
+  ) => {
     setError(null);
+    setSavingVisibility({ habitId, key });
     setLocalHabits((prev) =>
-      prev.map((h) =>
-        h.id === habitId ? { ...h, showOnLeave: !showOnLeave } : h,
-      ),
+      prev.map((h) => (h.id === habitId ? { ...h, [key]: checked } : h)),
     );
     startTransition(async () => {
-      const res = await setHabitShowOnLeaveAction({
+      const res = await setHabitVisibilityAction({
         habitId,
-        showOnLeave: !showOnLeave,
+        [key]: checked,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte uppdatera.");
         setLocalHabits(habits);
-        return;
+      } else {
+        router.refresh();
       }
-      router.refresh();
+      setSavingVisibility((current) =>
+        current?.habitId === habitId && current.key === key ? null : current,
+      );
     });
   };
 
@@ -163,7 +180,7 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
         <header className={styles.sectionHeader}>
           <h2 className={styles.h2}>Dagliga spårare</h2>
           <p className={styles.sub}>
-            Dra för ordning · aktiv · visa under ledighet
+            Dra för ordning · aktiv · när den visas
           </p>
         </header>
 
@@ -184,8 +201,13 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
                   habit={h}
                   goals={goals}
                   pending={pending}
+                  savingVisibilityKey={
+                    savingVisibility?.habitId === h.id
+                      ? savingVisibility.key
+                      : null
+                  }
                   onToggle={toggle}
-                  onToggleLeave={toggleLeave}
+                  onSetVisibility={setVisibility}
                   onSetWeekdays={setWeekdays}
                   onGoalError={setError}
                 />
@@ -206,8 +228,13 @@ interface SortableTrackerRowProps {
   habit: Habit;
   goals: DailyTrackerGoals;
   pending: boolean;
+  savingVisibilityKey: keyof HabitVisibility | null;
   onToggle: (habitId: string, enabled: boolean) => void;
-  onToggleLeave: (habitId: string, showOnLeave: boolean) => void;
+  onSetVisibility: (
+    habitId: string,
+    key: keyof HabitVisibility,
+    checked: boolean,
+  ) => void;
   onSetWeekdays: (habitId: string, weekdays: Weekday[]) => void;
   onGoalError: (message: string | null) => void;
 }
@@ -216,8 +243,9 @@ function SortableTrackerRow({
   habit,
   goals,
   pending,
+  savingVisibilityKey,
   onToggle,
-  onToggleLeave,
+  onSetVisibility,
   onSetWeekdays,
   onGoalError,
 }: SortableTrackerRowProps) {
@@ -238,6 +266,8 @@ function SortableTrackerRow({
   const hasGoal = GOAL_KINDS.has(habit.kind);
   const hasCadence = habit.key === "gor_shake";
   const [cadenceOpen, setCadenceOpen] = useState(false);
+  const [visibilityOpen, setVisibilityOpen] = useState(false);
+  const visibilityNote = habitVisibilityNote(habit);
 
   return (
     <li
@@ -254,7 +284,7 @@ function SortableTrackerRow({
       <div
           className={[
             styles.trackerRow,
-            hasGoal || hasCadence ? styles.trackerRowWithGoal : "",
+            styles.trackerRowWithGoal,
           ]
           .filter(Boolean)
           .join(" ")}
@@ -314,34 +344,59 @@ function SortableTrackerRow({
           >
             <span className={styles.toggleKnob} aria-hidden />
           </button>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={habit.showOnLeave}
-            aria-label={
-              habit.showOnLeave
-                ? `Dölj ${habit.label} under ledighet`
-                : `Visa ${habit.label} under ledighet`
-            }
-            title={
-              habit.showOnLeave
-                ? "Visas under ledighet"
-                : "Döljs under ledighet"
-            }
+        </div>
+      </div>
+
+      <div className={styles.goalAccordion}>
+        <button
+          type="button"
+          className={styles.goalTrigger}
+          aria-expanded={visibilityOpen}
+          aria-controls={`visibility-${habit.id}`}
+          onClick={() => setVisibilityOpen((prev) => !prev)}
+        >
+          <span className={styles.goalTriggerLabel}>När den visas</span>
+          <span className={styles.goalTriggerValue}>
+            {visibilityNote ?? "Alltid"}
+          </span>
+          <svg
             className={[
-              styles.toggle,
-              styles.toggleLeave,
-              habit.showOnLeave ? styles.toggleLeaveOn : "",
+              styles.goalChevron,
+              visibilityOpen ? styles.goalChevronOpen : "",
             ]
               .filter(Boolean)
               .join(" ")}
-            onClick={() => onToggleLeave(habit.id, habit.showOnLeave)}
-            disabled={pending}
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden
           >
-            <span className={styles.toggleLeaveIcon} aria-hidden>
-              🏖
-            </span>
-          </button>
+            <path
+              d="m6 9 6 6 6-6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <div
+          id={`visibility-${habit.id}`}
+          className={[
+            styles.goalPanel,
+            visibilityOpen ? styles.goalPanelOpen : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          hidden={!visibilityOpen}
+        >
+          <HabitVisibilityFields
+            value={habit}
+            disabled={pending && savingVisibilityKey == null}
+            savingKey={savingVisibilityKey}
+            onChange={(key, checked) => onSetVisibility(habit.id, key, checked)}
+          />
         </div>
       </div>
 

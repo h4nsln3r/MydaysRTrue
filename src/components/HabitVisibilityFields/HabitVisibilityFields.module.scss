@@ -1,0 +1,59 @@
+@use "abstracts" as *;
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  width: 100%;
+  color: $color-cream;
+  font-size: 0.95rem;
+}
+
+.optionSaving {
+  color: $color-fog;
+}
+
+.saving {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: $color-orange;
+  font-size: 0.78rem;
+  font-family: $font-mono;
+  letter-spacing: 0.02em;
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.hint {
+  margin: 0;
+  color: $color-fog;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}

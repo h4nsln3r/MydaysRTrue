@@ -24,6 +24,8 @@ export interface WeekDayJumpDayStatus {
 export function computeWeekDayScore(input: {
   isFuture: boolean;
   water: { goalMet: boolean; progress: number };
+  /** When false, the water goal is not part of this day's score. */
+  includeWater?: boolean;
   /** One entry per counted habit; `"yes"` = 1, `"half"` = 0.5. */
   habitStatuses: Array<HabitStatus | null | undefined>;
   /** One entry per training/bathing session on that day; true = done. */
@@ -42,15 +44,17 @@ export function computeWeekDayScore(input: {
   let hit = 0;
   let total = 0;
 
-  total += 1;
-  if (
-    waterDayStatus({
-      isFuture: false,
-      goalMet: input.water.goalMet,
-      progress: input.water.progress,
-    }) === "good"
-  ) {
-    hit += 1;
+  if (input.includeWater !== false) {
+    total += 1;
+    if (
+      waterDayStatus({
+        isFuture: false,
+        goalMet: input.water.goalMet,
+        progress: input.water.progress,
+      }) === "good"
+    ) {
+      hit += 1;
+    }
   }
 
   for (const status of input.habitStatuses) {

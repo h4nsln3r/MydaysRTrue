@@ -971,6 +971,11 @@
     background: transparent;
 }
 
+.cellOff {
+    opacity: 0.45;
+    background: transparent;
+}
+
 .cellInteractive {
     cursor: pointer;
     transition: box-shadow 120ms ease-out;

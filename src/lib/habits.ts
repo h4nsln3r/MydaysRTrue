@@ -3,8 +3,10 @@
 
 import { diffDaysISO, isoWeekdayFromLocalISO } from "@/lib/date";
 import type { IntakeKind } from "@/lib/intake";
+import type { LeaveKind } from "@/lib/leave";
 import type { MoodKey } from "@/lib/mood";
 import { WEEKDAY_SHORT, type Weekday } from "@/lib/tasks";
+import type { WorkKind } from "@/lib/work";
 import {
   gorShakeOccursOnDate,
   isGorShakeHabit,
@@ -152,8 +154,14 @@ export interface Habit {
   categoryId: string | null;
   /** When false the tracker is hidden from daily progress views. */
   enabled: boolean;
-  /** When false the tracker is hidden on leave/vacation days. */
-  showOnLeave: boolean;
+  /** When false, hidden on semester and resa. */
+  showOnVacation: boolean;
+  /** When false, hidden on ledig periods in the year calendar. */
+  showOnDayOff: boolean;
+  /** When false, hidden when the day is marked Är sjuk. */
+  showOnSick: boolean;
+  /** When false, hidden on Saturday and Sunday. */
+  showOnWeekend: boolean;
   /** 1 = every day; 2 = every other day from the anchor date. */
   intervalDays: number;
   /** First occurrence when intervalDays > 1. */
@@ -182,13 +190,75 @@ export interface HabitOccurrenceContext {
   shakeBatches?: ShakeBatch[];
 }
 
-/** Whether a habit should appear for this day given leave status. */
-export function habitVisibleOnLeaveDay(
-  habit: { showOnLeave: boolean },
-  onLeave: boolean,
+export interface HabitVisibility {
+  showOnVacation: boolean;
+  showOnDayOff: boolean;
+  showOnSick: boolean;
+  showOnWeekend: boolean;
+}
+
+export interface HabitDayContext {
+  /** Winning leave period for the date, if any. Resa follows semester. */
+  leaveKind: LeaveKind | null;
+  /** Day is marked Är sjuk. */
+  sick: boolean;
+  /** Saturday or Sunday. */
+  weekend: boolean;
+}
+
+export function habitDayContext(input: {
+  localDate: string;
+  leaveKind: LeaveKind | null;
+  workKind?: WorkKind | null;
+}): HabitDayContext {
+  const weekend =
+    /^\d{4}-\d{2}-\d{2}$/.test(input.localDate) &&
+    isoWeekdayFromLocalISO(input.localDate) >= 6;
+  return {
+    leaveKind: input.leaveKind,
+    sick: input.workKind === "sick",
+    weekend,
+  };
+}
+
+/** Whether a daily habit should appear given semester, ledig, sjuk and helg. */
+export function habitVisibleOnDay(
+  habit: HabitVisibility,
+  ctx: HabitDayContext,
 ): boolean {
-  if (!onLeave) return true;
-  return habit.showOnLeave;
+  if (ctx.weekend && !habit.showOnWeekend) return false;
+  if (ctx.sick && !habit.showOnSick) return false;
+  if (
+    (ctx.leaveKind === "vacation" || ctx.leaveKind === "travel") &&
+    !habit.showOnVacation
+  ) {
+    return false;
+  }
+  if (ctx.leaveKind === "day_off" && !habit.showOnDayOff) return false;
+  return true;
+}
+
+/** Short Swedish note for settings, e.g. "döljs vid semester · helg". */
+export function habitVisibilityNote(habit: HabitVisibility): string | null {
+  const hidden: string[] = [];
+  if (!habit.showOnVacation) hidden.push("semester");
+  if (!habit.showOnDayOff) hidden.push("ledig");
+  if (!habit.showOnSick) hidden.push("sjuk");
+  if (!habit.showOnWeekend) hidden.push("helg");
+  if (hidden.length === 0) return null;
+  return `döljs vid ${hidden.join(" · ")}`;
+}
+
+/** Statuses for habits that count on this day. Hidden habits are left out. */
+export function visibleHabitStatuses(
+  habits: { id: string }[],
+  statuses: Record<string, HabitStatus | null> | undefined,
+  hiddenHabitIds: readonly string[] | undefined,
+): Array<HabitStatus | null> {
+  const hidden = new Set(hiddenHabitIds ?? []);
+  return habits
+    .filter((habit) => !hidden.has(habit.id))
+    .map((habit) => statuses?.[habit.id] ?? null);
 }
 
 /**

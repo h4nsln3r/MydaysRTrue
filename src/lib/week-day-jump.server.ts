@@ -5,6 +5,7 @@ import { getBathingWeekSummary } from "@/lib/bathing.server";
 import { getCardioWeekSummary } from "@/lib/cardio.server";
 import { addDaysISO, isoWeekdayFromLocalISO, todayLocalISO } from "@/lib/date";
 import { getGymWeekSummary } from "@/lib/gym.server";
+import { visibleHabitStatuses } from "@/lib/habits";
 import { getWeekHabitSummary } from "@/lib/habits.server";
 import { getSportWeekSummary } from "@/lib/sport.server";
 import { getWeekSummary } from "@/lib/tasks.server";
@@ -86,7 +87,12 @@ export async function getWeekDayJumpStatuses(
         goalMet: waterDay?.goalMet ?? false,
         progress: waterDay?.progress ?? 0,
       },
-      habitStatuses: habitWeek.habits.map((h) => habitDay?.statuses[h.id] ?? null),
+      includeWater: !habitDay?.hideWater,
+      habitStatuses: visibleHabitStatuses(
+        habitWeek.habits,
+        habitDay?.statuses,
+        habitDay?.hiddenHabitIds,
+      ),
       sessionsDone: sessionsByWeekday.get(weekday) ?? [],
       tasksAllDone: taskFlags.length > 0 ? taskFlags.every(Boolean) : null,
       weightScheduled: weightPlan.enabled && weightPlan.weekday === weekday,

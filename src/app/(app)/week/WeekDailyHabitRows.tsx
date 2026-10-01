@@ -183,6 +183,8 @@ interface SubRowCellContent {
   exceeded?: boolean;
   /** If false, day is excluded from ∑ (e.g. weekday-only intake on weekend). */
   countable?: boolean;
+  /** Habit is hidden this day by visibility settings. */
+  off?: boolean;
 }
 
 type OpenLog =
@@ -301,21 +303,37 @@ export function WeekDailyHabitRows({
               mealsWeek={mealsWeek}
               habitDayByDate={habitDayByDate}
               mealDayByDate={mealDayByDate}
-              pastDays={pastDays}
-              renderSummary={(d) => ({
-                status: null,
-                waterStatus: waterDayStatus(d),
-                exceeded: goalExceeded(d.totalMl, d.goalMl),
-                title: withExceedTitle(
-                  `${formatDayShort(d.date)}: ${formatMl(d.totalMl)} / ${formatMl(d.goalMl)}`,
-                  goalExceeded(d.totalMl, d.goalMl),
-                ),
-              })}
-              total={{
-                value: week.daysHit,
-                total: pastDays,
-                highlight: week.daysHit === pastDays && pastDays > 0,
+              renderSummary={(d) => {
+                if (habitDayByDate.get(d.date)?.hideWater) {
+                  return {
+                    status: null,
+                    off: true,
+                    title: `${formatDayShort(d.date)}: Visas inte`,
+                  };
+                }
+                return {
+                  status: null,
+                  waterStatus: waterDayStatus(d),
+                  exceeded: goalExceeded(d.totalMl, d.goalMl),
+                  title: withExceedTitle(
+                    `${formatDayShort(d.date)}: ${formatMl(d.totalMl)} / ${formatMl(d.goalMl)}`,
+                    goalExceeded(d.totalMl, d.goalMl),
+                  ),
+                };
               }}
+              total={(() => {
+                const shown = week.days.filter(
+                  (d) => !d.isFuture && !habitDayByDate.get(d.date)?.hideWater,
+                );
+                const hits = shown.filter(
+                  (d) => waterDayStatus(d) === "good",
+                ).length;
+                return {
+                  value: hits,
+                  total: shown.length,
+                  highlight: hits === shown.length && shown.length > 0,
+                };
+              })()}
               isWater
               onCellActivate={(date) => setOpenLog({ type: "water", date })}
             />
@@ -339,7 +357,6 @@ export function WeekDailyHabitRows({
             mealsWeek={mealsWeek}
             habitDayByDate={habitDayByDate}
             mealDayByDate={mealDayByDate}
-            pastDays={pastDays}
             habit={habit}
             onCellActivate={
               canLogHabit(habit.kind)
@@ -348,6 +365,13 @@ export function WeekDailyHabitRows({
             }
             renderSummary={(d) => {
               const habitDay = habitDayByDate.get(d.date);
+              if (habitDay?.hiddenHabitIds.includes(habit.id)) {
+                return {
+                  status: null,
+                  off: true,
+                  title: `${habit.label}, ${formatDayShort(d.date)}: Visas inte`,
+                };
+              }
               const status = habitDay?.statuses[habit.id] ?? null;
               const moodKey =
                 habit.kind === "mood" ? (habitDay?.mood ?? null) : null;
@@ -406,13 +430,17 @@ export function WeekDailyHabitRows({
                 title: withExceedTitle(baseTitle, exceeded),
               };
             }}
-            total={{
-              value: habitWeek.yesByHabit[habit.id] ?? 0,
-              total: pastDays,
-              highlight:
-                (habitWeek.yesByHabit[habit.id] ?? 0) === pastDays &&
-                pastDays > 0,
-            }}
+            total={(() => {
+              const shown = habitWeek.days.filter(
+                (d) => !d.isFuture && !d.hiddenHabitIds.includes(habit.id),
+              ).length;
+              const value = habitWeek.yesByHabit[habit.id] ?? 0;
+              return {
+                value,
+                total: shown,
+                highlight: value === shown && shown > 0,
+              };
+            })()}
           />
         );
       })}
@@ -628,18 +656,22 @@ function DailySectionTotalRow({
 
     const habitDay = habitDayByDate.get(d.date);
     let hit = 0;
-    if (includeWater) {
+    let total = 0;
+    if (includeWater && !habitDay?.hideWater) {
+      total += 1;
       const w = waterDayStatus(d);
       if (w === "good") hit += 1;
       else if (w === "almost") hit += 0.5;
     }
     for (const habit of countedHabits) {
+      if (habitDay?.hiddenHabitIds.includes(habit.id)) continue;
+      total += 1;
       hit += habitStatusPoints(habitDay?.statuses[habit.id] ?? null);
     }
 
     weekHit += hit;
-    weekTotal += rowsPerDay;
-    return { hit, total: rowsPerDay };
+    weekTotal += total;
+    return { hit, total };
   });
 
   if (rowsPerDay === 0) return null;
@@ -666,7 +698,7 @@ function DailySectionTotalRow({
               d.isToday && styles.cellToday,
             )}
           >
-            {score ? (
+            {score && score.total > 0 ? (
               <span
                 className={styles.totalFraction}
                 title={`${formatHabitPoints(score.hit)} av ${score.total} dagliga (½ = 0,5)`}
@@ -701,7 +733,6 @@ function HabitRowGroup({
   week,
   habitDayByDate,
   mealDayByDate,
-  pastDays,
   renderSummary,
   total,
   habit,
@@ -719,13 +750,13 @@ function HabitRowGroup({
   mealsWeek: WeekMealsSummary;
   habitDayByDate: Map<string, WeekHabitSummary["days"][number]>;
   mealDayByDate: Map<string, WeekMealsSummary["days"][number]>;
-  pastDays: number;
   renderSummary: (d: WeekDay) => {
     status: HabitStatus | null;
     moodKey?: MoodKey | null;
     mediaCount?: number;
     waterStatus?: ReturnType<typeof waterDayStatus>;
     exceeded?: boolean;
+    off?: boolean;
     title: string;
   };
   total: { value: number; total: number; highlight?: boolean };
@@ -749,7 +780,8 @@ function HabitRowGroup({
         />
         {week.days.map((d) => {
           const summary = renderSummary(d);
-          const interactive = Boolean(onCellActivate) && !d.isFuture;
+          const off = summary.off === true;
+          const interactive = Boolean(onCellActivate) && !d.isFuture && !off;
           return (
             <td
               key={d.date}
@@ -757,13 +789,16 @@ function HabitRowGroup({
                 styles.dataCell,
                 d.isFuture && styles.cellFuture,
                 d.isToday && styles.cellToday,
+                off && !d.isFuture && styles.cellOff,
                 interactive && styles.cellInteractive,
-                isWater &&
+                !off &&
+                  isWater &&
                   !d.isFuture &&
                   (summary.exceeded
                     ? styles.waterCell_crush
                     : styles[`waterCell_${summary.waterStatus}`]),
-                !isWater &&
+                !off &&
+                  !isWater &&
                   habit &&
                   !d.isFuture &&
                   (summary.exceeded
@@ -780,7 +815,9 @@ function HabitRowGroup({
               }
             >
               {!d.isFuture ? (
-                isWater && summary.waterStatus ? (
+                off ? (
+                  <span className={styles.emptyMark}>–</span>
+                ) : isWater && summary.waterStatus ? (
                   <WaterMark
                     status={summary.waterStatus}
                     exceeded={summary.exceeded}
@@ -828,17 +865,33 @@ function HabitRowGroup({
             <tr key={`${rowKey}-${sub.key}`} className={styles.subRow}>
               <SubRowLabel icon={sub.icon} label={sub.label} />
               {week.days.map((d) => {
-                const content = sub.renderCell({
-                  date: d.date,
-                  isFuture: d.isFuture,
-                  isToday: d.isToday,
-                  habitDay: habitDayByDate.get(d.date),
-                  waterDay: d,
-                  mealDay: mealDayByDate.get(d.date),
-                });
+                const habitDay = habitDayByDate.get(d.date);
+                const parentOff =
+                  !d.isFuture &&
+                  (isWater
+                    ? habitDay?.hideWater === true
+                    : Boolean(
+                        habit && habitDay?.hiddenHabitIds.includes(habit.id),
+                      ));
+                const content = parentOff
+                  ? {
+                      status: null,
+                      title: "Visas inte",
+                      countable: false,
+                      off: true,
+                    }
+                  : sub.renderCell({
+                      date: d.date,
+                      isFuture: d.isFuture,
+                      isToday: d.isToday,
+                      habitDay,
+                      waterDay: d,
+                      mealDay: mealDayByDate.get(d.date),
+                    });
                 const interactive =
                   Boolean(onCellActivate) &&
                   !d.isFuture &&
+                  !content.off &&
                   content.countable !== false;
                 return (
                   <td
@@ -849,8 +902,10 @@ function HabitRowGroup({
                       content.food && styles.subCellFood,
                       d.isFuture && styles.cellFuture,
                       d.isToday && styles.cellToday,
+                      content.off && styles.cellOff,
                       interactive && styles.cellInteractive,
                       !d.isFuture &&
+                        !content.off &&
                         (content.exceeded
                           ? styles.habitCell_crush
                           : styles[`habitCell_${content.status ?? "empty"}`]),
@@ -917,6 +972,9 @@ function computeSubRowTotal(
 }
 
 function SubRowCellMark({ content }: { content: SubRowCellContent }) {
+  if (content.off) {
+    return <span className={styles.emptyMark}>–</span>;
+  }
   if (content.moodIcon) {
     return (
       <span className={styles.subMoodMark} aria-hidden>

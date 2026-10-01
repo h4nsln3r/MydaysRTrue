@@ -13,7 +13,7 @@ import {
 } from "@/lib/gym";
 import type { Habit, HabitStatus, MealRestaurant } from "@/lib/habits";
 import type { UserSport } from "@/lib/sports";
-import { formatHabitPoints } from "@/lib/habits";
+import { formatHabitPoints, visibleHabitStatuses } from "@/lib/habits";
 import type { WeekHabitSummary } from "@/lib/habits.server";
 import type { WeekJournalSummary } from "@/lib/journal";
 import type { WeekSummary, WeekDay } from "@/lib/water.server";
@@ -1359,7 +1359,7 @@ function DayScore({
   weightLogged,
 }: {
   day: WeekDay;
-  habitDay: { statuses: Record<string, HabitStatus | null> } | undefined;
+  habitDay: WeekHabitSummary["days"][number] | undefined;
   habits: Habit[];
   gym: GymSessionForWeek[];
   cardio: CardioSessionForWeek[];
@@ -1373,7 +1373,12 @@ function DayScore({
   const { hit, total, pct, band } = computeWeekDayScore({
     isFuture: day.isFuture,
     water: { goalMet: day.goalMet, progress: day.progress },
-    habitStatuses: habits.map((h) => habitDay?.statuses[h.id] ?? null),
+    includeWater: !habitDay?.hideWater,
+    habitStatuses: visibleHabitStatuses(
+      habits,
+      habitDay?.statuses,
+      habitDay?.hiddenHabitIds,
+    ),
     sessionsDone: [...gym, ...cardio, ...sport, ...bathing].map((s) =>
       Boolean(s.placement.doneAt),
     ),

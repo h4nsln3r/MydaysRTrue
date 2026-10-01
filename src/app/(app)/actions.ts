@@ -656,12 +656,37 @@ export async function updateHabitAction(input: {
   return { ok: true };
 }
 
-/** Whether a daily tracker appears on leave/vacation days. */
-export async function setHabitShowOnLeaveAction(input: {
+/** Show or hide a daily habit on semester/resa, ledig, sjuk or helg. */
+export async function setHabitVisibilityAction(input: {
   habitId: string;
-  showOnLeave: boolean;
+  showOnVacation?: boolean;
+  showOnDayOff?: boolean;
+  showOnSick?: boolean;
+  showOnWeekend?: boolean;
 }): Promise<ActionResult> {
   if (!input.habitId) return { ok: false, error: "Missing habit id." };
+
+  const patch: {
+    show_on_vacation?: boolean;
+    show_on_day_off?: boolean;
+    show_on_sick?: boolean;
+    show_on_weekend?: boolean;
+  } = {};
+  if (typeof input.showOnVacation === "boolean") {
+    patch.show_on_vacation = input.showOnVacation;
+  }
+  if (typeof input.showOnDayOff === "boolean") {
+    patch.show_on_day_off = input.showOnDayOff;
+  }
+  if (typeof input.showOnSick === "boolean") {
+    patch.show_on_sick = input.showOnSick;
+  }
+  if (typeof input.showOnWeekend === "boolean") {
+    patch.show_on_weekend = input.showOnWeekend;
+  }
+  if (Object.keys(patch).length === 0) {
+    return { ok: false, error: "Inget att spara." };
+  }
 
   const supabase = await createClient();
   const {
@@ -671,7 +696,7 @@ export async function setHabitShowOnLeaveAction(input: {
 
   const { error } = await supabase
     .from("habits")
-    .update({ show_on_leave: input.showOnLeave })
+    .update(patch)
     .eq("id", input.habitId)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };

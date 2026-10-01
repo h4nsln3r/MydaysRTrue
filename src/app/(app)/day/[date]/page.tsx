@@ -21,6 +21,7 @@ import { getDailyMood } from "@/lib/mood.server";
 import { getDailySmokeFree } from "@/lib/smoke-free.server";
 import { getDailyJournal } from "@/lib/journal.server";
 import { getWorkDailyLog } from "@/lib/work.server";
+import { habitDayContext } from "@/lib/habits";
 import { getLeaveDayContext } from "@/lib/leave.server";
 import { getDailyMedia } from "@/lib/media.server";
 import { getDailyLiveEvents } from "@/lib/live-events.server";
@@ -118,7 +119,12 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
   ]);
 
   const work = await getWorkDailyLog(user.id, date);
-  const { onLeave, tripDay } = await getLeaveDayContext(user.id, date);
+  const { onLeave, leaveKind, tripDay } = await getLeaveDayContext(user.id, date);
+  const dayContext = habitDayContext({
+    localDate: date,
+    leaveKind,
+    workKind: work.kind,
+  });
   const savedOrder = await getDailyPlanOrder(user.id, date);
   const savedRestaurants = await getMealRestaurants(user.id);
   const mealBoxStock = await getMealBoxStock(user.id);
@@ -176,6 +182,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               intake={intake}
               work={work}
               onLeave={onLeave}
+              leaveKind={leaveKind}
               tripDay={tripDay}
               activityLog={activityLog}
               goals={dayPlan.goals}
@@ -223,7 +230,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               mobileGames={mobileGames}
               mood={mood}
               smokeFree={smokeFree}
-              onLeave={onLeave}
+              dayContext={dayContext}
               waterPlusHref={`/water?date=${date}`}
               waterPlusLabel="Lägg till vatten"
             />

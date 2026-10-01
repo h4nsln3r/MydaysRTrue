@@ -284,6 +284,11 @@
     background: transparent;
 }
 
+.cellOff {
+    opacity: 0.45;
+    background: transparent;
+}
+
 .emptyMark {
     color: $color-fog;
     font-family: $font-mono;

@@ -10,9 +10,12 @@ import {
   type MealEntry,
   type MealKey,
   type SnackSlot,
+  habitDayContext,
   habitOccursOnDate,
   habitStatusPoints,
+  habitVisibleOnDay,
   parseHabitWeekdays,
+  type HabitDayContext,
   mealStatusFor,
   numericGoalStatus,
   snackStatusFor,
@@ -32,6 +35,9 @@ import {
 import { mediaStatusFor, type MediaDayLog } from "@/lib/media";
 import { liveStatusFor } from "@/lib/live-events";
 import { isMoodKey, moodStatusFor, type MoodKey } from "@/lib/mood";
+import { leaveKindByDate } from "@/lib/leave";
+import { getLeavePeriodsInRange } from "@/lib/leave.server";
+import { getWorkLogsInRange } from "@/lib/work.server";
 import {
   journalTrackedItemDescription,
   snackSlotFromJournalEntryId,
@@ -69,7 +75,10 @@ interface HabitRow {
   sort_order: number;
   category_id: string | null;
   enabled: boolean;
-  show_on_leave: boolean | null;
+  show_on_vacation: boolean | null;
+  show_on_day_off: boolean | null;
+  show_on_sick: boolean | null;
+  show_on_weekend: boolean | null;
   interval_days: number | null;
   interval_anchor_date: string | null;
   weekdays: number[] | null;
@@ -78,7 +87,7 @@ interface HabitRow {
 }
 
 const HABIT_COLUMNS =
-  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_leave, interval_days, interval_anchor_date, weekdays, shake_reset_on, shake_skipped_on";
+  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_vacation, show_on_day_off, show_on_sick, show_on_weekend, interval_days, interval_anchor_date, weekdays, shake_reset_on, shake_skipped_on";
 
 function rowToHabit(r: HabitRow): Habit {
   return {
@@ -91,13 +100,50 @@ function rowToHabit(r: HabitRow): Habit {
     sortOrder: r.sort_order,
     categoryId: r.category_id,
     enabled: r.enabled ?? true,
-    showOnLeave: r.show_on_leave ?? true,
+    showOnVacation: r.show_on_vacation ?? true,
+    showOnDayOff: r.show_on_day_off ?? true,
+    showOnSick: r.show_on_sick ?? true,
+    showOnWeekend: r.show_on_weekend ?? true,
     intervalDays: Math.max(1, r.interval_days ?? 1),
     intervalAnchorDate: r.interval_anchor_date,
     weekdays: parseHabitWeekdays(r.weekdays),
     shakeResetOn: r.shake_reset_on,
     shakeSkippedOn: r.shake_skipped_on,
   };
+}
+
+function eachDate(start: string, end: string): string[] {
+  const dates: string[] = [];
+  let cursor = start;
+  while (cursor <= end) {
+    dates.push(cursor);
+    cursor = addDaysISO(cursor, 1);
+  }
+  return dates;
+}
+
+async function habitContextsForRange(
+  userId: string,
+  start: string,
+  end: string,
+): Promise<Map<string, HabitDayContext>> {
+  const [periods, work] = await Promise.all([
+    getLeavePeriodsInRange(userId, start, end),
+    getWorkLogsInRange(userId, start, end),
+  ]);
+  const leaveByDate = leaveKindByDate(periods);
+  const map = new Map<string, HabitDayContext>();
+  for (const date of eachDate(start, end)) {
+    map.set(
+      date,
+      habitDayContext({
+        localDate: date,
+        leaveKind: leaveByDate.get(date) ?? null,
+        workKind: work.get(date)?.kind ?? null,
+      }),
+    );
+  }
+  return map;
 }
 
 async function getGorShakeBatches(
@@ -169,6 +215,7 @@ export async function getGorShakeWeekPlan(
   }
 
   const today = todayLocalISO();
+  const dayContexts = await habitContextsForRange(userId, weekStart, weekEnd);
   let weekday: Weekday | null = null;
   let done = false;
   for (let i = 0; i < 7; i++) {
@@ -178,7 +225,8 @@ export async function getGorShakeWeekPlan(
       shakeCompleted: status != null,
       shakeBatches: batches,
     });
-    if (!occurs) continue;
+    const ctx = dayContexts.get(date);
+    if (!occurs || (ctx && !habitVisibleOnDay(habit, ctx))) continue;
     const isoDow = isoWeekdayFromLocalISO(date) as Weekday;
     if (weekday == null || date === today) {
       weekday = isoDow;
@@ -702,6 +750,8 @@ export interface MonthDay {
   weekday: number;
   /** Habit id → status (or null = no entry / not applicable). */
   statuses: Record<string, HabitStatus | null>;
+  /** Habits hidden by semester, ledig, sjuk or helg settings. */
+  hiddenHabitIds: string[];
 }
 
 export interface MonthSummary {
@@ -940,6 +990,7 @@ export async function getMonthSummary(
   }
 
   const today = todayLocalISO();
+  const dayContexts = await habitContextsForRange(userId, startISO, endISO);
   const days: MonthDay[] = [];
   const yesByHabit: Record<string, number> = Object.fromEntries(
     habits.map((h) => [h.id, 0]),
@@ -953,8 +1004,15 @@ export async function getMonthSummary(
 
     const isFuture = date > today;
     const statuses: Record<string, HabitStatus | null> = {};
+    const hiddenHabitIds: string[] = [];
+    const visibility = dayContexts.get(date);
 
     for (const h of habits) {
+      if (visibility && !habitVisibleOnDay(h, visibility)) {
+        hiddenHabitIds.push(h.id);
+        statuses[h.id] = null;
+        continue;
+      }
       if (
         !habitOccursOnDate(h, date, {
           shakeCompleted: checkMap.has(`${h.id}|${date}`),
@@ -1021,6 +1079,7 @@ export async function getMonthSummary(
       dayOfMonth: day,
       weekday: isoDow,
       statuses,
+      hiddenHabitIds,
     });
   }
 
@@ -1048,6 +1107,10 @@ export interface WeekHabitDay {
   isToday: boolean;
   weekday: number;
   statuses: Record<string, HabitStatus | null>;
+  /** Habits hidden by semester, ledig, sjuk or helg settings. */
+  hiddenHabitIds: string[];
+  /** Water row hidden for the same reason. Water is not in `habits`. */
+  hideWater: boolean;
   /** Selected mood for the day, when logged. */
   mood: MoodKey | null;
   /** Optional comment on the day's mood. */
@@ -1282,6 +1345,8 @@ export async function getWeekHabitSummary(
   }
 
   const today = todayLocalISO();
+  const dayContexts = await habitContextsForRange(userId, weekStart, weekEnd);
+  const waterHabit = allHabits.find((h) => h.key === "water");
   const days: WeekHabitDay[] = [];
   const yesByHabit: Record<string, number> = Object.fromEntries(
     habits.map((h) => [h.id, 0]),
@@ -1293,8 +1358,15 @@ export async function getWeekHabitSummary(
     const isToday = date === today;
     const dayCtx = { isFuture, isToday };
     const statuses: Record<string, HabitStatus | null> = {};
+    const hiddenHabitIds: string[] = [];
+    const visibility = dayContexts.get(date);
 
     for (const h of habits) {
+      if (visibility && !habitVisibleOnDay(h, visibility)) {
+        hiddenHabitIds.push(h.id);
+        statuses[h.id] = null;
+        continue;
+      }
       if (
         !habitOccursOnDate(h, date, {
           shakeCompleted: checkMap.has(`${h.id}|${date}`),
@@ -1368,6 +1440,10 @@ export async function getWeekHabitSummary(
       isToday,
       weekday: isoWeekdayFromLocalISO(date),
       statuses,
+      hiddenHabitIds,
+      hideWater: Boolean(
+        waterHabit && visibility && !habitVisibleOnDay(waterHabit, visibility),
+      ),
       mood: isFuture ? null : (moodByDate.get(date) ?? null),
       moodNote: isFuture ? null : (moodNoteByDate.get(date) ?? null),
       details: {

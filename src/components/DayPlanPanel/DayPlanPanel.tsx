@@ -21,11 +21,16 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   reorderHabitsAction,
   setHabitEnabledAction,
+  setHabitPartVisibilityAction,
   setHabitVisibilityAction,
   updateDailyTrackerGoalsAction,
   updateHabitAction,
 } from "@/app/(app)/actions";
-import { HabitVisibilityFields } from "@/components/HabitVisibilityFields/HabitVisibilityFields";
+import {
+  HabitPartVisibilityList,
+  HabitVisibilityFields,
+} from "@/components/HabitVisibilityFields/HabitVisibilityFields";
+import { partVisibilityCustomized, partVisibilityFor } from "@/lib/habit-parts";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { WeekdayChips } from "@/components/WeekdayChips/WeekdayChips";
 import { Input } from "@/components/Input/Input";
@@ -72,6 +77,7 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
   const [savingVisibility, setSavingVisibility] = useState<{
     habitId: string;
     key: keyof HabitVisibility;
+    partKey?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -123,7 +129,56 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
         router.refresh();
       }
       setSavingVisibility((current) =>
-        current?.habitId === habitId && current.key === key ? null : current,
+        current?.habitId === habitId &&
+        current.key === key &&
+        current.partKey == null
+          ? null
+          : current,
+      );
+    });
+  };
+
+  const setPartVisibility = (
+    habitId: string,
+    partKey: string,
+    key: keyof HabitVisibility,
+    checked: boolean,
+  ) => {
+    setError(null);
+    setSavingVisibility({ habitId, partKey, key });
+    setLocalHabits((prev) =>
+      prev.map((h) => {
+        if (h.id !== habitId) return h;
+        return {
+          ...h,
+          partVisibility: {
+            ...h.partVisibility,
+            [partKey]: {
+              ...partVisibilityFor(h.partVisibility, partKey),
+              [key]: checked,
+            },
+          },
+        };
+      }),
+    );
+    startTransition(async () => {
+      const res = await setHabitPartVisibilityAction({
+        habitId,
+        partKey,
+        [key]: checked,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte uppdatera.");
+        setLocalHabits(habits);
+      } else {
+        router.refresh();
+      }
+      setSavingVisibility((current) =>
+        current?.habitId === habitId &&
+        current.partKey === partKey &&
+        current.key === key
+          ? null
+          : current,
       );
     });
   };
@@ -202,12 +257,23 @@ export function DayPlanPanel({ habits, goals, categories }: Props) {
                   goals={goals}
                   pending={pending}
                   savingVisibilityKey={
-                    savingVisibility?.habitId === h.id
+                    savingVisibility?.habitId === h.id &&
+                    savingVisibility.partKey == null
                       ? savingVisibility.key
+                      : null
+                  }
+                  savingPart={
+                    savingVisibility?.habitId === h.id &&
+                    savingVisibility.partKey != null
+                      ? {
+                          partKey: savingVisibility.partKey,
+                          key: savingVisibility.key,
+                        }
                       : null
                   }
                   onToggle={toggle}
                   onSetVisibility={setVisibility}
+                  onSetPartVisibility={setPartVisibility}
                   onSetWeekdays={setWeekdays}
                   onGoalError={setError}
                 />
@@ -229,9 +295,16 @@ interface SortableTrackerRowProps {
   goals: DailyTrackerGoals;
   pending: boolean;
   savingVisibilityKey: keyof HabitVisibility | null;
+  savingPart: { partKey: string; key: keyof HabitVisibility } | null;
   onToggle: (habitId: string, enabled: boolean) => void;
   onSetVisibility: (
     habitId: string,
+    key: keyof HabitVisibility,
+    checked: boolean,
+  ) => void;
+  onSetPartVisibility: (
+    habitId: string,
+    partKey: string,
     key: keyof HabitVisibility,
     checked: boolean,
   ) => void;
@@ -244,8 +317,10 @@ function SortableTrackerRow({
   goals,
   pending,
   savingVisibilityKey,
+  savingPart,
   onToggle,
   onSetVisibility,
+  onSetPartVisibility,
   onSetWeekdays,
   onGoalError,
 }: SortableTrackerRowProps) {
@@ -268,6 +343,9 @@ function SortableTrackerRow({
   const [cadenceOpen, setCadenceOpen] = useState(false);
   const [visibilityOpen, setVisibilityOpen] = useState(false);
   const visibilityNote = habitVisibilityNote(habit);
+  const partsNote = partVisibilityCustomized(habit) ? "delar anpassade" : null;
+  const visibilityValue =
+    [visibilityNote, partsNote].filter(Boolean).join(" · ") || "Alltid";
 
   return (
     <li
@@ -357,7 +435,7 @@ function SortableTrackerRow({
         >
           <span className={styles.goalTriggerLabel}>När den visas</span>
           <span className={styles.goalTriggerValue}>
-            {visibilityNote ?? "Alltid"}
+            {visibilityValue}
           </span>
           <svg
             className={[
@@ -393,9 +471,19 @@ function SortableTrackerRow({
         >
           <HabitVisibilityFields
             value={habit}
-            disabled={pending && savingVisibilityKey == null}
+            disabled={
+              (pending && savingVisibilityKey == null) || savingPart != null
+            }
             savingKey={savingVisibilityKey}
             onChange={(key, checked) => onSetVisibility(habit.id, key, checked)}
+          />
+          <HabitPartVisibilityList
+            habit={habit}
+            disabled={(pending && savingPart == null) || savingVisibilityKey != null}
+            saving={savingPart}
+            onChange={(partKey, key, checked) =>
+              onSetPartVisibility(habit.id, partKey, key, checked)
+            }
           />
         </div>
       </div>

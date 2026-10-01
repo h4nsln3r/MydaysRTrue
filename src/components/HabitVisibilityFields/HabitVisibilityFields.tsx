@@ -69,6 +69,7 @@ export function HabitVisibilityFields({
 export function HabitPartVisibilityList({
   habit,
   disabled,
+  saving = null,
   onChange,
 }: {
   habit: {
@@ -76,6 +77,7 @@ export function HabitPartVisibilityList({
     partVisibility: Record<string, HabitVisibility>;
   };
   disabled?: boolean;
+  saving?: { partKey: string; key: keyof HabitVisibility } | null;
   onChange: (
     partKey: string,
     key: keyof HabitVisibility,
@@ -88,20 +90,24 @@ export function HabitPartVisibilityList({
   return (
     <div className={styles.parts}>
       <p className={styles.partsLabel}>Delar</p>
-      {parts.map((part) => (
-        <details key={part.key} className={styles.part}>
-          <summary className={styles.partSummary}>
-            <span aria-hidden>{part.icon}</span>
-            {part.label}
-          </summary>
-          <HabitVisibilityFields
-            compact
-            value={partVisibilityFor(habit.partVisibility, part.key)}
-            disabled={disabled}
-            onChange={(key, checked) => onChange(part.key, key, checked)}
-          />
-        </details>
-      ))}
+      {parts.map((part) => {
+        const savingThis = saving?.partKey === part.key;
+        return (
+          <div key={part.key} className={styles.part}>
+            <p className={styles.partTitle}>
+              <span aria-hidden>{part.icon}</span>
+              {part.label}
+            </p>
+            <HabitVisibilityFields
+              compact
+              value={partVisibilityFor(habit.partVisibility, part.key)}
+              disabled={disabled || (saving != null && !savingThis)}
+              savingKey={savingThis ? saving.key : null}
+              onChange={(key, checked) => onChange(part.key, key, checked)}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

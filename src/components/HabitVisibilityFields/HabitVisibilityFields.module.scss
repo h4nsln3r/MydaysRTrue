@@ -79,16 +79,11 @@
   padding: $space-2;
 }
 
-.partSummary {
+.partTitle {
   display: flex;
   align-items: center;
   gap: $space-2;
-  cursor: pointer;
+  margin: 0 0 $space-2;
   color: $color-cream;
   font-size: 0.95rem;
-  list-style: none;
-}
-
-.partSummary::-webkit-details-marker {
-  display: none;
 }

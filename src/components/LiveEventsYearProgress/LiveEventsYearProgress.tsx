@@ -1,5 +1,6 @@
 "use client";
 
+import { LiveEventQuickEdit } from "@/components/LiveEventQuickEdit/LiveEventQuickEdit";
 import {
   LIVE_EVENT_KIND_ICON,
   LIVE_EVENT_KIND_LABEL,
@@ -57,6 +58,7 @@ export function LiveEventsYearProgress({ yearLive }: Props) {
                   <p className={styles.itemNote}>{event.note}</p>
                 ) : null}
               </div>
+              {event.attendedAt ? <LiveEventQuickEdit event={event} /> : null}
             </li>
           ))}
         </ul>

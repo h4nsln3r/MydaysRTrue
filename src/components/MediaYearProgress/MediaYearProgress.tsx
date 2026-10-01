@@ -1,5 +1,10 @@
 "use client";
 
+import { useCallback, useEffect, useId, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { archiveMediaItemAction } from "@/app/(app)/media-actions";
+import { Button } from "@/components/Button/Button";
 import { CompletionQuickEdit } from "@/components/CompletionQuickEdit/CompletionQuickEdit";
 import { MediaItemQuickEdit } from "@/components/MediaItemQuickEdit/MediaItemQuickEdit";
 import { buildMediaCompletions } from "@/lib/completions";
@@ -12,6 +17,7 @@ import {
   mediaProgressPct,
   mediaRatingLabel,
   mediaYearGroups,
+  type MediaItem,
   type YearMediaContext,
 } from "@/lib/media";
 import styles from "./MediaYearProgress.module.scss";
@@ -36,6 +42,7 @@ export function MediaYearProgress({ yearMedia }: Props) {
     items: typeof yearMedia.items,
     variant: "" | "itemDone" | "itemProgress",
     mode: "completed" | "open",
+    canRemove = false,
   ) => {
     if (items.length === 0) return null;
     return (
@@ -86,6 +93,7 @@ export function MediaYearProgress({ yearMedia }: Props) {
                 </div>
                 {completion ? <CompletionQuickEdit item={completion} /> : null}
                 {mode === "open" ? <MediaItemQuickEdit item={item} /> : null}
+                {canRemove ? <MediaItemRemoveButton item={item} /> : null}
               </li>
             );
           })}
@@ -113,7 +121,132 @@ export function MediaYearProgress({ yearMedia }: Props) {
 
       {renderGroup("Klart", completed, "itemDone", "completed")}
       {renderGroup("Pågår", inProgress, "itemProgress", "open")}
-      {renderGroup("Ej påbörjad", notStarted, "", "open")}
+      {renderGroup("Ej påbörjad", notStarted, "", "open", true)}
     </div>
+  );
+}
+
+function MediaItemRemoveButton({ item }: { item: MediaItem }) {
+  const [open, setOpen] = useState(false);
+  const title = mediaDisplayTitle(item);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={styles.removeBtn}
+        onClick={() => setOpen(true)}
+        aria-label={`Ta bort ${title}`}
+      >
+        Ta bort
+      </button>
+      {open ? (
+        <RemoveMediaModal item={item} onClose={() => setOpen(false)} />
+      ) : null}
+    </>
+  );
+}
+
+function RemoveMediaModal({
+  item,
+  onClose,
+}: {
+  item: MediaItem;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const titleId = useId();
+  const close = useCallback(() => onClose(), [onClose]);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const title = mediaDisplayTitle(item);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending) close();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [close, pending]);
+
+  const remove = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await archiveMediaItemAction(item.id);
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte ta bort.");
+        return;
+      }
+      router.refresh();
+      close();
+    });
+  };
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className={styles.backdrop} onClick={pending ? undefined : close}>
+      <div
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className={styles.header}>
+          <div className={styles.headerText}>
+            <p className={styles.kicker}>
+              {MEDIA_KIND_ICON[item.kind]} {MEDIA_KIND_LABEL[item.kind]}
+            </p>
+            <h2 id={titleId} className={styles.title}>
+              Ta bort?
+            </h2>
+          </div>
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={close}
+            disabled={pending}
+            aria-label="Stäng"
+          >
+            ×
+          </button>
+        </header>
+        <div className={styles.body}>
+          <p className={styles.confirmText}>
+            Är du säker på att du vill ta bort {title}? Den försvinner från
+            årets lista.
+          </p>
+          {error ? <p className={styles.error}>{error}</p> : null}
+          <div className={styles.actions}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              disabled={pending}
+              onClick={close}
+            >
+              Avbryt
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="md"
+              loading={pending}
+              disabled={pending}
+              onClick={remove}
+            >
+              Ta bort
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

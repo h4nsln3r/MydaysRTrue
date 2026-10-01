@@ -21,6 +21,7 @@ import {
 } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import type { LeaveKind } from "@/lib/leave";
+import { habitPartShown } from "@/lib/habit-parts";
 import {
   INTAKE_ICON,
   INTAKE_LABEL,
@@ -581,8 +582,10 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     });
   }
 
-  if (enabledKinds.has("meal")) {
+  const mealHabit = planHabits.find((h) => h.kind === "meal");
+  if (mealHabit) {
     for (const meal of ["breakfast", "lunch", "dinner"] as MealKey[]) {
+      if (!habitPartShown(mealHabit, meal, visibility)) continue;
       const entry = input.meals[meal];
       items.push({
         kind: "meal",
@@ -596,8 +599,10 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     }
   }
 
-  if (enabledKinds.has("snack")) {
+  const snackHabit = planHabits.find((h) => h.kind === "snack");
+  if (snackHabit) {
     for (const slot of [1, 2] as SnackSlot[]) {
+      if (!habitPartShown(snackHabit, String(slot), visibility)) continue;
       const entry = input.snacks[slot];
       items.push({
         kind: "snack",
@@ -611,8 +616,10 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     }
   }
 
-  if (enabledKinds.has("intake")) {
+  const intakeHabit = planHabits.find((h) => h.kind === "intake");
+  if (intakeHabit) {
     for (const kind of applicableIntakeKinds(input.date)) {
+      if (!habitPartShown(intakeHabit, kind, visibility)) continue;
       const entry = input.intake[kind];
       items.push({
         kind: "intake",

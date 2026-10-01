@@ -1053,6 +1053,23 @@ function waterSubRows(): SubRowDef[] {
   ];
 }
 
+function partHidden(
+  habitDay: WeekHabitSummary["days"][number] | undefined,
+  habitId: string,
+  partKey: string,
+): boolean {
+  return habitDay?.hiddenParts[habitId]?.includes(partKey) ?? false;
+}
+
+function hiddenPartCell(label: string): SubRowCellContent {
+  return {
+    status: null,
+    title: `${label}: Visas inte`,
+    countable: false,
+    off: true,
+  };
+}
+
 function subRowsForHabit(habit: Habit): SubRowDef[] {
   switch (habit.kind) {
     case "meal":
@@ -1061,7 +1078,10 @@ function subRowsForHabit(habit: Habit): SubRowDef[] {
           key: mealKey,
           icon: MEAL_ICON[mealKey],
           label: MEAL_LABEL_SV[mealKey],
-          renderCell: ({ isFuture, mealDay }: SubRowCellCtx) => {
+          renderCell: ({ isFuture, mealDay, habitDay }: SubRowCellCtx) => {
+            if (partHidden(habitDay, habit.id, mealKey)) {
+              return hiddenPartCell(MEAL_LABEL_SV[mealKey]);
+            }
             if (isFuture) {
               return { status: null, title: `${MEAL_LABEL_SV[mealKey]}: Kommande` };
             }
@@ -1080,7 +1100,10 @@ function subRowsForHabit(habit: Habit): SubRowDef[] {
           key: `snack-${slot}`,
           icon: SNACK_ICON[slot],
           label: SNACK_LABEL[slot],
-          renderCell: ({ isFuture, mealDay }: SubRowCellCtx) => {
+          renderCell: ({ isFuture, mealDay, habitDay }: SubRowCellCtx) => {
+            if (partHidden(habitDay, habit.id, String(slot))) {
+              return hiddenPartCell(SNACK_LABEL[slot]);
+            }
             if (isFuture) {
               return { status: null, title: `${SNACK_LABEL[slot]}: Kommande` };
             }
@@ -1103,6 +1126,9 @@ function subRowsForHabit(habit: Habit): SubRowDef[] {
         icon: INTAKE_ICON[kind],
         label: INTAKE_LABEL[kind],
         renderCell: ({ isFuture, isToday, date, habitDay }) => {
+          if (partHidden(habitDay, habit.id, kind)) {
+            return hiddenPartCell(INTAKE_LABEL[kind]);
+          }
           const day = { isFuture, isToday };
           if (isFuture) return { status: null, title: "Kommande" };
           const applicable = applicableIntakeKinds(date);
@@ -1189,6 +1215,9 @@ function subRowsForHabit(habit: Habit): SubRowDef[] {
         icon: sub.icon,
         label: sub.label,
         renderCell: ({ isFuture, isToday, habitDay }) => {
+          if (partHidden(habitDay, habit.id, sub.key)) {
+            return hiddenPartCell(sub.label);
+          }
           const day = { isFuture, isToday };
           if (isFuture) return { status: null, title: "Kommande" };
           const raw =
@@ -1212,6 +1241,9 @@ function subRowsForHabit(habit: Habit): SubRowDef[] {
         icon: game.icon,
         label: game.label,
         renderCell: ({ isFuture, isToday, habitDay }) => {
+          if (partHidden(habitDay, habit.id, game.key)) {
+            return hiddenPartCell(game.label);
+          }
           const day = { isFuture, isToday };
           if (isFuture) return { status: null, title: "Kommande" };
           const games = habitDay?.details.mobileGames;

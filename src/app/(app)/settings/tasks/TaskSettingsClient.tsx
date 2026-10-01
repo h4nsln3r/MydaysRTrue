@@ -8,6 +8,7 @@ import {
   archiveHabitAction,
   createHabitAction,
   setHabitEnabledAction,
+  setHabitPartVisibilityAction,
   setHabitVisibilityAction,
   updateHabitAction,
 } from "@/app/(app)/actions";
@@ -26,7 +27,11 @@ import {
   UTGIFTER_CATEGORY_NAME,
 } from "@/lib/expenses";
 import { habitCadenceLabel, habitVisibilityNote, type Habit } from "@/lib/habits";
-import { HabitVisibilityFields } from "@/components/HabitVisibilityFields/HabitVisibilityFields";
+import {
+  HabitPartVisibilityList,
+  HabitVisibilityFields,
+} from "@/components/HabitVisibilityFields/HabitVisibilityFields";
+import { partVisibilityCustomized } from "@/lib/habit-parts";
 import { todayLocalISO } from "@/lib/date";
 import {
   WEEKDAY_SHORT,
@@ -79,7 +84,8 @@ export function TaskSettingsClient({
         <p className={styles.muted}>
           Hantera dag-, vecko- och månadsuppgifter per kategori. Öppna en
           daglig vana för att välja om den visas på semester, ledighet,
-          sjukdagar och helg. För veckouppgifter kan du också välja om de får
+          sjukdagar och helg. Vanor med delar, som intag och måltider, kan
+          styras del för del. För veckouppgifter kan du också välja om de får
           dras in flera gånger och hur många som behövs för godkänd vecka.
         </p>
       </header>
@@ -315,6 +321,7 @@ function HabitRow({
     habit.intervalAnchorDate ?? todayLocalISO(),
   );
   const visibilityNote = habitVisibilityNote(habit);
+  const partsNote = partVisibilityCustomized(habit) ? "delar anpassade" : null;
 
   const save = () => {
     onError(null);
@@ -345,6 +352,7 @@ function HabitRow({
             {habit.enabled ? "På" : "Av"}
             {habitCadenceLabel(habit) ? ` · ${habitCadenceLabel(habit)?.toLowerCase()}` : ""}
             {visibilityNote ? ` · ${visibilityNote}` : ""}
+            {partsNote ? ` · ${partsNote}` : ""}
           </span>
         </span>
         <span className={styles.chevron} aria-hidden>
@@ -409,6 +417,22 @@ function HabitRow({
               startTransition(async () => {
                 const res = await setHabitVisibilityAction({
                   habitId: habit.id,
+                  [key]: checked,
+                });
+                if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");
+                router.refresh();
+              });
+            }}
+          />
+          <HabitPartVisibilityList
+            habit={habit}
+            disabled={pending}
+            onChange={(partKey, key, checked) => {
+              onError(null);
+              startTransition(async () => {
+                const res = await setHabitPartVisibilityAction({
+                  habitId: habit.id,
+                  partKey,
                   [key]: checked,
                 });
                 if (!res.ok) onError(res.error ?? "Kunde inte uppdatera.");

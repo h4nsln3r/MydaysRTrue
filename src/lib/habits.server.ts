@@ -16,9 +16,7 @@ import {
   habitVisibleOnDay,
   parseHabitWeekdays,
   type HabitDayContext,
-  mealStatusFor,
   numericGoalStatus,
-  snackStatusFor,
   statusOrMissedOnPastDay,
   waterStatusFor,
   WEEK_PROGRESS_HABIT_KEYS,
@@ -26,10 +24,21 @@ import {
 } from "@/lib/habits";
 import type { Weekday } from "@/lib/tasks";
 import { parseShakeQuantity, type ShakeBatch } from "@/lib/shake-schedule";
-import { applicableIntakeKinds, intakeStatusFor } from "@/lib/intake";
-import { mobileGamesStatusFor } from "@/lib/mobile-games";
+import { applicableIntakeKinds } from "@/lib/intake";
 import {
-  smokeFreeStatusFor,
+  hiddenPartKeys,
+  habitVisibilityParts,
+  intakeStatusForVisible,
+  isMealKey,
+  mealStatusForVisible,
+  mobileGamesStatusForVisible,
+  parsePartVisibility,
+  smokeStatusForVisible,
+  snackStatusForVisible,
+} from "@/lib/habit-parts";
+import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
+import {
+  SMOKE_FREE_SUBSTANCES,
   type DailySmokeFreeContext,
 } from "@/lib/smoke-free";
 import { mediaStatusFor, type MediaDayLog } from "@/lib/media";
@@ -42,6 +51,16 @@ import {
   journalTrackedItemDescription,
   snackSlotFromJournalEntryId,
 } from "@/lib/journal";
+
+function addLoggedKey(
+  map: Map<string, Set<string>>,
+  date: string,
+  key: string,
+) {
+  const set = map.get(date) ?? new Set<string>();
+  set.add(key);
+  map.set(date, set);
+}
 
 function smokeFreeContextFromRow(
   localDate: string,
@@ -79,6 +98,7 @@ interface HabitRow {
   show_on_day_off: boolean | null;
   show_on_sick: boolean | null;
   show_on_weekend: boolean | null;
+  part_visibility: unknown;
   interval_days: number | null;
   interval_anchor_date: string | null;
   weekdays: number[] | null;
@@ -87,7 +107,7 @@ interface HabitRow {
 }
 
 const HABIT_COLUMNS =
-  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_vacation, show_on_day_off, show_on_sick, show_on_weekend, interval_days, interval_anchor_date, weekdays, shake_reset_on, shake_skipped_on";
+  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_vacation, show_on_day_off, show_on_sick, show_on_weekend, part_visibility, interval_days, interval_anchor_date, weekdays, shake_reset_on, shake_skipped_on";
 
 function rowToHabit(r: HabitRow): Habit {
   return {
@@ -104,6 +124,7 @@ function rowToHabit(r: HabitRow): Habit {
     showOnDayOff: r.show_on_day_off ?? true,
     showOnSick: r.show_on_sick ?? true,
     showOnWeekend: r.show_on_weekend ?? true,
+    partVisibility: parsePartVisibility(r.part_visibility),
     intervalDays: Math.max(1, r.interval_days ?? 1),
     intervalAnchorDate: r.interval_anchor_date,
     weekdays: parseHabitWeekdays(r.weekdays),
@@ -484,13 +505,20 @@ export async function getDailyHabits(
     profileRes.data?.daily_activity_hours_goal ?? 12,
   );
   const waterMl = (waterRes.data ?? []).reduce((acc, l) => acc + l.amount_ml, 0);
-  const mealsLogged = (mealsRes.data ?? []).length;
-  const snacksDone = (snacksRes.data ?? []).length;
-  const intakeKinds = applicableIntakeKinds(localDate);
-  const intakeTotal = intakeKinds.length;
-  const intakeLogged = (intakeRes.data ?? []).filter((r) =>
-    intakeKinds.includes(r.kind),
-  ).length;
+  const mealLoggedKeys = new Set(
+    (mealsRes.data ?? [])
+      .map((row) => row.meal)
+      .filter((meal): meal is MealKey => isMealKey(meal)),
+  );
+  const snackLoggedKeys = new Set(
+    (snacksRes.data ?? []).map((row) => String(row.slot)),
+  );
+  const intakeLoggedKeys = new Set(
+    (intakeRes.data ?? []).map((row) => row.kind),
+  );
+  const visibility = (
+    await habitContextsForRange(userId, localDate, localDate)
+  ).get(localDate);
   const steps = activityRes.data?.steps ?? 0;
   const activityHours =
     activityRes.data?.activity_hours != null
@@ -552,29 +580,42 @@ export async function getDailyHabits(
         progress,
       };
     }
+    const hidden = visibility ? hiddenPartKeys(habit, visibility) : [];
     if (habit.kind === "meal") {
+      const mealsLogged = [...mealLoggedKeys].filter(
+        (key) => !hidden.includes(key),
+      ).length;
       return {
         ...habit,
-        status: isFuture ? null : mealStatusFor(mealsLogged),
+        status: isFuture ? null : mealStatusForVisible(mealLoggedKeys, hidden),
         note: null,
         mealsLogged,
       };
     }
     if (habit.kind === "snack") {
+      const snacksDone = [...snackLoggedKeys].filter(
+        (key) => !hidden.includes(key),
+      ).length;
       return {
         ...habit,
-        status: isFuture ? null : snackStatusFor(snacksDone),
+        status: isFuture ? null : snackStatusForVisible(snackLoggedKeys, hidden),
         note: null,
         snacksDone,
       };
     }
     if (habit.kind === "intake") {
+      const intakeKinds = applicableIntakeKinds(localDate).filter(
+        (kind) => !hidden.includes(kind),
+      );
       return {
         ...habit,
-        status: isFuture ? null : intakeStatusFor(intakeLogged, intakeTotal),
+        status: isFuture
+          ? null
+          : intakeStatusForVisible(intakeLoggedKeys, intakeKinds),
         note: null,
-        intakeLogged,
-        intakeTotal,
+        intakeLogged: intakeKinds.filter((kind) => intakeLoggedKeys.has(kind))
+          .length,
+        intakeTotal: intakeKinds.length,
       };
     }
     if (habit.kind === "steps") {
@@ -618,20 +659,26 @@ export async function getDailyHabits(
       };
     }
     if (habit.kind === "mobile_games") {
+      const visibleGames = MOBILE_GAME_STEPS.map((step) => step.key).filter(
+        (key) => !hidden.includes(key),
+      );
       return {
         ...habit,
         status: isFuture
           ? null
-          : mobileGamesStatusFor(mobileGamesCtx, isFuture),
+          : mobileGamesStatusForVisible(mobileGamesCtx, visibleGames),
         note: null,
       };
     }
     if (habit.kind === "smoke_free") {
+      const visibleSmoke = SMOKE_FREE_SUBSTANCES.map((item) => item.key).filter(
+        (key) => !hidden.includes(key),
+      );
       return {
         ...habit,
         status: isFuture
           ? null
-          : smokeFreeStatusFor(smokeFreeCtx, isFuture),
+          : smokeStatusForVisible(smokeFreeCtx, visibleSmoke),
         note: null,
       };
     }
@@ -752,6 +799,8 @@ export interface MonthDay {
   statuses: Record<string, HabitStatus | null>;
   /** Habits hidden by semester, ledig, sjuk or helg settings. */
   hiddenHabitIds: string[];
+  /** Habit id → part keys hidden that day (shake, breakfast, …). */
+  hiddenParts: Record<string, string[]>;
 }
 
 export interface MonthSummary {
@@ -830,7 +879,7 @@ export async function getMonthSummary(
       .maybeSingle(),
     supabase
       .from("meal_entries")
-      .select("local_date")
+      .select("local_date, meal")
       .eq("user_id", userId)
       .gte("local_date", startISO)
       .lte("local_date", endISO),
@@ -910,10 +959,9 @@ export async function getMonthSummary(
     waterByDate.set(w.local_date, (waterByDate.get(w.local_date) ?? 0) + w.amount_ml);
   }
 
-  // date -> count of meal entries
-  const mealsByDate = new Map<string, number>();
+  const mealsByDate = new Map<string, Set<string>>();
   for (const m of mealsRes.data ?? []) {
-    mealsByDate.set(m.local_date, (mealsByDate.get(m.local_date) ?? 0) + 1);
+    if (isMealKey(m.meal)) addLoggedKey(mealsByDate, m.local_date, m.meal);
   }
 
   const stepsByDate = new Map<string, number>();
@@ -925,16 +973,14 @@ export async function getMonthSummary(
     }
   }
 
-  const snacksByDate = new Map<string, number>();
+  const snacksByDate = new Map<string, Set<string>>();
   for (const s of snacksRes.data ?? []) {
-    snacksByDate.set(s.local_date, (snacksByDate.get(s.local_date) ?? 0) + 1);
+    addLoggedKey(snacksByDate, s.local_date, String(s.slot));
   }
 
   const intakeByDate = new Map<string, Set<string>>();
   for (const i of intakeRes.data ?? []) {
-    const set = intakeByDate.get(i.local_date) ?? new Set<string>();
-    set.add(i.kind);
-    intakeByDate.set(i.local_date, set);
+    addLoggedKey(intakeByDate, i.local_date, i.kind);
   }
 
   const mobileGamesByDate = new Map<
@@ -1005,6 +1051,7 @@ export async function getMonthSummary(
     const isFuture = date > today;
     const statuses: Record<string, HabitStatus | null> = {};
     const hiddenHabitIds: string[] = [];
+    const hiddenParts: Record<string, string[]> = {};
     const visibility = dayContexts.get(date);
 
     for (const h of habits) {
@@ -1022,20 +1069,41 @@ export async function getMonthSummary(
         statuses[h.id] = null;
         continue;
       }
+      const hidden = visibility ? hiddenPartKeys(h, visibility) : [];
+      if (
+        hidden.length > 0 &&
+        hidden.length === habitVisibilityParts(h).length
+      ) {
+        hiddenHabitIds.push(h.id);
+        statuses[h.id] = null;
+        continue;
+      }
+      if (hidden.length > 0) hiddenParts[h.id] = hidden;
+      if (
+        h.kind === "intake" &&
+        applicableIntakeKinds(date).filter((kind) => !hidden.includes(kind))
+          .length === 0
+      ) {
+        hiddenHabitIds.push(h.id);
+        statuses[h.id] = null;
+        continue;
+      }
       let status: HabitStatus | null = null;
       if (!isFuture) {
         if (h.kind === "water") {
           status = waterStatusFor(waterByDate.get(date) ?? 0, goalMl);
         } else if (h.kind === "meal") {
-          status = mealStatusFor(mealsByDate.get(date) ?? 0);
+          status = mealStatusForVisible(mealsByDate.get(date) ?? new Set(), hidden);
         } else if (h.kind === "snack") {
-          status = snackStatusFor(snacksByDate.get(date) ?? 0);
+          status = snackStatusForVisible(snacksByDate.get(date) ?? new Set(), hidden);
         } else if (h.kind === "intake") {
-          const kinds = applicableIntakeKinds(date);
-          const applicableLogged = kinds.filter((k) =>
-            intakeByDate.get(date)?.has(k),
-          ).length;
-          status = intakeStatusFor(applicableLogged, kinds.length);
+          const kinds = applicableIntakeKinds(date).filter(
+            (kind) => !hidden.includes(kind),
+          );
+          status = intakeStatusForVisible(
+            intakeByDate.get(date) ?? new Set(),
+            kinds,
+          );
         } else if (h.kind === "steps") {
           status = numericGoalStatus(stepsByDate.get(date) ?? 0, stepsGoal);
         } else if (h.kind === "activity_hours") {
@@ -1045,12 +1113,21 @@ export async function getMonthSummary(
           );
         } else if (h.kind === "mobile_games") {
           const games = mobileGamesByDate.get(date);
+          const visibleGames = MOBILE_GAME_STEPS.map((step) => step.key).filter(
+            (key) => !hidden.includes(key),
+          );
           status = games
-            ? mobileGamesStatusFor({ localDate: date, ...games }, false)
+            ? mobileGamesStatusForVisible(
+                { localDate: date, ...games },
+                visibleGames,
+              )
             : null;
         } else if (h.kind === "smoke_free") {
           const smoke = smokeFreeByDate.get(date);
-          status = smoke ? smokeFreeStatusFor(smoke, false) : null;
+          const visibleSmoke = SMOKE_FREE_SUBSTANCES.map((item) => item.key).filter(
+            (key) => !hidden.includes(key),
+          );
+          status = smoke ? smokeStatusForVisible(smoke, visibleSmoke) : null;
         } else if (h.kind === "mood") {
           status = moodStatusFor(
             {
@@ -1080,6 +1157,7 @@ export async function getMonthSummary(
       weekday: isoDow,
       statuses,
       hiddenHabitIds,
+      hiddenParts,
     });
   }
 
@@ -1109,6 +1187,8 @@ export interface WeekHabitDay {
   statuses: Record<string, HabitStatus | null>;
   /** Habits hidden by semester, ledig, sjuk or helg settings. */
   hiddenHabitIds: string[];
+  /** Habit id → part keys hidden that day (shake, breakfast, …). */
+  hiddenParts: Record<string, string[]>;
   /** Water row hidden for the same reason. Water is not in `habits`. */
   hideWater: boolean;
   /** Selected mood for the day, when logged. */
@@ -1183,7 +1263,7 @@ export async function getWeekHabitSummary(
       .maybeSingle(),
     supabase
       .from("meal_entries")
-      .select("local_date")
+      .select("local_date, meal")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
@@ -1262,9 +1342,9 @@ export async function getWeekHabitSummary(
     waterByDate.set(w.local_date, (waterByDate.get(w.local_date) ?? 0) + w.amount_ml);
   }
 
-  const mealsByDate = new Map<string, number>();
+  const mealsByDate = new Map<string, Set<string>>();
   for (const m of mealsRes.data ?? []) {
-    mealsByDate.set(m.local_date, (mealsByDate.get(m.local_date) ?? 0) + 1);
+    if (isMealKey(m.meal)) addLoggedKey(mealsByDate, m.local_date, m.meal);
   }
 
   const stepsByDate = new Map<string, number>();
@@ -1276,16 +1356,14 @@ export async function getWeekHabitSummary(
     }
   }
 
-  const snacksByDate = new Map<string, number>();
+  const snacksByDate = new Map<string, Set<string>>();
   for (const s of snacksRes.data ?? []) {
-    snacksByDate.set(s.local_date, (snacksByDate.get(s.local_date) ?? 0) + 1);
+    addLoggedKey(snacksByDate, s.local_date, String(s.slot));
   }
 
   const intakeByDate = new Map<string, Set<string>>();
   for (const i of intakeRes.data ?? []) {
-    const set = intakeByDate.get(i.local_date) ?? new Set<string>();
-    set.add(i.kind);
-    intakeByDate.set(i.local_date, set);
+    addLoggedKey(intakeByDate, i.local_date, i.kind);
   }
 
   const mobileGamesByDate = new Map<
@@ -1359,6 +1437,7 @@ export async function getWeekHabitSummary(
     const dayCtx = { isFuture, isToday };
     const statuses: Record<string, HabitStatus | null> = {};
     const hiddenHabitIds: string[] = [];
+    const hiddenParts: Record<string, string[]> = {};
     const visibility = dayContexts.get(date);
 
     for (const h of habits) {
@@ -1376,20 +1455,41 @@ export async function getWeekHabitSummary(
         statuses[h.id] = null;
         continue;
       }
+      const hidden = visibility ? hiddenPartKeys(h, visibility) : [];
+      if (
+        hidden.length > 0 &&
+        hidden.length === habitVisibilityParts(h).length
+      ) {
+        hiddenHabitIds.push(h.id);
+        statuses[h.id] = null;
+        continue;
+      }
+      if (hidden.length > 0) hiddenParts[h.id] = hidden;
+      if (
+        h.kind === "intake" &&
+        applicableIntakeKinds(date).filter((kind) => !hidden.includes(kind))
+          .length === 0
+      ) {
+        hiddenHabitIds.push(h.id);
+        statuses[h.id] = null;
+        continue;
+      }
       let status: HabitStatus | null = null;
       if (!isFuture) {
         if (h.kind === "water") {
           status = waterStatusFor(waterByDate.get(date) ?? 0, goalMl);
         } else if (h.kind === "meal") {
-          status = mealStatusFor(mealsByDate.get(date) ?? 0);
+          status = mealStatusForVisible(mealsByDate.get(date) ?? new Set(), hidden);
         } else if (h.kind === "snack") {
-          status = snackStatusFor(snacksByDate.get(date) ?? 0);
+          status = snackStatusForVisible(snacksByDate.get(date) ?? new Set(), hidden);
         } else if (h.kind === "intake") {
-          const kinds = applicableIntakeKinds(date);
-          const applicableLogged = kinds.filter((k) =>
-            intakeByDate.get(date)?.has(k),
-          ).length;
-          status = intakeStatusFor(applicableLogged, kinds.length);
+          const kinds = applicableIntakeKinds(date).filter(
+            (kind) => !hidden.includes(kind),
+          );
+          status = intakeStatusForVisible(
+            intakeByDate.get(date) ?? new Set(),
+            kinds,
+          );
         } else if (h.kind === "steps") {
           status = numericGoalStatus(stepsByDate.get(date) ?? 0, stepsGoal);
         } else if (h.kind === "activity_hours") {
@@ -1399,12 +1499,21 @@ export async function getWeekHabitSummary(
           );
         } else if (h.kind === "mobile_games") {
           const games = mobileGamesByDate.get(date);
+          const visibleGames = MOBILE_GAME_STEPS.map((step) => step.key).filter(
+            (key) => !hidden.includes(key),
+          );
           status = games
-            ? mobileGamesStatusFor({ localDate: date, ...games }, false)
+            ? mobileGamesStatusForVisible(
+                { localDate: date, ...games },
+                visibleGames,
+              )
             : null;
         } else if (h.kind === "smoke_free") {
           const smoke = smokeFreeByDate.get(date);
-          status = smoke ? smokeFreeStatusFor(smoke, false) : null;
+          const visibleSmoke = SMOKE_FREE_SUBSTANCES.map((item) => item.key).filter(
+            (key) => !hidden.includes(key),
+          );
+          status = smoke ? smokeStatusForVisible(smoke, visibleSmoke) : null;
         } else if (h.kind === "mood") {
           status = moodStatusFor(
             {
@@ -1441,6 +1550,7 @@ export async function getWeekHabitSummary(
       weekday: isoWeekdayFromLocalISO(date),
       statuses,
       hiddenHabitIds,
+      hiddenParts,
       hideWater: Boolean(
         waterHabit && visibility && !habitVisibleOnDay(waterHabit, visibility),
       ),

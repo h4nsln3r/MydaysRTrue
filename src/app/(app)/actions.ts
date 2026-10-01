@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, isLocalISODate, todayLocalISO } from "@/lib/date";
-import type { HabitStatus, MealCookedBy, MealKey } from "@/lib/habits";
+import type { HabitStatus, HabitVisibility, MealCookedBy, MealKey } from "@/lib/habits";
+import {
+  habitVisibilityParts,
+  parsePartVisibility,
+  partVisibilityFor,
+} from "@/lib/habit-parts";
+import type { Json } from "@/lib/supabase/database.types";
 import { parseHabitWeekdays } from "@/lib/habits";
 import { parseShakeQuantity } from "@/lib/shake-schedule";
 import type { Weekday } from "@/lib/tasks";
@@ -697,6 +703,75 @@ export async function setHabitVisibilityAction(input: {
   const { error } = await supabase
     .from("habits")
     .update(patch)
+    .eq("id", input.habitId)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Show or hide one part of a daily habit (shake, breakfast, mellanmål, …). */
+export async function setHabitPartVisibilityAction(input: {
+  habitId: string;
+  partKey: string;
+  showOnVacation?: boolean;
+  showOnDayOff?: boolean;
+  showOnSick?: boolean;
+  showOnWeekend?: boolean;
+}): Promise<ActionResult> {
+  if (!input.habitId || !input.partKey) {
+    return { ok: false, error: "Missing habit or part." };
+  }
+
+  const flags: Partial<HabitVisibility> = {};
+  if (typeof input.showOnVacation === "boolean") {
+    flags.showOnVacation = input.showOnVacation;
+  }
+  if (typeof input.showOnDayOff === "boolean") {
+    flags.showOnDayOff = input.showOnDayOff;
+  }
+  if (typeof input.showOnSick === "boolean") {
+    flags.showOnSick = input.showOnSick;
+  }
+  if (typeof input.showOnWeekend === "boolean") {
+    flags.showOnWeekend = input.showOnWeekend;
+  }
+  if (Object.keys(flags).length === 0) {
+    return { ok: false, error: "Inget att spara." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: row, error: readError } = await supabase
+    .from("habits")
+    .select("kind, part_visibility")
+    .eq("id", input.habitId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  if (!row) return { ok: false, error: "Hittade inte vanan." };
+
+  if (!habitVisibilityParts(row).some((part) => part.key === input.partKey)) {
+    return { ok: false, error: "Den delen finns inte." };
+  }
+
+  const current = parsePartVisibility(row.part_visibility);
+  const next: Record<string, HabitVisibility> = {
+    ...current,
+    [input.partKey]: {
+      ...partVisibilityFor(current, input.partKey),
+      ...flags,
+    },
+  };
+
+  const { error } = await supabase
+    .from("habits")
+    .update({ part_visibility: next as unknown as Json })
     .eq("id", input.habitId)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };

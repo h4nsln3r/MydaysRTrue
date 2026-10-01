@@ -162,6 +162,8 @@ export interface Habit {
   showOnSick: boolean;
   /** When false, hidden on Saturday and Sunday. */
   showOnWeekend: boolean;
+  /** Per-part overrides. Missing part = shown on every kind of day. */
+  partVisibility: Record<string, HabitVisibility>;
   /** 1 = every day; 2 = every other day from the anchor date. */
   intervalDays: number;
   /** First occurrence when intervalDays > 1. */

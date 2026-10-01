@@ -155,6 +155,7 @@ export interface Database {
           show_on_day_off: boolean;
           show_on_sick: boolean;
           show_on_weekend: boolean;
+          part_visibility: Json;
           interval_days: number;
           interval_anchor_date: string | null;
           weekdays: number[] | null;
@@ -191,6 +192,7 @@ export interface Database {
           show_on_day_off?: boolean;
           show_on_sick?: boolean;
           show_on_weekend?: boolean;
+          part_visibility?: Json;
           interval_days?: number;
           interval_anchor_date?: string | null;
           weekdays?: number[] | null;
@@ -227,6 +229,7 @@ export interface Database {
           show_on_day_off?: boolean;
           show_on_sick?: boolean;
           show_on_weekend?: boolean;
+          part_visibility?: Json;
           interval_days?: number;
           interval_anchor_date?: string | null;
           weekdays?: number[] | null;

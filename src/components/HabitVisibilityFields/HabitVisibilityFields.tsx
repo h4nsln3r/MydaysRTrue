@@ -1,4 +1,8 @@
-import type { HabitVisibility } from "@/lib/habits";
+import {
+  habitVisibilityParts,
+  partVisibilityFor,
+} from "@/lib/habit-parts";
+import type { HabitKind, HabitVisibility } from "@/lib/habits";
 import styles from "./HabitVisibilityFields.module.scss";
 
 const OPTIONS: { key: keyof HabitVisibility; label: string }[] = [
@@ -12,12 +16,15 @@ export function HabitVisibilityFields({
   value,
   disabled,
   savingKey = null,
+  compact = false,
   onChange,
 }: {
   value: HabitVisibility;
   disabled?: boolean;
   /** Checkbox whose save is still in flight. */
   savingKey?: keyof HabitVisibility | null;
+  /** Shorter hint when these flags apply to one part, not the whole habit. */
+  compact?: boolean;
   onChange: (key: keyof HabitVisibility, checked: boolean) => void;
 }) {
   return (
@@ -51,10 +58,50 @@ export function HabitVisibilityFields({
         })}
       </div>
       <p className={styles.hint}>
-        Avmarkerat döljer uppgiften de dagarna. Semester gäller även resor.
-        Ledig är perioder i årskalendern. Sjuk är när dagen är markerad Är
-        sjuk. Helg är lördag och söndag.
+        {compact
+          ? "Avmarkerat döljer bara den här delen. Semester gäller även resor."
+          : "Avmarkerat döljer uppgiften de dagarna. Semester gäller även resor. Ledig är perioder i årskalendern. Sjuk är när dagen är markerad Är sjuk. Helg är lördag och söndag."}
       </p>
+    </div>
+  );
+}
+
+export function HabitPartVisibilityList({
+  habit,
+  disabled,
+  onChange,
+}: {
+  habit: {
+    kind: HabitKind | string;
+    partVisibility: Record<string, HabitVisibility>;
+  };
+  disabled?: boolean;
+  onChange: (
+    partKey: string,
+    key: keyof HabitVisibility,
+    checked: boolean,
+  ) => void;
+}) {
+  const parts = habitVisibilityParts(habit);
+  if (parts.length === 0) return null;
+
+  return (
+    <div className={styles.parts}>
+      <p className={styles.partsLabel}>Delar</p>
+      {parts.map((part) => (
+        <details key={part.key} className={styles.part}>
+          <summary className={styles.partSummary}>
+            <span aria-hidden>{part.icon}</span>
+            {part.label}
+          </summary>
+          <HabitVisibilityFields
+            compact
+            value={partVisibilityFor(habit.partVisibility, part.key)}
+            disabled={disabled}
+            onChange={(key, checked) => onChange(part.key, key, checked)}
+          />
+        </details>
+      ))}
     </div>
   );
 }

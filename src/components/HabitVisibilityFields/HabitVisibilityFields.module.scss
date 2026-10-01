@@ -57,3 +57,38 @@
   font-size: 0.82rem;
   line-height: 1.45;
 }
+
+.parts {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.partsLabel {
+  margin: 0;
+  color: $color-fog;
+  font-family: $font-mono;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.part {
+  border: 1px solid rgba($color-cream, 0.12);
+  border-radius: 10px;
+  padding: $space-2;
+}
+
+.partSummary {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  cursor: pointer;
+  color: $color-cream;
+  font-size: 0.95rem;
+  list-style: none;
+}
+
+.partSummary::-webkit-details-marker {
+  display: none;
+}

@@ -152,6 +152,7 @@ export function DailyTrackersBoard({
             date={date}
             habit={habit}
             smokeFree={smokeFree}
+            dayContext={dayContext}
           />
         );
       case "mobile_games":
@@ -161,6 +162,7 @@ export function DailyTrackersBoard({
             date={date}
             habit={habit}
             games={mobileGames}
+            dayContext={dayContext}
           />
         );
       case "mood":

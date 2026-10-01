@@ -4,10 +4,10 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveMobileGamesDailyLogAction } from "@/app/(app)/mobile-games-actions";
 import { Card } from "@/components/Card/Card";
-import type { DailyHabit } from "@/lib/habits";
+import type { DailyHabit, HabitDayContext } from "@/lib/habits";
+import { habitPartShown, mobileGamesStatusForVisible } from "@/lib/habit-parts";
 import {
   MOBILE_GAME_STEPS,
-  mobileGamesDoneCount,
   type DailyMobileGamesContext,
   type MobileGameKey,
 } from "@/lib/mobile-games";
@@ -17,6 +17,7 @@ interface Props {
   date: string;
   habit: DailyHabit;
   games: DailyMobileGamesContext;
+  dayContext?: HabitDayContext;
 }
 
 function valueForKey(ctx: DailyMobileGamesContext, key: MobileGameKey): boolean {
@@ -35,7 +36,7 @@ function patchContext(
   return { ...ctx, pokemonGo: value, hasLog: true };
 }
 
-export function MobileGamesDayCard({ date, habit, games }: Props) {
+export function MobileGamesDayCard({ date, habit, games, dayContext }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +46,15 @@ export function MobileGamesDayCard({ date, habit, games }: Props) {
     setLocal(games);
   }, [games]);
 
-  const doneCount = mobileGamesDoneCount(local);
+  const steps = MOBILE_GAME_STEPS.filter(
+    (step) => !dayContext || habitPartShown(habit, step.key, dayContext),
+  );
+  const doneCount = steps.filter((step) => valueForKey(local, step.key)).length;
+  const cardStatus = mobileGamesStatusForVisible(
+    local,
+    steps.map((step) => step.key),
+  );
+  if (dayContext && steps.length === 0) return null;
 
   const toggle = (key: MobileGameKey) => {
     const next = patchContext(local, key, !valueForKey(local, key));
@@ -72,7 +81,7 @@ export function MobileGamesDayCard({ date, habit, games }: Props) {
     <Card
       className={[
         styles.card,
-        habit.status ? styles[`card_${habit.status}`] : "",
+        cardStatus ? styles[`card_${cardStatus}`] : "",
         pending ? styles.cardBusy : "",
       ]
         .filter(Boolean)
@@ -91,12 +100,12 @@ export function MobileGamesDayCard({ date, habit, games }: Props) {
         </div>
         <span className={styles.counter}>
           <span className={styles.counterBig}>{doneCount}</span>
-          <span> / {MOBILE_GAME_STEPS.length}</span>
+          <span> / {steps.length}</span>
         </span>
       </div>
 
       <div className={styles.steps}>
-        {MOBILE_GAME_STEPS.map((step) => {
+        {steps.map((step) => {
           const done = valueForKey(local, step.key);
           return (
             <button

@@ -6,14 +6,14 @@ import { saveSmokeFreeDailyLogAction } from "@/app/(app)/smoke-free-actions";
 import { Card } from "@/components/Card/Card";
 import {
   type DailyHabit,
+  type HabitDayContext,
   type HabitStatus,
   nextHabitStatus,
 } from "@/lib/habits";
+import { habitPartShown, smokeStatusForVisible } from "@/lib/habit-parts";
 import {
   SMOKE_FREE_SUBSTANCES,
-  smokeFreeStatusFor,
   smokeFreeValueFor,
-  smokeFreeYesCount,
   type DailySmokeFreeContext,
   type SmokeFreeSubstance,
 } from "@/lib/smoke-free";
@@ -29,9 +29,10 @@ interface Props {
   date: string;
   habit: DailyHabit;
   smokeFree: DailySmokeFreeContext;
+  dayContext?: HabitDayContext;
 }
 
-export function SmokeFreeDayCard({ date, habit, smokeFree }: Props) {
+export function SmokeFreeDayCard({ date, habit, smokeFree, dayContext }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +42,17 @@ export function SmokeFreeDayCard({ date, habit, smokeFree }: Props) {
     setLocal(smokeFree);
   }, [smokeFree]);
 
-  const aggregateStatus = smokeFreeStatusFor(local, false);
-  const yesCount = smokeFreeYesCount(local);
+  const substances = SMOKE_FREE_SUBSTANCES.filter(
+    (item) => !dayContext || habitPartShown(habit, item.key, dayContext),
+  );
+  const aggregateStatus = smokeStatusForVisible(
+    local,
+    substances.map((item) => item.key),
+  );
+  const yesCount = substances.filter(
+    (item) => smokeFreeValueFor(local, item.key) === "yes",
+  ).length;
+  if (dayContext && substances.length === 0) return null;
 
   const toggle = (substance: SmokeFreeSubstance, pressed: HabitStatus) => {
     const current = smokeFreeValueFor(local, substance);
@@ -96,12 +106,12 @@ export function SmokeFreeDayCard({ date, habit, smokeFree }: Props) {
         </div>
         <span className={styles.counter}>
           <span className={styles.counterBig}>{yesCount}</span>
-          <span> / {SMOKE_FREE_SUBSTANCES.length}</span>
+          <span> / {substances.length}</span>
         </span>
       </div>
 
       <div className={styles.rows}>
-        {SMOKE_FREE_SUBSTANCES.map((substance) => {
+        {substances.map((substance) => {
           const status = smokeFreeValueFor(local, substance.key);
           return (
             <div

@@ -34,6 +34,7 @@ import { getCategories, getMonthlyTasksForDate, getWeeklyTasksForDate } from "@/
 import { getCodingProjects } from "@/lib/coding.server";
 import { getUserGames } from "@/lib/games.server";
 import { getUserSports } from "@/lib/sports.server";
+import { getDayQuickAddSources } from "@/lib/day-quick-add.server";
 import { getDailyPlanOrder } from "@/lib/day-plan.server";
 import { getMealRestaurants } from "@/lib/meals.server";
 import { getMealBoxStock } from "@/lib/meal-box.server";
@@ -92,6 +93,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     codingProjects,
     games,
     sports,
+    quickAddSources,
   ] = await Promise.all([
     getDailySummary(user.id, date),
     getDailyHabits(user.id, date),
@@ -116,6 +118,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getCodingProjects(user.id),
     getUserGames(user.id),
     getUserSports(user.id),
+    getDayQuickAddSources(user.id),
   ]);
 
   const work = await getWorkDailyLog(user.id, date);
@@ -161,9 +164,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
       {view === "progress" ? (
         <>
           <section className={styles.section}>
-            <header className={styles.sectionHeader}>
-              <h2 className={styles.h2}>Dagens plan</h2>
-            </header>
             <DayActivitiesCard
               weekStart={weeklyTasksDay.weekStart}
               tasks={weeklyTasksDay.tasks}
@@ -190,6 +190,8 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               liveEvents={liveEvents}
               savedOrder={savedOrder}
               categories={weeklyTasksDay.categories}
+              addableTasks={weeklyTasksDay.addableTasks}
+              quickAddSources={quickAddSources}
               date={date}
               today={today}
               planningMode={isUpcoming}

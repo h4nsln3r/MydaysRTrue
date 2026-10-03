@@ -1,0 +1,169 @@
+@use "abstracts" as *;
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $space-4;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+.modal {
+    display: flex;
+    flex-direction: column;
+    width: min(520px, 100%);
+    max-height: min(88vh, 760px);
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    box-shadow: $shadow-soft;
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-4;
+    border-bottom: 1px solid $color-line;
+    background: rgba(255, 122, 26, 0.08);
+}
+
+.title {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    font-family: $font-display;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: $color-cream;
+}
+
+.back,
+.closeBtn {
+    flex-shrink: 0;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    cursor: pointer;
+    transition: color 120ms $ease-out, border-color 120ms $ease-out;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-cream-dim;
+    }
+
+    &:disabled {
+        opacity: 0.55;
+        cursor: default;
+    }
+}
+
+.back {
+    padding: 6px 10px;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+}
+
+.closeBtn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+.body {
+    flex: 1;
+    overflow-y: auto;
+    padding: $space-4;
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.choices {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.choice {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-soft;
+    color: $color-cream;
+    font-family: $font-display;
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 120ms $ease-out,
+        color 120ms $ease-out,
+        background 120ms $ease-out;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-orange-bright;
+        background: rgba(255, 122, 26, 0.08);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: default;
+    }
+}
+
+.waiting {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.9rem;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(246, 239, 225, 0.22);
+    border-top-color: $color-orange-bright;
+    animation: dayQuickSpin 0.75s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes dayQuickSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.hint,
+.error {
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.hint {
+    color: $color-fog;
+}
+
+.error {
+    color: $color-danger;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+}

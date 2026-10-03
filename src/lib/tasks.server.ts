@@ -1,4 +1,5 @@
 import "server-only";
+import { isQuickAddWeeklyTask } from "@/lib/day-quick-add";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, DISPLAY_TIMEZONE, isoWeekdayFromLocalISO, parseLocalISO, todayLocalISO, weekStartISO } from "@/lib/date";
 import {
@@ -1154,6 +1155,8 @@ export interface WeeklyTasksDaySummary {
   weekTasks: WeeklyTaskForWeek[];
   /** One-off tasks paused for this week. */
   onHoldTasks: WeeklyTaskForWeek[];
+  /** Repeatable week-plan standards the day plus-button can add. */
+  addableTasks: WeeklyTaskForWeek[];
   categories: TaskCategory[];
 }
 
@@ -1187,6 +1190,7 @@ export async function getWeeklyTasksForDate(
     tasks: forDay,
     weekTasks: expandWeeklyTaskPlacements(withCompletions),
     onHoldTasks,
+    addableTasks: tasks.filter((task) => isQuickAddWeeklyTask(task)),
     categories,
   };
 }

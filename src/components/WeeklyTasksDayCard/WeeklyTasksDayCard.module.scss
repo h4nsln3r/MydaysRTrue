@@ -19,6 +19,31 @@
     gap: $space-3;
 }
 
+.dayToolbar {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+}
+
+.dayToolbarEnd {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.tripTitle {
+    min-width: 0;
+    margin: 0;
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    color: $color-cream;
+}
+
 .title {
     display: inline-flex;
     align-items: center;
@@ -56,27 +81,36 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    border: 1px solid $color-line;
-    background: $color-ink-elevated;
-    color: $color-orange-bright;
-    font-family: $font-sans;
-    font-size: 1.15rem;
-    font-weight: 700;
+    border: 2px solid transparent;
+    background: $color-orange;
+    color: $color-ink;
+    font-family: $font-display;
+    font-size: 1.7rem;
+    font-weight: 800;
     line-height: 1;
     cursor: pointer;
     flex-shrink: 0;
+    transition:
+        background 160ms $ease-out,
+        transform 160ms $ease-bounce,
+        box-shadow 200ms $ease-out;
 
     &:hover:not(:disabled) {
-        border-color: $color-orange;
-        background: rgba(255, 122, 26, 0.15);
+        background: $color-orange-bright;
+        transform: translateY(-1px);
+        box-shadow: $glow-orange;
+    }
+
+    &:active:not(:disabled) {
+        transform: translateY(0);
     }
 
     &[aria-pressed="true"] {
-        border-color: $color-orange;
-        background: rgba(255, 122, 26, 0.2);
+        background: $color-orange-bright;
+        box-shadow: $glow-orange;
     }
 }
 
@@ -93,6 +127,34 @@
 @keyframes saveSpin {
     to {
         transform: rotate(360deg);
+    }
+}
+
+.pendingRow {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    margin: 0;
+    padding: $space-3;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    border-left: 3px solid $color-orange;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-size: 0.9rem;
+    list-style: none;
+    animation: pendingPulse 1.2s ease-in-out infinite;
+}
+
+.pendingSpinner {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
+}
+
+@keyframes pendingPulse {
+    50% {
+        opacity: 0.55;
     }
 }
 

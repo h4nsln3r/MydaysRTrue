@@ -20,11 +20,16 @@ import {
 } from "@dnd-kit/sortable";
 import { Card } from "@/components/Card/Card";
 import { BathingExtraBath } from "@/components/BathingDayCard/BathingDayCard";
-import { WeeklyTaskQuickAdd } from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard";
+import { DayQuickAdd } from "@/components/DayQuickAdd/DayQuickAdd";
+import {
+  toDayQuickAddTask,
+  type DayQuickAddSources,
+} from "@/lib/day-quick-add";
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import { buildDayPlanItems, sortDayPlanItems, type DayPlanItem } from "@/lib/day-plan";
 import { isoWeekdayFromLocalISO } from "@/lib/date";
+import { formatTripDayTitle } from "@/lib/leave";
 import type { DailyHabit, DailySnacks, MealBoxStockItem, MealEntry, MealKey, MealRestaurant } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
@@ -99,6 +104,9 @@ interface Props {
   tripDay?: TripDayContext | null;
   savedOrder: Map<string, number>;
   categories: TaskCategory[];
+  /** Repeatable week-plan tasks the plus button can drop on this day. */
+  addableTasks?: WeeklyTaskForWeek[];
+  quickAddSources?: DayQuickAddSources;
   date?: string;
   today?: string;
   hideWhenEmpty?: boolean;
@@ -139,6 +147,8 @@ export function DayActivitiesCard({
   tripDay = null,
   savedOrder,
   categories,
+  addableTasks = [],
+  quickAddSources,
   date,
   today,
   hideWhenEmpty = false,
@@ -157,7 +167,9 @@ export function DayActivitiesCard({
   const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
+  const [adding, setAdding] = useState(false);
   const reorderGen = useRef(0);
+  const addingBaseline = useRef<string | null>(null);
   const { clearQueuedNavigation } = useBackgroundSave(savingOrder);
 
   const planDate = date ?? today ?? "";
@@ -244,20 +256,66 @@ export function DayActivitiesCard({
 
   const showExtraBath = enableExtraBath && bathingWeekday != null;
 
+  const quickAddSourcesOrEmpty: DayQuickAddSources = quickAddSources ?? {
+    gym: [],
+    cardioTemplateId: null,
+    sportTemplateId: null,
+    baths: [],
+    shake: null,
+  };
+
+  const beginAdding = () => {
+    if (addingBaseline.current == null) {
+      addingBaseline.current = builtItems.map((item) => item.itemKey).join("\n");
+    }
+    setAdding(true);
+  };
+
+  const stopAdding = () => {
+    addingBaseline.current = null;
+    setAdding(false);
+  };
+
+  useEffect(() => {
+    if (!adding || addingBaseline.current == null) return;
+    const now = builtItems.map((item) => item.itemKey).join("\n");
+    if (now !== addingBaseline.current) stopAdding();
+  }, [adding, builtItems]);
+
+  useEffect(() => {
+    if (!adding) return;
+    const timer = window.setTimeout(stopAdding, 12000);
+    return () => window.clearTimeout(timer);
+  }, [adding]);
+
   const quickAdd =
     addOpen && addWeekday != null ? (
-      <WeeklyTaskQuickAdd
+      <DayQuickAdd
         weekStart={weekStart}
         weekday={addWeekday}
         categories={categories}
-        alwaysOpen
+        tasks={addableTasks.map(toDayQuickAddTask)}
+        sources={quickAddSourcesOrEmpty}
+        games={games}
+        sports={sports}
         onCancel={() => setAddOpen(false)}
+        onListPending={(waiting) => {
+          if (waiting) beginAdding();
+          else stopAdding();
+        }}
         onAdded={() => {
           setAddOpen(false);
           router.refresh();
         }}
       />
     ) : null;
+
+  const pendingRow = adding ? (
+    <li className={styles.pendingRow} role="status" aria-live="polite">
+      <span className={[styles.saveSpinner, styles.pendingSpinner].join(" ")} aria-hidden />
+      Lägger till…
+    </li>
+  ) : null;
 
   const extraBath = showExtraBath ? (
     <BathingExtraBath
@@ -311,76 +369,86 @@ export function DayActivitiesCard({
     return null;
   }
 
-  const showCardHeader =
-    addWeekday != null ||
-    savingOrder ||
-    localItems.length > 0 ||
-    onLeave ||
-    showWeekLink ||
-    planningMode;
+  const showControls =
+    addWeekday != null || savingOrder || localItems.length > 0;
+
+  const addControl = showControls ? (
+    <div className={styles.planActions}>
+      {addWeekday != null ? (
+        <button
+          type="button"
+          className={styles.headerAdd}
+          aria-label="Lägg till på dagen"
+          title="Lägg till engångsuppgift eller en veckoaktivitet"
+          aria-pressed={addOpen}
+          aria-expanded={addOpen}
+          onClick={() => setAddOpen((open) => !open)}
+        >
+          +
+        </button>
+      ) : null}
+      {savingOrder ? (
+        <span
+          className={styles.saveSpinner}
+          role="status"
+          aria-live="polite"
+          aria-label="Sparar ordning"
+        />
+      ) : null}
+    </div>
+  ) : null;
+
+  const counter = localItems.length > 0 ? (
+    <span
+      className={[
+        styles.counter,
+        doneCount === localItems.length ? styles.counterDone : "",
+        doneCount > 0 && doneCount < localItems.length
+          ? styles.counterPartial
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span className={styles.counterBig}>{doneCount}</span>
+      <span className={styles.counterSlash}>/ {localItems.length}</span>
+    </span>
+  ) : null;
+
+  const showHint = !tripDay && (localItems.length > 0 || onLeave);
+  const showWeek = showWeekLink || planningMode;
+  const showCardHeader = (!tripDay && showControls) || showHint || showWeek;
 
   return (
-    <Card className={[styles.card, styles.planCard].filter(Boolean).join(" ")}>
+    <>
+      {tripDay ? (
+        <div className={styles.dayToolbar}>
+          <h2 className={styles.tripTitle}>
+            {formatTripDayTitle(tripDay.title, tripDay.dayIndex, tripDay.dayCount)}
+          </h2>
+          <div className={styles.dayToolbarEnd}>
+            {addControl}
+            {counter}
+          </div>
+        </div>
+      ) : null}
+      <Card className={[styles.card, styles.planCard].filter(Boolean).join(" ")}>
       {showCardHeader ? (
         <header className={[styles.header, styles.planHeader].filter(Boolean).join(" ")}>
-          {addWeekday != null || savingOrder || localItems.length > 0 ? (
+          {!tripDay && showControls ? (
             <div className={styles.titleRow}>
-              <div className={styles.planActions}>
-                {addWeekday != null ? (
-                  <button
-                    type="button"
-                    className={styles.headerAdd}
-                    aria-label="Lägg till engångsuppgift"
-                    title="Lägg till engångsuppgift för den här dagen"
-                    aria-pressed={addOpen}
-                    aria-expanded={addOpen}
-                    onClick={() => setAddOpen((open) => !open)}
-                  >
-                    +
-                  </button>
-                ) : null}
-                {savingOrder ? (
-                  <span
-                    className={styles.saveSpinner}
-                    role="status"
-                    aria-live="polite"
-                    aria-label="Sparar ordning"
-                  />
-                ) : null}
-              </div>
-              {localItems.length > 0 ? (
-                <span
-                  className={[
-                    styles.counter,
-                    doneCount === localItems.length ? styles.counterDone : "",
-                    doneCount > 0 && doneCount < localItems.length
-                      ? styles.counterPartial
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  <span className={styles.counterBig}>{doneCount}</span>
-                  <span className={styles.counterSlash}>/ {localItems.length}</span>
-                </span>
-              ) : null}
+              {addControl}
+              {counter}
             </div>
           ) : null}
-          {localItems.length > 0 || onLeave ? (
+          {!tripDay && (localItems.length > 0 || onLeave) ? (
             <p className={styles.planHint}>
-              {tripDay
-                ? `${tripDay.title} · dag ${tripDay.dayIndex}/${tripDay.dayCount} — Jobb visas inte. Dra ⠿ för att ändra ordning.`
-                : onLeave
+              {onLeave
                 ? "Ledig idag — Jobb visas inte. Dagsuppgifter följer visningen under Inställningar."
                 : planningMode
                   ? "Dra ⠿ för att planera ordningen inför dagen"
                   : "Dra ⠿ för att ändra ordning idag"}
             </p>
-          ) : null}
-          {onLeave ? (
-            <Link href="/year?view=plan" className={styles.weekLink}>
-              Årskalender →
-            </Link>
           ) : null}
           {showWeekLink || planningMode ? (
             <Link
@@ -397,8 +465,12 @@ export function DayActivitiesCard({
 
       {quickAdd}
 
-      {localItems.length === 0 && !addOpen && !hideWhenEmpty ? (
+      {localItems.length === 0 && !adding && !addOpen && !hideWhenEmpty ? (
         <p className={styles.empty}>Inget planerat idag.</p>
+      ) : null}
+
+      {localItems.length === 0 && adding ? (
+        <ul className={styles.list}>{pendingRow}</ul>
       ) : null}
 
       {localItems.length > 0 ? (
@@ -410,6 +482,7 @@ export function DayActivitiesCard({
         >
           <SortableContext items={itemKeys} strategy={verticalListSortingStrategy}>
             <ul className={styles.list}>
+              {pendingRow}
               {localItems.map((item) => (
                 <PlanSortableRow key={item.itemKey} id={item.itemKey}>
                   {(sortable) => (
@@ -456,5 +529,6 @@ export function DayActivitiesCard({
 
       {extraBath}
     </Card>
+    </>
   );
 }

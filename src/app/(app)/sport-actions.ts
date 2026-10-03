@@ -26,6 +26,8 @@ export async function addSportPlacementAction(input: {
   templateId: string;
   weekStart: string;
   weekday: Weekday;
+  /** Catalog sport chosen from the day plus-button. */
+  sportId?: string | null;
 }): Promise<ActionResult> {
   if (!input.templateId) return { ok: false, error: "Saknar pass-id." };
   if (!isMonday(input.weekStart)) {
@@ -56,12 +58,25 @@ export async function addSportPlacementAction(input: {
     .maybeSingle();
   if (!template) return { ok: false, error: "Passet hittades inte." };
 
+  let planColumns: { plan_sport?: string; sport_id?: string } = {};
+  if (input.sportId) {
+    const resolved = await resolveCatalogSport(
+      supabase,
+      user.id,
+      input.sportId,
+      null,
+    );
+    if (!resolved.ok) return resolved;
+    planColumns = { plan_sport: resolved.title, sport_id: resolved.sportId ?? undefined };
+  }
+
   const { error } = await supabase.from("sport_week_placements").insert({
     user_id: user.id,
     template_id: input.templateId,
     week_start: input.weekStart,
     weekday: input.weekday,
     day_sort_order: daySortOrder,
+    ...planColumns,
   });
 
   if (error) {
@@ -80,7 +95,11 @@ export async function addSportPlacementAction(input: {
       if (orphan) {
         const { error: updateError } = await supabase
           .from("sport_week_placements")
-          .update({ weekday: input.weekday, day_sort_order: daySortOrder })
+          .update({
+            weekday: input.weekday,
+            day_sort_order: daySortOrder,
+            ...planColumns,
+          })
           .eq("id", orphan.id)
           .eq("user_id", user.id);
         if (updateError) return { ok: false, error: updateError.message };

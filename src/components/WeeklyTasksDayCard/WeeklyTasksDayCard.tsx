@@ -241,6 +241,8 @@ interface QuickAddRowProps {
   /** Show the form immediately (parent owns the open/close toggle). */
   alwaysOpen?: boolean;
   onCancel?: () => void;
+  /** True while the one-off is being saved, false if it fails. */
+  onPending?: (pending: boolean) => void;
 }
 
 export function WeeklyTaskQuickAdd({
@@ -250,6 +252,7 @@ export function WeeklyTaskQuickAdd({
   onAdded,
   alwaysOpen = false,
   onCancel,
+  onPending,
 }: QuickAddRowProps) {
   const [open, setOpen] = useState(alwaysOpen);
   const [title, setTitle] = useState("");
@@ -270,6 +273,7 @@ export function WeeklyTaskQuickAdd({
     if (!trimmed) return;
     setError(null);
     const cat = categories.find((c) => c.id === categoryId) ?? null;
+    onPending?.(true);
     startTransition(async () => {
       const res = await createOneOffWeeklyTaskAction({
         title: trimmed,
@@ -279,6 +283,7 @@ export function WeeklyTaskQuickAdd({
         accent: cat?.accent,
       });
       if (!res.ok) {
+        onPending?.(false);
         setError(res.error ?? "Kunde inte lägga till.");
         return;
       }

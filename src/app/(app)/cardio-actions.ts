@@ -33,6 +33,8 @@ export async function addCardioPlacementAction(input: {
   templateId: string;
   weekStart: string;
   weekday: Weekday;
+  /** Planned kind when added from the day plus-button. */
+  planKind?: string | null;
 }): Promise<ActionResult> {
   if (!input.templateId) return { ok: false, error: "Saknar pass-id." };
   if (!isMonday(input.weekStart)) {
@@ -63,12 +65,18 @@ export async function addCardioPlacementAction(input: {
     .maybeSingle();
   if (!template) return { ok: false, error: "Passet hittades inte." };
 
+  const planKind = input.planKind ? parseKind(input.planKind) : null;
+  if (input.planKind && !planKind) {
+    return { ok: false, error: "Välj löpning, cykling eller simning." };
+  }
+
   const { error } = await supabase.from("cardio_week_placements").insert({
     user_id: user.id,
     template_id: input.templateId,
     week_start: input.weekStart,
     weekday: input.weekday,
     day_sort_order: daySortOrder,
+    ...(planKind ? { plan_kind: planKind } : {}),
   });
 
   if (error) {
@@ -85,7 +93,11 @@ export async function addCardioPlacementAction(input: {
       if (orphan) {
         const { error: updateError } = await supabase
           .from("cardio_week_placements")
-          .update({ weekday: input.weekday, day_sort_order: daySortOrder })
+          .update({
+            weekday: input.weekday,
+            day_sort_order: daySortOrder,
+            ...(planKind ? { plan_kind: planKind } : {}),
+          })
           .eq("id", orphan.id)
           .eq("user_id", user.id);
         if (updateError) return { ok: false, error: updateError.message };

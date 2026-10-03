@@ -741,6 +741,13 @@ export async function addWeeklyTaskPlacementAction(input: {
   taskId: string;
   weekStart: string;
   weekday: Weekday;
+  /** Set when the day plus-button already picked the variant. */
+  musicActivity?: string | null;
+  band?: string | null;
+  spendKind?: string | null;
+  gameId?: string | null;
+  callPerson?: string | null;
+  callOtherName?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Missing task id." };
   if (!isMonday(input.weekStart)) {
@@ -758,7 +765,7 @@ export async function addWeeklyTaskPlacementAction(input: {
 
   const { data: task } = await supabase
     .from("weekly_tasks")
-    .select("id, key, is_repeatable")
+    .select("id, key, is_repeatable, completion_kind")
     .eq("id", input.taskId)
     .eq("user_id", user.id)
     .is("archived_at", null)
@@ -767,6 +774,48 @@ export async function addWeeklyTaskPlacementAction(input: {
   if (!isWeeklyTaskRepeatable({ key: task.key, isRepeatable: task.is_repeatable })) {
     return placeWeeklyTaskAction(input);
   }
+
+  const kind = task.completion_kind as WeeklyTaskCompletionKind;
+  const musicActivity =
+    kind === "music" ? parseMusicActivity(input.musicActivity ?? null) : null;
+  if (kind === "music" && input.musicActivity && !musicActivity) {
+    return { ok: false, error: "Välj vad du ska göra." };
+  }
+  const band =
+    musicActivity && musicActivityNeedsBand(musicActivity)
+      ? (input.band ?? "").trim().slice(0, 80) || null
+      : null;
+  const spendKind =
+    kind === "shop" || kind === "expense"
+      ? parseSpendKindFor(kind, input.spendKind ?? null)
+      : null;
+  if ((kind === "shop" || kind === "expense") && input.spendKind && !spendKind) {
+    return { ok: false, error: "Ogiltig utgiftstyp." };
+  }
+
+  let gameId: string | null = null;
+  if (isGameWeeklyTaskKey(task.key) && input.gameId?.trim()) {
+    const { data: game } = await supabase
+      .from("user_games")
+      .select("id")
+      .eq("id", input.gameId.trim())
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (!game) return { ok: false, error: "Spelet hittades inte." };
+    gameId = game.id;
+  }
+
+  const callPerson = isRingWeeklyTaskKey(task.key)
+    ? parseRingPerson(input.callPerson ?? null)
+    : null;
+  if (isRingWeeklyTaskKey(task.key) && input.callPerson && !callPerson) {
+    return { ok: false, error: "Välj vem du ska ringa." };
+  }
+  const callOtherName =
+    callPerson === "ovrigt"
+      ? (input.callOtherName ?? "").trim().slice(0, 80) || null
+      : null;
 
   const daySortOrder = await nextWeeklyDaySortOrder(
     supabase,
@@ -782,6 +831,12 @@ export async function addWeeklyTaskPlacementAction(input: {
     weekday: input.weekday,
     day_sort_order: daySortOrder,
     on_hold: false,
+    ...(musicActivity ? { music_activity: musicActivity, band } : {}),
+    ...(spendKind ? { spend_kind: spendKind } : {}),
+    ...(gameId ? { game_id: gameId } : {}),
+    ...(callPerson
+      ? { call_person: callPerson, call_other_name: callOtherName }
+      : {}),
   });
   if (error) return { ok: false, error: error.message };
 

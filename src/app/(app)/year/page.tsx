@@ -17,6 +17,7 @@ import { LiveEventsYearProgress } from "@/components/LiveEventsYearProgress/Live
 import { GigsYearBoard } from "@/components/GigsYearBoard/GigsYearBoard";
 import { GigsYearProgress } from "@/components/GigsYearProgress/GigsYearProgress";
 import { getYearRestaurantMeals } from "@/lib/meals.server";
+import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
 import {
   buildYearCompletions,
@@ -41,7 +42,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
 
   const params = await searchParams;
   const view = parsePeriodView(params.view);
-  const currentYear = new Date().getFullYear();
+  const currentYear = Number(todayLocalISO().slice(0, 4));
 
   let year = currentYear;
   if (params.y && YEAR_QS_RE.test(params.y)) {

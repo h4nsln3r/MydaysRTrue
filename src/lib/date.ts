@@ -1,10 +1,12 @@
 /** Returns the YYYY-MM-DD for the Sunday of the ISO week containing `localDate`. */
-export function weekEndISO(localDate: string | Date = new Date()): string {
-  const start =
-    typeof localDate === "string"
-      ? weekStartISO(parseLocalISO(localDate))
-      : weekStartISO(localDate);
-  return addDaysISO(start, 6);
+export function weekEndISO(localDate?: string | Date): string {
+  const basis =
+    localDate == null
+      ? parseLocalISO(todayLocalISO())
+      : typeof localDate === "string"
+        ? parseLocalISO(localDate)
+        : localDate;
+  return addDaysISO(weekStartISO(basis), 6);
 }
 
 /** True when `localDate` is today or later this ISO week (Mon–Sun). */
@@ -15,23 +17,50 @@ export function isUpcomingWeekDay(
   return localDate > today && localDate <= weekEndISO(today);
 }
 
-/** Returns today's date in the user's local timezone as YYYY-MM-DD. */
-export function todayLocalISO(now: Date = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-/** Keeps SSR (UTC server) and browser display in sync for Swedish local time. */
+/** Keeps SSR (UTC server) and browser display on the same Swedish calendar day. */
 export const DISPLAY_TIMEZONE = "Europe/Stockholm";
 export const DISPLAY_LOCALE = "sv-SE";
 
+/** YYYY-MM-DD from a Date's own calendar fields. No timezone conversion. */
+function formatYMD(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Calendar date YYYY-MM-DD of an instant in `timeZone`.
+ * Uses formatToParts so the result does not depend on locale date order.
+ */
+export function ymdInTimeZone(
+  instant: Date,
+  timeZone: string = DISPLAY_TIMEZONE,
+): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+  const y = parts.find((p) => p.type === "year")?.value ?? "0000";
+  const m = parts.find((p) => p.type === "month")?.value ?? "01";
+  const day = parts.find((p) => p.type === "day")?.value ?? "01";
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Today's calendar date in Europe/Stockholm, as YYYY-MM-DD.
+ * The server (often UTC) and a phone in another country must agree.
+ * Date arithmetic uses formatYMD instead, so this never shifts a YYYY-MM-DD.
+ */
+export function todayLocalISO(now: Date = new Date()): string {
+  return ymdInTimeZone(now, DISPLAY_TIMEZONE);
+}
+
 /** Calendar date YYYY-MM-DD in DISPLAY_TIMEZONE for a stored ISO timestamp. */
 export function localISOFromTimestamp(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-CA", {
-    timeZone: DISPLAY_TIMEZONE,
-  });
+  return ymdInTimeZone(new Date(iso), DISPLAY_TIMEZONE);
 }
 
 export function formatTime(iso: string): string {
@@ -73,7 +102,7 @@ const LOCAL_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 export function isLocalISODate(value: string): boolean {
   if (!LOCAL_ISO_RE.test(value)) return false;
   const parsed = parseLocalISO(value);
-  return todayLocalISO(parsed) === value;
+  return formatYMD(parsed) === value;
 }
 
 /** Whole days from `from` to `to` (negative if `to` is earlier). */
@@ -90,20 +119,23 @@ export function isoWeekdayFromLocalISO(localDate: string): number {
   return ((jsDow + 6) % 7) + 1;
 }
 
-/** Returns the YYYY-MM-DD for the Monday of the ISO week containing `date`. */
-export function weekStartISO(date: Date = new Date()): string {
+/**
+ * Monday of the ISO week containing `date`.
+ * With no argument, the week is the one that contains today's Swedish date.
+ */
+export function weekStartISO(date: Date = parseLocalISO(todayLocalISO())): string {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const day = d.getDay(); // 0 = Sun .. 6 = Sat
   const diff = (day + 6) % 7; // days since Monday
   d.setDate(d.getDate() - diff);
-  return todayLocalISO(d);
+  return formatYMD(d);
 }
 
 /** Returns YYYY-MM-DD that is `days` away from `localDate` (can be negative). */
 export function addDaysISO(localDate: string, days: number): string {
   const dt = parseLocalISO(localDate);
   dt.setDate(dt.getDate() + days);
-  return todayLocalISO(dt);
+  return formatYMD(dt);
 }
 
 /** ISO 8601 week number (1–53). */

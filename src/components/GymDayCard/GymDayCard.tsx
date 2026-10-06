@@ -11,7 +11,6 @@ import {
   moveGymSessionAction,
   uncompleteGymSessionAction,
   unplaceGymSessionAction,
-  updateGymSessionNoteAction,
 } from "@/app/(app)/gym-actions";
 import {
   GYM_WARMUP_ICON,
@@ -177,6 +176,10 @@ export function GymSessionRow({
   );
   const [note, setNote] = useState(session.placement.note ?? "");
   const [, startTransition] = useTransition();
+  const completionDirty =
+    done &&
+    (warmup !== session.placement.warmup ||
+      note !== (session.placement.note ?? ""));
 
   const complete = () => {
     if (!warmup) {
@@ -209,21 +212,6 @@ export function GymSessionRow({
       if (!res.ok) onError(res.error ?? "Kunde inte ångra.");
       setWarmup(null);
       setNote("");
-      onPendingId(null);
-      onDone();
-    });
-  };
-
-  const saveNote = () => {
-    onError(null);
-    onPendingId(session.id);
-    startTransition(async () => {
-      const res = await updateGymSessionNoteAction({
-        templateId: session.id,
-        weekStart,
-        note,
-      });
-      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
       onDone();
     });
@@ -347,60 +335,50 @@ export function GymSessionRow({
 
       {expanded && !planningMode ? (
         <div className={styles.sessionActions}>
-          {!done ? (
-            <>
-              <p className={styles.actionsLabel}>Uppvärmning</p>
-              <div className={styles.warmupRow}>
-                {GYM_WARMUPS.map((w) => (
-                  <button
-                    key={w}
-                    type="button"
-                    className={[
-                      styles.warmupBtn,
-                      warmup === w ? styles.warmupBtnActive : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    aria-pressed={warmup === w}
-                    onClick={() => setWarmup(w)}
-                    disabled={pending}
-                  >
-                    <span aria-hidden>{GYM_WARMUP_ICON[w]}</span>
-                    {GYM_WARMUP_LABEL[w]}
-                  </button>
-                ))}
-              </div>
-              <Input
-                label="Kommentar"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="t.ex. gym på Berga i Helsingborg"
-                maxLength={280}
-                disabled={pending}
-              />
-              <Button
+          <p className={styles.actionsLabel}>Uppvärmning</p>
+          <div className={styles.warmupRow}>
+            {GYM_WARMUPS.map((w) => (
+              <button
+                key={w}
                 type="button"
-                variant="primary"
-                size="md"
-                fullWidth
-                loading={pending && busy}
+                className={[
+                  styles.warmupBtn,
+                  warmup === w ? styles.warmupBtnActive : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-pressed={warmup === w}
+                onClick={() => setWarmup(w)}
                 disabled={pending}
-                onClick={complete}
               >
-                Markera klart
-              </Button>
-            </>
+                <span aria-hidden>{GYM_WARMUP_ICON[w]}</span>
+                {GYM_WARMUP_LABEL[w]}
+              </button>
+            ))}
+          </div>
+          <Input
+            label="Kommentar"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="t.ex. gym på Berga i Helsingborg"
+            maxLength={280}
+            disabled={pending}
+          />
+          {!done ? (
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              fullWidth
+              loading={pending && busy}
+              disabled={pending}
+              onClick={complete}
+            >
+              Markera klart
+            </Button>
           ) : (
             <>
-              <Input
-                label="Kommentar"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="t.ex. gym på Berga i Helsingborg"
-                maxLength={280}
-                disabled={pending}
-              />
-              {note !== (session.placement.note ?? "") ? (
+              {completionDirty ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -408,19 +386,19 @@ export function GymSessionRow({
                   fullWidth
                   loading={pending && busy}
                   disabled={pending}
-                  onClick={saveNote}
+                  onClick={complete}
                 >
-                  Spara kommentar
+                  Spara
                 </Button>
               ) : null}
               <button
-              type="button"
-              className={styles.undoBtn}
-              onClick={uncomplete}
-              disabled={pending}
-            >
-              Ångra klarmarkering
-            </button>
+                type="button"
+                className={styles.undoBtn}
+                onClick={uncomplete}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
             </>
           )}
         </div>

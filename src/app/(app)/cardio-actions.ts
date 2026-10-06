@@ -6,6 +6,7 @@ import { ensureCardioTemplate } from "@/lib/cardio.server";
 import { isCardioKind, type CardioKind } from "@/lib/cardio";
 import type { Weekday } from "@/lib/tasks";
 import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
+import { clearPlacementJournalEdit } from "@/lib/journal.server";
 
 export interface ActionResult {
   ok: boolean;
@@ -318,7 +319,7 @@ export async function completeCardioSessionAction(input: {
 
   const { data: existing } = await supabase
     .from("cardio_week_placements")
-    .select("id, weekday, plan_kind")
+    .select("id, weekday, plan_kind, done_at")
     .eq("id", input.placementId)
     .eq("user_id", user.id)
     .eq("week_start", input.weekStart)
@@ -341,7 +342,7 @@ export async function completeCardioSessionAction(input: {
   const { error } = await supabase
     .from("cardio_week_placements")
     .update({
-      done_at: new Date().toISOString(),
+      done_at: existing.done_at ?? new Date().toISOString(),
       actual_kind: kind,
       plan_kind: existing.plan_kind || kind,
       note: note || null,
@@ -349,6 +350,13 @@ export async function completeCardioSessionAction(input: {
     .eq("id", existing.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  await clearPlacementJournalEdit(
+    user.id,
+    input.weekStart,
+    existing.weekday,
+    `cardio-${existing.id}`,
+  );
 
   revalidatePath("/", "layout");
   return { ok: true };

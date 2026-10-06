@@ -1,7 +1,11 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { BathingSessionForWeek } from "@/lib/bathing";
-import { formatWaterTemp } from "@/lib/bathing";
+import {
+  bathingWaterTempError,
+  formatBathingJournalBody,
+  parseBathingJournalBody,
+} from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import { cardioSessionDisplay, formatCardioDetail } from "@/lib/cardio";
 import type { SportSessionForWeek } from "@/lib/sport";
@@ -352,18 +356,16 @@ function buildAutoEntries(ctx: JournalDayContext): JournalDisplayEntry[] {
 
   for (const s of ctx.bathingSessions) {
     if (!s.placement.doneAt) continue;
-    const parts: string[] = [];
-    if (s.placement.waterTempC != null) {
-      parts.push(formatWaterTemp(s.placement.waterTempC));
-    }
-    if (s.placement.note) parts.push(s.placement.note);
-    if (s.description && parts.length === 0) parts.push(s.description);
     entries.push({
       id: `bathing-${s.placement.id}`,
       source: "bathing",
       icon: s.icon,
       title: s.label,
-      body: parts.length > 0 ? parts.join(". ") : "Klart.",
+      body: formatBathingJournalBody(
+        s.placement.waterTempC,
+        s.placement.note,
+        s.description,
+      ),
       at: s.placement.doneAt,
       editable: false,
     });
@@ -613,6 +615,20 @@ export async function getJournalEntryEditsForWeek(
 
 const TRACKED_ITEM_DESC_MAX = 280;
 
+export async function clearPlacementJournalEdit(
+  userId: string,
+  weekStart: string,
+  weekday: number | null,
+  entryId: string,
+): Promise<void> {
+  if (weekday == null) return;
+  await clearJournalEntryEdit(
+    userId,
+    addDaysISO(weekStart, weekday - 1),
+    entryId,
+  );
+}
+
 async function clearJournalEntryEdit(
   userId: string,
   localDate: string,
@@ -773,6 +789,89 @@ async function saveIntakeJournalEdit(
   return { ok: true };
 }
 
+async function saveBathingJournalEdit(
+  userId: string,
+  localDate: string,
+  entryId: string,
+  body: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const placementId = entryId.slice("bathing-".length);
+  if (!placementId) return { ok: false, error: "Ogiltigt bad." };
+
+  const supabase = await createClient();
+  const { data: placement, error: lookupError } = await supabase
+    .from("bathing_week_placements")
+    .select("id, template_id, week_start, weekday, done_at")
+    .eq("id", placementId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (lookupError) return { ok: false, error: lookupError.message };
+  if (!placement?.done_at || placement.weekday == null) {
+    return { ok: false, error: "Badet är inte klarmarkerat." };
+  }
+  if (addDaysISO(placement.week_start, placement.weekday - 1) !== localDate) {
+    return { ok: false, error: "Badet hör inte till den här dagen." };
+  }
+
+  const { data: template, error: templateError } = await supabase
+    .from("bathing_session_templates")
+    .select("key, description")
+    .eq("id", placement.template_id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (templateError) return { ok: false, error: templateError.message };
+  if (!template) return { ok: false, error: "Badet hittades inte." };
+
+  const parsed = parseBathingJournalBody(body);
+  const tempError = bathingWaterTempError(template.key, parsed.waterTempC);
+  if (tempError) {
+    const missing =
+      parsed.waterTempC == null &&
+      (template.key === "bad" || template.key.startsWith("bad_"));
+    return {
+      ok: false,
+      error: missing
+        ? "Skriv temperaturen i texten, t.ex. 4°C."
+        : tempError,
+    };
+  }
+  if (parsed.note && parsed.note.length > 280) {
+    return { ok: false, error: "Håll kommentaren under 280 tecken." };
+  }
+
+  const { error } = await supabase
+    .from("bathing_week_placements")
+    .update({
+      water_temp_c: parsed.waterTempC,
+      note: parsed.note,
+    })
+    .eq("id", placement.id)
+    .eq("user_id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  const canonical = formatBathingJournalBody(
+    parsed.waterTempC,
+    parsed.note,
+    template.description,
+  );
+  if (canonical === body.trim()) {
+    await clearJournalEntryEdit(userId, localDate, entryId);
+    return { ok: true };
+  }
+
+  const { error: editError } = await supabase.from("journal_entry_edits").upsert(
+    {
+      user_id: userId,
+      local_date: localDate,
+      entry_id: entryId,
+      body,
+    },
+    { onConflict: "user_id,local_date,entry_id" },
+  );
+  if (editError) return { ok: false, error: editError.message };
+  return { ok: true };
+}
+
 export async function saveJournalEntryEdit(
   userId: string,
   localDate: string,
@@ -787,6 +886,9 @@ export async function saveJournalEntryEdit(
   }
   if (intakeIdFromJournalEntryId(entryId)) {
     return saveIntakeJournalEdit(userId, localDate, entryId, body);
+  }
+  if (entryId.startsWith("bathing-")) {
+    return saveBathingJournalEdit(userId, localDate, entryId, body);
   }
 
   const supabase = await createClient();

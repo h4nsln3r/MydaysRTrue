@@ -191,6 +191,12 @@ export function SportSessionRow({
     session.placement.companions ?? "",
   );
   const [, startTransition] = useTransition();
+  const completionDirty =
+    done &&
+    (actualSport !==
+      (session.placement.actualSport ?? session.placement.planSport ?? "") ||
+      note !== (session.placement.note ?? "") ||
+      companions !== (session.placement.companions ?? ""));
 
   const savePlan = () => {
     if (!planSportId) {
@@ -428,14 +434,57 @@ export function SportSessionRow({
               </Button>
             </>
           ) : (
-            <button
-              type="button"
-              className={styles.undoBtn}
-              onClick={uncomplete}
-              disabled={pending}
-            >
-              Ångra klarmarkering
-            </button>
+            <>
+              <SportFields
+                sports={sports}
+                value={actualSportId || planSportId || null}
+                onChange={(id, sport) => {
+                  setActualSportId(id ?? "");
+                  setActualSport(sport?.title ?? "");
+                }}
+                disabled={pending}
+                label="Vad blev det?"
+              />
+              <label className={styles.noteField}>
+                <span className={styles.fieldLabel}>Hur gick det?</span>
+                <textarea
+                  className={styles.noteInput}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Bra rundor, trött ben, nytt rekord…"
+                  rows={2}
+                  maxLength={280}
+                />
+              </label>
+              <Input
+                label="Vem var med?"
+                value={companions}
+                onChange={(e) => setCompanions(e.target.value)}
+                placeholder="t.ex. Johan, Lisa"
+                maxLength={120}
+              />
+              {completionDirty ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={complete}
+                >
+                  Spara
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={uncomplete}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
+            </>
           )}
         </div>
       ) : null}

@@ -3,6 +3,22 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   addJournalEntryAction,
   deleteJournalEntryAction,
   reorderJournalEntriesAction,
@@ -37,6 +53,13 @@ export function JournalDaySection({ date, journal }: Props) {
 
   useSyncNavPending(pending || reorderBusy, journal);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 180, tolerance: 6 },
+    }),
+  );
+
   useEffect(() => {
     setEntries(journal.entries);
     setNarrative(journal.narrative);
@@ -55,17 +78,11 @@ export function JournalDaySection({ date, journal }: Props) {
     });
   };
 
-  const moveEntry = (index: number, direction: -1 | 1) => {
-    const nextIndex = index + direction;
-    if (nextIndex < 0 || nextIndex >= entries.length || reorderBusy) return;
+  const persistOrder = (next: JournalDisplayEntry[]) => {
+    if (reorderBusy) return;
 
     const previousEntries = entries;
     const previousNarrative = narrative;
-    const next = [...entries];
-    const tmp = next[index];
-    next[index] = next[nextIndex];
-    next[nextIndex] = tmp;
-
     setEntries(next);
     setNarrative(buildJournalNarrative(next));
     setError(null);
@@ -86,6 +103,28 @@ export function JournalDaySection({ date, journal }: Props) {
       router.refresh();
       setReorderBusy(false);
     });
+  };
+
+  const moveEntry = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= entries.length || reorderBusy) return;
+
+    const next = [...entries];
+    const tmp = next[index];
+    next[index] = next[nextIndex];
+    next[nextIndex] = tmp;
+    persistOrder(next);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || reorderBusy) return;
+
+    const oldIndex = entries.findIndex((entry) => entry.id === active.id);
+    const newIndex = entries.findIndex((entry) => entry.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    persistOrder(arrayMove(entries, oldIndex, newIndex));
   };
 
   const onBodySaved = (id: string, body: string) => {
@@ -150,23 +189,35 @@ export function JournalDaySection({ date, journal }: Props) {
           {showDetails ? (
             <>
               <p className={styles.reorderHint}>
-                Flytta upp eller ner för att ändra ordningen i dagboken.
+                Dra ⠿ eller använd pilarna för att ändra ordningen i dagboken.
               </p>
-              <ol className={styles.timeline}>
-                {entries.map((entry, index) => (
-                  <JournalEntryRow
-                    key={entry.id}
-                    entry={entry}
-                    date={date}
-                    index={index}
-                    total={entries.length}
-                    pending={pending || reorderBusy}
-                    onMoveUp={() => moveEntry(index, -1)}
-                    onMoveDown={() => moveEntry(index, 1)}
-                    onBodySaved={onBodySaved}
-                  />
-                ))}
-              </ol>
+              <DndContext
+                id={`journal-details-dnd-${date}`}
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={entries.map((entry) => entry.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <ol className={styles.timeline}>
+                    {entries.map((entry, index) => (
+                      <JournalEntryRow
+                        key={entry.id}
+                        entry={entry}
+                        date={date}
+                        index={index}
+                        total={entries.length}
+                        pending={pending || reorderBusy}
+                        onMoveUp={() => moveEntry(index, -1)}
+                        onMoveDown={() => moveEntry(index, 1)}
+                        onBodySaved={onBodySaved}
+                      />
+                    ))}
+                  </ol>
+                </SortableContext>
+              </DndContext>
             </>
           ) : null}
         </div>
@@ -274,17 +325,39 @@ function JournalEntryRow({
 
   const sourceLabel = JOURNAL_SOURCE_LABEL[entry.source];
   const busy = pending || rowPending;
+  const sortable = useSortable({
+    id: entry.id,
+    disabled: busy || total < 2,
+  });
+  const sortableStyle = {
+    transform: CSS.Transform.toString(sortable.transform),
+    transition: sortable.transition,
+  };
 
   return (
     <li
+      ref={sortable.setNodeRef}
+      style={sortableStyle}
       className={[
         styles.entry,
         entry.editable ? styles.entryManual : styles.entryAuto,
+        sortable.isDragging ? styles.entryDragging : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
       <div className={styles.reorderControls}>
+        <button
+          type="button"
+          className={styles.dragHandle}
+          aria-label={`Dra ${entry.title}`}
+          title="Dra för att ändra ordning"
+          disabled={busy || total < 2}
+          {...sortable.attributes}
+          {...sortable.listeners}
+        >
+          ⠿
+        </button>
         <button
           type="button"
           className={styles.reorderBtn}

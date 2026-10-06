@@ -182,6 +182,10 @@ export function CardioSessionRow({
   );
   const [note, setNote] = useState(session.placement.note ?? "");
   const [, startTransition] = useTransition();
+  const completionDirty =
+    done &&
+    ((actualKind ?? planKind) !== resolveCardioKind(session.placement) ||
+      note !== (session.placement.note ?? ""));
 
   const savePlan = () => {
     if (!planKind) {
@@ -399,14 +403,42 @@ export function CardioSessionRow({
               </Button>
             </>
           ) : (
-            <button
-              type="button"
-              className={styles.undoBtn}
-              onClick={uncomplete}
-              disabled={pending}
-            >
-              Ångra klarmarkering
-            </button>
+            <>
+              <CardioFields
+                value={actualKind ?? planKind}
+                onChange={setActualKind}
+                disabled={pending}
+                label="Vad blev det?"
+              />
+              <Input
+                label="Kommentar om passet"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="t.ex. 5 km lätt tempo, 30 min cykel"
+                maxLength={280}
+              />
+              {completionDirty ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={complete}
+                >
+                  Spara
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={uncomplete}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
+            </>
           )}
         </div>
       ) : null}

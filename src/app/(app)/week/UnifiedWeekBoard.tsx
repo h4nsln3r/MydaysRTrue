@@ -2442,14 +2442,59 @@ function ItemRowContent({
           ) : null}
 
           {item.kind === "gym" && item.done ? (
-            <button
-              type="button"
-              className={styles.undoBtn}
-              onClick={uncompleteGym}
-              disabled={pending}
-            >
-              Ångra klarmarkering
-            </button>
+            <>
+              <p className={styles.actionsLabel}>Uppvärmning</p>
+              <div className={styles.warmupRow}>
+                {GYM_WARMUPS.map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    className={[
+                      styles.warmupBtn,
+                      warmup === w ? styles.warmupBtnActive : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    aria-pressed={warmup === w}
+                    onClick={() => setWarmup(w)}
+                    disabled={pending}
+                  >
+                    <span aria-hidden>{GYM_WARMUP_ICON[w]}</span>
+                    {GYM_WARMUP_LABEL[w]}
+                  </button>
+                ))}
+              </div>
+              <Input
+                label="Kommentar"
+                value={gymNote}
+                onChange={(e) => setGymNote(e.target.value)}
+                placeholder="t.ex. gym på Berga i Helsingborg"
+                maxLength={280}
+                disabled={pending}
+              />
+              {warmup !== item.warmup ||
+              gymNote !== (item.session.placement.note ?? "") ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={completeGym}
+                >
+                  Spara
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={uncompleteGym}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
+            </>
           ) : null}
 
           {item.kind === "cardio" &&
@@ -2504,14 +2549,45 @@ function ItemRowContent({
           {item.kind === "cardio" &&
           item.cardioRole === "placement" &&
           item.done ? (
-            <button
-              type="button"
-              className={styles.undoBtn}
-              onClick={uncompleteCardio}
-              disabled={pending}
-            >
-              Ångra klarmarkering
-            </button>
+            <>
+              <CardioFields
+                value={cardioActualKind ?? cardioPlanKind}
+                onChange={setCardioActualKind}
+                disabled={pending}
+                label="Vad blev det?"
+              />
+              <Input
+                label="Kommentar"
+                value={cardioNote}
+                onChange={(e) => setCardioNote(e.target.value)}
+                placeholder="T.ex. 5 km lätt tempo"
+                maxLength={280}
+                disabled={pending}
+              />
+              {(cardioActualKind ?? cardioPlanKind) !==
+                resolveCardioKind(item.session.placement) ||
+              cardioNote !== (item.session.placement.note ?? "") ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={completeCardio}
+                >
+                  Spara
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={uncompleteCardio}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
+            </>
           ) : null}
 
           {item.kind === "sport" &&
@@ -2579,14 +2655,60 @@ function ItemRowContent({
           {item.kind === "sport" &&
           item.sportRole === "placement" &&
           item.done ? (
-            <button
-              type="button"
-              className={styles.undoBtn}
-              onClick={uncompleteSport}
-              disabled={pending}
-            >
-              Ångra klarmarkering
-            </button>
+            <>
+              <SportFields
+                sports={sports}
+                value={sportActualId || sportPlanId || null}
+                onChange={(id, sport) => {
+                  setSportActualId(id ?? "");
+                  setSportActual(sport?.title ?? "");
+                }}
+                disabled={pending}
+                label="Vad blev det?"
+              />
+              <Input
+                label="Hur gick det?"
+                value={sportNote}
+                onChange={(e) => setSportNote(e.target.value)}
+                placeholder="Bra rundor, trött ben…"
+                maxLength={280}
+                disabled={pending}
+              />
+              <Input
+                label="Vem var med?"
+                value={sportCompanions}
+                onChange={(e) => setSportCompanions(e.target.value)}
+                placeholder="t.ex. Johan, Lisa"
+                maxLength={120}
+                disabled={pending}
+              />
+              {sportActual !==
+                (item.session.placement.actualSport ??
+                  item.session.placement.planSport ??
+                  "") ||
+              sportNote !== (item.session.placement.note ?? "") ||
+              sportCompanions !== (item.session.placement.companions ?? "") ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={completeSport}
+                >
+                  Spara
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={uncompleteSport}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
+            </>
           ) : null}
 
           {item.kind === "bathing" &&
@@ -2641,14 +2763,64 @@ function ItemRowContent({
           {item.kind === "bathing" &&
           item.bathingRole === "placement" &&
           item.done ? (
-            <button
-              type="button"
-              className={styles.undoBtn}
-              onClick={uncompleteBathing}
-              disabled={pending}
-            >
-              Ångra klarmarkering
-            </button>
+            <>
+              {bathingRequiresWaterTemp(item.session.key) ? (
+                <div className={styles.bathingTempRow}>
+                  <span className={styles.bathingFieldLabel}>Temp</span>
+                  <div className={styles.bathingTempField}>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      className={styles.bathingTempInput}
+                      value={bathingWaterTemp}
+                      onChange={(e) => setBathingWaterTemp(e.target.value)}
+                      placeholder="4"
+                      aria-label="Vattentemperatur i grader Celsius"
+                      disabled={pending}
+                    />
+                    <span className={styles.bathingTempUnit}>°C</span>
+                  </div>
+                </div>
+              ) : null}
+              <label className={styles.bathingNoteField}>
+                <span className={styles.bathingFieldLabel}>Kommentar</span>
+                <textarea
+                  className={styles.bathingNoteInput}
+                  value={bathingNote}
+                  onChange={(e) => setBathingNote(e.target.value)}
+                  placeholder="Var badade du? Hur kändes det?"
+                  rows={2}
+                  maxLength={280}
+                  disabled={pending}
+                />
+              </label>
+              {bathingWaterTemp !==
+                (item.session.placement.waterTempC != null
+                  ? String(item.session.placement.waterTempC)
+                  : "") ||
+              bathingNote !== (item.session.placement.note ?? "") ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={completeBathing}
+                >
+                  Spara
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={uncompleteBathing}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
+            </>
           ) : null}
 
           {isMonthlyAmount && !item.done ? (

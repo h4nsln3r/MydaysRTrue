@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isGymWarmup, type GymWarmup } from "@/lib/gym";
 import type { Weekday } from "@/lib/tasks";
 import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
+import { clearPlacementJournalEdit } from "@/lib/journal.server";
 
 export interface ActionResult {
   ok: boolean;
@@ -166,7 +167,7 @@ export async function completeGymSessionAction(input: {
 
   const { data: existing } = await supabase
     .from("gym_week_placements")
-    .select("id")
+    .select("id, weekday, done_at")
     .eq("user_id", user.id)
     .eq("template_id", input.templateId)
     .eq("week_start", input.weekStart)
@@ -180,12 +181,19 @@ export async function completeGymSessionAction(input: {
     .from("gym_week_placements")
     .update({
       warmup: input.warmup,
-      done_at: new Date().toISOString(),
+      done_at: existing.done_at ?? new Date().toISOString(),
       note,
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  await clearPlacementJournalEdit(
+    user.id,
+    input.weekStart,
+    existing.weekday,
+    `gym-${existing.id}`,
+  );
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -213,14 +221,29 @@ export async function updateGymSessionNoteAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
-  const { error } = await supabase
+  const { data: existing } = await supabase
     .from("gym_week_placements")
-    .update({ note })
+    .select("id, weekday")
     .eq("user_id", user.id)
     .eq("template_id", input.templateId)
     .eq("week_start", input.weekStart)
-    .not("done_at", "is", null);
+    .not("done_at", "is", null)
+    .maybeSingle();
+  if (!existing) return { ok: false, error: "Pass is not completed." };
+
+  const { error } = await supabase
+    .from("gym_week_placements")
+    .update({ note })
+    .eq("id", existing.id)
+    .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  await clearPlacementJournalEdit(
+    user.id,
+    input.weekStart,
+    existing.weekday,
+    `gym-${existing.id}`,
+  );
 
   revalidatePath("/", "layout");
   return { ok: true };

@@ -123,6 +123,48 @@
     padding-top: 8px;
 }
 
+.dragHandle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: $radius-sm;
+    border: 1px solid transparent;
+    background: transparent;
+    color: $color-fog;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: grab;
+    touch-action: none;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-line;
+        background: $color-ink-elevated;
+    }
+
+    &:active:not(:disabled) {
+        cursor: grabbing;
+    }
+
+    &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+}
+
+.entryDragging {
+    position: relative;
+    z-index: 2;
+    opacity: 0.85;
+
+    .entryBody {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+}
+
 .reorderBtn {
     display: inline-flex;
     align-items: center;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
@@ -301,6 +301,23 @@ export function BathingSessionRow({
   const [note, setNote] = useState(session.placement.note ?? "");
   const [, startTransition] = useTransition();
 
+  useEffect(() => {
+    setWaterTemp(
+      session.placement.waterTempC != null
+        ? String(session.placement.waterTempC)
+        : "",
+    );
+    setNote(session.placement.note ?? "");
+  }, [session.placement.waterTempC, session.placement.note]);
+
+  const savedTemp =
+    session.placement.waterTempC != null
+      ? String(session.placement.waterTempC)
+      : "";
+  const completionDirty =
+    done &&
+    (waterTemp !== savedTemp || note !== (session.placement.note ?? ""));
+
   const complete = () => {
     onError(null);
     onPendingId(session.placement.id);
@@ -453,58 +470,71 @@ export function BathingSessionRow({
 
       {expanded && !planningMode ? (
         <div className={styles.sessionActions}>
-          {!done ? (
-            <>
-              {needsTemp ? (
-                <div className={styles.tempRow}>
-                  <span className={styles.fieldLabel}>Temp</span>
-                  <div className={styles.tempField}>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.1"
-                      className={styles.tempInput}
-                      value={waterTemp}
-                      onChange={(e) => setWaterTemp(e.target.value)}
-                      placeholder="4"
-                      aria-label="Vattentemperatur i grader Celsius"
-                    />
-                    <span className={styles.tempUnit}>°C</span>
-                  </div>
-                </div>
-              ) : null}
-              <label className={styles.noteField}>
-                <span className={styles.fieldLabel}>Kommentar</span>
-                <textarea
-                  className={styles.noteInput}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Var badade du? Hur kändes det?"
-                  rows={2}
-                  maxLength={280}
+          {needsTemp ? (
+            <div className={styles.tempRow}>
+              <span className={styles.fieldLabel}>Temp</span>
+              <div className={styles.tempField}>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  className={styles.tempInput}
+                  value={waterTemp}
+                  onChange={(e) => setWaterTemp(e.target.value)}
+                  placeholder="4"
+                  aria-label="Vattentemperatur i grader Celsius"
                 />
-              </label>
-              <Button
-                type="button"
-                variant="primary"
-                size="md"
-                fullWidth
-                loading={pending && busy}
-                disabled={pending}
-                onClick={complete}
-              >
-                Markera klart
-              </Button>
-            </>
-          ) : (
-            <button
+                <span className={styles.tempUnit}>°C</span>
+              </div>
+            </div>
+          ) : null}
+          <label className={styles.noteField}>
+            <span className={styles.fieldLabel}>Kommentar</span>
+            <textarea
+              className={styles.noteInput}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Var badade du? Hur kändes det?"
+              rows={2}
+              maxLength={280}
+            />
+          </label>
+          {!done ? (
+            <Button
               type="button"
-              className={styles.undoBtn}
-              onClick={uncomplete}
+              variant="primary"
+              size="md"
+              fullWidth
+              loading={pending && busy}
               disabled={pending}
+              onClick={complete}
             >
-              Ångra klarmarkering
-            </button>
+              Markera klart
+            </Button>
+          ) : (
+            <>
+              {completionDirty ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={complete}
+                >
+                  Spara
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                className={styles.undoBtn}
+                onClick={uncomplete}
+                disabled={pending}
+              >
+                Ångra klarmarkering
+              </button>
+            </>
           )}
         </div>
       ) : null}

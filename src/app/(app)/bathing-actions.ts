@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { bathingRequiresWaterTemp, type BathingKey } from "@/lib/bathing";
+import { bathingWaterTempError, type BathingKey } from "@/lib/bathing";
+import { clearPlacementJournalEdit } from "@/lib/journal.server";
 import { ensureBadTemplate } from "@/lib/bathing.server";
 import type { Weekday } from "@/lib/tasks";
 import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
@@ -22,15 +23,7 @@ function isMonday(localDate: string): boolean {
 }
 
 function validateWaterTemp(key: BathingKey | string, waterTempC: number | undefined): string | null {
-  if (!bathingRequiresWaterTemp(key)) return null;
-
-  if (waterTempC == null || !Number.isFinite(waterTempC)) {
-    return "Ange vattentemperaturen i °C.";
-  }
-  if (waterTempC < -5 || waterTempC > 30) {
-    return "Vattentemperaturen ska vara mellan -5 och 30 °C.";
-  }
-  return null;
+  return bathingWaterTempError(key, waterTempC);
 }
 
 /** Add a new bathing instance from the backlog onto a weekday. */
@@ -356,7 +349,7 @@ export async function completeBathingSessionAction(input: {
 
   const { data: placement } = await supabase
     .from("bathing_week_placements")
-    .select("id, template_id, weekday")
+    .select("id, template_id, weekday, done_at")
     .eq("id", input.placementId)
     .eq("user_id", user.id)
     .eq("week_start", input.weekStart)
@@ -382,7 +375,7 @@ export async function completeBathingSessionAction(input: {
   const { error } = await supabase
     .from("bathing_week_placements")
     .update({
-      done_at: new Date().toISOString(),
+      done_at: placement.done_at ?? new Date().toISOString(),
       water_temp_c:
         input.waterTempC != null && Number.isFinite(input.waterTempC)
           ? input.waterTempC
@@ -392,6 +385,13 @@ export async function completeBathingSessionAction(input: {
     .eq("id", placement.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  await clearPlacementJournalEdit(
+    user.id,
+    input.weekStart,
+    placement.weekday,
+    `bathing-${placement.id}`,
+  );
 
   revalidatePath("/", "layout");
   return { ok: true };

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureSportTemplate } from "@/lib/sport.server";
 import type { Weekday } from "@/lib/tasks";
 import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
+import { clearPlacementJournalEdit } from "@/lib/journal.server";
 
 export interface ActionResult {
   ok: boolean;
@@ -346,7 +347,7 @@ export async function completeSportSessionAction(input: {
 
   const { data: existing } = await supabase
     .from("sport_week_placements")
-    .select("id, weekday")
+    .select("id, weekday, done_at")
     .eq("id", input.placementId)
     .eq("user_id", user.id)
     .eq("week_start", input.weekStart)
@@ -359,7 +360,7 @@ export async function completeSportSessionAction(input: {
   const { error } = await supabase
     .from("sport_week_placements")
     .update({
-      done_at: new Date().toISOString(),
+      done_at: existing.done_at ?? new Date().toISOString(),
       actual_sport: resolved.title,
       sport_id: resolved.sportId,
       note: note || null,
@@ -368,6 +369,13 @@ export async function completeSportSessionAction(input: {
     .eq("id", existing.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  await clearPlacementJournalEdit(
+    user.id,
+    input.weekStart,
+    existing.weekday,
+    `sport-${existing.id}`,
+  );
 
   revalidatePath("/", "layout");
   return { ok: true };

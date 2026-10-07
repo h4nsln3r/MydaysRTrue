@@ -15,6 +15,7 @@ import {
   MEDIA_KIND_LABEL,
   MEDIA_RATING_MAX,
   MEDIA_RATING_MIN,
+  isMediaAtEnd,
   mediaCreditsLabel,
   mediaDisplayTitle,
   mediaProgressLabel,
@@ -209,8 +210,9 @@ export function MediaYearBoard({ yearMedia, createOnly = false }: Props) {
       <p className={styles.hint}>
         Lägg till böcker, serier och filmer för {yearMedia.year}. För serier
         anger du säsong och hur många avsnitt den har — när en säsong är klar
-        startar du nästa. I dagsvyn loggar du sida eller avsnitt. När du är
-        klar kan du skriva en recension och ge betyg.
+        startar du nästa. I dagsvyn loggar du sida eller avsnitt. En serie
+        eller film är klar först när du gett betyg. Tills dess kan du logga
+        sista avsnittet igen och välja att du fortfarande tittar.
       </p>
 
       {yearMedia.items.length > 0 ? (
@@ -534,7 +536,8 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
           Ta bort
         </button>
       </div>
-      {item.completed &&
+      {item.kind === "book" &&
+      item.completed &&
       (item.rating == null || !mediaCompletionDate(item)) &&
       !(item.note?.trim() ?? "") ? (
         <MediaItemReview
@@ -544,6 +547,21 @@ function MediaItemRow({ item, pending, onError }: MediaItemRowProps) {
           rating={item.rating}
           completedOn={mediaCompletionDate(item)}
           compact
+        />
+      ) : null}
+      {(item.kind === "series" || item.kind === "movie") &&
+      item.rating == null &&
+      isMediaAtEnd(item) ? (
+        <MediaItemReview
+          itemId={item.id}
+          kind={item.kind}
+          note={item.note}
+          rating={item.rating}
+          completedOn={item.completedOn ?? item.lastActivityDate}
+          highlight
+          compact
+          requireRating
+          prompt="Inget betyg än, så den är inte klar. Ge betyg och kommentar när du sett klart."
         />
       ) : null}
     </li>

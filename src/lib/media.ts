@@ -132,7 +132,34 @@ export function mediaCompletionPrompt(kind: MediaKind): string {
   return "Klart! Vad tyckte du om filmen?";
 }
 
-/** Whether logging this position marks the item as newly complete. */
+/** Series on the last episode, or a movie that has been logged as watched. */
+export function isMediaAtEnd(
+  item: Pick<MediaItem, "kind" | "bestPosition" | "totalLength">,
+): boolean {
+  if (item.kind === "movie") return item.bestPosition > 0;
+  if (item.kind === "series" && item.totalLength && item.totalLength > 0) {
+    return item.bestPosition >= item.totalLength;
+  }
+  return false;
+}
+
+/**
+ * Last episode or a movie watch, while the title still has no rating.
+ * Series and movies stay in progress until they are rated.
+ */
+export function isMediaFinaleLog(
+  item: Pick<MediaItem, "kind" | "totalLength" | "rating">,
+  position: number,
+  didConsume: boolean,
+): boolean {
+  if (item.rating != null) return false;
+  if (item.kind === "movie") return didConsume;
+  if (item.kind === "series" && item.totalLength && item.totalLength > 0) {
+    return position === item.totalLength;
+  }
+  return false;
+}
+
 export function mediaDayLogDetail(
   item: MediaItem,
   position: number,
@@ -172,10 +199,12 @@ export function mediaDaySummary(entries: MediaDayLogEntry[]): string | null {
 export function willCompleteMediaItem(
   item: MediaItem,
   position: number,
-  didConsume: boolean,
+  _didConsume: boolean,
 ): boolean {
   if (item.completed) return false;
-  if (item.kind === "movie") return didConsume;
+  // Series and movies finish when a rating is saved, not when the last
+  // episode (or the movie) is logged.
+  if (item.kind === "series" || item.kind === "movie") return false;
   if (item.totalLength && item.totalLength > 0) {
     return position >= item.totalLength;
   }
@@ -190,11 +219,21 @@ export function mediaPositionLabel(kind: MediaKind): string {
 
 export function mediaProgressLabel(item: MediaItem): string | null {
   if (item.kind === "movie") {
-    return item.completed ? "Sedd" : null;
+    if (item.completed) return "Sedd";
+    if (item.bestPosition > 0) return "Sedd · inget betyg";
+    return null;
   }
   if (item.totalLength && item.bestPosition > 0) {
     const unit = item.kind === "book" ? "sida" : "avsnitt";
-    return `${item.bestPosition} / ${item.totalLength} ${unit}`;
+    const base = `${item.bestPosition} / ${item.totalLength} ${unit}`;
+    if (
+      item.kind === "series" &&
+      item.rating == null &&
+      item.bestPosition >= item.totalLength
+    ) {
+      return `${base} · inget betyg`;
+    }
+    return base;
   }
   if (item.bestPosition > 0) {
     return item.kind === "book"
@@ -219,7 +258,10 @@ export function mediaProgressPct(item: MediaItem): number {
 }
 
 export function isMediaCompleted(item: MediaItem): boolean {
-  if (item.kind === "movie") return item.bestPosition > 0;
+  if (item.kind === "series" || item.kind === "movie") {
+    if (item.rating == null) return false;
+    return isMediaAtEnd(item) || item.completedOn != null;
+  }
   if (item.totalLength && item.totalLength > 0) {
     return item.bestPosition >= item.totalLength;
   }

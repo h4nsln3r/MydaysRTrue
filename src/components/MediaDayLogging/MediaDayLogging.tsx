@@ -16,6 +16,8 @@ import {
   MEDIA_KIND_LABEL,
   mediaDayLogDetail,
   mediaDisplayTitle,
+  isMediaAtEnd,
+  isMediaFinaleLog,
   mediaPositionLabel,
   mediaProgressLabel,
   mediaProgressPct,
@@ -28,6 +30,19 @@ import {
 import styles from "./MediaDayLogging.module.scss";
 
 const KINDS: MediaKind[] = ["book", "series", "movie"];
+
+/** Prefill the last episode when that season is watched but not rated yet. */
+function finalePosition(item: MediaItem | undefined): string {
+  if (
+    item?.kind === "series" &&
+    item.rating == null &&
+    item.totalLength != null &&
+    item.bestPosition === item.totalLength
+  ) {
+    return String(item.totalLength);
+  }
+  return "";
+}
 
 interface Props {
   date: string;
@@ -85,16 +100,17 @@ export function MediaDayLogging({
       preferSelectId && media.items.some((i) => i.id === preferSelectId)
         ? preferSelectId
         : null;
-    setSelectedId((prev) => {
-      if (preferred) return preferred;
-      if (media.items.some((i) => i.id === prev)) return prev;
-      return media.items[0]?.id ?? "";
-    });
+    const nextId = preferred
+      ? preferred
+      : media.items.some((i) => i.id === selectedId)
+        ? selectedId
+        : (media.items[0]?.id ?? "");
+    setSelectedId(nextId);
     if (preferred) setPreferSelectId(null);
-    setPosition("");
+    setPosition(finalePosition(media.items.find((i) => i.id === nextId)));
     setDidConsume(false);
     setReviewHighlight(false);
-  }, [media.items, showForm, preferSelectId]);
+  }, [media.items, showForm, preferSelectId, selectedId]);
 
   // Empty library → open create form by default.
   useEffect(() => {
@@ -117,6 +133,18 @@ export function MediaDayLogging({
   const showInlineReview = selected
     ? willCompleteMediaItem(selected, parsedPosition, didConsume)
     : false;
+  const awaitingFinishChoice = selected
+    ? isMediaFinaleLog(selected, parsedPosition, didConsume)
+    : false;
+
+  const openLoggedReview = (item: MediaItem, loggedPosition: number) => {
+    setPendingReviewItem({
+      ...item,
+      bestPosition: Math.max(item.bestPosition, loggedPosition),
+    });
+    setReviewHighlight(true);
+    setOfferNextSeason(false);
+  };
 
   const reportError = (msg: string | null) => {
     setError(msg);
@@ -169,6 +197,7 @@ export function MediaDayLogging({
     nextId: string,
     nextPosition: string,
     nextDidConsume: boolean,
+    finish = false,
   ) => {
     if (!nextId) {
       reportError("Välj en titel.");
@@ -203,6 +232,10 @@ export function MediaDayLogging({
     }
 
     const willComplete = willCompleteMediaItem(item, pos, nextDidConsume);
+    const openingReview =
+      finish &&
+      isMediaFinaleLog(item, pos, nextDidConsume) &&
+      (item.kind === "series" || item.kind === "movie");
 
     reportError(null);
     onPendingChange?.(true);
@@ -218,8 +251,12 @@ export function MediaDayLogging({
         onPendingChange?.(false);
         return;
       }
-      if (res.justCompleted || willComplete) {
-        setPendingReviewItem({ ...item, completed: true, bestPosition: pos });
+      if (openingReview || res.justCompleted || willComplete) {
+        setPendingReviewItem({
+          ...item,
+          completed: item.kind === "book",
+          bestPosition: Math.max(item.bestPosition, pos),
+        });
         setReviewHighlight(true);
         setOfferNextSeason(false);
         onPendingChange?.(false);
@@ -406,7 +443,12 @@ export function MediaDayLogging({
           rating={pendingReviewItem.rating}
           completedOn={pendingReviewItem.completedOn ?? date}
           highlight={reviewHighlight}
-          onDismiss={finishReview}
+          requireRating={pendingReviewItem.kind !== "book"}
+          onDismiss={() => {
+            setPendingReviewItem(null);
+            setReviewHighlight(false);
+            onDone();
+          }}
           onSaved={finishReview}
         />
       </div>
@@ -429,6 +471,21 @@ export function MediaDayLogging({
               </div>
               <div className={styles.loggedActions}>
                 <MediaItemQuickEdit item={item} />
+                {(item.kind === "series" || item.kind === "movie") &&
+                item.rating == null &&
+                isMediaAtEnd({
+                  ...item,
+                  bestPosition: Math.max(item.bestPosition, log.position),
+                }) ? (
+                  <button
+                    type="button"
+                    className={styles.undoBtn}
+                    onClick={() => openLoggedReview(item, log.position)}
+                    disabled={pending}
+                  >
+                    Ge betyg
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className={styles.undoBtn}
@@ -579,8 +636,11 @@ export function MediaDayLogging({
                 className={styles.select}
                 value={selectedId}
                 onChange={(e) => {
-                  setSelectedId(e.target.value);
-                  setPosition("");
+                  const nextId = e.target.value;
+                  setSelectedId(nextId);
+                  setPosition(
+                    finalePosition(media.items.find((i) => i.id === nextId)),
+                  );
                   setDidConsume(false);
                   setReviewHighlight(false);
                 }}
@@ -627,9 +687,9 @@ export function MediaDayLogging({
                 onChange={(e) => {
                   const checked = e.target.checked;
                   setDidConsume(checked);
-                  if (variant === "card") {
-                    save(selectedId, "0", checked);
-                  }
+                  if (variant !== "card" || !selected) return;
+                  if (checked && selected.rating == null) return;
+                  save(selectedId, "0", checked);
                 }}
                 disabled={pending}
               />
@@ -645,7 +705,19 @@ export function MediaDayLogging({
                 onChange={(e) => setPosition(e.target.value)}
                 onBlur={
                   variant === "card"
-                    ? () => save(selectedId, position, didConsume)
+                    ? () => {
+                        if (
+                          selected &&
+                          isMediaFinaleLog(
+                            selected,
+                            position.trim() === "" ? 0 : Number(position),
+                            didConsume,
+                          )
+                        ) {
+                          return;
+                        }
+                        save(selectedId, position, didConsume);
+                      }
                     : undefined
                 }
                 placeholder={
@@ -660,9 +732,11 @@ export function MediaDayLogging({
                   onChange={(e) => {
                     const checked = e.target.checked;
                     setDidConsume(checked);
-                    if (variant === "card") {
-                      save(selectedId, position, checked);
-                    }
+                    if (variant !== "card" || !selected) return;
+                    const pos =
+                      position.trim() === "" ? 0 : Number(position);
+                    if (isMediaFinaleLog(selected, pos, checked)) return;
+                    save(selectedId, position, checked);
                   }}
                   disabled={pending || !selectedId}
                 />
@@ -673,15 +747,45 @@ export function MediaDayLogging({
 
           {showInlineReview && selected ? (
             <p className={styles.completeHint}>
-              {selected.kind === "series"
-                ? "Spara avsnittet för att markera säsongen som klar och skriva en recension."
-                : selected.kind === "book"
-                  ? "Spara sidan för att markera boken som klar och skriva en recension."
-                  : "Bocka i att du såg filmen för att skriva en recension."}
+              {selected.kind === "book"
+                ? "Spara sidan för att markera boken som klar och skriva en recension."
+                : null}
             </p>
           ) : null}
 
-          {variant === "plan" ? (
+          {awaitingFinishChoice && selected ? (
+            <div className={styles.choice}>
+              <p className={styles.completeHint}>
+                {selected.kind === "series"
+                  ? "Sista avsnittet. Utan betyg är säsongen inte klar, och du kan logga det igen en annan dag."
+                  : "Utan betyg är filmen inte klar, och du kan logga att du sett den igen."}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                fullWidth
+                loading={pending}
+                disabled={pending}
+                onClick={() => save(selectedId, position, didConsume, false)}
+              >
+                {selected.kind === "series" ? "Tittar fortfarande" : "Inte klar än"}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={pending}
+                disabled={pending}
+                onClick={() => save(selectedId, position, didConsume, true)}
+              >
+                Klar — ge betyg
+              </Button>
+            </div>
+          ) : null}
+
+          {variant === "plan" && !awaitingFinishChoice ? (
             <Button
               type="button"
               variant="primary"

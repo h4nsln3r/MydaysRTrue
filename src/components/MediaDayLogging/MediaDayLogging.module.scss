@@ -258,6 +258,12 @@
     font-style: italic;
 }
 
+.choice {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
 .completedTitle {
     margin: 0;
     font-size: 0.9rem;

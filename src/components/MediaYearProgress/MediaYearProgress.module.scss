@@ -62,11 +62,32 @@
 .item {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: $space-3;
     padding: $space-3;
     border-radius: $radius-md;
     background: $color-ink-soft;
     border: 1px solid $color-line;
+}
+
+.review {
+    flex: 1 0 100%;
+}
+
+.reviewToggle {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+        border-color: $color-orange;
+    }
 }
 
 .itemDone {

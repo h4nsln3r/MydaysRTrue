@@ -345,6 +345,25 @@ export async function updateMediaItemReviewAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
+  const { data: existing } = await supabase
+    .from("media_items")
+    .select("id, kind")
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (!existing) return { ok: false, error: "Hittade inte titeln." };
+
+  if (
+    (existing.kind === "series" || existing.kind === "movie") &&
+    ratingResult.rating == null
+  ) {
+    return {
+      ok: false,
+      error: "Välj ett betyg för att markera som klar.",
+    };
+  }
+
   const { error } = await supabase
     .from("media_items")
     .update({
@@ -441,7 +460,7 @@ export async function saveMediaDailyLogAction(input: {
   const year = yearFromLocalISO(input.localDate);
   const { data: item } = await supabase
     .from("media_items")
-    .select("id, kind, total_length")
+    .select("id, kind, total_length, rating, completed_on")
     .eq("id", input.mediaItemId)
     .eq("user_id", user.id)
     .eq("year", year)
@@ -470,14 +489,14 @@ export async function saveMediaDailyLogAction(input: {
     director: null,
     actors: null,
     note: null,
-    rating: null,
+    rating: item.rating,
     season: null,
     totalLength: item.total_length,
     sortOrder: 0,
     bestPosition: prevBestPosition,
     completed: false,
     lastActivityDate: null,
-    completedOn: null,
+    completedOn: item.completed_on,
   });
 
   let position = input.position;
@@ -515,14 +534,14 @@ export async function saveMediaDailyLogAction(input: {
     director: null,
     actors: null,
     note: null,
-    rating: null,
+    rating: item.rating,
     season: null,
     totalLength: item.total_length,
     sortOrder: 0,
     bestPosition: newBestPosition,
     completed: false,
     lastActivityDate: null,
-    completedOn: null,
+    completedOn: item.completed_on,
   });
 
   if (justCompleted) {

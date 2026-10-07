@@ -7,10 +7,12 @@ import { archiveMediaItemAction } from "@/app/(app)/media-actions";
 import { Button } from "@/components/Button/Button";
 import { CompletionQuickEdit } from "@/components/CompletionQuickEdit/CompletionQuickEdit";
 import { MediaItemQuickEdit } from "@/components/MediaItemQuickEdit/MediaItemQuickEdit";
+import { MediaItemReview } from "@/components/MediaItemReview/MediaItemReview";
 import { buildMediaCompletions } from "@/lib/completions";
 import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
+  isMediaAtEnd,
   mediaCreditsLabel,
   mediaDisplayTitle,
   mediaProgressLabel,
@@ -52,6 +54,9 @@ export function MediaYearProgress({ yearMedia }: Props) {
           {items.map((item) => {
             const completion =
               mode === "completed" ? buildMediaCompletions([item])[0] : null;
+            const showReview =
+              (item.kind === "series" || item.kind === "movie") &&
+              (item.completed || isMediaAtEnd(item));
             return (
               <li
                 key={item.id}
@@ -91,9 +96,12 @@ export function MediaYearProgress({ yearMedia }: Props) {
                     </div>
                   ) : null}
                 </div>
-                {completion ? <CompletionQuickEdit item={completion} /> : null}
+                {completion && item.kind === "book" ? (
+                  <CompletionQuickEdit item={completion} />
+                ) : null}
                 {mode === "open" ? <MediaItemQuickEdit item={item} /> : null}
                 {canRemove ? <MediaItemRemoveButton item={item} /> : null}
+                {showReview ? <MediaFinishReview item={item} /> : null}
               </li>
             );
           })}
@@ -122,6 +130,43 @@ export function MediaYearProgress({ yearMedia }: Props) {
       {renderGroup("Klart", completed, "itemDone", "completed")}
       {renderGroup("Pågår", inProgress, "itemProgress", "open")}
       {renderGroup("Ej påbörjad", notStarted, "", "open", true)}
+    </div>
+  );
+}
+
+function MediaFinishReview({ item }: { item: MediaItem }) {
+  const needsRating = item.rating == null;
+  const [open, setOpen] = useState(needsRating);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={styles.reviewToggle}
+        onClick={() => setOpen(true)}
+      >
+        Betyg och kommentar
+      </button>
+    );
+  }
+
+  return (
+    <div className={styles.review}>
+      <MediaItemReview
+        itemId={item.id}
+        kind={item.kind}
+        note={item.note}
+        rating={item.rating}
+        completedOn={item.completedOn ?? item.lastActivityDate}
+        highlight={needsRating}
+        compact
+        requireRating
+        prompt={
+          needsRating
+            ? "Inget betyg än, så den är inte klar. Ge betyg och kommentar när du sett klart."
+            : "Ändra betyg och kommentar."
+        }
+      />
     </div>
   );
 }

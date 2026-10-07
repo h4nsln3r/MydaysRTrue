@@ -72,9 +72,14 @@ export async function getWeekCompletions(
       lastActivityDate: r.completed_on,
       completedOn: r.completed_on,
     };
-    // Treat as completed when we have completed_on (progress already hit finish).
-    if (!isMediaCompleted({ ...item, bestPosition: item.totalLength ?? 1 })) {
+    if (item.kind === "book") {
       item.completed = true;
+    } else {
+      // Series and movies stay open until they have a rating.
+      item.completed = isMediaCompleted({
+        ...item,
+        bestPosition: item.kind === "movie" ? 1 : (item.totalLength ?? 1),
+      });
     }
     return item;
   });

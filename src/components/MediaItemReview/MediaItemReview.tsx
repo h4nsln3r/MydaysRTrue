@@ -29,6 +29,9 @@ interface Props {
   /** Highlight when the user just finished the title. */
   highlight?: boolean;
   compact?: boolean;
+  /** Series and movies stay open until a rating is saved. */
+  requireRating?: boolean;
+  prompt?: string;
   onDismiss?: () => void;
   onSaved?: () => void;
 }
@@ -41,6 +44,8 @@ export function MediaItemReview({
   completedOn = null,
   highlight = false,
   compact = false,
+  requireRating = false,
+  prompt,
   onDismiss,
   onSaved,
 }: Props) {
@@ -71,6 +76,10 @@ export function MediaItemReview({
   const save = () => {
     setError(null);
     setSaved(false);
+    if (requireRating && reviewRating.trim() === "") {
+      setError("Välj ett betyg för att markera som klar.");
+      return;
+    }
     startTransition(async () => {
       const res = await updateMediaItemReviewAction({
         id: itemId,
@@ -106,7 +115,7 @@ export function MediaItemReview({
         .filter(Boolean)
         .join(" ")}
     >
-      <p className={styles.prompt}>{mediaCompletionPrompt(kind)}</p>
+      <p className={styles.prompt}>{prompt ?? mediaCompletionPrompt(kind)}</p>
       <Input
         label="Klart den"
         type="date"

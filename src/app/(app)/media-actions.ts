@@ -8,8 +8,10 @@ import {
   MEDIA_SEASON_MAX,
   MEDIA_SEASON_MIN,
   isMediaCompleted,
+  isMediaOtherKind,
   yearFromLocalISO,
   type MediaKind,
+  type MediaOtherKind,
 } from "@/lib/media";
 
 export interface ActionResult {
@@ -25,6 +27,7 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const MEDIA_NOTE_MAX = 280;
 const MEDIA_CREDIT_MAX = 120;
+const MEDIA_OTHER_LABEL_MAX = 80;
 
 function parseMediaNote(
   value: string | undefined,
@@ -588,6 +591,77 @@ export async function clearMediaDailyLogAction(
 
   revalidatePath("/", "layout");
   revalidatePath("/year", "page");
+  revalidatePath("/month", "page");
+  return { ok: true };
+}
+
+export async function saveMediaOtherLogAction(input: {
+  localDate: string;
+  kind: MediaOtherKind;
+  otherLabel?: string;
+  note: string;
+}): Promise<ActionResult> {
+  if (!ISO_DATE_RE.test(input.localDate)) {
+    return { ok: false, error: "Ogiltigt datum." };
+  }
+  if (!isMediaOtherKind(input.kind)) {
+    return { ok: false, error: "Välj vad det var." };
+  }
+
+  const note = input.note.trim();
+  if (!note) return { ok: false, error: "Skriv vad du läste eller tittade på." };
+  if (note.length > MEDIA_NOTE_MAX) {
+    return { ok: false, error: "Håll kommentaren under 280 tecken." };
+  }
+
+  let otherLabel: string | null = null;
+  if (input.kind === "other") {
+    otherLabel = input.otherLabel?.trim() ?? "";
+    if (!otherLabel) return { ok: false, error: "Skriv vad det är." };
+    if (otherLabel.length > MEDIA_OTHER_LABEL_MAX) {
+      return { ok: false, error: "Håll typen under 80 tecken." };
+    }
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase.from("media_other_logs").insert({
+    user_id: user.id,
+    local_date: input.localDate,
+    kind: input.kind,
+    other_label: otherLabel,
+    note,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  revalidatePath("/week", "page");
+  revalidatePath("/month", "page");
+  return { ok: true };
+}
+
+export async function clearMediaOtherLogAction(id: string): Promise<ActionResult> {
+  if (!id) return { ok: false, error: "Saknar id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("media_other_logs")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  revalidatePath("/week", "page");
   revalidatePath("/month", "page");
   return { ok: true };
 }

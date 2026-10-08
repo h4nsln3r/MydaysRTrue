@@ -14,7 +14,13 @@ import {
   applicableIntakeKinds,
   type IntakeKind,
 } from "@/lib/intake";
-import { MEDIA_KIND_LABEL, mediaDisplayTitle, type MediaKind } from "@/lib/media";
+import {
+  MEDIA_KIND_LABEL,
+  isMediaOtherKind,
+  mediaDisplayTitle,
+  mediaOtherKindLabel,
+  type MediaKind,
+} from "@/lib/media";
 import {
   LIVE_EVENT_KIND_ICON,
   LIVE_EVENT_KIND_LABEL,
@@ -80,8 +86,9 @@ export interface JournalDailyTrackers {
     loggedAt: string | null;
   };
   media: {
+    entryId: string;
     title: string;
-    kind: MediaKind;
+    kindLabel: string;
     detail: string;
     note: string | null;
     loggedAt: string;
@@ -150,6 +157,7 @@ export async function getJournalTrackersForWeek(
     checksRes,
     activityRes,
     mediaRes,
+    mediaOtherRes,
     gamesRes,
     smokeFreeRes,
     liveEventsRes,
@@ -201,6 +209,12 @@ export async function getJournalTrackersForWeek(
     supabase
       .from("media_daily_logs")
       .select("local_date, media_item_id, position, did_consume, updated_at")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("media_other_logs")
+      .select("id, local_date, kind, other_label, note, updated_at")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
@@ -378,10 +392,28 @@ export async function getJournalTrackersForWeek(
       detail = `avsnitt ${row.position}`;
     }
     day.media.push({
+      entryId: `media-${row.media_item_id}-${row.local_date}`,
       title: mediaDisplayTitle(item),
-      kind: item.kind,
+      kindLabel: MEDIA_KIND_LABEL[item.kind],
       detail,
       note: item.note,
+      loggedAt: row.updated_at,
+    });
+  }
+
+  for (const row of mediaOtherRes.data ?? []) {
+    const day = result.get(row.local_date);
+    if (!day || !isMediaOtherKind(row.kind)) continue;
+    const kindLabel = mediaOtherKindLabel({
+      kind: row.kind,
+      otherLabel: row.other_label,
+    });
+    day.media.push({
+      entryId: `media-other-${row.id}`,
+      title: row.note.trim(),
+      kindLabel,
+      detail: "",
+      note: null,
       loggedAt: row.updated_at,
     });
   }

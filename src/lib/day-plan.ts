@@ -707,7 +707,10 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
 
   if (enabledKinds.has("media") && input.media) {
     const mediaHabit = planHabits.find((h) => h.kind === "media");
-    const hasLog = hasMediaDayActivity(input.media.dayLogs);
+    const hasLog = hasMediaDayActivity(
+      input.media.dayLogs,
+      input.media.otherLogs,
+    );
     items.push({
       kind: "media",
       id: "media",

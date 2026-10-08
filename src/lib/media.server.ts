@@ -4,14 +4,17 @@ import { addDaysISO, todayLocalISO } from "@/lib/date";
 import {
   isMediaCompleted,
   isMediaDayLogDone,
+  isMediaOtherKind,
   mediaDaySummary,
   yearFromLocalISO,
   type DailyMediaContext,
   type MediaDayLog,
   type MediaItem,
   type MediaKind,
+  type MediaOtherLog,
   type MonthMediaContext,
   type MonthMediaEntry,
+  type MonthMediaOtherEntry,
   type MediaDayLogEntry,
   type YearMediaContext,
 } from "@/lib/media";
@@ -36,6 +39,24 @@ interface LogStat {
   media_item_id: string;
   position: number;
   local_date: string;
+}
+
+interface OtherLogRow {
+  id: string;
+  local_date: string;
+  kind: string;
+  other_label: string | null;
+  note: string;
+}
+
+function toOtherLog(row: OtherLogRow): MediaOtherLog | null {
+  if (!isMediaOtherKind(row.kind)) return null;
+  return {
+    id: row.id,
+    kind: row.kind,
+    otherLabel: row.other_label,
+    note: row.note,
+  };
 }
 
 async function logStatsForItems(
@@ -133,17 +154,28 @@ export async function getDailyMedia(
   const { items } = await getYearMedia(userId, year);
 
   const supabase = await createClient();
-  const { data: dayRows } = await supabase
-    .from("media_daily_logs")
-    .select("media_item_id, position, did_consume")
-    .eq("user_id", userId)
-    .eq("local_date", localDate);
+  const [{ data: dayRows }, { data: otherRows }] = await Promise.all([
+    supabase
+      .from("media_daily_logs")
+      .select("media_item_id, position, did_consume")
+      .eq("user_id", userId)
+      .eq("local_date", localDate),
+    supabase
+      .from("media_other_logs")
+      .select("id, local_date, kind, other_label, note")
+      .eq("user_id", userId)
+      .eq("local_date", localDate)
+      .order("created_at", { ascending: true }),
+  ]);
 
   const dayLogs = (dayRows ?? []).map((row) => ({
     mediaItemId: row.media_item_id,
     position: row.position,
     didConsume: row.did_consume,
   }));
+  const otherLogs = (otherRows ?? [])
+    .map((row) => toOtherLog(row))
+    .filter((row): row is MediaOtherLog => row != null);
 
   const loggedIds = new Set(dayLogs.map((l) => l.mediaItemId));
   const activeItems = items.filter((item) => !item.completed);
@@ -162,6 +194,7 @@ export async function getDailyMedia(
     items: availableItems,
     dayLogs,
     loggedToday,
+    otherLogs,
     allCompleted: items.length > 0 && activeItems.length === 0,
   };
 }
@@ -205,12 +238,21 @@ export async function getWeekMediaSummary(
   }
 
   const supabase = await createClient();
-  const { data: logRows } = await supabase
-    .from("media_daily_logs")
-    .select("local_date, media_item_id, position, did_consume")
-    .eq("user_id", userId)
-    .gte("local_date", weekStart)
-    .lte("local_date", weekEnd);
+  const [{ data: logRows }, { data: otherRows }] = await Promise.all([
+    supabase
+      .from("media_daily_logs")
+      .select("local_date, media_item_id, position, did_consume")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd),
+    supabase
+      .from("media_other_logs")
+      .select("id, local_date, kind, other_label, note")
+      .eq("user_id", userId)
+      .gte("local_date", weekStart)
+      .lte("local_date", weekEnd)
+      .order("created_at", { ascending: true }),
+  ]);
 
   const logsByDate = new Map<string, MediaDayLog[]>();
   for (const row of logRows ?? []) {
@@ -221,6 +263,15 @@ export async function getWeekMediaSummary(
       didConsume: row.did_consume,
     });
     logsByDate.set(row.local_date, arr);
+  }
+
+  const othersByDate = new Map<string, MediaOtherLog[]>();
+  for (const row of otherRows ?? []) {
+    const log = toOtherLog(row);
+    if (!log) continue;
+    const arr = othersByDate.get(row.local_date) ?? [];
+    arr.push(log);
+    othersByDate.set(row.local_date, arr);
   }
 
   let hasLibrary = false;
@@ -234,6 +285,7 @@ export async function getWeekMediaSummary(
     const year = yearFromLocalISO(date);
     const items = itemsByYear.get(year) ?? [];
     const dayLogs = logsByDate.get(date) ?? [];
+    const otherLogs = othersByDate.get(date) ?? [];
 
     const loggedIds = new Set(dayLogs.map((l) => l.mediaItemId));
     const activeItems = items.filter((item) => !item.completed);
@@ -252,6 +304,7 @@ export async function getWeekMediaSummary(
       items: availableItems,
       dayLogs,
       loggedToday,
+      otherLogs,
       allCompleted: items.length > 0 && activeItems.length === 0,
     };
 
@@ -260,7 +313,7 @@ export async function getWeekMediaSummary(
       isFuture: date > today,
       isToday: date === today,
       context,
-      summary: mediaDaySummary(loggedToday),
+      summary: mediaDaySummary(loggedToday, otherLogs),
     });
   }
 
@@ -281,17 +334,40 @@ export async function getMonthMedia(
   const monthEnd = monthEndFromStart(monthStart);
 
   const supabase = await createClient();
-  const { data: logs } = await supabase
-    .from("media_daily_logs")
-    .select("local_date, media_item_id, position, did_consume")
-    .eq("user_id", userId)
-    .gte("local_date", monthStart)
-    .lte("local_date", monthEnd)
-    .order("local_date", { ascending: true });
+  const [{ data: logs }, { data: otherRows }] = await Promise.all([
+    supabase
+      .from("media_daily_logs")
+      .select("local_date, media_item_id, position, did_consume")
+      .eq("user_id", userId)
+      .gte("local_date", monthStart)
+      .lte("local_date", monthEnd)
+      .order("local_date", { ascending: true }),
+    supabase
+      .from("media_other_logs")
+      .select("id, local_date, kind, other_label, note")
+      .eq("user_id", userId)
+      .gte("local_date", monthStart)
+      .lte("local_date", monthEnd)
+      .order("local_date", { ascending: true })
+      .order("created_at", { ascending: true }),
+  ]);
+
+  const others: MonthMediaOtherEntry[] = [];
+  for (const row of otherRows ?? []) {
+    const log = toOtherLog(row);
+    if (!log) continue;
+    others.push({
+      id: log.id,
+      localDate: row.local_date,
+      kind: log.kind,
+      otherLabel: log.otherLabel,
+      note: log.note,
+    });
+  }
 
   const logRows = logs ?? [];
   if (logRows.length === 0) {
-    return { monthStart, entries: [] };
+    return { monthStart, entries: [], others };
   }
 
   const itemIds = [...new Set(logRows.map((r) => r.media_item_id))];
@@ -323,5 +399,5 @@ export async function getMonthMedia(
     });
   }
 
-  return { monthStart, entries };
+  return { monthStart, entries, others };
 }

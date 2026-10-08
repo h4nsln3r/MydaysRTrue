@@ -66,7 +66,6 @@ import {
   mealJournalTitle,
   type JournalDailyTrackers,
 } from "@/lib/journal-trackers.server";
-import { MEDIA_KIND_LABEL } from "@/lib/media";
 import { SNACK_ICON, SNACK_LABEL } from "@/lib/habits";
 import { formatMl } from "@/lib/water";
 
@@ -242,16 +241,20 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
   }
 
   for (const mediaEntry of trackers.media) {
-    const kindLabel = MEDIA_KIND_LABEL[mediaEntry.kind].toLowerCase();
-    const parts = [`${kindLabel}: ${mediaEntry.title} (${mediaEntry.detail})`];
+    const kindLabel = mediaEntry.kindLabel.toLowerCase();
+    const parts = [
+      mediaEntry.detail
+        ? `${kindLabel}: ${mediaEntry.title} (${mediaEntry.detail})`
+        : `${kindLabel}: ${mediaEntry.title}`,
+    ];
     if (mediaEntry.note?.trim()) {
       parts.push(mediaEntry.note.trim());
     }
     entries.push({
-      id: `media-${mediaEntry.loggedAt}-${mediaEntry.title}`,
+      id: mediaEntry.entryId,
       source: "media",
       icon: "📺",
-      title: MEDIA_KIND_LABEL[mediaEntry.kind],
+      title: mediaEntry.kindLabel,
       body: parts.join(" — "),
       at: mediaEntry.loggedAt,
       editable: false,

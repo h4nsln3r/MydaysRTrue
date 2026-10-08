@@ -661,6 +661,60 @@ export interface Database {
         };
         Relationships: [];
       };
+      media_other_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          local_date: string;
+          kind:
+            | "book"
+            | "movie"
+            | "series"
+            | "magazine"
+            | "podcast"
+            | "article"
+            | "other";
+          other_label: string | null;
+          note: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          local_date: string;
+          kind:
+            | "book"
+            | "movie"
+            | "series"
+            | "magazine"
+            | "podcast"
+            | "article"
+            | "other";
+          other_label?: string | null;
+          note: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          local_date?: string;
+          kind?:
+            | "book"
+            | "movie"
+            | "series"
+            | "magazine"
+            | "podcast"
+            | "article"
+            | "other";
+          other_label?: string | null;
+          note?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       mobile_game_daily_logs: {
         Row: {
           user_id: string;

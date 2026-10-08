@@ -10,6 +10,46 @@ export const MEDIA_KIND_LABEL: Record<MediaKind, string> = {
   movie: "Film",
 };
 
+/** One-off log on Läsa & titta. Not stored in the yearly library. */
+export const MEDIA_OTHER_KINDS = [
+  "book",
+  "movie",
+  "series",
+  "magazine",
+  "podcast",
+  "article",
+  "other",
+] as const;
+
+export type MediaOtherKind = (typeof MEDIA_OTHER_KINDS)[number];
+
+/** Sentinel value in the title picker. */
+export const MEDIA_OTHER_SELECT_ID = "__other__";
+
+export const MEDIA_OTHER_KIND_LABEL: Record<MediaOtherKind, string> = {
+  book: "Bok",
+  movie: "Film",
+  series: "Serie",
+  magazine: "Tidning",
+  podcast: "Podcast",
+  article: "Artikel",
+  other: "Annat",
+};
+
+export const MEDIA_OTHER_KIND_ICON: Record<MediaOtherKind, string> = {
+  book: "📖",
+  movie: "🎬",
+  series: "📺",
+  magazine: "📰",
+  podcast: "🎧",
+  article: "📄",
+  other: "✨",
+};
+
+export function isMediaOtherKind(value: string): value is MediaOtherKind {
+  return (MEDIA_OTHER_KINDS as readonly string[]).includes(value);
+}
+
 export const MEDIA_KIND_ICON: Record<MediaKind, string> = {
   book: "📖",
   series: "📺",
@@ -54,6 +94,14 @@ export interface MediaDayLogEntry {
   item: MediaItem;
 }
 
+export interface MediaOtherLog {
+  id: string;
+  kind: MediaOtherKind;
+  /** Set when kind is "other". */
+  otherLabel: string | null;
+  note: string;
+}
+
 export interface DailyMediaContext {
   localDate: string;
   year: number;
@@ -63,6 +111,8 @@ export interface DailyMediaContext {
   dayLogs: MediaDayLog[];
   /** Titles logged today (including completed), with their log. */
   loggedToday: MediaDayLogEntry[];
+  /** One-off logs for this day (Övrigt). */
+  otherLogs: MediaOtherLog[];
   /** True when every title for the year is finished. */
   allCompleted: boolean;
 }
@@ -74,9 +124,18 @@ export interface MonthMediaEntry {
   didConsume: boolean;
 }
 
+export interface MonthMediaOtherEntry {
+  id: string;
+  localDate: string;
+  kind: MediaOtherKind;
+  otherLabel: string | null;
+  note: string;
+}
+
 export interface MonthMediaContext {
   monthStart: string;
   entries: MonthMediaEntry[];
+  others: MonthMediaOtherEntry[];
 }
 
 export interface YearMediaContext {
@@ -184,14 +243,39 @@ export function isMediaDayLogDone(log: MediaDayLog): boolean {
   return log.didConsume || log.position > 0;
 }
 
-export function hasMediaDayActivity(dayLogs: MediaDayLog[]): boolean {
-  return dayLogs.some(isMediaDayLogDone);
+export function mediaOtherKindLabel(
+  log: Pick<MediaOtherLog, "kind" | "otherLabel">,
+): string {
+  if (log.kind === "other") {
+    const label = log.otherLabel?.trim();
+    return label || MEDIA_OTHER_KIND_LABEL.other;
+  }
+  return MEDIA_OTHER_KIND_LABEL[log.kind];
 }
 
-export function mediaDaySummary(entries: MediaDayLogEntry[]): string | null {
-  const parts = entries
-    .filter(({ log }) => isMediaDayLogDone(log))
-    .map(({ log, item }) => mediaDayLogDetail(item, log.position, log.didConsume));
+export function mediaOtherLogDetail(log: MediaOtherLog): string {
+  return `${mediaOtherKindLabel(log)} · ${log.note.trim()}`;
+}
+
+export function hasMediaDayActivity(
+  dayLogs: MediaDayLog[],
+  otherLogs: readonly MediaOtherLog[] = [],
+): boolean {
+  return dayLogs.some(isMediaDayLogDone) || otherLogs.length > 0;
+}
+
+export function mediaDaySummary(
+  entries: MediaDayLogEntry[],
+  otherLogs: readonly MediaOtherLog[] = [],
+): string | null {
+  const parts = [
+    ...entries
+      .filter(({ log }) => isMediaDayLogDone(log))
+      .map(({ log, item }) =>
+        mediaDayLogDetail(item, log.position, log.didConsume),
+      ),
+    ...otherLogs.map((log) => mediaOtherLogDetail(log)),
+  ];
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
@@ -246,9 +330,11 @@ export function mediaProgressLabel(item: MediaItem): string | null {
 export function mediaStatusFor(
   dayLogs: MediaDayLog[],
   isFuture: boolean,
+  otherCount = 0,
 ): HabitStatus | null {
-  if (isFuture || dayLogs.length === 0) return null;
-  if (hasMediaDayActivity(dayLogs)) return "yes";
+  if (isFuture) return null;
+  if (hasMediaDayActivity(dayLogs) || otherCount > 0) return "yes";
+  if (dayLogs.length === 0 && otherCount === 0) return null;
   return "no";
 }
 

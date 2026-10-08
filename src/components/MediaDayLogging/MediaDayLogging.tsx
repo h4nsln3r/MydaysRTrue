@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import {
   clearMediaDailyLogAction,
+  clearMediaOtherLogAction,
   createMediaItemAction,
   saveMediaDailyLogAction,
+  saveMediaOtherLogAction,
 } from "@/app/(app)/media-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
@@ -14,8 +16,13 @@ import { MediaItemReview } from "@/components/MediaItemReview/MediaItemReview";
 import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
+  MEDIA_OTHER_KIND_ICON,
+  MEDIA_OTHER_KIND_LABEL,
+  MEDIA_OTHER_KINDS,
+  MEDIA_OTHER_SELECT_ID,
   mediaDayLogDetail,
   mediaDisplayTitle,
+  mediaOtherLogDetail,
   isMediaAtEnd,
   isMediaFinaleLog,
   mediaPositionLabel,
@@ -26,6 +33,7 @@ import {
   type DailyMediaContext,
   type MediaItem,
   type MediaKind,
+  type MediaOtherKind,
 } from "@/lib/media";
 import styles from "./MediaDayLogging.module.scss";
 
@@ -75,9 +83,14 @@ export function MediaDayLogging({
   );
   const [preferSelectId, setPreferSelectId] = useState<string | null>(null);
 
-  const [selectedId, setSelectedId] = useState(media.items[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState(
+    media.items[0]?.id ?? MEDIA_OTHER_SELECT_ID,
+  );
   const [position, setPosition] = useState("");
   const [didConsume, setDidConsume] = useState(false);
+  const [otherKind, setOtherKind] = useState<MediaOtherKind>("book");
+  const [otherLabel, setOtherLabel] = useState("");
+  const [otherNote, setOtherNote] = useState("");
 
   const [newKind, setNewKind] = useState<MediaKind>("book");
   const [newTitle, setNewTitle] = useState("");
@@ -89,9 +102,12 @@ export function MediaDayLogging({
   const [nextEpisodes, setNextEpisodes] = useState("");
 
   const pending = parentPending || localPending;
-  const hasLogged = media.loggedToday.length > 0;
+  const hasLogged =
+    media.loggedToday.length > 0 || media.otherLogs.length > 0;
   const canLogMore = media.items.length > 0;
-  const showForm = canLogMore && !pendingReviewItem && !creatingNew;
+  const loggingOther =
+    !canLogMore || selectedId === MEDIA_OTHER_SELECT_ID;
+  const showForm = !pendingReviewItem && !creatingNew;
   const showCreateForm = creatingNew && !pendingReviewItem;
 
   useEffect(() => {
@@ -100,13 +116,22 @@ export function MediaDayLogging({
       preferSelectId && media.items.some((i) => i.id === preferSelectId)
         ? preferSelectId
         : null;
+    const keepCurrent =
+      selectedId === MEDIA_OTHER_SELECT_ID ||
+      media.items.some((i) => i.id === selectedId);
     const nextId = preferred
       ? preferred
-      : media.items.some((i) => i.id === selectedId)
+      : keepCurrent
         ? selectedId
-        : (media.items[0]?.id ?? "");
+        : (media.items[0]?.id ?? MEDIA_OTHER_SELECT_ID);
     setSelectedId(nextId);
     if (preferred) setPreferSelectId(null);
+    if (nextId === MEDIA_OTHER_SELECT_ID) {
+      setPosition("");
+      setDidConsume(false);
+      setReviewHighlight(false);
+      return;
+    }
     setPosition(finalePosition(media.items.find((i) => i.id === nextId)));
     setDidConsume(false);
     setReviewHighlight(false);
@@ -278,6 +303,56 @@ export function MediaDayLogging({
     });
   };
 
+  const saveOther = () => {
+    const note = otherNote.trim();
+    if (!note) {
+      reportError("Skriv vad du läste eller tittade på.");
+      return;
+    }
+    if (otherKind === "other" && !otherLabel.trim()) {
+      reportError("Skriv vad det är.");
+      return;
+    }
+
+    reportError(null);
+    onPendingChange?.(true);
+    startTransition(async () => {
+      const res = await saveMediaOtherLogAction({
+        localDate: date,
+        kind: otherKind,
+        otherLabel: otherKind === "other" ? otherLabel : undefined,
+        note,
+      });
+      if (!res.ok) {
+        reportError(res.error ?? "Kunde inte spara.");
+        onPendingChange?.(false);
+        return;
+      }
+      setOtherNote("");
+      setOtherLabel("");
+      onPendingChange?.(false);
+      onDone();
+    });
+  };
+
+  const undoOther = (id: string) => {
+    reportError(null);
+    onPendingChange?.(true);
+    startTransition(async () => {
+      const res = await clearMediaOtherLogAction(id);
+      if (!res.ok) reportError(res.error ?? "Kunde inte ta bort.");
+      onPendingChange?.(false);
+      onDone();
+    });
+  };
+
+  const openOther = () => {
+    reportError(null);
+    resetCreateForm();
+    setCreatingNew(false);
+    setSelectedId(MEDIA_OTHER_SELECT_ID);
+  };
+
   const finishReview = () => {
     if (pendingReviewItem?.kind === "series") {
       setNextSeason(String(nextMediaSeason(pendingReviewItem.season)));
@@ -344,6 +419,25 @@ export function MediaDayLogging({
     setCreatingNew(false);
   };
 
+  const renderOtherLogs = (allowUndo: boolean) =>
+    media.otherLogs.map((log) => (
+      <li key={log.id} className={styles.loggedItem}>
+        <div className={styles.loggedMeta}>
+          <span className={styles.loggedTitle}>{mediaOtherLogDetail(log)}</span>
+        </div>
+        {allowUndo ? (
+          <button
+            type="button"
+            className={styles.undoBtn}
+            onClick={() => undoOther(log.id)}
+            disabled={pending}
+          >
+            Ångra
+          </button>
+        ) : null}
+      </li>
+    ));
+
   if (pendingReviewItem && offerNextSeason) {
     return (
       <div className={styles.section}>
@@ -361,6 +455,7 @@ export function MediaDayLogging({
                 </div>
               </li>
             ))}
+            {renderOtherLogs(false)}
           </ul>
         ) : null}
         <p className={styles.completedTitle}>
@@ -431,6 +526,7 @@ export function MediaDayLogging({
                 </div>
               </li>
             ))}
+            {renderOtherLogs(false)}
           </ul>
         ) : null}
         <p className={styles.completedTitle}>
@@ -497,6 +593,7 @@ export function MediaDayLogging({
               </div>
             </li>
           ))}
+          {renderOtherLogs(true)}
         </ul>
       ) : null}
 
@@ -596,6 +693,14 @@ export function MediaDayLogging({
           >
             Lägg till titel
           </Button>
+          <button
+            type="button"
+            className={styles.newTitleLink}
+            onClick={openOther}
+            disabled={pending}
+          >
+            Logga övrigt istället
+          </button>
           {hasLogged || media.items.length > 0 ? (
             <button
               type="button"
@@ -613,48 +718,50 @@ export function MediaDayLogging({
         </div>
       ) : null}
 
-      {!showCreateForm && hasLogged && !canLogMore ? (
-        <button
-          type="button"
-          className={styles.extraToggle}
-          onClick={openCreate}
-          disabled={pending}
-        >
-          + Ny bok / film / serie
-        </button>
-      ) : null}
-
       {showForm ? (
         <div className={styles.form}>
           {hasLogged ? (
-            <p className={styles.addMorePrompt}>Logga en till titel idag</p>
+            <p className={styles.addMorePrompt}>Logga mer idag</p>
           ) : null}
-          <label className={styles.fieldLabel}>
-            <span>Välj titel</span>
-            <div className={styles.selectRow}>
-              <select
-                className={styles.select}
-                value={selectedId}
-                onChange={(e) => {
-                  const nextId = e.target.value;
-                  setSelectedId(nextId);
-                  setPosition(
-                    finalePosition(media.items.find((i) => i.id === nextId)),
-                  );
-                  setDidConsume(false);
-                  setReviewHighlight(false);
-                }}
-                disabled={pending}
-              >
-                {media.items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {MEDIA_KIND_ICON[item.kind]} {mediaDisplayTitle(item)}
-                  </option>
-                ))}
-              </select>
-              {selected ? <MediaItemQuickEdit item={selected} /> : null}
-            </div>
-          </label>
+          {canLogMore ? (
+            <label className={styles.fieldLabel}>
+              <span>Välj titel</span>
+              <div className={styles.selectRow}>
+                <select
+                  className={styles.select}
+                  value={selectedId}
+                  onChange={(e) => {
+                    const nextId = e.target.value;
+                    setSelectedId(nextId);
+                    if (nextId === MEDIA_OTHER_SELECT_ID) {
+                      setPosition("");
+                      setDidConsume(false);
+                      setReviewHighlight(false);
+                      return;
+                    }
+                    setPosition(
+                      finalePosition(media.items.find((i) => i.id === nextId)),
+                    );
+                    setDidConsume(false);
+                    setReviewHighlight(false);
+                  }}
+                  disabled={pending}
+                >
+                  {media.items.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {MEDIA_KIND_ICON[item.kind]} {mediaDisplayTitle(item)}
+                    </option>
+                  ))}
+                  <option value={MEDIA_OTHER_SELECT_ID}>Övrigt</option>
+                </select>
+                {selected && !loggingOther ? (
+                  <MediaItemQuickEdit item={selected} />
+                ) : null}
+              </div>
+            </label>
+          ) : (
+            <p className={styles.addMorePrompt}>Övrigt</p>
+          )}
 
           <button
             type="button"
@@ -665,7 +772,61 @@ export function MediaDayLogging({
             + Ny bok / film / serie
           </button>
 
-          {selected && selected.kind !== "movie" && selected.totalLength ? (
+          {loggingOther ? (
+            <>
+              <label className={styles.fieldLabel}>
+                <span>Vad var det?</span>
+                <select
+                  className={styles.select}
+                  value={otherKind}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (
+                      MEDIA_OTHER_KINDS.some((kind) => kind === next)
+                    ) {
+                      setOtherKind(next as MediaOtherKind);
+                    }
+                  }}
+                  disabled={pending}
+                >
+                  {MEDIA_OTHER_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {MEDIA_OTHER_KIND_ICON[kind]} {MEDIA_OTHER_KIND_LABEL[kind]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {otherKind === "other" ? (
+                <Input
+                  label="Vad är det?"
+                  value={otherLabel}
+                  onChange={(e) => setOtherLabel(e.target.value)}
+                  placeholder="t.ex. serietidning"
+                  maxLength={80}
+                  disabled={pending}
+                />
+              ) : null}
+              <Input
+                label="Kommentar"
+                value={otherNote}
+                onChange={(e) => setOtherNote(e.target.value)}
+                placeholder="Vad läste eller tittade du på?"
+                maxLength={280}
+                disabled={pending}
+              />
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={pending}
+                disabled={pending}
+                onClick={saveOther}
+              >
+                Spara
+              </Button>
+            </>
+          ) : selected && selected.kind !== "movie" && selected.totalLength ? (
             <div className={styles.progress}>
               <div className={styles.progressMeta}>
                 {mediaProgressLabel(selected) ?? "Inte påbörjad"}
@@ -679,7 +840,7 @@ export function MediaDayLogging({
             </div>
           ) : null}
 
-          {selected?.kind === "movie" ? (
+          {!loggingOther && selected?.kind === "movie" ? (
             <label className={styles.checkLabel}>
               <input
                 type="checkbox"
@@ -695,10 +856,10 @@ export function MediaDayLogging({
               />
               Såg filmen idag
             </label>
-          ) : (
+          ) : !loggingOther && selected ? (
             <>
               <Input
-                label={selected ? mediaPositionLabel(selected.kind) : "Position"}
+                label={mediaPositionLabel(selected.kind)}
                 type="number"
                 inputMode="numeric"
                 value={position}
@@ -723,7 +884,7 @@ export function MediaDayLogging({
                 placeholder={
                   selected?.kind === "book" ? "t.ex. 142" : "t.ex. 5"
                 }
-                disabled={pending || !selectedId}
+                disabled={pending}
               />
               <label className={styles.checkLabel}>
                 <input
@@ -738,12 +899,12 @@ export function MediaDayLogging({
                     if (isMediaFinaleLog(selected, pos, checked)) return;
                     save(selectedId, position, checked);
                   }}
-                  disabled={pending || !selectedId}
+                  disabled={pending}
                 />
-                {selected?.kind === "book" ? "Läste idag" : "Tittade idag"}
+                {selected.kind === "book" ? "Läste idag" : "Tittade idag"}
               </label>
             </>
-          )}
+          ) : null}
 
           {showInlineReview && selected ? (
             <p className={styles.completeHint}>
@@ -785,7 +946,7 @@ export function MediaDayLogging({
             </div>
           ) : null}
 
-          {variant === "plan" && !awaitingFinishChoice ? (
+          {!loggingOther && variant === "plan" && !awaitingFinishChoice ? (
             <Button
               type="button"
               variant="primary"

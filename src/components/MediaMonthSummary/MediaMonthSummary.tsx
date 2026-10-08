@@ -2,8 +2,10 @@ import Link from "next/link";
 import {
   MEDIA_KIND_ICON,
   MEDIA_KIND_LABEL,
+  MEDIA_OTHER_KIND_ICON,
   mediaDayLogDetail,
   mediaDisplayTitle,
+  mediaOtherKindLabel,
   mediaRatingLabel,
   type MonthMediaContext,
 } from "@/lib/media";
@@ -17,7 +19,7 @@ interface Props {
 export function MediaMonthSummary({ monthMedia, year }: Props) {
   const yearHref = `/year?y=${year}&view=progress`;
 
-  if (monthMedia.entries.length === 0) {
+  if (monthMedia.entries.length === 0 && monthMedia.others.length === 0) {
     return (
       <section className={styles.section}>
         <header className={styles.header}>
@@ -97,6 +99,19 @@ export function MediaMonthSummary({ monthMedia, year }: Props) {
             </li>
           );
         })}
+        {monthMedia.others.map((entry) => (
+          <li key={entry.id} className={styles.item}>
+            <span className={styles.icon} aria-hidden>
+              {MEDIA_OTHER_KIND_ICON[entry.kind]}
+            </span>
+            <div className={styles.meta}>
+              <p className={styles.itemTitle}>{entry.note}</p>
+              <p className={styles.itemSub}>
+                {mediaOtherKindLabel(entry)} · {entry.localDate.slice(8, 10)}
+              </p>
+            </div>
+          </li>
+        ))}
       </ul>
     </section>
   );

@@ -49,6 +49,8 @@ export interface JournalDailyTrackers {
     meal: MealKey;
     description: string;
     waterMl: number;
+    drinkNote: string | null;
+    rating: number | null;
     cookedBy: MealCookedBy | null;
     restaurantName: string | null;
     cookedByName: string | null;
@@ -58,6 +60,9 @@ export interface JournalDailyTrackers {
   snacks: {
     slot: SnackSlot;
     description: string;
+    waterMl: number;
+    drinkNote: string | null;
+    rating: number | null;
     loggedAt: string;
   }[];
   intake: {
@@ -164,13 +169,13 @@ export async function getJournalTrackersForWeek(
   ] = await Promise.all([
     supabase
       .from("meal_entries")
-      .select("id, local_date, meal, description, water_log_id, cooked_by, meal_boxes, cooked_by_name, restaurant_id, meal_restaurants(name), created_at")
+      .select("id, local_date, meal, description, water_log_id, drink_note, rating, cooked_by, meal_boxes, cooked_by_name, restaurant_id, meal_restaurants(name), created_at")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
     supabase
       .from("snack_checks")
-      .select("local_date, slot, description, done_at")
+      .select("local_date, slot, description, water_log_id, drink_note, rating, done_at")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
@@ -243,9 +248,10 @@ export async function getJournalTrackersForWeek(
       .not("attended_at", "is", null),
   ]);
 
-  const waterLogIds = (mealsRes.data ?? [])
-    .map((m) => m.water_log_id)
-    .filter((v): v is string => Boolean(v));
+  const waterLogIds = [
+    ...(mealsRes.data ?? []).map((m) => m.water_log_id),
+    ...(snacksRes.data ?? []).map((m) => m.water_log_id),
+  ].filter((v): v is string => Boolean(v));
   const waterMap = new Map<string, number>();
   if (waterLogIds.length > 0) {
     const { data: mealWater } = await supabase
@@ -276,6 +282,8 @@ export async function getJournalTrackersForWeek(
       meal: row.meal as MealKey,
       description: row.description,
       waterMl: row.water_log_id ? waterMap.get(row.water_log_id) ?? 0 : 0,
+      drinkNote: row.drink_note,
+      rating: row.rating,
       cookedBy: (row.cooked_by as MealCookedBy | null) ?? null,
       restaurantName: restaurant?.name ?? null,
       cookedByName: row.cooked_by_name,
@@ -290,6 +298,9 @@ export async function getJournalTrackersForWeek(
     day.snacks.push({
       slot: row.slot as SnackSlot,
       description: row.description ?? "",
+      waterMl: row.water_log_id ? waterMap.get(row.water_log_id) ?? 0 : 0,
+      drinkNote: row.drink_note,
+      rating: row.rating,
       loggedAt: row.done_at,
     });
   }
@@ -312,6 +323,9 @@ export async function getJournalTrackersForWeek(
     if (row.water_log_id) linkedWaterIds.add(row.water_log_id);
   }
   for (const row of intakeRes.data ?? []) {
+    if (row.water_log_id) linkedWaterIds.add(row.water_log_id);
+  }
+  for (const row of snacksRes.data ?? []) {
     if (row.water_log_id) linkedWaterIds.add(row.water_log_id);
   }
 

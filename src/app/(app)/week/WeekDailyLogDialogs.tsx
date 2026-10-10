@@ -13,6 +13,8 @@ import { saveMobileGamesDailyLogAction } from "@/app/(app)/mobile-games-actions"
 import { saveSmokeFreeDailyLogAction } from "@/app/(app)/smoke-free-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
+import { parseFoodDrink, parseFoodRating } from "@/lib/meal-log";
 import { formatDayShort, formatWeekdayShort } from "@/lib/date";
 import {
   MEAL_ICON,
@@ -360,21 +362,44 @@ export function WeekSnackLogDialog({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [waterMl, setWaterMl] = useState(
+    initial?.waterMl ? String(initial.waterMl) : "",
+  );
+  const [drinkNote, setDrinkNote] = useState(initial?.drinkNote ?? "");
+  const [rating, setRating] = useState(
+    initial?.rating != null ? String(initial.rating) : "",
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setDescription(initial?.description ?? "");
+    setWaterMl(initial?.waterMl ? String(initial.waterMl) : "");
+    setDrinkNote(initial?.drinkNote ?? "");
+    setRating(initial?.rating != null ? String(initial.rating) : "");
     setError(null);
   }, [initial, date, slot]);
 
   const save = () => {
     if (pending) return;
     setError(null);
+    const drink = parseFoodDrink(waterMl, drinkNote);
+    if (!drink.ok) {
+      setError(drink.error);
+      return;
+    }
+    const foodRating = parseFoodRating(rating);
+    if (!foodRating.ok) {
+      setError(foodRating.error);
+      return;
+    }
     startTransition(async () => {
       const res = await saveSnackAction({
         localDate: date,
         slot,
         description,
+        waterMl: drink.waterMl,
+        drinkNote: drink.drinkNote,
+        rating: foodRating.rating,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
@@ -409,6 +434,16 @@ export function WeekSnackLogDialog({
           autoFocus
           required
           disabled={pending}
+        />
+        <MealLogExtras
+          waterMl={waterMl}
+          drinkNote={drinkNote}
+          rating={rating}
+          disabled={pending}
+          resetKey={`${date}:snack:${slot}:${initial?.id ?? "new"}`}
+          onWaterMl={setWaterMl}
+          onDrinkNote={setDrinkNote}
+          onRating={setRating}
         />
         <Button
           type="submit"

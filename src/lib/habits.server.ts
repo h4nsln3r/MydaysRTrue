@@ -321,9 +321,21 @@ export async function getDailySnacks(
   const supabase = await createClient();
   const { data } = await supabase
     .from("snack_checks")
-    .select("slot, description")
+    .select("slot, description, water_log_id, drink_note, rating")
     .eq("user_id", userId)
     .eq("local_date", localDate);
+
+  const waterLogIds = (data ?? [])
+    .map((r) => r.water_log_id)
+    .filter((v): v is string => Boolean(v));
+  const waterMap = new Map<string, number>();
+  if (waterLogIds.length > 0) {
+    const { data: logs } = await supabase
+      .from("water_logs")
+      .select("id, amount_ml")
+      .in("id", waterLogIds);
+    for (const log of logs ?? []) waterMap.set(log.id, log.amount_ml);
+  }
 
   const out: DailySnacks = { 1: null, 2: null };
   for (const r of data ?? []) {
@@ -333,6 +345,10 @@ export async function getDailySnacks(
         id: `${localDate}-${slot}`,
         slot,
         description: r.description ?? "",
+        waterMl: r.water_log_id ? waterMap.get(r.water_log_id) ?? 0 : 0,
+        waterLogId: r.water_log_id,
+        drinkNote: r.drink_note,
+        rating: r.rating,
       };
     }
   }
@@ -733,7 +749,7 @@ export async function getDailyMeals(
   const { data: rows } = await supabase
     .from("meal_entries")
     .select(
-      "id, meal, description, water_log_id, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
+      "id, meal, description, water_log_id, drink_note, rating, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
     )
     .eq("user_id", userId)
     .eq("local_date", localDate);
@@ -764,6 +780,8 @@ export async function getDailyMeals(
       description: r.description,
       waterMl: r.water_log_id ? waterMap.get(r.water_log_id) ?? 0 : 0,
       waterLogId: r.water_log_id,
+      drinkNote: r.drink_note,
+      rating: r.rating,
       cookedBy: (r.cooked_by as MealEntry["cookedBy"]) ?? null,
       restaurantId: r.restaurant_id,
       restaurantName: restaurant?.name ?? null,

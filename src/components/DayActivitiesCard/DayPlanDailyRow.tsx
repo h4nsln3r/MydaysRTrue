@@ -34,6 +34,13 @@ import {
   initialMealCookingMeta,
   validateMealCookingMeta,
 } from "@/components/MealCookingMeta/MealCookingMetaFields";
+import { MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
+import {
+  foodDrinkSummary,
+  foodRatingLabel,
+  parseFoodDrink,
+  parseFoodRating,
+} from "@/lib/meal-log";
 import { formatInteger } from "@/lib/format";
 import type { DayPlanItem } from "@/lib/day-plan";
 import {
@@ -240,6 +247,10 @@ function MealPlanRow(
   const [waterMl, setWaterMl] = useState(
     entry?.waterMl ? String(entry.waterMl) : "",
   );
+  const [drinkNote, setDrinkNote] = useState(entry?.drinkNote ?? "");
+  const [rating, setRating] = useState(
+    entry?.rating != null ? String(entry.rating) : "",
+  );
   const [cookingMeta, setCookingMeta] = useState(() =>
     initialMealCookingMeta(entry),
   );
@@ -249,6 +260,8 @@ function MealPlanRow(
   useEffect(() => {
     setDescription(entry?.description ?? "");
     setWaterMl(entry?.waterMl ? String(entry.waterMl) : "");
+    setDrinkNote(entry?.drinkNote ?? "");
+    setRating(entry?.rating != null ? String(entry.rating) : "");
     setCookingMeta(initialMealCookingMeta(entry));
   }, [entry]);
 
@@ -263,7 +276,8 @@ function MealPlanRow(
           entry.restaurantName,
           entry.cookedByName,
         ),
-        entry.waterMl > 0 ? formatMl(entry.waterMl) : null,
+        foodDrinkSummary(entry.waterMl, entry.drinkNote),
+        foodRatingLabel(entry.rating),
       ]
         .filter(Boolean)
         .join(" · ")
@@ -271,9 +285,14 @@ function MealPlanRow(
 
   const save = () => {
     onError(null);
-    const parsedWater = waterMl.trim() === "" ? 0 : Number(waterMl);
-    if (!Number.isFinite(parsedWater) || parsedWater < 0) {
-      setError("Vattnet måste vara ett positivt tal.");
+    const drink = parseFoodDrink(waterMl, drinkNote);
+    if (!drink.ok) {
+      setError(drink.error);
+      return;
+    }
+    const foodRating = parseFoodRating(rating);
+    if (!foodRating.ok) {
+      setError(foodRating.error);
       return;
     }
     const cookingResult = showCookingMeta
@@ -304,7 +323,9 @@ function MealPlanRow(
         meal: item.meal,
         localDate: date,
         description: stockItem?.description ?? description,
-        waterMl: Math.round(parsedWater),
+        waterMl: drink.waterMl,
+        drinkNote: drink.drinkNote,
+        rating: foodRating.rating,
         cookedBy: showCookingMeta ? cookingMeta.cookedBy : null,
         mealBoxes: cookingResult.mealBoxes,
         mealBoxStockId: cookingResult.mealBoxStockId,
@@ -381,17 +402,15 @@ function MealPlanRow(
               onPickMealBox={setDescription}
             />
           ) : null}
-          <Input
-            label="Vatten till måltiden (valfritt)"
-            type="number"
-            min={0}
-            max={5000}
-            step={50}
-            value={waterMl}
-            onChange={(e) => setWaterMl(e.target.value)}
-            placeholder="0"
-            suffix="ml"
+          <MealLogExtras
+            waterMl={waterMl}
+            drinkNote={drinkNote}
+            rating={rating}
             disabled={pending}
+            resetKey={`${date}:${item.meal}:${entry?.id ?? "new"}`}
+            onWaterMl={setWaterMl}
+            onDrinkNote={setDrinkNote}
+            onRating={setRating}
           />
           <Button
             type="button"
@@ -407,6 +426,31 @@ function MealPlanRow(
         </>
       ) : (
         <>
+          <MealLogExtras
+            waterMl={waterMl}
+            drinkNote={drinkNote}
+            rating={rating}
+            disabled={pending}
+            resetKey={`${date}:${item.meal}:${entry?.id ?? "new"}`}
+            onWaterMl={setWaterMl}
+            onDrinkNote={setDrinkNote}
+            onRating={setRating}
+          />
+          {waterMl !== (entry?.waterMl ? String(entry.waterMl) : "") ||
+          drinkNote !== (entry?.drinkNote ?? "") ||
+          rating !== (entry?.rating != null ? String(entry.rating) : "") ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              fullWidth
+              loading={pending && busy}
+              disabled={pending}
+              onClick={save}
+            >
+              Spara
+            </Button>
+          ) : null}
           <button type="button" className={styles.undoBtn} onClick={clear} disabled={pending}>
             Ångra
           </button>
@@ -433,21 +477,44 @@ function SnackPlanRow(
   const entry = item.entry;
   const done = Boolean(entry);
   const [description, setDescription] = useState(entry?.description ?? "");
+  const [waterMl, setWaterMl] = useState(
+    entry?.waterMl ? String(entry.waterMl) : "",
+  );
+  const [drinkNote, setDrinkNote] = useState(entry?.drinkNote ?? "");
+  const [rating, setRating] = useState(
+    entry?.rating != null ? String(entry.rating) : "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
     setDescription(entry?.description ?? "");
+    setWaterMl(entry?.waterMl ? String(entry.waterMl) : "");
+    setDrinkNote(entry?.drinkNote ?? "");
+    setRating(entry?.rating != null ? String(entry.rating) : "");
   }, [entry]);
 
   const save = () => {
     onError(null);
+    const drink = parseFoodDrink(waterMl, drinkNote);
+    if (!drink.ok) {
+      setError(drink.error);
+      return;
+    }
+    const foodRating = parseFoodRating(rating);
+    if (!foodRating.ok) {
+      setError(foodRating.error);
+      return;
+    }
     onPendingKey(true);
     startTransition(async () => {
       const res = await saveSnackAction({
         slot: item.slot,
         localDate: date,
         description,
+        waterMl: drink.waterMl,
+        drinkNote: drink.drinkNote,
+        rating: foodRating.rating,
       });
       if (!res.ok) {
         onError(res.error ?? "Kunde inte spara.");
@@ -473,7 +540,17 @@ function SnackPlanRow(
     <PlanRowShell
       item={item}
       done={done}
-      detail={entry?.description ?? null}
+      detail={
+        entry
+          ? [
+              entry.description,
+              foodDrinkSummary(entry.waterMl, entry.drinkNote),
+              foodRatingLabel(entry.rating),
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : null
+      }
       expanded={expanded}
       busy={busy}
       pending={pending}
@@ -491,6 +568,16 @@ function SnackPlanRow(
         autoFocus={!done}
         disabled={pending}
       />
+      <MealLogExtras
+        waterMl={waterMl}
+        drinkNote={drinkNote}
+        rating={rating}
+        disabled={pending}
+        resetKey={`${date}:snack:${item.slot}:${entry?.id ?? "new"}`}
+        onWaterMl={setWaterMl}
+        onDrinkNote={setDrinkNote}
+        onRating={setRating}
+      />
       {!done ? (
         <Button
           type="button"
@@ -505,7 +592,10 @@ function SnackPlanRow(
         </Button>
       ) : (
         <>
-          {description !== (entry?.description ?? "") ? (
+          {description !== (entry?.description ?? "") ||
+          waterMl !== (entry?.waterMl ? String(entry.waterMl) : "") ||
+          drinkNote !== (entry?.drinkNote ?? "") ||
+          rating !== (entry?.rating != null ? String(entry.rating) : "") ? (
             <Button
               type="button"
               variant="outline"

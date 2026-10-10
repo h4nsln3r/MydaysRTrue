@@ -17,10 +17,10 @@ import {
   initialMealCookingMeta,
   validateMealCookingMeta,
 } from "@/components/MealCookingMeta/MealCookingMetaFields";
+import { MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
+import { parseFoodDrink, parseFoodRating } from "@/lib/meal-log";
 import { saveMealAction } from "@/app/(app)/actions";
 import styles from "./MealsCard.module.scss";
-
-const WATER_PRESETS = [200, 330, 500];
 
 interface MealFormProps {
   meal: MealKey;
@@ -45,6 +45,10 @@ export function MealForm({
   const [waterMl, setWaterMl] = useState<string>(
     initial?.waterMl ? String(initial.waterMl) : "",
   );
+  const [drinkNote, setDrinkNote] = useState(initial?.drinkNote ?? "");
+  const [rating, setRating] = useState(
+    initial?.rating != null ? String(initial.rating) : "",
+  );
   const [cookingMeta, setCookingMeta] = useState(() =>
     initialMealCookingMeta(initial),
   );
@@ -58,9 +62,14 @@ export function MealForm({
     e.preventDefault();
     setError(null);
 
-    const parsedWater = waterMl.trim() === "" ? 0 : Number(waterMl);
-    if (!Number.isFinite(parsedWater) || parsedWater < 0) {
-      setError("Vattnet måste vara ett positivt tal.");
+    const drink = parseFoodDrink(waterMl, drinkNote);
+    if (!drink.ok) {
+      setError(drink.error);
+      return;
+    }
+    const foodRating = parseFoodRating(rating);
+    if (!foodRating.ok) {
+      setError(foodRating.error);
       return;
     }
 
@@ -92,7 +101,9 @@ export function MealForm({
         meal,
         localDate: date,
         description: stockItem?.description ?? description,
-        waterMl: Math.round(parsedWater),
+        waterMl: drink.waterMl,
+        drinkNote: drink.drinkNote,
+        rating: foodRating.rating,
         cookedBy: showCookingMeta ? cookingMeta.cookedBy : null,
         mealBoxes: cookingResult.mealBoxes,
         mealBoxStockId: cookingResult.mealBoxStockId,
@@ -165,46 +176,16 @@ export function MealForm({
         />
       ) : null}
 
-      <div className={styles.waterBlock}>
-        <span className={styles.label}>Vatten till måltiden</span>
-        <div className={styles.waterRow}>
-          <Input
-            type="number"
-            min={0}
-            max={5000}
-            step={50}
-            inputMode="numeric"
-            value={waterMl}
-            onChange={(e) => setWaterMl(e.target.value)}
-            placeholder="0"
-            suffix="ml"
-          />
-          <div className={styles.waterPresets}>
-            {WATER_PRESETS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                className={styles.waterPreset}
-                aria-pressed={Number(waterMl) === p}
-                onClick={() => setWaterMl(String(p))}
-              >
-                {p}
-              </button>
-            ))}
-            {waterMl ? (
-              <button
-                type="button"
-                className={[styles.waterPreset, styles.waterClear].join(" ")}
-                onClick={() => setWaterMl("")}
-                aria-label="Rensa vatten"
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <p className={styles.hint}>Läggs till i vattenloggen med en notering.</p>
-      </div>
+      <MealLogExtras
+        waterMl={waterMl}
+        drinkNote={drinkNote}
+        rating={rating}
+        disabled={pending}
+        resetKey={`${date}:${meal}:${initial?.id ?? "new"}`}
+        onWaterMl={setWaterMl}
+        onDrinkNote={setDrinkNote}
+        onRating={setRating}
+      />
 
       {error ? <p className={styles.error}>{error}</p> : null}
 

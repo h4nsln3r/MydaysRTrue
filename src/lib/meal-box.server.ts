@@ -385,7 +385,7 @@ export async function getWeekMealsSummary(
     supabase
       .from("meal_entries")
       .select(
-        "id, local_date, meal, description, water_log_id, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
+        "id, local_date, meal, description, water_log_id, drink_note, rating, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
       )
       .eq("user_id", userId)
       .gte("local_date", weekStart)
@@ -393,16 +393,17 @@ export async function getWeekMealsSummary(
       .order("local_date", { ascending: true }),
     supabase
       .from("snack_checks")
-      .select("local_date, slot, description")
+      .select("local_date, slot, description, water_log_id, drink_note, rating")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
     getMealBoxStock(userId),
   ]);
 
-  const waterLogIds = (rowsRes.data ?? [])
-    .map((r) => r.water_log_id)
-    .filter((v): v is string => Boolean(v));
+  const waterLogIds = [
+    ...(rowsRes.data ?? []).map((r) => r.water_log_id),
+    ...(snacksRes.data ?? []).map((r) => r.water_log_id),
+  ].filter((v): v is string => Boolean(v));
 
   const waterMap = new Map<string, number>();
   if (waterLogIds.length > 0) {
@@ -425,6 +426,8 @@ export async function getWeekMealsSummary(
       description: r.description,
       waterMl: r.water_log_id ? waterMap.get(r.water_log_id) ?? 0 : 0,
       waterLogId: r.water_log_id,
+      drinkNote: r.drink_note,
+      rating: r.rating,
       cookedBy: (r.cooked_by as MealEntry["cookedBy"]) ?? null,
       restaurantId: r.restaurant_id,
       restaurantName: restaurant?.name ?? null,
@@ -457,6 +460,10 @@ export async function getWeekMealsSummary(
       id: `${r.local_date}-${slot}`,
       slot,
       description: r.description ?? "",
+      waterMl: r.water_log_id ? waterMap.get(r.water_log_id) ?? 0 : 0,
+      waterLogId: r.water_log_id,
+      drinkNote: r.drink_note,
+      rating: r.rating,
     };
     snacksByDate.set(r.local_date, snacks);
   }

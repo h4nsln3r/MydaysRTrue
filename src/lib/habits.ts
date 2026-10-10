@@ -350,6 +350,11 @@ export interface SnackEntry {
   id: string;
   slot: SnackSlot;
   description: string;
+  waterMl: number;
+  waterLogId: string | null;
+  drinkNote: string | null;
+  /** Optional 1–10 rating of the snack. */
+  rating: number | null;
 }
 
 export type DailySnacks = Record<SnackSlot, SnackEntry | null>;
@@ -360,6 +365,10 @@ export interface MealEntry {
   description: string;
   waterMl: number; // 0 if no water logged with the meal
   waterLogId: string | null;
+  /** What was drunk, when the user wrote it. */
+  drinkNote: string | null;
+  /** Optional 1–10 rating of the meal. */
+  rating: number | null;
   /** Who prepared lunch/dinner — null for breakfast or legacy rows. */
   cookedBy: MealCookedBy | null;
   /** Saved restaurant when cooked_by is restaurant. */

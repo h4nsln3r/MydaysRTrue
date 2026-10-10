@@ -14,7 +14,13 @@ import type { Json } from "@/lib/supabase/database.types";
 import { parseHabitWeekdays } from "@/lib/habits";
 import { parseShakeQuantity } from "@/lib/shake-schedule";
 import type { Weekday } from "@/lib/tasks";
-import { MEAL_LABEL, mealHasCookingMeta, mealShowsMealBoxes } from "@/lib/habits";
+import { MEAL_LABEL, SNACK_LABEL, mealHasCookingMeta, mealShowsMealBoxes } from "@/lib/habits";
+import {
+  MEAL_WATER_LABEL,
+  foodWaterNote,
+  parseFoodDrink,
+  parseFoodRating,
+} from "@/lib/meal-log";
 import { resolveMealRestaurant } from "@/lib/meals.server";
 import { saveWeekProgressLayout } from "@/lib/week-progress-layout.server";
 import type { WeekProgressLayout } from "@/lib/week-progress-layout";
@@ -447,11 +453,61 @@ export async function updateWeekProgressLayoutAction(
   return { ok: true };
 }
 
+async function syncLinkedWaterLog(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  existingId: string | null,
+  waterMl: number,
+  localDate: string,
+  note: string,
+): Promise<{ ok: true; waterLogId: string | null } | { ok: false; error: string }> {
+  if (waterMl > 0) {
+    if (existingId) {
+      const { error } = await supabase
+        .from("water_logs")
+        .update({
+          amount_ml: waterMl,
+          note,
+          local_date: localDate,
+        })
+        .eq("id", existingId)
+        .eq("user_id", userId);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, waterLogId: existingId };
+    }
+    const { data: inserted, error } = await supabase
+      .from("water_logs")
+      .insert({
+        user_id: userId,
+        amount_ml: waterMl,
+        local_date: localDate,
+        note,
+      })
+      .select("id")
+      .single();
+    if (error || !inserted) {
+      return { ok: false, error: error?.message ?? "Kunde inte spara drycken." };
+    }
+    return { ok: true, waterLogId: inserted.id };
+  }
+  if (existingId) {
+    await supabase
+      .from("water_logs")
+      .delete()
+      .eq("id", existingId)
+      .eq("user_id", userId);
+  }
+  return { ok: true, waterLogId: null };
+}
+
 /** Log a snack slot (1 or 2) with a short description. */
 export async function saveSnackAction(input: {
   localDate: string;
   slot: 1 | 2;
   description: string;
+  waterMl?: number;
+  drinkNote?: string | null;
+  rating?: number | null;
 }): Promise<ActionResult> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
     return { ok: false, error: "Ogiltigt datum." };
@@ -468,6 +524,16 @@ export async function saveSnackAction(input: {
     return { ok: false, error: "Håll det under 280 tecken." };
   }
 
+  const drinkParsed = parseFoodDrink(
+    input.waterMl == null ? "" : String(input.waterMl),
+    input.drinkNote ?? "",
+  );
+  if (!drinkParsed.ok) return drinkParsed;
+  const ratingParsed = parseFoodRating(
+    input.rating == null ? "" : String(input.rating),
+  );
+  if (!ratingParsed.ok) return ratingParsed;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -476,30 +542,66 @@ export async function saveSnackAction(input: {
 
   const { data: existing, error: lookupError } = await supabase
     .from("snack_checks")
-    .select("slot")
+    .select("slot, water_log_id")
     .eq("user_id", user.id)
     .eq("local_date", input.localDate)
     .eq("slot", input.slot)
     .maybeSingle();
   if (lookupError) return { ok: false, error: lookupError.message };
 
+  const waterRes = await syncLinkedWaterLog(
+    supabase,
+    user.id,
+    existing?.water_log_id ?? null,
+    drinkParsed.waterMl,
+    input.localDate,
+    foodWaterNote(SNACK_LABEL[input.slot], drinkParsed.drinkNote),
+  );
+  if (!waterRes.ok) return waterRes;
+
   if (existing) {
     const { error } = await supabase
       .from("snack_checks")
-      .update({ description })
+      .update({
+        description,
+        water_log_id: waterRes.waterLogId,
+        drink_note: drinkParsed.drinkNote,
+        rating: ratingParsed.rating,
+      })
       .eq("user_id", user.id)
       .eq("local_date", input.localDate)
       .eq("slot", input.slot);
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (waterRes.waterLogId && !existing.water_log_id) {
+        await supabase
+          .from("water_logs")
+          .delete()
+          .eq("id", waterRes.waterLogId)
+          .eq("user_id", user.id);
+      }
+      return { ok: false, error: error.message };
+    }
   } else {
     const { error } = await supabase.from("snack_checks").insert({
       user_id: user.id,
       local_date: input.localDate,
       slot: input.slot,
       description,
+      water_log_id: waterRes.waterLogId,
+      drink_note: drinkParsed.drinkNote,
+      rating: ratingParsed.rating,
       done_at: new Date().toISOString(),
     });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (waterRes.waterLogId && !existing) {
+        await supabase
+          .from("water_logs")
+          .delete()
+          .eq("id", waterRes.waterLogId)
+          .eq("user_id", user.id);
+      }
+      return { ok: false, error: error.message };
+    }
   }
 
   await supabase
@@ -530,6 +632,14 @@ export async function clearSnackAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
+  const { data: existing } = await supabase
+    .from("snack_checks")
+    .select("water_log_id")
+    .eq("user_id", user.id)
+    .eq("local_date", input.localDate)
+    .eq("slot", input.slot)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("snack_checks")
     .delete()
@@ -537,6 +647,14 @@ export async function clearSnackAction(input: {
     .eq("local_date", input.localDate)
     .eq("slot", input.slot);
   if (error) return { ok: false, error: error.message };
+
+  if (existing?.water_log_id) {
+    await supabase
+      .from("water_logs")
+      .delete()
+      .eq("id", existing.water_log_id)
+      .eq("user_id", user.id);
+  }
 
   await supabase
     .from("journal_entry_edits")
@@ -961,6 +1079,8 @@ export async function saveMealAction(input: {
   localDate: string;
   description: string;
   waterMl?: number;
+  drinkNote?: string | null;
+  rating?: number | null;
   cookedBy?: MealCookedBy | null;
   mealBoxes?: number | null;
   mealBoxStockId?: string | null;
@@ -983,6 +1103,12 @@ export async function saveMealAction(input: {
   if (waterMl > 5000) {
     return { ok: false, error: "Max 5000 ml per entry." };
   }
+  const drinkParsed = parseFoodDrink(String(waterMl), input.drinkNote ?? "");
+  if (!drinkParsed.ok) return drinkParsed;
+  const ratingParsed = parseFoodRating(
+    input.rating == null ? "" : String(input.rating),
+  );
+  if (!ratingParsed.ok) return ratingParsed;
 
   const needsCookingMeta = mealHasCookingMeta(input.meal);
   let cookedBy: MealCookedBy | null = input.cookedBy ?? null;
@@ -1200,49 +1326,19 @@ export async function saveMealAction(input: {
     }
   };
 
-  // Resolve the water_log row.
-  let waterLogId: string | null = existing?.water_log_id ?? null;
-  if (waterMl > 0) {
-    if (waterLogId) {
-      const { error } = await supabase
-        .from("water_logs")
-        .update({
-          amount_ml: waterMl,
-          note: MEAL_LABEL[input.meal],
-          local_date: input.localDate,
-        })
-        .eq("id", waterLogId)
-        .eq("user_id", user.id);
-      if (error) {
-        await rollbackMealBoxStock();
-        return { ok: false, error: error.message };
-      }
-    } else {
-      const { data: inserted, error } = await supabase
-        .from("water_logs")
-        .insert({
-          user_id: user.id,
-          amount_ml: waterMl,
-          local_date: input.localDate,
-          note: MEAL_LABEL[input.meal],
-        })
-        .select("id")
-        .single();
-      if (error || !inserted) {
-        await rollbackMealBoxStock();
-        return { ok: false, error: error?.message ?? "Could not save water." };
-      }
-      waterLogId = inserted.id;
-    }
-  } else if (waterLogId) {
-    // User cleared the water on the meal — remove the linked log too.
-    await supabase
-      .from("water_logs")
-      .delete()
-      .eq("id", waterLogId)
-      .eq("user_id", user.id);
-    waterLogId = null;
+  const waterRes = await syncLinkedWaterLog(
+    supabase,
+    user.id,
+    existing?.water_log_id ?? null,
+    drinkParsed.waterMl,
+    input.localDate,
+    foodWaterNote(MEAL_WATER_LABEL[input.meal], drinkParsed.drinkNote),
+  );
+  if (!waterRes.ok) {
+    await rollbackMealBoxStock();
+    return waterRes;
   }
+  const waterLogId = waterRes.waterLogId;
 
   if (existing) {
     const { error } = await supabase
@@ -1250,6 +1346,8 @@ export async function saveMealAction(input: {
       .update({
         description: finalDescription,
         water_log_id: waterLogId,
+        drink_note: drinkParsed.drinkNote,
+        rating: ratingParsed.rating,
         cooked_by: cookedBy,
         meal_boxes: isMealBoxMeal ? null : mealBoxes,
         restaurant_id: isMealBoxMeal ? null : restaurantId,
@@ -1276,6 +1374,8 @@ export async function saveMealAction(input: {
       meal: input.meal,
       description: finalDescription,
       water_log_id: waterLogId,
+      drink_note: drinkParsed.drinkNote,
+      rating: ratingParsed.rating,
       cooked_by: cookedBy,
       meal_boxes: isMealBoxMeal ? null : mealBoxes,
       restaurant_id: isMealBoxMeal ? null : restaurantId,

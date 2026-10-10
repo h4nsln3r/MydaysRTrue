@@ -49,6 +49,9 @@ export interface Database {
           local_date: string;
           slot: number;
           description: string;
+          water_log_id: string | null;
+          drink_note: string | null;
+          rating: number | null;
           done_at: string;
           created_at: string;
         };
@@ -57,6 +60,9 @@ export interface Database {
           local_date: string;
           slot: number;
           description?: string;
+          water_log_id?: string | null;
+          drink_note?: string | null;
+          rating?: number | null;
           done_at?: string;
           created_at?: string;
         };
@@ -65,6 +71,9 @@ export interface Database {
           local_date?: string;
           slot?: number;
           description?: string;
+          water_log_id?: string | null;
+          drink_note?: string | null;
+          rating?: number | null;
           done_at?: string;
           created_at?: string;
         };
@@ -1371,6 +1380,8 @@ export interface Database {
           meal: "breakfast" | "lunch" | "dinner";
           description: string;
           water_log_id: string | null;
+          drink_note: string | null;
+          rating: number | null;
           cooked_by:
             | "self"
             | "julia"
@@ -1394,6 +1405,8 @@ export interface Database {
           meal: "breakfast" | "lunch" | "dinner";
           description: string;
           water_log_id?: string | null;
+          drink_note?: string | null;
+          rating?: number | null;
           cooked_by?:
             | "self"
             | "julia"
@@ -1417,6 +1430,8 @@ export interface Database {
           meal?: "breakfast" | "lunch" | "dinner";
           description?: string;
           water_log_id?: string | null;
+          drink_note?: string | null;
+          rating?: number | null;
           cooked_by?:
             | "self"
             | "julia"

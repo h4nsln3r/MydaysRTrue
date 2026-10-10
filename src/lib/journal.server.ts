@@ -30,6 +30,7 @@ import {
   type WeekJournalSummary,
 } from "@/lib/journal";
 import { INTAKE_REQUIRES_DESCRIPTION } from "@/lib/intake";
+import { foodDrinkSummary, foodRatingLabel } from "@/lib/meal-log";
 import { MOOD_ICON, MOOD_LABEL, type MoodKey } from "@/lib/mood";
 import { isMoodKey } from "@/lib/mood";
 import {
@@ -139,15 +140,21 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
       source: "meal",
       icon: mealJournalIcon(meal.meal),
       title: mealJournalTitle(meal.meal),
-      body: mealJournalBody(
-        meal.meal,
-        meal.description,
-        meal.waterMl,
-        meal.cookedBy,
-        meal.mealBoxes,
-        meal.restaurantName,
-        meal.cookedByName,
-      ),
+      body: [
+        mealJournalBody(
+          meal.meal,
+          meal.description,
+          meal.waterMl,
+          meal.cookedBy,
+          meal.mealBoxes,
+          meal.restaurantName,
+          meal.cookedByName,
+        ),
+        foodDrinkSummary(meal.waterMl, meal.drinkNote),
+        foodRatingLabel(meal.rating),
+      ]
+        .filter(Boolean)
+        .join(" · "),
       at: meal.loggedAt,
       editable: false,
     });
@@ -159,7 +166,13 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
       source: "snack",
       icon: SNACK_ICON[snack.slot],
       title: SNACK_LABEL[snack.slot],
-      body: snack.description.trim() || "Mellanmål",
+      body: [
+        snack.description.trim() || "Mellanmål",
+        foodDrinkSummary(snack.waterMl, snack.drinkNote),
+        foodRatingLabel(snack.rating),
+      ]
+        .filter(Boolean)
+        .join(" · "),
       at: snack.loggedAt,
       editable: false,
     });

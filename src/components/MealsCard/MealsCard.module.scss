@@ -260,6 +260,20 @@ button.row {
     -webkit-box-orient: vertical;
 }
 
+.ratingBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: $radius-pill;
+    background: rgba(255, 207, 58, 0.12);
+    border: 1px solid rgba(255, 207, 58, 0.45);
+    color: $color-warning;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
 .waterBadge {
     display: inline-flex;
     align-items: center;
@@ -273,6 +287,9 @@ button.row {
     font-size: 0.72rem;
     letter-spacing: 0.04em;
     white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .metaBadges {

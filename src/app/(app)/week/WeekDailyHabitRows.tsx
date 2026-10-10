@@ -34,6 +34,7 @@ import type { MoodKey } from "@/lib/mood";
 import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
 import { MOOD_ICON, MOOD_LABEL } from "@/lib/mood";
 import { SMOKE_FREE_SUBSTANCES } from "@/lib/smoke-free";
+import { foodDrinkSummary, foodRatingLabel } from "@/lib/meal-log";
 import type { WeekMealsSummary } from "@/lib/meal-box.server";
 import type { WeekMediaSummary } from "@/lib/media.server";
 import type { WeekDay, WeekSummary } from "@/lib/water.server";
@@ -102,6 +103,10 @@ function formatMealHover(
     const n = entry.mealBoxes ?? 0;
     bits.push(`+${n} matlåd${n === 1 ? "a" : "or"}`);
   }
+  const drink = foodDrinkSummary(entry.waterMl, entry.drinkNote);
+  if (drink) bits.push(drink);
+  const ratingLabel = foodRatingLabel(entry.rating);
+  if (ratingLabel) bits.push(ratingLabel);
   return `${label}: ${bits.join(" · ")}`;
 }
 
@@ -112,7 +117,12 @@ function formatSnackHover(
 ): string {
   if (isFuture) return `${SNACK_LABEL[slot]}: Kommande`;
   if (!entry) return `${SNACK_LABEL[slot]}: Ej ifylld`;
-  return `${SNACK_LABEL[slot]}: ${entry.description.trim() || "Loggad"}`;
+  const bits = [entry.description.trim() || "Loggad"];
+  const drink = foodDrinkSummary(entry.waterMl, entry.drinkNote);
+  if (drink) bits.push(drink);
+  const ratingLabel = foodRatingLabel(entry.rating);
+  if (ratingLabel) bits.push(ratingLabel);
+  return `${SNACK_LABEL[slot]}: ${bits.join(" · ")}`;
 }
 
 function mealsCrushed(

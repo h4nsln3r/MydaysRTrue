@@ -22,7 +22,9 @@ import {
   type SnackEntry,
   type SnackSlot,
 } from "@/lib/habits";
+import { MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
 import { MealForm } from "./MealForm";
+import { foodRatingLabel, parseFoodDrink, parseFoodRating } from "@/lib/meal-log";
 import { formatMl } from "@/lib/water";
 import {
   clearMealAction,
@@ -150,6 +152,8 @@ export function MealsCard({
                       label={MEAL_LABEL[meal]}
                       description={entry.description}
                       waterMl={entry.waterMl}
+                      drinkNote={entry.drinkNote}
+                      rating={entry.rating}
                       cookedBy={entry.cookedBy}
                       restaurantName={entry.restaurantName}
                       cookedByName={entry.cookedByName}
@@ -206,6 +210,9 @@ export function MealsCard({
                       icon={SNACK_ICON[slot]}
                       label={SNACK_LABEL[slot]}
                       description={entry.description}
+                      waterMl={entry.waterMl}
+                      drinkNote={entry.drinkNote}
+                      rating={entry.rating}
                       pending={pending}
                       onEdit={() => setEditing(editKey)}
                       onClear={() => clearSnack(slot)}
@@ -239,6 +246,8 @@ interface LoggedRowProps {
   label: string;
   description: string;
   waterMl?: number;
+  drinkNote?: string | null;
+  rating?: number | null;
   cookedBy?: MealCookedBy | null;
   restaurantName?: string | null;
   cookedByName?: string | null;
@@ -259,6 +268,8 @@ function LoggedRow({
   label,
   description,
   waterMl = 0,
+  drinkNote = null,
+  rating = null,
   cookedBy = null,
   restaurantName = null,
   cookedByName = null,
@@ -302,7 +313,12 @@ function LoggedRow({
           </span>
           <span className={styles.description}>{description}</span>
         </span>
-        {cookedBy || waterMl > 0 || fromMealBox || (mealBoxes != null && mealBoxes > 0) ? (
+        {cookedBy ||
+        waterMl > 0 ||
+        drinkNote ||
+        rating != null ||
+        fromMealBox ||
+        (mealBoxes != null && mealBoxes > 0) ? (
           <span className={styles.metaBadges}>
             {fromMealBox ? (
               <span className={styles.boxesBadge}>Matlåda</span>
@@ -332,10 +348,23 @@ function LoggedRow({
                 {mealBoxes} matlåd{mealBoxes === 1 ? "a" : "or"}
               </span>
             ) : null}
-            {waterMl > 0 ? (
-              <span className={styles.waterBadge} aria-label="Med vatten">
-                💧 {formatMl(waterMl)}
+            {waterMl > 0 || drinkNote ? (
+              <span
+                className={styles.waterBadge}
+                title={
+                  drinkNote
+                    ? `${waterMl > 0 ? formatMl(waterMl) : ""} ${drinkNote}`.trim()
+                    : undefined
+                }
+              >
+                💧{" "}
+                {[waterMl > 0 ? formatMl(waterMl) : null, drinkNote]
+                  .filter(Boolean)
+                  .join(" ")}
               </span>
+            ) : null}
+            {rating != null ? (
+              <span className={styles.ratingBadge}>{foodRatingLabel(rating)}</span>
             ) : null}
           </span>
         ) : null}
@@ -423,18 +452,38 @@ interface SnackFormProps {
 
 function SnackForm({ slot, date, initial, onCancel, onSaved }: SnackFormProps) {
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [waterMl, setWaterMl] = useState(
+    initial?.waterMl ? String(initial.waterMl) : "",
+  );
+  const [drinkNote, setDrinkNote] = useState(initial?.drinkNote ?? "");
+  const [rating, setRating] = useState(
+    initial?.rating != null ? String(initial.rating) : "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const drink = parseFoodDrink(waterMl, drinkNote);
+    if (!drink.ok) {
+      setError(drink.error);
+      return;
+    }
+    const foodRating = parseFoodRating(rating);
+    if (!foodRating.ok) {
+      setError(foodRating.error);
+      return;
+    }
 
     startTransition(async () => {
       const res = await saveSnackAction({
         slot,
         localDate: date,
         description,
+        waterMl: drink.waterMl,
+        drinkNote: drink.drinkNote,
+        rating: foodRating.rating,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
@@ -472,6 +521,17 @@ function SnackForm({ slot, date, initial, onCancel, onSaved }: SnackFormProps) {
         maxLength={280}
         autoFocus
         required
+      />
+
+      <MealLogExtras
+        waterMl={waterMl}
+        drinkNote={drinkNote}
+        rating={rating}
+        disabled={pending}
+        resetKey={`${date}:snack:${slot}:${initial?.id ?? "new"}`}
+        onWaterMl={setWaterMl}
+        onDrinkNote={setDrinkNote}
+        onRating={setRating}
       />
 
       {error ? <p className={styles.error}>{error}</p> : null}

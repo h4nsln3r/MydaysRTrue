@@ -79,6 +79,9 @@ export function MediaPlanRow(props: RowProps) {
     >
       <PlanCadenceBadge cadence="daily" done={done} corner />
       {props.dragHandle}
+      <span className={styles.taskIcon} aria-hidden style={{ borderColor: accent }}>
+        {icon}
+      </span>
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
@@ -110,9 +113,6 @@ export function MediaPlanRow(props: RowProps) {
         aria-expanded={planningMode ? undefined : expanded}
         disabled={pending || planningMode}
       >
-        <span className={styles.taskIcon} aria-hidden style={{ borderColor: accent }}>
-          {icon}
-        </span>
         <span className={styles.taskMeta}>
           <span className={styles.taskTitle}>{label}</span>
           {detail ? <span className={styles.taskDetail}>{detail}</span> : null}

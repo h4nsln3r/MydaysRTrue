@@ -231,6 +231,13 @@ export function MonthlyTaskDayRow({
     >
       <PlanCadenceBadge cadence="monthly" done={done} corner />
       {dragHandle}
+      <span
+        className={styles.taskIcon}
+        aria-hidden
+        style={{ borderColor: task.accent }}
+      >
+        {task.icon}
+      </span>
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
@@ -269,13 +276,6 @@ export function MonthlyTaskDayRow({
         aria-expanded={planningMode || isFinance ? undefined : expanded}
         disabled={pending || planningMode}
       >
-        <span
-          className={styles.taskIcon}
-          aria-hidden
-          style={{ borderColor: task.accent }}
-        >
-          {task.icon}
-        </span>
         <span className={styles.taskMeta}>
           {category ? (
             <ActivityCategoryBadge

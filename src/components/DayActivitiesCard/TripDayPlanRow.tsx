@@ -104,6 +104,13 @@ export function TripDayPlanRow({
     >
       <PlanCadenceBadge cadence="daily" done={done} corner />
       {dragHandle}
+      <span
+        className={styles.taskIcon}
+        aria-hidden
+        style={{ borderColor: "#f472b6" }}
+      >
+        ✈️
+      </span>
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
@@ -134,13 +141,6 @@ export function TripDayPlanRow({
         aria-expanded={planningMode ? undefined : expanded}
         disabled={pending || planningMode}
       >
-        <span
-          className={styles.taskIcon}
-          aria-hidden
-          style={{ borderColor: "#f472b6" }}
-        >
-          ✈️
-        </span>
         <span className={styles.taskMeta}>
           <span className={styles.taskTitle}>{title}</span>
           <span className={styles.taskDetail}>{detail}</span>

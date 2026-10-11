@@ -19,7 +19,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Card } from "@/components/Card/Card";
-import { BathingExtraBath } from "@/components/BathingDayCard/BathingDayCard";
 import { DayQuickAdd } from "@/components/DayQuickAdd/DayQuickAdd";
 import {
   toDayQuickAddTask,
@@ -29,7 +28,6 @@ import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import { buildDayPlanItems, sortDayPlanItems, type DayPlanItem } from "@/lib/day-plan";
 import { isoWeekdayFromLocalISO } from "@/lib/date";
-import { formatTripDayTitle } from "@/lib/leave";
 import type { DailyHabit, DailySnacks, MealBoxStockItem, MealEntry, MealKey, MealRestaurant } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
@@ -112,9 +110,7 @@ interface Props {
   hideWhenEmpty?: boolean;
   showWeekLink?: boolean;
   enableQuickAdd?: boolean;
-  bathingWeekday?: Weekday | null;
-  enableExtraBath?: boolean;
-  /** Future day in the current week — reorder only, no logging. */
+  /** Future day — reorder only, no logging. */
   planningMode?: boolean;
   codingProjects?: CodingProject[];
   games?: UserGame[];
@@ -154,8 +150,6 @@ export function DayActivitiesCard({
   hideWhenEmpty = false,
   showWeekLink = true,
   enableQuickAdd: _enableQuickAdd = false,
-  bathingWeekday = null,
-  enableExtraBath = false,
   planningMode = false,
   codingProjects = [],
   games = [],
@@ -254,8 +248,6 @@ export function DayActivitiesCard({
   const addWeekday =
     date != null ? (isoWeekdayFromLocalISO(date) as Weekday) : null;
 
-  const showExtraBath = enableExtraBath && bathingWeekday != null;
-
   const quickAddSourcesOrEmpty: DayQuickAddSources = quickAddSources ?? {
     gym: [],
     cardioTemplateId: null,
@@ -317,14 +309,6 @@ export function DayActivitiesCard({
     </li>
   ) : null;
 
-  const extraBath = showExtraBath ? (
-    <BathingExtraBath
-      weekStart={weekStart}
-      weekday={bathingWeekday}
-      onAdded={() => router.refresh()}
-    />
-  ) : null;
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id || !planDate) return;
@@ -365,7 +349,7 @@ export function DayActivitiesCard({
       });
   };
 
-  if (localItems.length === 0 && hideWhenEmpty && !addWeekday && !extraBath && !onLeave) {
+  if (localItems.length === 0 && hideWhenEmpty && !addWeekday && !onLeave) {
     return null;
   }
 
@@ -423,11 +407,8 @@ export function DayActivitiesCard({
     <>
       {tripDay ? (
         <div className={styles.dayToolbar}>
-          <h2 className={styles.tripTitle}>
-            {formatTripDayTitle(tripDay.title, tripDay.dayIndex, tripDay.dayCount)}
-          </h2>
+          {addControl}
           <div className={styles.dayToolbarEnd}>
-            {addControl}
             {counter}
           </div>
         </div>
@@ -526,8 +507,6 @@ export function DayActivitiesCard({
           </SortableContext>
         </DndContext>
       ) : null}
-
-      {extraBath}
     </Card>
     </>
   );

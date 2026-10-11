@@ -114,6 +114,13 @@ export function LiveEventPlanRow({
     >
       <PlanCadenceBadge cadence="daily" done={done} corner />
       {dragHandle}
+      <span
+        className={styles.taskIcon}
+        aria-hidden
+        style={{ borderColor: "#f472b6" }}
+      >
+        {LIVE_EVENT_KIND_ICON[event.kind]}
+      </span>
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
@@ -143,13 +150,6 @@ export function LiveEventPlanRow({
         aria-expanded={planningMode ? undefined : expanded}
         disabled={pending || planningMode}
       >
-        <span
-          className={styles.taskIcon}
-          aria-hidden
-          style={{ borderColor: "#f472b6" }}
-        >
-          {LIVE_EVENT_KIND_ICON[event.kind]}
-        </span>
         <span className={styles.taskMeta}>
           <span className={styles.taskTitle}>{event.title}</span>
           <span className={styles.taskDetail}>{detail}</span>

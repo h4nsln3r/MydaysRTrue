@@ -168,6 +168,9 @@ function PlanRowShell({
     >
       {cadence ? <PlanCadenceBadge cadence={cadence} done={done} corner /> : null}
       {dragHandle}
+      <span className={styles.taskIcon} aria-hidden style={{ borderColor: accent }}>
+        {icon}
+      </span>
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
@@ -199,9 +202,6 @@ function PlanRowShell({
         aria-expanded={planningMode ? undefined : expanded}
         disabled={pending || planningMode}
       >
-        <span className={styles.taskIcon} aria-hidden style={{ borderColor: accent }}>
-          {icon}
-        </span>
         <span className={styles.taskMeta}>
           <span className={styles.taskTitle}>{label}</span>
           {detail ? <span className={styles.taskDetail}>{detail}</span> : null}

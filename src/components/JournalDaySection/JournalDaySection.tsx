@@ -163,31 +163,35 @@ export function JournalDaySection({ date, journal }: Props) {
         </span>
       </header>
 
-      {narrative ? (
-        <Card className={styles.narrativeCard}>
-          <p className={styles.narrative}>{narrative}</p>
-        </Card>
-      ) : (
-        <Card className={styles.emptyCard}>
-          <p className={styles.emptyText}>
-            Inga händelser ännu. Logga gym, jobb start/slut eller skriv en egen
-            anteckning — då formas dagboken som en sammanhängande text.
-          </p>
-        </Card>
-      )}
+      <div className={styles.columns}>
+        {narrative ? (
+          <Card className={styles.narrativeCard}>
+            <p className={styles.narrative}>{narrative}</p>
+          </Card>
+        ) : (
+          <Card className={styles.emptyCard}>
+            <p className={styles.emptyText}>
+              Inga händelser ännu. Logga gym, jobb start/slut eller skriv en egen
+              anteckning — då formas dagboken som en sammanhängande text.
+            </p>
+          </Card>
+        )}
 
-      {entries.length > 0 ? (
-        <div className={styles.detailsWrap}>
-          <button
-            type="button"
-            className={styles.detailsToggle}
-            onClick={() => setShowDetails((v) => !v)}
-            aria-expanded={showDetails}
+        {entries.length > 0 ? (
+          <div
+            className={[styles.detailsWrap, showDetails ? styles.detailsOpen : ""]
+              .filter(Boolean)
+              .join(" ")}
           >
-            {showDetails ? "Dölj detaljer" : `Visa detaljer (${entries.length})`}
-          </button>
-          {showDetails ? (
-            <>
+            <button
+              type="button"
+              className={styles.detailsToggle}
+              onClick={() => setShowDetails((v) => !v)}
+              aria-expanded={showDetails}
+            >
+              {showDetails ? "Dölj detaljer" : `Visa detaljer (${entries.length})`}
+            </button>
+            <div className={styles.detailsBody}>
               <p className={styles.reorderHint}>
                 Dra ⠿ eller använd pilarna för att ändra ordningen i dagboken.
               </p>
@@ -218,10 +222,10 @@ export function JournalDaySection({ date, journal }: Props) {
                   </ol>
                 </SortableContext>
               </DndContext>
-            </>
-          ) : null}
-        </div>
-      ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <Card className={styles.composeCard}>
         <label className={styles.composeLabel} htmlFor={`journal-draft-${date}`}>

@@ -90,6 +90,33 @@
     gap: $space-3;
 }
 
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+    min-width: 0;
+
+    @media (min-width: $bp-lg) {
+        display: grid;
+        grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+        align-items: start;
+    }
+}
+
+:global(.container):has(.dashboard) {
+    @media (min-width: $bp-lg) {
+        max-width: 1360px;
+    }
+}
+
+:global(.container):has(.tripDay) {
+    padding-top: $space-3;
+}
+
+.tripDay .dashboard {
+    margin-top: calc(#{$space-3} - #{$space-6});
+}
+
 // Vertical stack used inside a section to space child cards. Keeps the
 // "Intake" section (water + meals + intake) reading as one block.
 .stack {

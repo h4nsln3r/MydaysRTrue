@@ -33,17 +33,6 @@
     flex-shrink: 0;
 }
 
-.tripTitle {
-    min-width: 0;
-    margin: 0;
-    font-family: $font-sans;
-    font-weight: 800;
-    font-size: 1.05rem;
-    letter-spacing: 0.01em;
-    line-height: 1.2;
-    color: $color-cream;
-}
-
 .title {
     display: inline-flex;
     align-items: center;
@@ -244,12 +233,12 @@
 .task {
     position: relative;
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto auto 1fr;
     grid-template-rows: auto auto auto;
     grid-template-areas:
-        "check body"
-        "reschedule reschedule"
-        "actions actions";
+        "icon check body"
+        "reschedule reschedule reschedule"
+        "actions actions actions";
     gap: 0 $space-3;
     align-items: center;
     padding: $space-2 $space-3;
@@ -260,11 +249,11 @@
 }
 
 .taskDraggable {
-    grid-template-columns: auto auto 1fr;
+    grid-template-columns: auto auto auto 1fr;
     grid-template-areas:
-        "drag check body"
-        "reschedule reschedule reschedule"
-        "actions actions actions";
+        "drag icon check body"
+        "reschedule reschedule reschedule reschedule"
+        "actions actions actions actions";
 }
 
 .dragHandle {
@@ -388,12 +377,12 @@
 .taskBody {
     grid-area: body;
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: $space-3;
+    gap: $space-2;
     background: transparent;
     border: none;
-    padding: 4px 0;
+    padding: 4px 3.4rem 4px 0;
     color: $color-cream;
     text-align: left;
     width: 100%;
@@ -416,6 +405,11 @@
     justify-content: center;
     font-size: 1rem;
     flex-shrink: 0;
+}
+
+.task .taskIcon {
+    grid-area: icon;
+    align-self: center;
 }
 
 .taskMeta {
@@ -460,47 +454,18 @@
 
 @media (max-width: $bp-sm) {
     .card.planCard {
-        margin-inline: -8px;
-        padding: 12px 8px;
+        margin-inline: -16px;
+        padding: 12px 6px;
     }
 
     .task {
         padding: 6px 4px;
-        gap: 0 6px;
+        gap: 0 8px;
     }
 
     .dragHandle {
         width: 22px;
-        height: 28px;
-    }
-
-    .checkBtn {
-        width: 28px;
-        height: 28px;
-    }
-
-    .taskBody {
-        position: relative;
-        display: block;
-        min-height: 22px;
-        padding: 1px 24px 1px 0;
-
-        &:has(.chevron) {
-            padding-right: 48px;
-        }
-    }
-
-    .taskIcon {
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 20px;
-        height: 20px;
-        font-size: 0.75rem;
-    }
-
-    .taskBody:has(.chevron) .taskIcon {
-        right: 22px;
+        height: 34px;
     }
 
     .taskMeta {
@@ -509,24 +474,12 @@
 
     .taskTitle {
         font-size: 0.82rem;
-        line-height: 20px;
+        line-height: 1.2;
     }
 
     .task .taskDetail,
     .task .planHint {
         font-size: 0.68rem;
-    }
-
-    .chevron {
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 14px;
-        height: 20px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.75rem;
     }
 }
 

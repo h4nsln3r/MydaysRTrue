@@ -22,6 +22,7 @@ import { getDailySmokeFree } from "@/lib/smoke-free.server";
 import { getDailyJournal } from "@/lib/journal.server";
 import { getWorkDailyLog } from "@/lib/work.server";
 import { habitDayContext } from "@/lib/habits";
+import { formatTripDayTitle } from "@/lib/leave";
 import { getLeaveDayContext } from "@/lib/leave.server";
 import { getDailyMedia } from "@/lib/media.server";
 import { getDailyLiveEvents } from "@/lib/live-events.server";
@@ -38,9 +39,9 @@ import { getDayQuickAddSources } from "@/lib/day-quick-add.server";
 import { getDailyPlanOrder } from "@/lib/day-plan.server";
 import { getMealRestaurants } from "@/lib/meals.server";
 import { getMealBoxStock } from "@/lib/meal-box.server";
-import { todayLocalISO, weekEndISO } from "@/lib/date";
+import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
-import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
+import { DayNav } from "@/components/DayNav/DayNav";
 import { QuickAddRow } from "../../QuickAddRow";
 import styles from "../../dashboard.module.scss";
 
@@ -59,7 +60,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
 
   const today = todayLocalISO();
   if (date === today) redirect(view === "plan" ? "/?view=plan" : "/");
-  if (date > weekEndISO(today)) notFound();
 
   const isUpcoming = date > today;
 
@@ -149,10 +149,19 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
   });
 
   return (
-    <main className={styles.main}>
+    <main className={[styles.main, tripDay ? styles.tripDay : ""].filter(Boolean).join(" ")}>
       <header className={styles.header}>
         <div className={styles.headerMain}>
-          <DayNav date={date} today={today} view={view} />
+          <DayNav
+            date={date}
+            today={today}
+            view={view}
+            heading={
+              tripDay
+                ? formatTripDayTitle(tripDay.title, tripDay.dayIndex, tripDay.dayCount)
+                : undefined
+            }
+          />
           {isUpcoming ? null : (
             <h1 className={styles.h1}>
               Looking <span className={styles.accent}>back</span>
@@ -163,6 +172,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
 
       {view === "progress" ? (
         <>
+          <div className={isUpcoming ? undefined : styles.dashboard}>
           <section className={styles.section}>
             <DayActivitiesCard
               weekStart={weeklyTasksDay.weekStart}
@@ -198,8 +208,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               hideWhenEmpty
               showWeekLink={false}
               enableQuickAdd={!isUpcoming}
-              bathingWeekday={bathingDay.weekday}
-              enableExtraBath={!isUpcoming}
               codingProjects={codingProjects}
               games={games}
               sports={sports}
@@ -207,17 +215,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
           </section>
 
           {!isUpcoming ? (
-            <>
           <section className={styles.section}>
-            <header className={styles.sectionHeader}>
-              <h2 className={styles.h2}>Dagen</h2>
-              <Link
-                href={dayPageHref(date, today, "plan")}
-                className={styles.muted}
-              >
-                Planera
-              </Link>
-            </header>
             <DailyTrackersBoard
               date={date}
               habits={habits}
@@ -237,7 +235,11 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               waterPlusLabel="Lägg till vatten"
             />
           </section>
+          ) : null}
+          </div>
 
+          {!isUpcoming ? (
+            <>
           <section className={styles.section}>
             <JournalDaySection date={date} journal={journal} />
           </section>

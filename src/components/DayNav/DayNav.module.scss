@@ -3,8 +3,23 @@
 .wrap {
     display: flex;
     flex-direction: column;
-    gap: $space-2;
+    gap: $space-3;
     min-width: 0;
+}
+
+.heading {
+    margin: 0;
+    font-family: $font-sans;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+    text-align: center;
+    color: $color-cream;
+
+    @media (min-width: $bp-lg) {
+        font-size: 1.45rem;
+    }
 }
 
 .kicker {

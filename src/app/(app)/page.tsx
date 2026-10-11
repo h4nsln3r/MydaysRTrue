@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { JournalDaySection } from "@/components/JournalDaySection/JournalDaySection";
 import { DayPlanPanel } from "@/components/DayPlanPanel/DayPlanPanel";
 import { DailyTrackersBoard } from "@/components/DailyTrackersBoard/DailyTrackersBoard";
@@ -20,6 +19,7 @@ import { getDailySmokeFree } from "@/lib/smoke-free.server";
 import { getDailyJournal } from "@/lib/journal.server";
 import { getWorkDailyLog } from "@/lib/work.server";
 import { habitDayContext } from "@/lib/habits";
+import { formatTripDayTitle } from "@/lib/leave";
 import { getLeaveDayContext } from "@/lib/leave.server";
 import { getDailyMedia } from "@/lib/media.server";
 import { getDailyLiveEvents } from "@/lib/live-events.server";
@@ -37,7 +37,7 @@ import { getMealRestaurants } from "@/lib/meals.server";
 import { getMealBoxStock } from "@/lib/meal-box.server";
 import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
-import { DayNav, dayPageHref } from "@/components/DayNav/DayNav";
+import { DayNav } from "@/components/DayNav/DayNav";
 import styles from "./dashboard.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -132,15 +132,25 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
   });
 
   return (
-    <main className={styles.main}>
+    <main className={[styles.main, tripDay ? styles.tripDay : ""].filter(Boolean).join(" ")}>
       <header className={styles.header}>
         <div className={styles.headerMain}>
-          <DayNav date={today} today={today} view={view} />
+          <DayNav
+            date={today}
+            today={today}
+            view={view}
+            heading={
+              tripDay
+                ? formatTripDayTitle(tripDay.title, tripDay.dayIndex, tripDay.dayCount)
+                : undefined
+            }
+          />
         </div>
       </header>
 
       {view === "progress" ? (
         <>
+          <div className={styles.dashboard}>
           <section className={styles.section}>
             <DayActivitiesCard
               weekStart={weeklyTasksDay.weekStart}
@@ -175,8 +185,6 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               hideWhenEmpty
               showWeekLink={false}
               enableQuickAdd
-              bathingWeekday={bathingDay.weekday}
-              enableExtraBath
               codingProjects={codingProjects}
               games={games}
               sports={sports}
@@ -184,12 +192,6 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
           </section>
 
           <section className={styles.section}>
-            <header className={styles.sectionHeader}>
-              <h2 className={styles.h2}>Dagen</h2>
-              <Link href="/?view=plan" className={styles.muted}>
-                Planera
-              </Link>
-            </header>
             <DailyTrackersBoard
               date={today}
               habits={habits}
@@ -209,6 +211,7 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               waterPlusLabel="Open water page"
             />
           </section>
+          </div>
 
           <section className={styles.section}>
             <JournalDaySection date={today} journal={journal} />

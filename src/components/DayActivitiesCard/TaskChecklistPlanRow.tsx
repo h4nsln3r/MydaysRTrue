@@ -113,6 +113,9 @@ export function TaskChecklistPlanRow({
     >
       <PlanCadenceBadge cadence="weekly" done={done} corner />
       {dragHandle}
+      <span className={styles.taskIcon} aria-hidden style={{ borderColor: accent }}>
+        {icon}
+      </span>
       <button
         type="button"
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
@@ -144,9 +147,6 @@ export function TaskChecklistPlanRow({
         aria-expanded={planningMode ? undefined : expanded}
         disabled={pending || planningMode}
       >
-        <span className={styles.taskIcon} aria-hidden style={{ borderColor: accent }}>
-          {icon}
-        </span>
         <span className={styles.taskMeta}>
           <span className={styles.taskTitle}>{label}</span>
           {detail ? <span className={styles.taskDetail}>{detail}</span> : null}

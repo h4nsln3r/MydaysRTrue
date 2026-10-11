@@ -775,6 +775,13 @@ export function WeeklyTaskRow({
     >
       <PlanCadenceBadge cadence="weekly" done={done} corner />
       {dragHandle}
+      <span
+        className={styles.taskIcon}
+        aria-hidden
+        style={{ borderColor: task.accent }}
+      >
+        {musicSessionIcon(task, placement)}
+      </span>
       {isQuickToggle ? (
         <button
           type="button"
@@ -833,13 +840,6 @@ export function WeeklyTaskRow({
         aria-expanded={planningMode ? undefined : needsExpand ? expanded : undefined}
         disabled={pending || planningMode || !needsExpand}
       >
-        <span
-          className={styles.taskIcon}
-          aria-hidden
-          style={{ borderColor: task.accent }}
-        >
-          {musicSessionIcon(task, placement)}
-        </span>
         <span className={styles.taskMeta}>
           {category ? (
             <ActivityCategoryBadge

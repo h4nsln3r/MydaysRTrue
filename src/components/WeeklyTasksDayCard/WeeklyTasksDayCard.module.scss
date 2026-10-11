@@ -263,15 +263,14 @@
     grid-template-columns: auto auto 1fr;
     grid-template-areas:
         "drag check body"
-        "drag reschedule reschedule"
-        "drag actions actions";
+        "reschedule reschedule reschedule"
+        "actions actions actions";
 }
 
 .dragHandle {
     grid-area: drag;
     width: 28px;
-    height: 36px;
-    margin-top: -2px;
+    height: 34px;
     border-radius: $radius-sm;
     border: 1px solid transparent;
     background: transparent;
@@ -457,6 +456,78 @@
 .chevronUp {
     transform: rotate(180deg);
     color: $color-orange-bright;
+}
+
+@media (max-width: $bp-sm) {
+    .card.planCard {
+        margin-inline: -8px;
+        padding: 12px 8px;
+    }
+
+    .task {
+        padding: 6px 4px;
+        gap: 0 6px;
+    }
+
+    .dragHandle {
+        width: 22px;
+        height: 28px;
+    }
+
+    .checkBtn {
+        width: 28px;
+        height: 28px;
+    }
+
+    .taskBody {
+        position: relative;
+        display: block;
+        min-height: 22px;
+        padding: 1px 24px 1px 0;
+
+        &:has(.chevron) {
+            padding-right: 48px;
+        }
+    }
+
+    .taskIcon {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 20px;
+        height: 20px;
+        font-size: 0.75rem;
+    }
+
+    .taskBody:has(.chevron) .taskIcon {
+        right: 22px;
+    }
+
+    .taskMeta {
+        gap: 2px;
+    }
+
+    .taskTitle {
+        font-size: 0.82rem;
+        line-height: 20px;
+    }
+
+    .task .taskDetail,
+    .task .planHint {
+        font-size: 0.68rem;
+    }
+
+    .chevron {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 14px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+    }
 }
 
 .taskActions {

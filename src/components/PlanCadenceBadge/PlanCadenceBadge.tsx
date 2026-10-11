@@ -15,7 +15,7 @@ const CADENCE_META: Record<
 interface Props {
   cadence: PlanCadence;
   done?: boolean;
-  /** Pin a compact badge in the task card's top-left corner. */
+  /** Pin a compact badge in the task card's top-right corner. */
   corner?: boolean;
 }
 

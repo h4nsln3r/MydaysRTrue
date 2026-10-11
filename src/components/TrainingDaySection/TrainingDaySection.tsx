@@ -10,7 +10,6 @@ import type { CardioSessionForWeek } from "@/lib/cardio";
 import type { GymSessionForWeek } from "@/lib/gym";
 import type { SportSessionForWeek } from "@/lib/sport";
 import type { UserSport } from "@/lib/sports";
-import type { Weekday } from "@/lib/tasks";
 import type { WeightDayContext } from "@/lib/weight";
 import styles from "./TrainingDaySection.module.scss";
 
@@ -27,9 +26,6 @@ interface Props {
   sportTitle?: string;
   bathingTitle?: string;
   weightTitle?: string;
-  /** Weekday this section represents — enables one-tap extra bath logging. */
-  bathingWeekday?: Weekday | null;
-  enableExtraBath?: boolean;
   sports?: UserSport[];
 }
 
@@ -46,8 +42,6 @@ export function TrainingDaySection({
   sportTitle = "Sport",
   bathingTitle = "Bad & bastu",
   weightTitle = "Vikt",
-  bathingWeekday = null,
-  enableExtraBath = false,
   sports = [],
 }: Props) {
   const hasGym = gymSessions.length > 0;
@@ -55,11 +49,8 @@ export function TrainingDaySection({
   const hasSport = sportSessions.length > 0;
   const hasBathing = bathingSessions.length > 0;
   const hasWeight = weightContext.scheduled;
-  const showExtraBath = enableExtraBath && bathingWeekday != null;
-  // Keep the section visible when extra-bath logging is available, so the
-  // "+ Extra bad" button stays reachable even on an otherwise empty day.
   const allEmpty =
-    !hasGym && !hasCardio && !hasSport && !hasBathing && !hasWeight && !showExtraBath;
+    !hasGym && !hasCardio && !hasSport && !hasBathing && !hasWeight;
 
   return (
     <section className={styles.section}>
@@ -109,8 +100,6 @@ export function TrainingDaySection({
             title={bathingTitle}
             hideWhenEmpty
             showWeekLink={false}
-            weekday={bathingWeekday}
-            enableExtraBath={showExtraBath}
           />
           {hasWeight ? (
             <WeightDayCard context={weightContext} title={weightTitle} />

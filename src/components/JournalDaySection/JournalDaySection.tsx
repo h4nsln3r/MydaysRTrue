@@ -19,7 +19,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  addJournalEntryAction,
   deleteJournalEntryAction,
   reorderJournalEntriesAction,
   updateJournalEntryAction,
@@ -43,7 +42,6 @@ interface Props {
 
 export function JournalDaySection({ date, journal }: Props) {
   const router = useRouter();
-  const [draft, setDraft] = useState("");
   const [showDetails, setShowDetails] = useState(false);
   const [entries, setEntries] = useState(journal.entries);
   const [narrative, setNarrative] = useState(journal.narrative);
@@ -64,19 +62,6 @@ export function JournalDaySection({ date, journal }: Props) {
     setEntries(journal.entries);
     setNarrative(journal.narrative);
   }, [journal]);
-
-  const addEntry = () => {
-    setError(null);
-    startTransition(async () => {
-      const res = await addJournalEntryAction({ localDate: date, body: draft });
-      if (!res.ok) {
-        setError(res.error ?? "Kunde inte spara.");
-        return;
-      }
-      setDraft("");
-      router.refresh();
-    });
-  };
 
   const persistOrder = (next: JournalDisplayEntry[]) => {
     if (reorderBusy) return;
@@ -227,34 +212,7 @@ export function JournalDaySection({ date, journal }: Props) {
         ) : null}
       </div>
 
-      <Card className={styles.composeCard}>
-        <label className={styles.composeLabel} htmlFor={`journal-draft-${date}`}>
-          Egen anteckning
-        </label>
-        <textarea
-          id={`journal-draft-${date}`}
-          className={styles.textarea}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Vad mer hände idag?"
-          rows={3}
-          maxLength={2000}
-          disabled={pending}
-        />
-        {error ? <p className={styles.error}>{error}</p> : null}
-        <div className={styles.composeActions}>
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={addEntry}
-            loading={pending}
-            disabled={!draft.trim()}
-          >
-            Lägg till
-          </Button>
-        </div>
-      </Card>
+      {error ? <p className={styles.error}>{error}</p> : null}
     </section>
   );
 }

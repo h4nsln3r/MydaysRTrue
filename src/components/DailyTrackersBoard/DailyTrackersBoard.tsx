@@ -1,4 +1,5 @@
 import { DailyActivityCard } from "@/components/DailyActivityCard/DailyActivityCard";
+import { JournalNoteForm } from "@/components/JournalDaySection/JournalNoteForm";
 import { MobileGamesDayCard } from "@/components/MobileGamesDayCard/MobileGamesDayCard";
 import { MoodDayCard } from "@/components/MoodDayCard/MoodDayCard";
 import { NutritionBoard } from "@/components/NutritionBoard/NutritionBoard";
@@ -197,6 +198,7 @@ export function DailyTrackersBoard({
         />
       ) : null}
       {activityHabits.map(renderTracker)}
+      <JournalNoteForm date={date} />
     </div>
   );
 }

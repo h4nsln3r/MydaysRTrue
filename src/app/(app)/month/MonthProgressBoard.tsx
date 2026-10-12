@@ -1,5 +1,7 @@
 import Link from "next/link";
-import type { Habit, HabitStatus } from "@/lib/habits";
+import type { Habit, HabitStatus, MealRestaurant } from "@/lib/habits";
+import type { MealBoxStockItem, WeekMealDay } from "@/lib/meal-box.server";
+import type { DailyMediaContext } from "@/lib/media";
 import { formatHabitPoints, habitStatusPoints } from "@/lib/habits";
 import type { MonthDay, MonthSummary } from "@/lib/habits.server";
 import {
@@ -14,6 +16,7 @@ import { dateInMonth, formatBillAmountKr, isMonthlyBill, isMonthlyAmountTask, is
 import { formatDayShort, mondaysInRange, placementLocalDate } from "@/lib/date";
 import { monthlyTaskDisplayTitle, type MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
 import { FestProgressCard } from "./FestProgressCard";
+import { MonthDailyHabitRows } from "./MonthDailyHabitRows";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
 import {
@@ -58,14 +61,11 @@ interface Props {
   shoppingSummary: ExpenseSummary;
   workByDate: Map<string, WorkDailyLog>;
   activity: MonthActivityProgress;
+  mealDays: WeekMealDay[];
+  mealBoxStock: MealBoxStockItem[];
+  savedRestaurants: MealRestaurant[];
+  mediaContexts: DailyMediaContext[];
 }
-
-const HABIT_STATUS_LABEL: Record<HabitStatus | "empty", string> = {
-  yes: "Ja",
-  half: "Delvis",
-  no: "Nej",
-  empty: "—",
-};
 
 const WEEKDAY_HEAD = ["M", "T", "O", "T", "F", "L", "S"];
 
@@ -85,6 +85,10 @@ export function MonthProgressBoard({
   shoppingSummary,
   workByDate,
   activity,
+  mealDays,
+  mealBoxStock,
+  savedRestaurants,
+  mediaContexts,
 }: Props) {
   const colSpan = summary.days.length + 2;
   const hasTasks = monthlyTasks.length > 0;
@@ -240,61 +244,15 @@ export function MonthProgressBoard({
           <tbody>
             <SectionRow label="Dagliga spårare" colSpan={colSpan} />
 
-            {summary.habits.map((h) => (
-              <tr key={h.id}>
-                <RowLabel sticky icon={h.icon} label={h.label} />
-                {summary.days.map((d) => {
-                  const hidden = d.hiddenHabitIds.includes(h.id);
-                  const status = d.statuses[h.id] ?? null;
-                  return (
-                    <td
-                      key={d.date}
-                      className={cellClass(
-                        styles.dataCell,
-                        d.isFuture && styles.cellFuture,
-                        d.isToday && styles.cellToday,
-                        hidden && !d.isFuture && styles.cellOff,
-                        !d.isFuture &&
-                          !hidden &&
-                          styles[`habitCell_${status ?? "empty"}`],
-                      )}
-                      title={
-                        hidden
-                          ? `${h.label}, dag ${d.dayOfMonth}: Visas inte`
-                          : `${h.label}, dag ${d.dayOfMonth}: ${
-                              d.isFuture
-                                ? "Kommande"
-                                : HABIT_STATUS_LABEL[status ?? "empty"]
-                            }`
-                      }
-                    >
-                      {!d.isFuture && !hidden ? (
-                        <StatusMark status={status} />
-                      ) : hidden && !d.isFuture ? (
-                        <span className={styles.emptyMark}>–</span>
-                      ) : null}
-                    </td>
-                  );
-                })}
-                <TotalCell
-                  value={summary.yesByHabit[h.id] ?? 0}
-                  total={
-                    summary.days.filter(
-                      (d) => !d.isFuture && !d.hiddenHabitIds.includes(h.id),
-                    ).length
-                  }
-                  highlight={
-                    (summary.yesByHabit[h.id] ?? 0) ===
-                      summary.days.filter(
-                        (d) => !d.isFuture && !d.hiddenHabitIds.includes(h.id),
-                      ).length &&
-                    summary.days.some(
-                      (d) => !d.isFuture && !d.hiddenHabitIds.includes(h.id),
-                    )
-                  }
-                />
-              </tr>
-            ))}
+            <MonthDailyHabitRows
+              habits={summary.habits}
+              days={summary.days}
+              yesByHabit={summary.yesByHabit}
+              mealDays={mealDays}
+              mealBoxStock={mealBoxStock}
+              savedRestaurants={savedRestaurants}
+              mediaContexts={mediaContexts}
+            />
 
             <tr>
               <RowLabel sticky icon="💼" label="Jobb" />
@@ -963,16 +921,6 @@ function DayScore({
       title={`${formatHabitPoints(hit)}/${total} klart (${pct}%)`}
     >
       {pct}%
-    </span>
-  );
-}
-
-function StatusMark({ status }: { status: HabitStatus | null }) {
-  const resolved = status ?? "empty";
-  const label = HABIT_STATUS_LABEL[resolved];
-  return (
-    <span className={cellClass(styles.statusMark, styles[`statusMark_${resolved}`])} aria-label={label}>
-      {resolved === "yes" ? "✓" : resolved === "half" ? "½" : resolved === "no" ? "✗" : "·"}
     </span>
   );
 }

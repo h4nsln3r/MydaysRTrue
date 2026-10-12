@@ -123,8 +123,8 @@
 .cornerCell {
     z-index: 5;
     text-align: left;
-    width: 118px;
-    min-width: 118px;
+    width: 148px;
+    min-width: 148px;
     padding: $space-2 $space-3;
     font-size: 0.65rem;
     text-transform: uppercase;
@@ -227,9 +227,9 @@
 }
 
 .rowLabel {
-    width: 118px;
-    min-width: 118px;
-    max-width: 118px;
+    width: 148px;
+    min-width: 148px;
+    max-width: 148px;
     padding: $space-2 $space-3;
     background: $color-ink-elevated;
     border-right: 1px solid $color-line;
@@ -260,6 +260,137 @@
     white-space: nowrap;
     display: inline-block;
     max-width: calc(100% - 26px);
+}
+
+.expandBtn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+
+    .rowIcon {
+        flex-shrink: 0;
+        margin-right: 0;
+    }
+
+    .rowText {
+        flex: 1;
+        min-width: 0;
+        max-width: none;
+    }
+
+    &:hover .rowText {
+        color: $color-cream;
+    }
+
+    &:hover .chevron {
+        color: $color-orange-bright;
+    }
+}
+
+.chevron {
+    flex-shrink: 0;
+    width: 12px;
+    font-size: 0.75rem;
+    color: $color-fog;
+    transition: transform 160ms $ease-out, color 120ms $ease-out;
+    line-height: 1;
+}
+
+.chevronUp {
+    transform: rotate(180deg);
+    color: $color-orange-bright;
+}
+
+.rowExpanded .rowLabel {
+    background: rgba(255, 122, 26, 0.1);
+    box-shadow: inset 3px 0 0 $color-orange;
+}
+
+.subRow .rowLabel,
+.subRow .dataCell,
+.subRow .totalCell {
+    background: rgba(16, 16, 16, 0.92);
+}
+
+.subRowLabel {
+    padding-left: $space-2 !important;
+}
+
+.subRowIndent {
+    display: inline-block;
+    width: 8px;
+    flex-shrink: 0;
+}
+
+.subRowText {
+    color: $color-fog;
+    font-size: 0.6rem;
+    font-family: $font-mono;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    max-width: calc(100% - 34px);
+}
+
+.subCell {
+    height: 36px;
+    padding: 2px 1px;
+}
+
+.subDetail {
+    display: block;
+    max-width: 28px;
+    margin: 0 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: $font-mono;
+    font-size: 0.52rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.subFoodDetail {
+    font-weight: 600;
+}
+
+.subDetail_yes { color: $color-success; }
+.subDetail_half { color: $color-warning; }
+.subDetail_crush {
+    color: #bbf7d0;
+    font-weight: 800;
+}
+
+.habitCell_crush {
+    background: linear-gradient(
+        180deg,
+        rgba(52, 211, 153, 0.45) 0%,
+        rgba(16, 185, 129, 0.24) 100%
+    );
+    box-shadow: inset 0 0 0 1px rgba(110, 231, 163, 0.8);
+}
+
+.statusMark_crush {
+    width: auto;
+    min-width: 18px;
+    padding: 0 2px;
+    color: #bbf7d0;
+    background: rgba(16, 185, 129, 0.4);
+    font-size: 0.62rem;
 }
 
 .dataCell {
@@ -299,6 +430,31 @@
 .habitCell_half { background: rgba(255, 207, 58, 0.12); }
 .habitCell_no { background: rgba(255, 82, 71, 0.12); }
 .habitCell_empty { background: rgba(20, 20, 20, 0.5); }
+
+.cellInteractive {
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+        box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.55);
+    }
+}
+
+.cellButton {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 36px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
 
 .statusMark {
     display: inline-flex;
@@ -747,28 +903,28 @@
     }
 }
 
-tbody tr:nth-child(even):not(.sectionRow) .dataCell {
+tbody tr:nth-child(even):not(.sectionRow):not(.subRow) .dataCell:not(.habitCell_crush) {
     background: rgba(20, 20, 20, 0.55);
 }
 
-tbody tr:nth-child(even):not(.sectionRow) .rowLabel {
+tbody tr:nth-child(even):not(.sectionRow):not(.subRow):not(.rowExpanded) .rowLabel {
     background: rgba(28, 28, 28, 0.95);
 }
 
-tbody tr:nth-child(even):not(.sectionRow) .totalCell {
+tbody tr:nth-child(even):not(.sectionRow):not(.subRow) .totalCell {
     background: rgba(255, 122, 26, 0.08);
 }
 
-tbody tr:nth-child(even):not(.sectionRow) .cellToday {
+tbody tr:nth-child(even):not(.sectionRow):not(.subRow) .cellToday:not(.habitCell_crush) {
     background: rgba(255, 122, 26, 0.1);
 }
 
 @media (min-width: $bp-md) {
     .cornerCell,
     .rowLabel {
-        width: 148px;
-        min-width: 148px;
-        max-width: 148px;
+        width: 176px;
+        min-width: 176px;
+        max-width: 176px;
     }
 
     .dayHead,

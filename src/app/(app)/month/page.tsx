@@ -3,6 +3,9 @@ import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getMonthSummary, shiftMonth } from "@/lib/habits.server";
+import { getMealsInRange } from "@/lib/meal-box.server";
+import { getMealRestaurants } from "@/lib/meals.server";
+import { getMediaContextsInRange } from "@/lib/media.server";
 import { getMonthMedia } from "@/lib/media.server";
 import { getMonthLiveEvents } from "@/lib/live-events.server";
 import { getMonthGigs } from "@/lib/gigs.server";
@@ -68,7 +71,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
-  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, activity, workByDate] =
+  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, activity, workByDate, mealsRange, mediaContexts, savedRestaurants] =
     await Promise.all([
     getMonthSummary(user.id, year, month),
     getMonthTaskSummary(user.id, monthStart),
@@ -78,6 +81,9 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     getMonthGigs(user.id, monthStart),
     getMonthActivityProgress(user.id, monthStart),
     getWorkLogsInRange(user.id, monthStart, monthEnd),
+    getMealsInRange(user.id, monthStart, monthEnd),
+    getMediaContextsInRange(user.id, monthStart, monthEnd),
+    getMealRestaurants(user.id),
   ]);
   const weeklyTasks = activity.weeks.flatMap((w) => w.tasks);
   const spendCategories =
@@ -182,6 +188,10 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             shoppingSummary={spendSummaries.shopping}
             workByDate={workByDate}
             activity={activity}
+            mealDays={mealsRange.days}
+            mealBoxStock={mealsRange.stock}
+            savedRestaurants={savedRestaurants}
+            mediaContexts={mediaContexts}
         />
         <section className={styles.section}>
           <MediaMonthSummary monthMedia={monthMedia} year={year} />

@@ -833,6 +833,12 @@ export interface MonthDay {
   hiddenHabitIds: string[];
   /** Habit id → part keys hidden that day (shake, breakfast, …). */
   hiddenParts: Record<string, string[]>;
+  /** Selected mood for the day, when logged. */
+  mood: MoodKey | null;
+  /** Optional comment on the day's mood. */
+  moodNote: string | null;
+  /** Values the month log dialogs need (smoke-free, activity, steps, …). */
+  details: WeekHabitDayDetails;
 }
 
 export interface MonthSummary {
@@ -942,7 +948,7 @@ export async function getMonthSummary(
       .lte("local_date", endISO),
     supabase
       .from("mood_daily_logs")
-      .select("local_date, mood")
+      .select("local_date, mood, note")
       .eq("user_id", userId)
       .gte("local_date", startISO)
       .lte("local_date", endISO),
@@ -1054,8 +1060,12 @@ export async function getMonthSummary(
   }
 
   const moodByDate = new Map<string, MoodKey>();
+  const moodNoteByDate = new Map<string, string | null>();
   for (const r of moodRes.data ?? []) {
-    if (isMoodKey(r.mood)) moodByDate.set(r.local_date, r.mood);
+    if (isMoodKey(r.mood)) {
+      moodByDate.set(r.local_date, r.mood);
+      moodNoteByDate.set(r.local_date, r.note?.trim() || null);
+    }
   }
 
   const mediaLogByDate = new Map<string, MediaDayLog[]>();
@@ -1200,6 +1210,9 @@ export async function getMonthSummary(
       statuses[h.id] = status;
     }
 
+    const smokeCtx = smokeFreeByDate.get(date);
+    const gamesCtx = mobileGamesByDate.get(date);
+
     days.push({
       date,
       isFuture,
@@ -1209,6 +1222,35 @@ export async function getMonthSummary(
       statuses,
       hiddenHabitIds,
       hiddenParts,
+      mood: isFuture ? null : (moodByDate.get(date) ?? null),
+      moodNote: isFuture ? null : (moodNoteByDate.get(date) ?? null),
+      details: {
+        water: { totalMl: waterByDate.get(date) ?? 0, goalMl },
+        intake: Object.fromEntries(
+          applicableIntakeKinds(date).map((k) => [
+            k,
+            intakeByDate.get(date)?.has(k) ?? false,
+          ]),
+        ),
+        mobileGames: gamesCtx
+          ? {
+              chess: gamesCtx.chess,
+              duolingo: gamesCtx.duolingo,
+              pokemonGo: gamesCtx.pokemonGo,
+            }
+          : undefined,
+        smokeFree: smokeCtx
+          ? {
+              nicotine: smokeCtx.nicotine,
+              cannabis: smokeCtx.cannabis,
+            }
+          : undefined,
+        steps: { value: stepsByDate.get(date) ?? 0, goal: stepsGoal },
+        activity: {
+          value: activityHoursByDate.get(date) ?? 0,
+          goal: activityHoursGoal,
+        },
+      },
     });
   }
 

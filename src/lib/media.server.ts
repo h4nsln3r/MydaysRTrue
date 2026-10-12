@@ -219,22 +219,31 @@ export interface WeekMediaSummary {
   hasLibrary: boolean;
 }
 
-/** Per-day media logging state for the whole week (Mon–Sun). */
-export async function getWeekMediaSummary(
-  userId: string,
-  weekStart: string,
-): Promise<WeekMediaSummary> {
-  const weekEnd = addDaysISO(weekStart, 6);
-  const today = todayLocalISO();
+function datesInRange(startISO: string, endISO: string): string[] {
+  const dates: string[] = [];
+  let cursor = startISO;
+  while (cursor <= endISO) {
+    dates.push(cursor);
+    cursor = addDaysISO(cursor, 1);
+  }
+  return dates;
+}
 
-  const startYear = yearFromLocalISO(weekStart);
-  const endYear = yearFromLocalISO(weekEnd);
-  const years = startYear === endYear ? [startYear] : [startYear, endYear];
+/** Logging context for every date in the range — feeds the week and month dialogs. */
+export async function getMediaContextsInRange(
+  userId: string,
+  startISO: string,
+  endISO: string,
+): Promise<DailyMediaContext[]> {
+  const startYear = yearFromLocalISO(startISO);
+  const endYear = yearFromLocalISO(endISO);
+  const years: number[] = [];
+  for (let year = startYear; year <= endYear; year += 1) years.push(year);
 
   const itemsByYear = new Map<number, MediaItem[]>();
-  for (const y of years) {
-    const { items } = await getYearMedia(userId, y);
-    itemsByYear.set(y, items);
+  for (const year of years) {
+    const { items } = await getYearMedia(userId, year);
+    itemsByYear.set(year, items);
   }
 
   const supabase = await createClient();
@@ -243,14 +252,14 @@ export async function getWeekMediaSummary(
       .from("media_daily_logs")
       .select("local_date, media_item_id, position, did_consume")
       .eq("user_id", userId)
-      .gte("local_date", weekStart)
-      .lte("local_date", weekEnd),
+      .gte("local_date", startISO)
+      .lte("local_date", endISO),
     supabase
       .from("media_other_logs")
       .select("id, local_date, kind, other_label, note")
       .eq("user_id", userId)
-      .gte("local_date", weekStart)
-      .lte("local_date", weekEnd)
+      .gte("local_date", startISO)
+      .lte("local_date", endISO)
       .order("created_at", { ascending: true }),
   ]);
 
@@ -274,19 +283,11 @@ export async function getWeekMediaSummary(
     othersByDate.set(row.local_date, arr);
   }
 
-  let hasLibrary = false;
-  for (const items of itemsByYear.values()) {
-    if (items.length > 0) hasLibrary = true;
-  }
-
-  const days: WeekMediaDay[] = [];
-  for (let i = 0; i < 7; i += 1) {
-    const date = addDaysISO(weekStart, i);
+  return datesInRange(startISO, endISO).map((date) => {
     const year = yearFromLocalISO(date);
     const items = itemsByYear.get(year) ?? [];
     const dayLogs = logsByDate.get(date) ?? [];
     const otherLogs = othersByDate.get(date) ?? [];
-
     const loggedIds = new Set(dayLogs.map((l) => l.mediaItemId));
     const activeItems = items.filter((item) => !item.completed);
     const availableItems = activeItems.filter((item) => !loggedIds.has(item.id));
@@ -298,7 +299,7 @@ export async function getWeekMediaSummary(
       if (item) loggedToday.push({ log, item });
     }
 
-    const context: DailyMediaContext = {
+    return {
       localDate: date,
       year,
       items: availableItems,
@@ -307,17 +308,38 @@ export async function getWeekMediaSummary(
       otherLogs,
       allCompleted: items.length > 0 && activeItems.length === 0,
     };
+  });
+}
 
-    days.push({
-      date,
-      isFuture: date > today,
-      isToday: date === today,
-      context,
-      summary: mediaDaySummary(loggedToday, otherLogs),
-    });
-  }
+/** Per-day media logging state for the whole week (Mon–Sun). */
+export async function getWeekMediaSummary(
+  userId: string,
+  weekStart: string,
+): Promise<WeekMediaSummary> {
+  const weekEnd = addDaysISO(weekStart, 6);
+  const today = todayLocalISO();
+  const contexts = await getMediaContextsInRange(userId, weekStart, weekEnd);
+  const days: WeekMediaDay[] = contexts.map((context) => ({
+    date: context.localDate,
+    isFuture: context.localDate > today,
+    isToday: context.localDate === today,
+    context,
+    summary: mediaDaySummary(context.loggedToday, context.otherLogs),
+  }));
+  const hasLibrary = contexts.some(
+    (context) =>
+      context.items.length > 0 ||
+      context.loggedToday.length > 0 ||
+      context.allCompleted,
+  );
 
-  return { weekStart, weekEnd, year: startYear, days, hasLibrary };
+  return {
+    weekStart,
+    weekEnd,
+    year: yearFromLocalISO(weekStart),
+    days,
+    hasLibrary,
+  };
 }
 
 function monthEndFromStart(monthStart: string): string {

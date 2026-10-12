@@ -373,12 +373,23 @@ export async function syncMealBoxConsumptionOnSave(
   return { ok: true };
 }
 
-export async function getWeekMealsSummary(
+function datesInRange(startISO: string, endISO: string): string[] {
+  const dates: string[] = [];
+  let cursor = startISO;
+  while (cursor <= endISO) {
+    dates.push(cursor);
+    cursor = addDaysISO(cursor, 1);
+  }
+  return dates;
+}
+
+/** Meal and snack entries for every date in the range, plus current matlåda stock. */
+export async function getMealsInRange(
   userId: string,
-  weekStart: string,
-): Promise<WeekMealsSummary> {
+  startISO: string,
+  endISO: string,
+): Promise<{ days: WeekMealDay[]; stock: MealBoxStockItem[] }> {
   const supabase = await createClient();
-  const weekEnd = addDaysISO(weekStart, 6);
   const today = todayLocalISO();
 
   const [rowsRes, snacksRes, stock] = await Promise.all([
@@ -388,15 +399,15 @@ export async function getWeekMealsSummary(
         "id, local_date, meal, description, water_log_id, drink_note, rating, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
       )
       .eq("user_id", userId)
-      .gte("local_date", weekStart)
-      .lte("local_date", weekEnd)
+      .gte("local_date", startISO)
+      .lte("local_date", endISO)
       .order("local_date", { ascending: true }),
     supabase
       .from("snack_checks")
       .select("local_date, slot, description, water_log_id, drink_note, rating")
       .eq("user_id", userId)
-      .gte("local_date", weekStart)
-      .lte("local_date", weekEnd),
+      .gte("local_date", startISO)
+      .lte("local_date", endISO),
     getMealBoxStock(userId),
   ]);
 
@@ -415,7 +426,6 @@ export async function getWeekMealsSummary(
   }
 
   const byDate = new Map<string, Record<MealKey, MealEntry | null>>();
-  let boxesProducedWeek = 0;
 
   for (const r of rowsRes.data ?? []) {
     const meal = r.meal as MealKey;
@@ -445,10 +455,6 @@ export async function getWeekMealsSummary(
       });
     }
     byDate.get(r.local_date)![meal] = entry;
-
-    if (!entry.fromMealBox && (entry.mealBoxes ?? 0) > 0) {
-      boxesProducedWeek += entry.mealBoxes ?? 0;
-    }
   }
 
   const snacksByDate = new Map<string, DailySnacks>();
@@ -469,8 +475,7 @@ export async function getWeekMealsSummary(
   }
 
   const days: WeekMealDay[] = [];
-  for (let i = 0; i < 7; i += 1) {
-    const date = addDaysISO(weekStart, i);
+  for (const date of datesInRange(startISO, endISO)) {
     const meals = byDate.get(date) ?? {
       breakfast: null,
       lunch: null,
@@ -495,6 +500,17 @@ export async function getWeekMealsSummary(
       boxesProduced,
     });
   }
+
+  return { days, stock };
+}
+
+export async function getWeekMealsSummary(
+  userId: string,
+  weekStart: string,
+): Promise<WeekMealsSummary> {
+  const weekEnd = addDaysISO(weekStart, 6);
+  const { days, stock } = await getMealsInRange(userId, weekStart, weekEnd);
+  const boxesProducedWeek = days.reduce((sum, day) => sum + day.boxesProduced, 0);
 
   return {
     weekStart,

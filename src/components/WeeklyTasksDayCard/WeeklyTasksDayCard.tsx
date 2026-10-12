@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card/Card";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { CodingActivityFields } from "@/components/CodingActivityFields/CodingActivityFields";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
 import {
@@ -26,6 +27,7 @@ import {
 import {
   formatWeeklyTaskDetail,
   isCodingWeeklyTaskKey,
+  parseCodingActivity,
   isGameWeeklyTaskKey,
   isLaundryBookingCompletion,
   isLaundryFollowUpPlacement,
@@ -40,6 +42,7 @@ import {
   parseSpendKind,
   allowedSpendKinds,
   sortWeeklyDayTasks,
+  type CodingActivity,
   type MusicActivity,
   type RingPerson,
   type SpendKind,
@@ -470,6 +473,9 @@ export function WeeklyTaskRow({
   const [codingProjectId, setCodingProjectId] = useState(
     placement?.codingProjectId ?? "",
   );
+  const [codingActivity, setCodingActivity] = useState<CodingActivity | null>(
+    parseCodingActivity(placement?.codingActivity),
+  );
   const [gameId, setGameId] = useState(placement?.gameId ?? "");
   const [callPerson, setCallPerson] = useState<RingPerson | null>(
     parseRingPerson(placement?.callPerson),
@@ -502,6 +508,7 @@ export function WeeklyTaskRow({
     setMusicActivity(parseMusicActivity(placement?.musicActivity));
     setMusicTitle(placement?.musicLogKind ? (placement.note ?? "") : "");
     setCodingProjectId(placement?.codingProjectId ?? "");
+    setCodingActivity(parseCodingActivity(placement?.codingActivity));
     setGameId(placement?.gameId ?? "");
     setCallPerson(parseRingPerson(placement?.callPerson));
     setCallOtherName(placement?.callOtherName ?? "");
@@ -516,6 +523,7 @@ export function WeeklyTaskRow({
     placement?.musicActivity,
     placement?.musicLogKind,
     placement?.codingProjectId,
+    placement?.codingActivity,
     placement?.gameId,
     placement?.callPerson,
     placement?.callOtherName,
@@ -587,6 +595,7 @@ export function WeeklyTaskRow({
             ? Number(musicRating)
             : null,
         codingProjectId: isCoding ? codingProjectId || null : undefined,
+        codingActivity: isCoding ? codingActivity : undefined,
         gameId: isGame ? gameId || null : undefined,
         callPerson: isRing ? callPerson : undefined,
         callOtherName: isRing ? callOtherName : undefined,
@@ -614,6 +623,7 @@ export function WeeklyTaskRow({
         musicTitle: isLoggedMusicEvent ? musicTitle : undefined,
         callPerson: isRing ? callPerson : undefined,
         callOtherName: isRing ? callOtherName : undefined,
+        codingActivity: isCoding ? codingActivity : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -645,6 +655,7 @@ export function WeeklyTaskRow({
       setMusicPlace("");
       setMusicRating("");
       setCodingProjectId("");
+      setCodingActivity(null);
       setGameId("");
       setCallPerson(null);
       setCallOtherName("");
@@ -746,6 +757,7 @@ export function WeeklyTaskRow({
   const savedLoads =
     placement?.laundryLoads != null ? String(placement.laundryLoads) : "";
   const savedSpendKind = parseSpendKind(placement?.spendKind);
+  const savedCodingActivity = parseCodingActivity(placement?.codingActivity);
   const savedCallPerson = parseRingPerson(placement?.callPerson);
   const savedCallOtherName = placement?.callOtherName ?? "";
   const completionDirty =
@@ -757,7 +769,8 @@ export function WeeklyTaskRow({
       laundryLoads !== savedLoads ||
       musicTitle !== savedMusicTitle ||
       callPerson !== savedCallPerson ||
-      callOtherName !== savedCallOtherName);
+      callOtherName !== savedCallOtherName ||
+      codingActivity !== savedCodingActivity);
 
   return (
     <li
@@ -1056,6 +1069,14 @@ export function WeeklyTaskRow({
                     : ""}
                 </p>
               ) : null}
+              {isCoding ? (
+                <CodingActivityFields
+                  value={codingActivity}
+                  onChange={setCodingActivity}
+                  disabled={pending}
+                  label={done ? "Vad kodade du?" : "Vad ska du koda?"}
+                />
+              ) : null}
               {isCoding && !done ? (
                 <div className={styles.bandPicker}>
                   <span className={styles.bandLabel}>Projekt (valfritt)</span>
@@ -1291,6 +1312,7 @@ export function WeeklyTaskRow({
                   task.completionKind === "expense") &&
                   spendKind == null) ||
                 (isRing && callPerson == null) ||
+                (isCoding && codingActivity == null) ||
                 (showLaundryMode &&
                   laundryMode === "book" &&
                   (!laundryBookDate || !laundryBookTime))

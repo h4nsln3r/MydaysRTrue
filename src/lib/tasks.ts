@@ -221,6 +221,47 @@ export function musicActivityFromLegacyKey(
   return null;
 }
 
+/** What a unified Kodning placement is: own coding, learning, or a friend session. */
+export const CODING_ACTIVITIES = ["code", "learn", "friend"] as const;
+
+export type CodingActivity = (typeof CODING_ACTIVITIES)[number];
+
+export const CODING_ACTIVITY_LABEL: Record<CodingActivity, string> = {
+  code: "Kodning",
+  learn: "Lära",
+  friend: "Friend kod",
+};
+
+export const CODING_ACTIVITY_ICON: Record<CodingActivity, string> = {
+  code: "💻",
+  learn: "📚",
+  friend: "👥",
+};
+
+const CODING_ACTIVITY_SET = new Set<string>(CODING_ACTIVITIES);
+
+export function isCodingActivity(
+  value: string | null | undefined,
+): value is CodingActivity {
+  return value != null && CODING_ACTIVITY_SET.has(value);
+}
+
+export function parseCodingActivity(
+  value: string | null | undefined,
+): CodingActivity | null {
+  return isCodingActivity(value) ? value : null;
+}
+
+export function codingActivityFromLegacyKey(
+  key: string | null | undefined,
+): CodingActivity | null {
+  if (!key) return null;
+  if (key === "dev_learn") return "learn";
+  if (key === "dev_friend") return "friend";
+  if (key === "dev_code" || key.startsWith("dev_code_")) return "code";
+  return null;
+}
+
 export function musicSessionTitle(
   task: { title: string; completionKind?: WeeklyTaskCompletionKind; key?: string | null },
   placement: {
@@ -228,6 +269,7 @@ export function musicSessionTitle(
     gameTitle?: string | null;
     callPerson?: RingPerson | null;
     callOtherName?: string | null;
+    codingActivity?: CodingActivity | null;
   } | null | undefined,
 ): string {
   if (placement?.gameTitle?.trim()) {
@@ -243,6 +285,9 @@ export function musicSessionTitle(
     });
     if (callTitle) return callTitle;
   }
+  if (placement?.codingActivity) {
+    return CODING_ACTIVITY_LABEL[placement.codingActivity];
+  }
   return task.title;
 }
 
@@ -253,6 +298,7 @@ export function musicSessionIcon(
     gameKind?: GameKind | null;
     gameIcon?: string | null;
     callPerson?: RingPerson | null;
+    codingActivity?: CodingActivity | null;
   } | null | undefined,
 ): string {
   if (placement?.gameIcon?.trim()) return placement.gameIcon.trim();
@@ -264,6 +310,9 @@ export function musicSessionIcon(
   }
   if (placement?.callPerson) {
     return ringPersonIcon(placement.callPerson);
+  }
+  if (placement?.codingActivity) {
+    return CODING_ACTIVITY_ICON[placement.codingActivity];
   }
   return task.icon;
 }
@@ -659,6 +708,8 @@ export interface WeeklyPlacement {
   /** Coding session project (dev_code only). */
   codingProjectId: string | null;
   codingProjectTitle: string | null;
+  /** Kodning, Lära or Friend kod — chosen when planning. */
+  codingActivity: CodingActivity | null;
   /** Who this call is with (unified Ring task). */
   callPerson: RingPerson | null;
   /** Free-text name when callPerson is Övrigt. */

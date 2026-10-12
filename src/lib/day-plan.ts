@@ -492,14 +492,15 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     leaveKind: input.leaveKind ?? null,
     workKind: input.work.kind,
   });
-  const planHabits = input.habits.filter(
-    (h) =>
-      habitVisibleOnDay(h, visibility) &&
-      habitOccursOnDate(h, input.date, {
-        shakeCompleted: h.status != null,
-        shakeBatches: h.shakeBatches,
-      }),
-  );
+  const planHabits = input.habits.filter((h) => {
+    const occurs = habitOccursOnDate(h, input.date, {
+      shakeCompleted: h.status != null,
+      shakeBatches: h.shakeBatches,
+    });
+    if (!occurs) return false;
+    if (habitVisibleOnDay(h, visibility)) return true;
+    return h.key === "gor_shake" && h.shakePlacedOn === input.date;
+  });
   const enabledKinds = new Set(planHabits.map((h) => h.kind));
   const slots = habitSortSlots(planHabits);
 

@@ -104,10 +104,11 @@ interface HabitRow {
   weekdays: number[] | null;
   shake_reset_on: string | null;
   shake_skipped_on: string | null;
+  shake_placed_on: string | null;
 }
 
 const HABIT_COLUMNS =
-  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_vacation, show_on_day_off, show_on_sick, show_on_weekend, part_visibility, interval_days, interval_anchor_date, weekdays, shake_reset_on, shake_skipped_on";
+  "id, key, label, kind, icon, accent, sort_order, category_id, enabled, show_on_vacation, show_on_day_off, show_on_sick, show_on_weekend, part_visibility, interval_days, interval_anchor_date, weekdays, shake_reset_on, shake_skipped_on, shake_placed_on";
 
 function rowToHabit(r: HabitRow): Habit {
   return {
@@ -130,6 +131,7 @@ function rowToHabit(r: HabitRow): Habit {
     weekdays: parseHabitWeekdays(r.weekdays),
     shakeResetOn: r.shake_reset_on,
     shakeSkippedOn: r.shake_skipped_on,
+    shakePlacedOn: r.shake_placed_on,
   };
 }
 

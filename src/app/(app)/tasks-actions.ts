@@ -20,6 +20,7 @@ import {
 import type { Database } from "@/lib/supabase/database.types";
 import {
   isCodingWeeklyTaskKey,
+  parseCodingActivity,
   isGameWeeklyTaskKey,
   isHexColor,
   isKnownMusicBand,
@@ -37,6 +38,7 @@ import {
   parseSpendKindFor,
   isRingWeeklyTaskKey,
   parseRingPerson,
+  type CodingActivity,
   type MusicActivity,
   type MusicLogKind,
   type RingPerson,
@@ -748,6 +750,7 @@ export async function addWeeklyTaskPlacementAction(input: {
   gameId?: string | null;
   callPerson?: string | null;
   callOtherName?: string | null;
+  codingActivity?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Missing task id." };
   if (!isMonday(input.weekStart)) {
@@ -817,6 +820,13 @@ export async function addWeeklyTaskPlacementAction(input: {
       ? (input.callOtherName ?? "").trim().slice(0, 80) || null
       : null;
 
+  const codingActivity = isCodingWeeklyTaskKey(task.key)
+    ? parseCodingActivity(input.codingActivity ?? null)
+    : null;
+  if (isCodingWeeklyTaskKey(task.key) && input.codingActivity && !codingActivity) {
+    return { ok: false, error: "Välj kodning, lära eller friend kod." };
+  }
+
   const daySortOrder = await nextWeeklyDaySortOrder(
     supabase,
     user.id,
@@ -837,6 +847,7 @@ export async function addWeeklyTaskPlacementAction(input: {
     ...(callPerson
       ? { call_person: callPerson, call_other_name: callOtherName }
       : {}),
+    ...(codingActivity ? { coding_activity: codingActivity } : {}),
   });
   if (error) return { ok: false, error: error.message };
 
@@ -1097,6 +1108,7 @@ export async function updateWeeklyTaskPlanAction(input: {
   gameId?: string | null;
   callPerson?: string | null;
   callOtherName?: string | null;
+  codingActivity?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -1120,8 +1132,9 @@ export async function updateWeeklyTaskPlanAction(input: {
   const kind = task.completion_kind as WeeklyTaskCompletionKind;
   const isGame = isGameWeeklyTaskKey(task.key);
   const isRing = isRingWeeklyTaskKey(task.key);
+  const isCoding = isCodingWeeklyTaskKey(task.key);
   const planNote = input.planNote.trim();
-  if (kind === "journal" && !isGame && !isRing && !planNote) {
+  if (kind === "journal" && !isGame && !isRing && !isCoding && !planNote) {
     return { ok: false, error: "Skriv vad du ska jobba med." };
   }
   if (kind === "laundry" && !planNote) {
@@ -1192,6 +1205,14 @@ export async function updateWeeklyTaskPlanAction(input: {
     callOtherName = callPerson === "ovrigt" && other ? other : null;
   }
 
+  let codingActivity: CodingActivity | null = null;
+  if (isCoding) {
+    codingActivity = parseCodingActivity(input.codingActivity ?? null);
+    if (!codingActivity) {
+      return { ok: false, error: "Välj kodning, lära eller friend kod." };
+    }
+  }
+
   let existing: { id: string } | null = null;
   if (input.placementId) {
     const { data } = await supabase
@@ -1238,6 +1259,7 @@ export async function updateWeeklyTaskPlanAction(input: {
             call_other_name: callOtherName,
           }
         : {}),
+      ...(isCoding ? { coding_activity: codingActivity } : {}),
     })
     .eq("id", existing.id)
     .eq("user_id", user.id);
@@ -1279,6 +1301,8 @@ export async function completeWeeklyTaskAction(input: {
   musicRating?: number | null;
   /** Optional coding session project. */
   codingProjectId?: string | null;
+  /** Kodning, Lära or Friend kod. */
+  codingActivity?: string | null;
   /** Chosen game from the catalog (SPEL). */
   gameId?: string | null;
   /** Who the call is with (unified Ring task). */
@@ -1324,12 +1348,13 @@ export async function completeWeeklyTaskAction(input: {
     game_id: string | null;
     call_person: string | null;
     call_other_name: string | null;
+    coding_activity: string | null;
   } | null = null;
 
   if (input.placementId) {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id, call_person, call_other_name")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id, call_person, call_other_name, coding_activity")
       .eq("id", input.placementId)
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
@@ -1339,7 +1364,7 @@ export async function completeWeeklyTaskAction(input: {
   } else {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id, call_person, call_other_name")
+      .select("id, plan_note, weekday, music_activity, band, plan_todo, spend_kind, game_id, call_person, call_other_name, coding_activity")
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
       .eq("week_start", input.weekStart)
@@ -1355,7 +1380,14 @@ export async function completeWeeklyTaskAction(input: {
   }
 
   let codingProjectId: string | null = null;
+  let completedCodingActivity: CodingActivity | null = null;
   if (isCodingWeeklyTaskKey(task.key)) {
+    completedCodingActivity =
+      parseCodingActivity(input.codingActivity ?? null) ??
+      parseCodingActivity(existing.coding_activity);
+    if (!completedCodingActivity) {
+      return { ok: false, error: "Välj kodning, lära eller friend kod." };
+    }
     codingProjectId = input.codingProjectId?.trim() || null;
     if (codingProjectId) {
       const { data: project } = await supabase
@@ -1688,6 +1720,9 @@ export async function completeWeeklyTaskAction(input: {
       coding_project_id: isCodingWeeklyTaskKey(task.key)
         ? codingProjectId
         : null,
+      ...(isCodingWeeklyTaskKey(task.key)
+        ? { coding_activity: completedCodingActivity }
+        : {}),
       game_id: isGameWeeklyTaskKey(task.key) ? gameId : null,
       ...(isRingWeeklyTaskKey(task.key)
         ? {
@@ -1733,6 +1768,7 @@ export async function updateWeeklyTaskCompletionAction(input: {
   musicTitle?: string;
   callPerson?: string | null;
   callOtherName?: string | null;
+  codingActivity?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -1799,6 +1835,7 @@ export async function updateWeeklyTaskCompletionAction(input: {
     laundry_loads?: number | null;
     call_person?: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
     call_other_name?: string | null;
+    coding_activity?: "code" | "learn" | "friend" | null;
   } = {};
 
   if (kind === "shop" || kind === "expense") {
@@ -1861,6 +1898,14 @@ export async function updateWeeklyTaskCompletionAction(input: {
       patch.call_other_name =
         callPerson === "ovrigt" && other ? other : null;
       patch.note = note || null;
+    } else if (isCodingWeeklyTaskKey(task.key)) {
+      const codingActivity = parseCodingActivity(input.codingActivity ?? null);
+      if (!codingActivity) {
+        return { ok: false, error: "Välj kodning, lära eller friend kod." };
+      }
+      if (!note) return { ok: false, error: "Anteckna vad du gjorde." };
+      patch.coding_activity = codingActivity;
+      patch.note = note;
     } else {
       if (!note) return { ok: false, error: "Anteckna vad du gjorde." };
       patch.note = note;

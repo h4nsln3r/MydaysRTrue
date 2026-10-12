@@ -14,7 +14,7 @@ export function JournalNoteForm({ date }: { date: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  useSyncNavPending(pending);
+  useSyncNavPending(pending, draft);
 
   const addEntry = () => {
     setError(null);

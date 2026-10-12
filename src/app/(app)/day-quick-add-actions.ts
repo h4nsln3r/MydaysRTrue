@@ -8,9 +8,11 @@ import { addWeeklyTaskPlacementAction } from "@/app/(app)/tasks-actions";
 import type { DayQuickAddPayload } from "@/lib/day-quick-add";
 import { addDaysISO } from "@/lib/date";
 import {
+  isCodingWeeklyTaskKey,
   isGameWeeklyTaskKey,
   isRingWeeklyTaskKey,
   isWeeklyTaskRepeatable,
+  parseCodingActivity,
   parseMusicActivity,
   parseRingPerson,
   parseSpendKindFor,
@@ -45,7 +47,7 @@ async function placeShake(input: {
 
   const { data: habit } = await supabase
     .from("habits")
-    .select("id, key")
+    .select("id, key, shake_reset_on")
     .eq("id", input.habitId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -56,7 +58,13 @@ async function placeShake(input: {
   const localDate = addDaysISO(input.weekStart, input.weekday - 1);
   const { error } = await supabase
     .from("habits")
-    .update({ shake_reset_on: localDate, shake_skipped_on: null })
+    .update({
+      shake_placed_on: localDate,
+      shake_skipped_on: null,
+      // A same-day restart drops earlier batches. The plus button only
+      // pins the task; stock keeps counting after it is logged.
+      ...(habit.shake_reset_on === localDate ? { shake_reset_on: null } : {}),
+    })
     .eq("id", habit.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
@@ -124,6 +132,7 @@ export async function quickAddDayActivityAction(input: {
         gameId: payload.gameId,
         callPerson: payload.callPerson,
         callOtherName: payload.callOtherName,
+        codingActivity: payload.codingActivity,
       });
     default:
       return { ok: false, error: "Okänd aktivitet." };
@@ -140,6 +149,7 @@ async function addPlannedWeeklyTask(input: {
   gameId?: string | null;
   callPerson?: string | null;
   callOtherName?: string | null;
+  codingActivity?: string | null;
 }): Promise<ActionResult> {
   const supabase = await createClient();
   const {
@@ -167,6 +177,7 @@ async function addPlannedWeeklyTask(input: {
   const kind = task.completion_kind as WeeklyTaskCompletionKind;
   const isGame = isGameWeeklyTaskKey(task.key);
   const isRing = isRingWeeklyTaskKey(task.key);
+  const isCoding = isCodingWeeklyTaskKey(task.key);
 
   if (kind === "music" && !parseMusicActivity(input.musicActivity ?? null)) {
     return { ok: false, error: "Välj vad du ska göra." };
@@ -189,6 +200,9 @@ async function addPlannedWeeklyTask(input: {
   if (isRing && !parseRingPerson(input.callPerson ?? null)) {
     return { ok: false, error: "Välj vem du ska ringa." };
   }
+  if (isCoding && !parseCodingActivity(input.codingActivity ?? null)) {
+    return { ok: false, error: "Välj kodning, lära eller friend kod." };
+  }
 
   return addWeeklyTaskPlacementAction({
     taskId: input.taskId,
@@ -200,5 +214,6 @@ async function addPlannedWeeklyTask(input: {
     gameId: input.gameId,
     callPerson: input.callPerson,
     callOtherName: input.callOtherName,
+    codingActivity: input.codingActivity,
   });
 }

@@ -170,6 +170,7 @@ export interface Database {
           weekdays: number[] | null;
           shake_reset_on: string | null;
           shake_skipped_on: string | null;
+          shake_placed_on: string | null;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -207,6 +208,7 @@ export interface Database {
           weekdays?: number[] | null;
           shake_reset_on?: string | null;
           shake_skipped_on?: string | null;
+          shake_placed_on?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -244,6 +246,7 @@ export interface Database {
           weekdays?: number[] | null;
           shake_reset_on?: string | null;
           shake_skipped_on?: string | null;
+          shake_placed_on?: string | null;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1067,6 +1070,7 @@ export interface Database {
           live_event_id: string | null;
           on_hold: boolean;
           coding_project_id: string | null;
+          coding_activity: "code" | "learn" | "friend" | null;
           game_id: string | null;
           call_person: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
           call_other_name: string | null;
@@ -1097,6 +1101,7 @@ export interface Database {
           live_event_id?: string | null;
           on_hold?: boolean;
           coding_project_id?: string | null;
+          coding_activity?: "code" | "learn" | "friend" | null;
           game_id?: string | null;
           call_person?: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
           call_other_name?: string | null;
@@ -1127,6 +1132,7 @@ export interface Database {
           live_event_id?: string | null;
           on_hold?: boolean;
           coding_project_id?: string | null;
+          coding_activity?: "code" | "learn" | "friend" | null;
           game_id?: string | null;
           call_person?: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
           call_other_name?: string | null;

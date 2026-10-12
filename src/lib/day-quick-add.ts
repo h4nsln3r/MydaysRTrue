@@ -6,16 +6,21 @@ import { CARDIO_KINDS, type CardioKind } from "@/lib/cardio";
 import type { UserGame } from "@/lib/games";
 import type { UserSport } from "@/lib/sports";
 import {
+  CODING_ACTIVITIES,
+  CODING_ACTIVITY_ICON,
+  CODING_ACTIVITY_LABEL,
   MUSIC_ACTIVITIES,
   MUSIC_ACTIVITY_ICON,
   MUSIC_ACTIVITY_LABEL,
   SPEND_KIND_ICON,
   SPEND_KIND_LABEL,
   allowedSpendKinds,
+  isCodingWeeklyTaskKey,
   isGameWeeklyTaskKey,
   isMusicWeeklyTaskKey,
   isRingWeeklyTaskKey,
   musicActivityNeedsBand,
+  type CodingActivity,
   type MusicActivity,
   type SpendKind,
   type TaskCategory,
@@ -65,6 +70,7 @@ export type DayQuickAddPayload =
       gameId?: string | null;
       callPerson?: RingPerson | null;
       callOtherName?: string | null;
+      codingActivity?: CodingActivity | null;
     };
 
 export type DayQuickAddStep =
@@ -173,6 +179,26 @@ function taskStep(task: DayQuickAddTask, games: UserGame[]): DayQuickAddStep {
             payload: { kind: "task", taskId: task.id, gameId: game.id },
           },
         })),
+    };
+  }
+
+  if (isCodingWeeklyTaskKey(task.key)) {
+    return {
+      type: "menu",
+      title: task.title,
+      items: CODING_ACTIVITIES.map((activity) => ({
+        id: `${task.id}:${activity}`,
+        label: CODING_ACTIVITY_LABEL[activity],
+        icon: CODING_ACTIVITY_ICON[activity],
+        step: {
+          type: "commit",
+          payload: {
+            kind: "task",
+            taskId: task.id,
+            codingActivity: activity,
+          },
+        },
+      })),
     };
   }
 
@@ -354,7 +380,7 @@ export function buildDayQuickAddItems(input: {
   if (input.sources.shake) {
     items.push({
       id: `shake:${input.sources.shake.habitId}`,
-      label: "Shake",
+      label: input.sources.shake.label || "Gör shake",
       icon: input.sources.shake.icon || "🥤",
       step: {
         type: "commit",

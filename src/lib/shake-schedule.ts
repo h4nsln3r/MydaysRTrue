@@ -7,6 +7,8 @@ export type ShakeDrinkRule = {
   shakeResetOn?: string | null;
   /** Hide Gör shake on this calendar day (skipped from the day plan). */
   shakeSkippedOn?: string | null;
+  /** Show Gör shake on this date from the day plus button, without restarting stock. */
+  shakePlacedOn?: string | null;
 };
 
 export const GOR_SHAKE_HABIT_KEY = "gor_shake";
@@ -148,6 +150,19 @@ export function gorShakeOccursOnDate(
     if (habit.shakeSkippedOn === localDate) return false;
     const postponed = addDaysISO(habit.shakeSkippedOn, 1);
     if (localDate === postponed) return true;
+  }
+  const placedOn = habit.shakePlacedOn ?? null;
+  if (placedOn) {
+    const madeSincePlace = (options.batches ?? []).some(
+      (batch) => batch.madeOn >= placedOn,
+    );
+    if (!madeSincePlace) {
+      if (localDate === placedOn) return true;
+      if (localDate > placedOn) {
+        const today = options.today ?? todayLocalISO();
+        if (localDate <= today) return true;
+      }
+    }
   }
   const resetOn = habit.shakeResetOn ?? null;
   const relevant = batchesAfterReset(habit, options.batches ?? []);

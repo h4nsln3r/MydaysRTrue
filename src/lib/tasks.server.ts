@@ -25,7 +25,9 @@ import {
   type WeeklyTaskForWeek,
   type WeeklyTaskCompletionKind,
   type MusicLogKind,
+  codingActivityFromLegacyKey,
   musicActivityFromLegacyKey,
+  parseCodingActivity,
   parseMusicActivity,
   parseSpendKind,
   ringPersonFromLegacyKey,
@@ -262,6 +264,7 @@ interface WeeklyPlacementRow {
   game_id: string | null;
   call_person: string | null;
   call_other_name: string | null;
+  coding_activity: string | null;
 }
 
 function rowToPlacement(
@@ -300,6 +303,7 @@ function rowToPlacement(
       : null,
     callPerson: parseRingPerson(r.call_person),
     callOtherName: r.call_other_name?.trim() || null,
+    codingActivity: parseCodingActivity(r.coding_activity),
     gameId: r.game_id,
     gameTitle: game?.title ?? null,
     gameKind: game?.kind ?? null,
@@ -364,7 +368,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled, is_repeatable, weekly_goal";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, spend_kind, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id, game_id, call_person, call_other_name";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, spend_kind, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id, game_id, call_person, call_other_name, coding_activity";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 
@@ -388,7 +392,7 @@ const REPEATABLE_CANONICAL: Array<{
     legacyLike: "dev_code_%",
     title: "Kodning",
     notes:
-      "Dra in hur många kodpass du vill — minst 2 per vecka. Anteckna vad du gjorde; projekt är valfritt.",
+      "Dra in hur många kodpass du vill — minst 2 per vecka. Välj kodning, lära eller friend kod när du planerar.",
     icon: "💻",
     accent: "#5fb6ff",
     completionKind: "journal",
@@ -598,13 +602,18 @@ export async function ensureRepeatableWeeklyTasks(
       .eq("id", canonicalId)
       .eq("user_id", userId);
 
+    const legacyOr =
+      spec.key === "dev_code"
+        ? `key.eq.${spec.key},key.like.${spec.legacyLike},key.eq.dev_learn,key.eq.dev_friend`
+        : `key.eq.${spec.key},key.like.${spec.legacyLike}`;
+
     const { data: leftovers } = await supabase
       .from("weekly_tasks")
       .select("id, key")
       .eq("user_id", userId)
       .is("archived_at", null)
       .neq("id", canonicalId)
-      .or(`key.eq.${spec.key},key.like.${spec.legacyLike}`);
+      .or(legacyOr);
 
     for (const leftover of leftovers ?? []) {
       const fromKey = ringPersonFromLegacyKey(leftover.key);
@@ -615,6 +624,16 @@ export async function ensureRepeatableWeeklyTasks(
           .eq("user_id", userId)
           .eq("task_id", leftover.id)
           .is("call_person", null);
+      }
+      const codingFromKey = codingActivityFromLegacyKey(leftover.key);
+      if (codingFromKey) {
+        const { error: activityError } = await supabase
+          .from("weekly_task_placements")
+          .update({ coding_activity: codingFromKey })
+          .eq("user_id", userId)
+          .eq("task_id", leftover.id)
+          .is("coding_activity", null);
+        if (activityError) continue;
       }
       await supabase
         .from("weekly_task_placements")

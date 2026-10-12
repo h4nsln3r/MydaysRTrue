@@ -63,6 +63,7 @@ import {
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { CodingActivityFields } from "@/components/CodingActivityFields/CodingActivityFields";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
 import { GameFields } from "@/components/GameFields/GameFields";
@@ -89,12 +90,15 @@ import {
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   WEEKDAYS,
+  isCodingWeeklyTaskKey,
   isGameWeeklyTaskKey,
   isRingWeeklyTaskKey,
+  parseCodingActivity,
   parseMusicActivity,
   parseRingPerson,
   parseSpendKind,
   allowedSpendKinds,
+  type CodingActivity,
   type MusicActivity,
   type RingPerson,
   type SpendKind,
@@ -1460,6 +1464,11 @@ function ItemRowContent({
   const [callOtherName, setCallOtherName] = useState(
     item.kind === "task" ? (item.placement?.callOtherName ?? "") : "",
   );
+  const [codingActivity, setCodingActivity] = useState<CodingActivity | null>(
+    item.kind === "task"
+      ? parseCodingActivity(item.placement?.codingActivity)
+      : null,
+  );
   const [placeOpen, setPlaceOpen] = useState(false);
   const [monthlyAmount, setMonthlyAmount] = useState(
     item.kind === "monthly_bill" && item.completion?.amount != null
@@ -1756,6 +1765,7 @@ function ItemRowContent({
               callOtherName: callPerson === "ovrigt" ? callOtherName : null,
             }
           : {}),
+        ...(isCodingWeeklyTaskKey(item.taskKey) ? { codingActivity } : {}),
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -2933,6 +2943,22 @@ function ItemRowContent({
                       disabled={pending}
                     />
                   </>
+                ) : isCodingWeeklyTaskKey(item.taskKey) ? (
+                  <>
+                    <CodingActivityFields
+                      value={codingActivity}
+                      onChange={setCodingActivity}
+                      disabled={pending}
+                    />
+                    <Input
+                      label="Anteckning (valfritt)"
+                      value={taskPlanNote}
+                      onChange={(e) => setTaskPlanNote(e.target.value)}
+                      placeholder="t.ex. portfolio, React hooks"
+                      maxLength={280}
+                      disabled={pending}
+                    />
+                  </>
                 ) : isRingWeeklyTaskKey(item.taskKey) ? (
                   <>
                     <RingFields
@@ -3021,6 +3047,8 @@ function ItemRowContent({
                   pending ||
                   (item.completionKind === "music" && musicActivity == null) ||
                   (isRingWeeklyTaskKey(item.taskKey) && callPerson == null) ||
+                  (isCodingWeeklyTaskKey(item.taskKey) &&
+                    codingActivity == null) ||
                   ((item.completionKind === "shop" ||
                     item.completionKind === "expense") &&
                     spendKind == null)

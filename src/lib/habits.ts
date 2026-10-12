@@ -174,6 +174,8 @@ export interface Habit {
   shakeResetOn: string | null;
   /** Gör shake — hidden on this date after being removed from the day plan. */
   shakeSkippedOn: string | null;
+  /** Gör shake — pinned on this date from the day plus button. */
+  shakePlacedOn: string | null;
 }
 
 export interface HabitIntervalRule {
@@ -183,6 +185,7 @@ export interface HabitIntervalRule {
   weekdays: Weekday[];
   shakeResetOn?: string | null;
   shakeSkippedOn?: string | null;
+  shakePlacedOn?: string | null;
 }
 
 export interface HabitOccurrenceContext {

@@ -5,7 +5,7 @@ import { getSportWeekSummary } from "@/lib/sport.server";
 import { cardioSessionDisplay, formatCardioDetail } from "@/lib/cardio";
 import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
-import { formatWeeklyTaskDetail, formatFestOccasionWhen, formatMonthlyTaskDetail, isGameWeeklyTaskKey, isMonthlyTaskRepeatable, isRingWeeklyTaskKey, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
+import { formatWeeklyTaskDetail, formatFestOccasionWhen, formatMonthlyTaskDetail, isCodingWeeklyTaskKey, isGameWeeklyTaskKey, isMonthlyTaskRepeatable, isRingWeeklyTaskKey, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { getGorShakeWeekPlan } from "@/lib/habits.server";
@@ -59,6 +59,14 @@ function weekTaskSubtitle(
 ): string | null {
   if (isGameWeeklyTaskKey(task.key) && !placement?.gameId) {
     return "Välj vad ni ska spela";
+  }
+  if (isCodingWeeklyTaskKey(task.key) && !placement?.codingActivity) {
+    return "Välj kodning, lära eller friend kod";
+  }
+  if (isCodingWeeklyTaskKey(task.key) && placement?.codingActivity) {
+    return placement
+      ? formatWeeklyTaskDetail(placement, task.completionKind)
+      : null;
   }
   if (isRingWeeklyTaskKey(task.key) && !placement?.callPerson) {
     return "Välj vem du ska ringa";

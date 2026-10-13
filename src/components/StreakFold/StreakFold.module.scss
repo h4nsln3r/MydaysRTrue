@@ -1,0 +1,84 @@
+@use "abstracts" as *;
+
+.box {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-2 $space-3;
+    border-radius: $radius-md;
+    background: $color-ink;
+    border: 1px solid $color-line;
+}
+
+.toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-3;
+    width: 100%;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: $color-cream-dim;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+        color: $color-cream;
+    }
+}
+
+.chevron {
+    display: inline-block;
+    color: $color-fog;
+    font-size: 0.75rem;
+    line-height: 1;
+    transform: rotate(-90deg);
+    transition: transform 160ms $ease-out;
+}
+
+.chevronOpen {
+    transform: rotate(0deg);
+}
+
+.result {
+    display: flex;
+    align-items: center;
+    gap: $space-4;
+}
+
+.item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.struck {
+    position: relative;
+    display: inline-block;
+    font-size: 1.15rem;
+    line-height: 1;
+
+    &::after {
+        content: "";
+        position: absolute;
+        left: -2px;
+        right: -2px;
+        top: 54%;
+        height: 2px;
+        border-radius: 1px;
+        background: $color-danger;
+        transform: rotate(-32deg);
+        box-shadow: 0 0 0 1px $color-ink;
+    }
+}
+
+.count {
+    font-family: $font-mono;
+    font-weight: 800;
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+    color: $color-cream;
+}

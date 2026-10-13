@@ -49,8 +49,9 @@ export function useBackgroundSave(saving: boolean) {
 /**
  * Mirrors a local busy flag onto the global overlay.
  * Stays visible until `settleKey` changes after busy ends (covers router.refresh()).
+ * Returns whether that indicator is still showing.
  */
-export function useSyncNavPending(busy: boolean, settleKey: unknown) {
+export function useSyncNavPending(busy: boolean, settleKey: unknown): boolean {
   const { setPending } = useNavPending();
   const [holding, setHolding] = useState(false);
   const keyAtBusyStart = useRef(settleKey);
@@ -82,6 +83,8 @@ export function useSyncNavPending(busy: boolean, settleKey: unknown) {
     setPending(true);
     return () => setPending(false);
   }, [show, setPending]);
+
+  return show;
 }
 
 function internalNavHref(anchor: HTMLAnchorElement): string | null {

@@ -11,11 +11,12 @@ import {
   getDailyHabits,
   getDailyMeals,
   getDailySnacks,
+  getSugarFreeStreakBefore,
 } from "@/lib/habits.server";
 import { getDailyIntake } from "@/lib/intake.server";
 import { getDailyMobileGames } from "@/lib/mobile-games.server";
 import { getDailyMood } from "@/lib/mood.server";
-import { getDailySmokeFree } from "@/lib/smoke-free.server";
+import { getDailySmokeFree, getSmokeFreeStreakBefore } from "@/lib/smoke-free.server";
 import { getDailyJournal } from "@/lib/journal.server";
 import { getWorkDailyLog } from "@/lib/work.server";
 import { habitDayContext } from "@/lib/habits";
@@ -73,6 +74,8 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     mobileGames,
     mood,
     smokeFree,
+    streakBefore,
+    sugarStreakBefore,
     codingProjects,
     games,
     sports,
@@ -98,6 +101,8 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
     getDailyMobileGames(user.id, today),
     getDailyMood(user.id, today),
     getDailySmokeFree(user.id, today),
+    getSmokeFreeStreakBefore(user.id, today),
+    getSugarFreeStreakBefore(user.id, today),
     getCodingProjects(user.id),
     getUserGames(user.id),
     getUserSports(user.id),
@@ -206,6 +211,8 @@ export default async function DashboardPage({ searchParams }: HomePageProps) {
               mobileGames={mobileGames}
               mood={mood}
               smokeFree={smokeFree}
+              streakBefore={streakBefore}
+              sugarStreakBefore={sugarStreakBefore}
               dayContext={dayContext}
               waterPlusHref="/water"
               waterPlusLabel="Open water page"

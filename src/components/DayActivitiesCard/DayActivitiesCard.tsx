@@ -43,10 +43,7 @@ import type { DailyLiveEventsContext } from "@/lib/live-events";
 import type { WorkDailyLog } from "@/lib/work";
 import type { LeaveKind, TripDayContext } from "@/lib/leave";
 import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
-import {
-  useBackgroundSave,
-  useSyncNavPending,
-} from "@/components/NavProgress/NavProgress";
+import { useBackgroundSave } from "@/components/NavProgress/NavProgress";
 import { DayActivityRow } from "./DayActivityRow";
 import { PlanSortableRow } from "./PlanSortableRow";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
@@ -72,6 +69,13 @@ function mergeDayPlanItems(
     ...extras,
   ].map((item, index) => ({ ...item, sortOrder: index }));
   return sortDayPlanItems(merged);
+}
+
+/** Done rows sit together at the bottom. True once this row is in that group. */
+function isInCompletedSection(items: DayPlanItem[], itemKey: string): boolean {
+  const index = items.findIndex((item) => item.itemKey === itemKey);
+  if (index < 0 || !items[index]?.doneAt) return false;
+  return items.slice(index + 1).every((item) => item.doneAt);
 }
 
 interface Props {
@@ -220,13 +224,49 @@ export function DayActivitiesCard({
     ],
   );
 
-  useSyncNavPending(pendingKey != null, builtItems);
-
   const [localItems, setLocalItems] = useState(builtItems);
 
   useEffect(() => {
     setLocalItems((prev) => mergeDayPlanItems(builtItems, prev));
   }, [builtItems]);
+
+  const localItemsRef = useRef(localItems);
+  localItemsRef.current = localItems;
+  const builtItemsRef = useRef(builtItems);
+  builtItemsRef.current = builtItems;
+  const builtWhenPinned = useRef<DayPlanItem[] | null>(null);
+  const [pinnedDoneWait, setPinnedDoneWait] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingKey) return;
+    const item = localItemsRef.current.find((entry) => entry.itemKey === pendingKey);
+    if (!item || item.doneAt) return;
+    builtWhenPinned.current = builtItemsRef.current;
+    setPinnedDoneWait(pendingKey);
+  }, [pendingKey]);
+
+  useEffect(() => {
+    if (!pinnedDoneWait) return;
+    const id = window.setTimeout(() => setPinnedDoneWait(null), 20000);
+    return () => window.clearTimeout(id);
+  }, [pinnedDoneWait]);
+
+  useEffect(() => {
+    if (!pinnedDoneWait) return;
+    if (error) {
+      setPinnedDoneWait(null);
+      return;
+    }
+    if (isInCompletedSection(builtItems, pinnedDoneWait)) {
+      setPinnedDoneWait(null);
+      return;
+    }
+    if (pendingKey != null) return;
+    if (builtItems === builtWhenPinned.current) return;
+    setPinnedDoneWait(null);
+  }, [pinnedDoneWait, builtItems, pendingKey, error]);
+
+  const listBusy = pendingKey != null || pinnedDoneWait != null;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -353,8 +393,10 @@ export function DayActivitiesCard({
     return null;
   }
 
+  const showSaveSpinner = savingOrder || listBusy;
+
   const showControls =
-    addWeekday != null || savingOrder || localItems.length > 0;
+    addWeekday != null || showSaveSpinner || localItems.length > 0;
 
   const addControl = showControls ? (
     <div className={styles.planActions}>
@@ -371,12 +413,12 @@ export function DayActivitiesCard({
           +
         </button>
       ) : null}
-      {savingOrder ? (
+      {showSaveSpinner ? (
         <span
           className={styles.saveSpinner}
           role="status"
           aria-live="polite"
-          aria-label="Sparar ordning"
+          aria-label={savingOrder ? "Sparar ordning" : "Sparar"}
         />
       ) : null}
     </div>

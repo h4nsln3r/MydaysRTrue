@@ -4,11 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setHabitStatusAction } from "@/app/(app)/actions";
 import { Card } from "@/components/Card/Card";
+import { StreakFold, StreakStat } from "@/components/StreakFold/StreakFold";
+import { todayLocalISO } from "@/lib/date";
 import {
   type DailyHabit,
   type HabitStatus,
   nextHabitStatus,
 } from "@/lib/habits";
+import { smokeFreeStreakCount } from "@/lib/smoke-free";
 import styles from "./TriStateHabitRow.module.scss";
 
 const CHOICES: { value: HabitStatus; label: string }[] = [
@@ -20,9 +23,11 @@ const CHOICES: { value: HabitStatus; label: string }[] = [
 interface Props {
   date: string;
   habit: DailyHabit;
+  /** Days of Ja before `date`. Only Sockerfri uses this. */
+  streakBefore?: number;
 }
 
-export function TriStateHabitRow({ date, habit }: Props) {
+export function TriStateHabitRow({ date, habit, streakBefore }: Props) {
   const router = useRouter();
   const [status, setStatus] = useState<HabitStatus | null>(habit.status);
   const [pending, startTransition] = useTransition();
@@ -94,7 +99,28 @@ export function TriStateHabitRow({ date, habit }: Props) {
           })}
         </div>
       </div>
+      {habit.key === "sugar_free" && streakBefore != null ? (
+        <div className={styles.streak}>
+          <StreakFold label="Sockerfria dagar i rad">
+            <SugarStreak countBefore={streakBefore} status={status} date={date} />
+          </StreakFold>
+        </div>
+      ) : null}
       {error ? <p className={styles.error}>{error}</p> : null}
     </Card>
   );
+}
+
+function SugarStreak({
+  countBefore,
+  status,
+  date,
+}: {
+  countBefore: number;
+  status: HabitStatus | null;
+  date: string;
+}) {
+  const count = smokeFreeStreakCount(countBefore, status, date === todayLocalISO());
+  const unit = count === 1 ? "sockerfri dag" : "sockerfria dagar";
+  return <StreakStat icon="🍭" count={count} label={`${count} ${unit} i rad`} />;
 }

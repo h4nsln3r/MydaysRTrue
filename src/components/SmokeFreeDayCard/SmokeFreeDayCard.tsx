@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveSmokeFreeDailyLogAction } from "@/app/(app)/smoke-free-actions";
 import { Card } from "@/components/Card/Card";
+import { StreakFold, StreakStat } from "@/components/StreakFold/StreakFold";
 import {
   type DailyHabit,
   type HabitDayContext,
@@ -11,10 +12,15 @@ import {
   nextHabitStatus,
 } from "@/lib/habits";
 import { habitPartShown, smokeStatusForVisible } from "@/lib/habit-parts";
+import { todayLocalISO } from "@/lib/date";
 import {
+  SMOKE_FREE_STREAK_ICON,
   SMOKE_FREE_SUBSTANCES,
+  smokeFreeStreakCount,
+  smokeFreeStreakLabel,
   smokeFreeValueFor,
   type DailySmokeFreeContext,
+  type SmokeFreeStreakBefore,
   type SmokeFreeSubstance,
 } from "@/lib/smoke-free";
 import styles from "./SmokeFreeDayCard.module.scss";
@@ -29,10 +35,17 @@ interface Props {
   date: string;
   habit: DailyHabit;
   smokeFree: DailySmokeFreeContext;
+  streakBefore: SmokeFreeStreakBefore;
   dayContext?: HabitDayContext;
 }
 
-export function SmokeFreeDayCard({ date, habit, smokeFree, dayContext }: Props) {
+export function SmokeFreeDayCard({
+  date,
+  habit,
+  smokeFree,
+  streakBefore,
+  dayContext,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +174,24 @@ export function SmokeFreeDayCard({ date, habit, smokeFree, dayContext }: Props) 
           );
         })}
       </div>
+
+      <StreakFold label="Rökfria dagar i rad">
+        {substances.map((substance) => {
+          const count = smokeFreeStreakCount(
+            streakBefore[substance.key],
+            smokeFreeValueFor(local, substance.key),
+            date === todayLocalISO(),
+          );
+          return (
+            <StreakStat
+              key={substance.key}
+              icon={SMOKE_FREE_STREAK_ICON[substance.key]}
+              count={count}
+              label={smokeFreeStreakLabel(substance.label, count)}
+            />
+          );
+        })}
+      </StreakFold>
 
       {error ? <p className={styles.error}>{error}</p> : null}
     </Card>

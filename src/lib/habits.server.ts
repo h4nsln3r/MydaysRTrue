@@ -39,6 +39,7 @@ import {
 import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
 import {
   SMOKE_FREE_SUBSTANCES,
+  consecutiveYesEndingOn,
   type DailySmokeFreeContext,
 } from "@/lib/smoke-free";
 import { mediaStatusFor, type MediaDayLog } from "@/lib/media";
@@ -1706,6 +1707,36 @@ export async function getWeekHabitSummary(
   }
 
   return { weekStart, weekEnd, habits, days, yesByHabit };
+}
+
+/** Consecutive Ja-days for Sockerfri, ending the day before `localDate`. */
+export async function getSugarFreeStreakBefore(
+  userId: string,
+  localDate: string,
+): Promise<number> {
+  const supabase = await createClient();
+  const { data: habit } = await supabase
+    .from("habits")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("key", "sugar_free")
+    .maybeSingle();
+  if (!habit) return 0;
+
+  const { data } = await supabase
+    .from("habit_checks")
+    .select("local_date, status")
+    .eq("user_id", userId)
+    .eq("habit_id", habit.id)
+    .lt("local_date", localDate)
+    .order("local_date", { ascending: false })
+    .limit(4000);
+
+  const byDate = new Map<string, HabitStatus | null>();
+  for (const row of data ?? []) {
+    byDate.set(row.local_date.slice(0, 10), row.status);
+  }
+  return consecutiveYesEndingOn(byDate, addDaysISO(localDate, -1));
 }
 
 /** Quick helper for navigation: the (year, month) one step earlier/later. */

@@ -1,5 +1,6 @@
 // Client-safe smoke-free types and helpers.
 
+import { addDaysISO } from "@/lib/date";
 import type { HabitStatus } from "@/lib/habits";
 
 export type SmokeFreeSubstance = "nicotine" | "cannabis";
@@ -61,4 +62,48 @@ export function smokeFreeJournalBody(ctx: DailySmokeFreeContext): string {
     const label = status ? STATUS_LABEL[status] : "—";
     return `${s.label}: ${label}`;
   }).join(", ");
+}
+
+/** Consecutive Ja-days ending on `endDate`, inclusive. Half, Nej and gaps stop the run. */
+export function consecutiveYesEndingOn(
+  statusByDate: ReadonlyMap<string, HabitStatus | null>,
+  endDate: string,
+): number {
+  let cursor = endDate;
+  let count = 0;
+  for (let i = 0; i < 5000; i++) {
+    if (statusByDate.get(cursor) !== "yes") break;
+    count++;
+    cursor = addDaysISO(cursor, -1);
+  }
+  return count;
+}
+
+/**
+ * Streak shown for a day.
+ * Ja continues it. An empty today keeps yesterday's run; ½, Nej and empty past days reset it.
+ */
+export function smokeFreeStreakCount(
+  daysBefore: number,
+  status: HabitStatus | null,
+  forgiveUnlogged: boolean,
+): number {
+  if (status === "yes") return daysBefore + 1;
+  if (status === null && forgiveUnlogged) return daysBefore;
+  return 0;
+}
+
+export function smokeFreeStreakLabel(substanceLabel: string, days: number): string {
+  const unit = days === 1 ? "rökfri dag" : "rökfria dagar";
+  return `${substanceLabel}: ${days} ${unit} i rad`;
+}
+
+export const SMOKE_FREE_STREAK_ICON: Record<SmokeFreeSubstance, string> = {
+  nicotine: "🚬",
+  cannabis: "🌿",
+};
+
+export interface SmokeFreeStreakBefore {
+  nicotine: number;
+  cannabis: number;
 }

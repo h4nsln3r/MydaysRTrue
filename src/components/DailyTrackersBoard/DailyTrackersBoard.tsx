@@ -23,7 +23,7 @@ import {
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { DailyMobileGamesContext } from "@/lib/mobile-games";
 import type { DailyMoodContext } from "@/lib/mood";
-import type { DailySmokeFreeContext } from "@/lib/smoke-free";
+import type { DailySmokeFreeContext, SmokeFreeStreakBefore } from "@/lib/smoke-free";
 import type { WaterSummary } from "@/lib/water";
 import styles from "./DailyTrackersBoard.module.scss";
 
@@ -44,6 +44,8 @@ interface Props {
   mobileGames: DailyMobileGamesContext;
   mood: DailyMoodContext;
   smokeFree: DailySmokeFreeContext;
+  streakBefore: SmokeFreeStreakBefore;
+  sugarStreakBefore: number;
   /** Semester, ledig, sjuk and helg for this date. */
   dayContext?: HabitDayContext;
   waterPlusHref?: string;
@@ -64,6 +66,8 @@ export function DailyTrackersBoard({
   mobileGames,
   mood,
   smokeFree,
+  streakBefore,
+  sugarStreakBefore,
   dayContext,
   waterPlusHref,
   waterPlusLabel,
@@ -144,7 +148,12 @@ export function DailyTrackersBoard({
         );
       case "tri_state":
         return (
-          <TriStateHabitRow key={habit.id} date={date} habit={habit} />
+          <TriStateHabitRow
+            key={habit.id}
+            date={date}
+            habit={habit}
+            streakBefore={habit.key === "sugar_free" ? sugarStreakBefore : undefined}
+          />
         );
       case "smoke_free":
         return (
@@ -153,6 +162,7 @@ export function DailyTrackersBoard({
             date={date}
             habit={habit}
             smokeFree={smokeFree}
+            streakBefore={streakBefore}
             dayContext={dayContext}
           />
         );

@@ -65,6 +65,7 @@ import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { CodingActivityFields } from "@/components/CodingActivityFields/CodingActivityFields";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
+import { MusicActivityTodos } from "@/components/MusicActivityTodos/MusicActivityTodos";
 import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
 import { GameFields } from "@/components/GameFields/GameFields";
 import { RingFields } from "@/components/RingFields/RingFields";
@@ -1447,9 +1448,6 @@ function ItemRowContent({
   const [musicBand, setMusicBand] = useState(
     item.kind === "task" ? (item.placement?.band ?? null) : null,
   );
-  const [musicPlanTodo, setMusicPlanTodo] = useState(
-    item.kind === "task" ? (item.placement?.planTodo ?? "") : "",
-  );
   const [spendKind, setSpendKind] = useState<SpendKind | null>(
     item.kind === "task" ? parseSpendKind(item.placement?.spendKind) : null,
   );
@@ -1752,7 +1750,6 @@ function ItemRowContent({
           ? {
               musicActivity,
               band: musicBand,
-              planTodo: musicPlanTodo,
             }
           : {}),
         ...(item.completionKind === "shop" || item.completionKind === "expense"
@@ -3013,12 +3010,11 @@ function ItemRowContent({
                     maxLength={280}
                     disabled={pending}
                   />
-                  <Input
-                    label="Uppgift för tillfället (valfritt)"
-                    value={musicPlanTodo}
-                    onChange={(e) => setMusicPlanTodo(e.target.value)}
-                    placeholder="t.ex. lära sig introt till X"
-                    maxLength={200}
+                  <MusicActivityTodos
+                    activity={musicActivity}
+                    todos={item.musicTodos}
+                    placementId={item.placementId}
+                    mode="plan"
                     disabled={pending}
                   />
                 </>

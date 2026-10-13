@@ -1,0 +1,200 @@
+@use "abstracts" as *;
+
+.wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.label {
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+    font-weight: 600;
+}
+
+.hint,
+.error {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: $color-fog;
+}
+
+.error {
+    color: #f0a0a8;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+}
+
+.text {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.88rem;
+    color: $color-cream;
+}
+
+.check {
+    flex-shrink: 0;
+    margin: 0;
+    accent-color: #f472b6;
+}
+
+.textBtn {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: $color-cream;
+    font: inherit;
+    font-size: 0.88rem;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    &:disabled {
+        cursor: default;
+    }
+}
+
+.remove {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: $radius-sm;
+    background: transparent;
+    color: $color-fog;
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.5;
+    }
+}
+
+.addRow {
+    display: flex;
+    gap: $space-2;
+    align-items: center;
+}
+
+.input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink;
+    color: $color-cream;
+    font: inherit;
+    font-size: 0.88rem;
+
+    &::placeholder {
+        color: $color-fog;
+    }
+
+    &:focus {
+        outline: 2px solid rgba(244, 114, 182, 0.45);
+        outline-offset: 1px;
+    }
+}
+
+.addBtn,
+.confirmCancel,
+.confirmDelete {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border-radius: $radius-sm;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.5;
+    }
+}
+
+.addBtn,
+.confirmCancel {
+    border: 1px solid $color-line;
+    background: transparent;
+    color: $color-cream;
+}
+
+.confirmDelete {
+    border: 0;
+    background: #c45566;
+    color: white;
+}
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $space-4;
+    background: rgba(0, 0, 0, 0.72);
+}
+
+.confirm {
+    width: min(420px, 100%);
+    padding: $space-4;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+    background: $color-ink-elevated;
+    box-shadow: $shadow-soft;
+}
+
+.confirmTitle {
+    margin: 0 0 $space-2;
+    font-family: $font-display;
+    font-size: 1.15rem;
+    color: $color-cream;
+}
+
+.confirmBody {
+    margin: 0 0 $space-4;
+    color: $color-cream-dim;
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.confirmActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $space-2;
+}

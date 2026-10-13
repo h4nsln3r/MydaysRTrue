@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useDayReschedule } from "@/lib/use-day-reschedule";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card/Card";
@@ -9,6 +9,7 @@ import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { CodingActivityFields } from "@/components/CodingActivityFields/CodingActivityFields";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
+import { MusicActivityTodos } from "@/components/MusicActivityTodos/MusicActivityTodos";
 import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
 import {
   completeWeeklyTaskAction,
@@ -35,8 +36,11 @@ import {
   isWeeklyTaskRepeatable,
   musicActivityCreatesGig,
   musicActivityCreatesLiveEvent,
+  musicActivityHasTodos,
+  musicSessionComment,
   musicSessionIcon,
   musicSessionTitle,
+  musicTodosDoneOnPlacement,
   parseMusicActivity,
   parseRingPerson,
   parseSpendKind,
@@ -437,7 +441,22 @@ export function WeeklyTaskRow({
   const showRescheduleRow = showReschedule || showPause;
   const [, startTransition] = useTransition();
 
-  const [taskNote, setTaskNote] = useState(placement?.note ?? "");
+  const [taskNote, setTaskNote] = useState(() =>
+    placement?.musicLogKind
+      ? ""
+      : musicSessionComment(
+          placement?.note,
+          musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
+            (todo) => todo.text,
+          ),
+        ),
+  );
+  const [checkedTodoIds, setCheckedTodoIds] = useState<string[]>(() =>
+    musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
+      (todo) => todo.id,
+    ),
+  );
+  const musicActivityRef = useRef(placement?.musicActivity ?? null);
   const [shopLocation, setShopLocation] = useState(
     placement?.shopLocation ?? "",
   );
@@ -493,7 +512,19 @@ export function WeeklyTaskRow({
 
   useEffect(() => {
     setTaskNote(
-      placement?.musicLogKind ? "" : (placement?.note ?? ""),
+      placement?.musicLogKind
+        ? ""
+        : musicSessionComment(
+            placement?.note,
+            musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
+              (todo) => todo.text,
+            ),
+          ),
+    );
+    setCheckedTodoIds(
+      musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
+        (todo) => todo.id,
+      ),
     );
     setShopLocation(placement?.shopLocation ?? "");
     setShopAmount(
@@ -528,6 +559,20 @@ export function WeeklyTaskRow({
     placement?.callPerson,
     placement?.callOtherName,
   ]);
+
+  useEffect(() => {
+    if (musicActivityRef.current === musicActivity) return;
+    musicActivityRef.current = musicActivity;
+    setCheckedTodoIds(
+      (task.musicTodos ?? [])
+        .filter(
+          (todo) =>
+            todo.activity === musicActivity &&
+            todo.donePlacementId === placement?.id,
+        )
+        .map((todo) => todo.id),
+    );
+  }, [musicActivity, placement?.id, task.musicTodos]);
 
   const detail = placement ? formatWeeklyTaskDetail(placement, task.completionKind) : null;
   const planNote = placement?.planNote?.trim() ?? "";
@@ -599,6 +644,9 @@ export function WeeklyTaskRow({
         gameId: isGame ? gameId || null : undefined,
         callPerson: isRing ? callPerson : undefined,
         callOtherName: isRing ? callOtherName : undefined,
+        completedMusicTodoIds: musicActivityHasTodos(musicActivity)
+          ? checkedTodoIds
+          : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -624,6 +672,9 @@ export function WeeklyTaskRow({
         callPerson: isRing ? callPerson : undefined,
         callOtherName: isRing ? callOtherName : undefined,
         codingActivity: isCoding ? codingActivity : undefined,
+        completedMusicTodoIds: musicActivityHasTodos(musicActivity)
+          ? checkedTodoIds
+          : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -748,7 +799,22 @@ export function WeeklyTaskRow({
     });
   };
 
-  const savedNote = placement?.musicLogKind ? "" : (placement?.note ?? "");
+  const savedNote = placement?.musicLogKind
+    ? ""
+    : musicSessionComment(
+        placement?.note,
+        musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
+          (todo) => todo.text,
+        ),
+      );
+  const savedCheckedKey = musicTodosDoneOnPlacement(
+    task.musicTodos,
+    placement?.id,
+  )
+    .map((todo) => todo.id)
+    .sort()
+    .join(",");
+  const checkedKey = [...checkedTodoIds].sort().join(",");
   const savedMusicTitle = placement?.musicLogKind ? (placement.note ?? "") : "";
   const savedShopLocation = placement?.shopLocation ?? "";
   const savedShopAmount =
@@ -770,7 +836,8 @@ export function WeeklyTaskRow({
       musicTitle !== savedMusicTitle ||
       callPerson !== savedCallPerson ||
       callOtherName !== savedCallOtherName ||
-      codingActivity !== savedCodingActivity);
+      codingActivity !== savedCodingActivity ||
+      checkedKey !== savedCheckedKey);
 
   return (
     <li
@@ -1213,6 +1280,15 @@ export function WeeklyTaskRow({
                   disabled={pending}
                 />
               ) : null}
+              <MusicActivityTodos
+                activity={musicActivity}
+                todos={task.musicTodos}
+                placementId={placement?.id}
+                mode="complete"
+                checkedIds={checkedTodoIds}
+                onCheckedIdsChange={setCheckedTodoIds}
+                disabled={pending}
+              />
               {!done &&
               (musicActivityCreatesGig(musicActivity) ||
                 musicActivityCreatesLiveEvent(musicActivity)) ? (

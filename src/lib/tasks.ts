@@ -200,6 +200,85 @@ export function musicActivityCreatesLiveEvent(
   return activity === "live";
 }
 
+/** Music session types that carry inner tasks across passes and weeks. */
+export const MUSIC_TODO_ACTIVITIES = [
+  "rep",
+  "bas",
+  "gitarr",
+  "piano",
+  "ovning",
+  "inspelning",
+] as const;
+
+export type MusicTodoActivity = (typeof MUSIC_TODO_ACTIVITIES)[number];
+
+const MUSIC_TODO_ACTIVITY_SET = new Set<string>(MUSIC_TODO_ACTIVITIES);
+
+export function musicActivityHasTodos(
+  activity: MusicActivity | null | undefined,
+): activity is MusicTodoActivity {
+  return activity != null && MUSIC_TODO_ACTIVITY_SET.has(activity);
+}
+
+/** An inner task that follows one music activity until it is finished or removed. */
+export interface MusicActivityTodo {
+  id: string;
+  activity: MusicTodoActivity;
+  text: string;
+  sortOrder: number;
+  doneAt: string | null;
+  donePlacementId: string | null;
+}
+
+export function openMusicTodos(
+  todos: readonly MusicActivityTodo[],
+  activity: MusicActivity | null | undefined,
+): MusicActivityTodo[] {
+  if (!musicActivityHasTodos(activity)) return [];
+  return todos
+    .filter((todo) => todo.activity === activity && todo.doneAt == null)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"));
+}
+
+export function musicTodosDoneOnPlacement(
+  todos: readonly MusicActivityTodo[],
+  placementId: string | null | undefined,
+): MusicActivityTodo[] {
+  if (!placementId) return [];
+  return todos
+    .filter((todo) => todo.donePlacementId === placementId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"));
+}
+
+/** Comment plus the inner tasks finished on this session. */
+export function composeMusicSessionNote(
+  comment: string,
+  doneTexts: readonly string[],
+): string | null {
+  const text = comment.trim();
+  const suffix =
+    doneTexts.length > 0 ? `Klart: ${doneTexts.join(", ")}` : "";
+  if (text && suffix) return `${text}. ${suffix}`;
+  if (suffix) return suffix;
+  if (text) return text;
+  return null;
+}
+
+/** Drop the "Klart: …" suffix so the comment field stays the free-text note. */
+export function musicSessionComment(
+  note: string | null | undefined,
+  doneTexts: readonly string[],
+): string {
+  const raw = note?.trim() ?? "";
+  if (!raw || doneTexts.length === 0) return raw;
+  const suffix = `Klart: ${doneTexts.join(", ")}`;
+  if (raw === suffix) return "";
+  for (const end of [`. ${suffix}`, ` · ${suffix}`]) {
+    if (raw.endsWith(end)) return raw.slice(0, -end.length).trim();
+  }
+  return raw;
+}
+
 export function isKnownMusicBand(value: string | null | undefined): value is MusicBand {
   return value != null && (MUSIC_BANDS as readonly string[]).includes(value);
 }
@@ -695,6 +774,8 @@ export interface WeeklyPlacement {
   musicActivity: MusicActivity | null;
   /** Optional to-do for this music occasion. */
   planTodo: string | null;
+  /** Open inner tasks for this placement's music activity. */
+  openMusicTodoTexts?: string[];
   /** Band or constellation name (Totes, Bojeng, or free text). */
   band: string | null;
   /** When set, completion also registered a gig or attended live concert. */
@@ -772,6 +853,8 @@ export interface WeeklyTaskForWeek extends WeeklyTask {
   checklist: WeeklyTaskChecklistItem[];
   /** All checklist completions in this week (for journal / day plan). */
   checklistCompletions: WeeklyTaskChecklistCompletion[];
+  /** Inner music tasks still open, plus ones finished on a placement this week. */
+  musicTodos: MusicActivityTodo[];
 }
 
 /**
@@ -889,7 +972,11 @@ export function formatWeeklyTaskDetail(
   }
   const musicParts: string[] = [];
   if (placement.band) musicParts.push(placement.band);
-  if (placement.planTodo?.trim()) musicParts.push(placement.planTodo.trim());
+  if (!placement.doneAt && placement.openMusicTodoTexts?.length) {
+    musicParts.push(placement.openMusicTodoTexts.join(", "));
+  } else if (placement.planTodo?.trim()) {
+    musicParts.push(placement.planTodo.trim());
+  }
   if (placement.musicLogKind && placement.note) {
     musicParts.push(placement.note);
   } else if (placement.note) {

@@ -30,8 +30,10 @@ import {
   formatLaundryBookingNote,
   parseLaundryBookTime,
   MUSIC_ACTIVITY_LABEL,
+  composeMusicSessionNote,
   musicActivityCreatesGig,
   musicActivityCreatesLiveEvent,
+  musicActivityHasTodos,
   musicActivityNeedsBand,
   musicLogKindFromActivity,
   parseMusicActivity,
@@ -59,6 +61,7 @@ type MonthlyFinanceSnapshotInsert =
 export interface ActionResult {
   ok: boolean;
   error?: string;
+  id?: string;
 }
 
 // ----------------------------------------------------------------------------
@@ -1152,7 +1155,7 @@ export async function updateWeeklyTaskPlanAction(input: {
 
   let musicActivity: MusicActivity | null = null;
   let band: string | null = null;
-  let planTodo: string | null = null;
+  let planTodo: string | null | undefined;
   let spendKind = parseSpendKindFor(kind, input.spendKind ?? null);
   if (kind === "music") {
     musicActivity = parseMusicActivity(input.musicActivity ?? null);
@@ -1163,8 +1166,10 @@ export async function updateWeeklyTaskPlanAction(input: {
     if (musicActivityNeedsBand(musicActivity)) {
       band = rawBand || null;
     }
-    const todo = (input.planTodo ?? "").trim().slice(0, 200);
-    planTodo = todo || null;
+    if (input.planTodo !== undefined) {
+      const todo = (input.planTodo ?? "").trim().slice(0, 200);
+      planTodo = todo || null;
+    }
   }
   if (kind === "shop" || kind === "expense") {
     if (!spendKind) {
@@ -1246,7 +1251,7 @@ export async function updateWeeklyTaskPlanAction(input: {
         ? {
             music_activity: musicActivity,
             band,
-            plan_todo: planTodo,
+            ...(planTodo !== undefined ? { plan_todo: planTodo } : {}),
           }
         : {}),
       ...(kind === "shop" || kind === "expense"
@@ -1267,6 +1272,208 @@ export async function updateWeeklyTaskPlanAction(input: {
 
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+type AppSupabase = Awaited<ReturnType<typeof createClient>>;
+
+async function syncMusicActivityTodos(
+  supabase: AppSupabase,
+  userId: string,
+  placementId: string,
+  activity: MusicActivity,
+  completedIds: readonly string[],
+): Promise<
+  | {
+      ok: true;
+      texts: string[];
+      previous: {
+        id: string;
+        done_at: string | null;
+        done_placement_id: string | null;
+      }[];
+    }
+  | { ok: false; error: string }
+> {
+  if (!musicActivityHasTodos(activity)) {
+    return { ok: true, texts: [], previous: [] };
+  }
+
+  const unique = [...new Set(completedIds)];
+  const { data: rows, error } = await supabase
+    .from("music_activity_todos")
+    .select("id, text, sort_order, done_at, done_placement_id")
+    .eq("user_id", userId)
+    .eq("activity", activity)
+    .or(`done_at.is.null,done_placement_id.eq.${placementId}`)
+    .order("sort_order", { ascending: true });
+  if (error) return { ok: false, error: error.message };
+
+  const byId = new Map((rows ?? []).map((row) => [row.id, row]));
+  for (const id of unique) {
+    if (!byId.has(id)) {
+      return { ok: false, error: "En av uppgifterna finns inte längre." };
+    }
+  }
+
+  const previous = (rows ?? []).map((row) => ({
+    id: row.id,
+    done_at: row.done_at,
+    done_placement_id: row.done_placement_id,
+  }));
+  const now = new Date().toISOString();
+
+  for (const row of rows ?? []) {
+    const want = unique.includes(row.id);
+    const onThis = row.done_placement_id === placementId;
+    if (want && !onThis) {
+      const { error: updateError } = await supabase
+        .from("music_activity_todos")
+        .update({ done_at: now, done_placement_id: placementId })
+        .eq("id", row.id)
+        .eq("user_id", userId)
+        .is("done_at", null);
+      if (updateError) return { ok: false, error: updateError.message };
+    } else if (!want && onThis) {
+      const { error: updateError } = await supabase
+        .from("music_activity_todos")
+        .update({ done_at: null, done_placement_id: null })
+        .eq("id", row.id)
+        .eq("user_id", userId);
+      if (updateError) return { ok: false, error: updateError.message };
+    }
+  }
+
+  const { data: doneRows, error: doneError } = await supabase
+    .from("music_activity_todos")
+    .select("text, sort_order")
+    .eq("user_id", userId)
+    .eq("done_placement_id", placementId)
+    .order("sort_order", { ascending: true });
+  if (doneError) return { ok: false, error: doneError.message };
+
+  return {
+    ok: true,
+    texts: (doneRows ?? []).map((row) => row.text),
+    previous,
+  };
+}
+
+/** Add an inner task that follows this music activity until it is finished. */
+export async function addMusicActivityTodoAction(input: {
+  activity: string;
+  text: string;
+}): Promise<ActionResult> {
+  const activity = parseMusicActivity(input.activity);
+  if (!musicActivityHasTodos(activity)) {
+    return { ok: false, error: "Den här typen av pass har inga inre uppgifter." };
+  }
+  const text = input.text.trim().slice(0, 200);
+  if (!text) return { ok: false, error: "Skriv uppgiften." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { count } = await supabase
+    .from("music_activity_todos")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("activity", activity)
+    .is("done_at", null);
+
+  const { data, error } = await supabase
+    .from("music_activity_todos")
+    .insert({
+      user_id: user.id,
+      activity,
+      text,
+      sort_order: count ?? 0,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Kunde inte lägga till." };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true, id: data.id };
+}
+
+/** Remove an inner music task that is no longer relevant. */
+export async function deleteMusicActivityTodoAction(input: {
+  id: string;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar uppgifts-id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("music_activity_todos")
+    .delete()
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .is("done_at", null);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Rename an inner music task that is still open. */
+export async function updateMusicActivityTodoAction(input: {
+  id: string;
+  text: string;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar uppgifts-id." };
+  const text = input.text.trim().slice(0, 200);
+  if (!text) return { ok: false, error: "Skriv uppgiften." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data, error } = await supabase
+    .from("music_activity_todos")
+    .update({ text })
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .is("done_at", null)
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Uppgiften kan inte ändras." };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+async function revertMusicActivityTodos(
+  supabase: AppSupabase,
+  userId: string,
+  previous: {
+    id: string;
+    done_at: string | null;
+    done_placement_id: string | null;
+  }[],
+): Promise<void> {
+  for (const row of previous) {
+    await supabase
+      .from("music_activity_todos")
+      .update({
+        done_at: row.done_at,
+        done_placement_id: row.done_placement_id,
+      })
+      .eq("id", row.id)
+      .eq("user_id", userId);
+  }
 }
 
 /** Complete a weekly task with kind-specific fields. */
@@ -1299,6 +1506,8 @@ export async function completeWeeklyTaskAction(input: {
   /** Venue (gig) or location (live). */
   musicPlace?: string;
   musicRating?: number | null;
+  /** Inner music tasks finished on this session. Omit to leave them unchanged. */
+  completedMusicTodoIds?: string[];
   /** Optional coding session project. */
   codingProjectId?: string | null;
   /** Kodning, Lära or Friend kod. */
@@ -1446,6 +1655,11 @@ export async function completeWeeklyTaskAction(input: {
   let resolvedMusicLogKind: MusicLogKind | null = null;
   let gigId: string | null = null;
   let liveEventId: string | null = null;
+  let musicTodoPrevious: {
+    id: string;
+    done_at: string | null;
+    done_placement_id: string | null;
+  }[] | null = null;
 
   if (kind === "shop" || kind === "expense") {
     if (!shopLocation) {
@@ -1684,11 +1898,39 @@ export async function completeWeeklyTaskAction(input: {
       if (note.length > 500) {
         return { ok: false, error: "Håll kommentaren under 500 tecken." };
       }
-      completionNote =
-        note ||
-        existing.plan_todo ||
-        existing.plan_note ||
-        MUSIC_ACTIVITY_LABEL[musicActivity];
+      if (
+        input.completedMusicTodoIds != null &&
+        musicActivityHasTodos(musicActivity)
+      ) {
+        const sync = await syncMusicActivityTodos(
+          supabase,
+          user.id,
+          existing.id,
+          musicActivity,
+          input.completedMusicTodoIds,
+        );
+        if (!sync.ok) return sync;
+        musicTodoPrevious = sync.previous;
+        const composed = composeMusicSessionNote(note, sync.texts);
+        if (composed && composed.length > 500) {
+          await revertMusicActivityTodos(supabase, user.id, sync.previous);
+          return {
+            ok: false,
+            error:
+              "Kommentaren och uppgifterna får tillsammans vara högst 500 tecken.",
+          };
+        }
+        completionNote =
+          composed ??
+          existing.plan_note ??
+          MUSIC_ACTIVITY_LABEL[musicActivity];
+      } else {
+        completionNote =
+          note ||
+          existing.plan_todo ||
+          existing.plan_note ||
+          MUSIC_ACTIVITY_LABEL[musicActivity];
+      }
     }
   }
 
@@ -1744,6 +1986,9 @@ export async function completeWeeklyTaskAction(input: {
         .eq("id", liveEventId)
         .eq("user_id", user.id);
     }
+    if (musicTodoPrevious) {
+      await revertMusicActivityTodos(supabase, user.id, musicTodoPrevious);
+    }
     return { ok: false, error: error.message };
   }
 
@@ -1766,6 +2011,8 @@ export async function updateWeeklyTaskCompletionAction(input: {
   spendKind?: string | null;
   laundryLoads?: number;
   musicTitle?: string;
+  /** Inner music tasks finished on this session. Omit to leave them unchanged. */
+  completedMusicTodoIds?: string[];
   callPerson?: string | null;
   callOtherName?: string | null;
   codingActivity?: string | null;
@@ -1795,12 +2042,13 @@ export async function updateWeeklyTaskCompletionAction(input: {
     gig_id: string | null;
     live_event_id: string | null;
     music_log_kind: string | null;
+    music_activity: string | null;
   } | null = null;
 
   if (input.placementId) {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, done_at, gig_id, live_event_id, music_log_kind")
+      .select("id, done_at, gig_id, live_event_id, music_log_kind, music_activity")
       .eq("id", input.placementId)
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
@@ -1810,7 +2058,7 @@ export async function updateWeeklyTaskCompletionAction(input: {
   } else {
     const { data } = await supabase
       .from("weekly_task_placements")
-      .select("id, done_at, gig_id, live_event_id, music_log_kind")
+      .select("id, done_at, gig_id, live_event_id, music_log_kind, music_activity")
       .eq("user_id", user.id)
       .eq("task_id", input.taskId)
       .eq("week_start", input.weekStart)
@@ -1826,6 +2074,11 @@ export async function updateWeeklyTaskCompletionAction(input: {
   const kind = task.completion_kind as WeeklyTaskCompletionKind;
   const note = (input.note ?? "").trim();
   const musicTitle = (input.musicTitle ?? "").trim();
+  let musicTodoPrevious: {
+    id: string;
+    done_at: string | null;
+    done_placement_id: string | null;
+  }[] | null = null;
   const patch: {
     note?: string | null;
     shop_location?: string | null;
@@ -1960,7 +2213,33 @@ export async function updateWeeklyTaskCompletionAction(input: {
       if (note.length > 500) {
         return { ok: false, error: "Håll kommentaren under 500 tecken." };
       }
-      patch.note = note || null;
+      const activity = parseMusicActivity(existing.music_activity);
+      if (
+        input.completedMusicTodoIds != null &&
+        musicActivityHasTodos(activity)
+      ) {
+        const sync = await syncMusicActivityTodos(
+          supabase,
+          user.id,
+          existing.id,
+          activity,
+          input.completedMusicTodoIds,
+        );
+        if (!sync.ok) return sync;
+        musicTodoPrevious = sync.previous;
+        const composed = composeMusicSessionNote(note, sync.texts);
+        if (composed && composed.length > 500) {
+          await revertMusicActivityTodos(supabase, user.id, sync.previous);
+          return {
+            ok: false,
+            error:
+              "Kommentaren och uppgifterna får tillsammans vara högst 500 tecken.",
+          };
+        }
+        patch.note = composed;
+      } else {
+        patch.note = note || null;
+      }
     }
   } else {
     if (note.length > 500) {
@@ -1975,7 +2254,12 @@ export async function updateWeeklyTaskCompletionAction(input: {
     .eq("id", existing.id)
     .eq("user_id", user.id)
     .not("done_at", "is", null);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    if (musicTodoPrevious) {
+      await revertMusicActivityTodos(supabase, user.id, musicTodoPrevious);
+    }
+    return { ok: false, error: error.message };
+  }
 
   revalidatePath("/", "layout");
   revalidatePath("/year", "page");
@@ -2044,6 +2328,12 @@ export async function uncompleteWeeklyTaskAction(input: {
     .eq("id", existing.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
+
+  await supabase
+    .from("music_activity_todos")
+    .update({ done_at: null, done_placement_id: null })
+    .eq("user_id", user.id)
+    .eq("done_placement_id", existing.id);
 
   await supabase
     .from("weekly_task_placements")

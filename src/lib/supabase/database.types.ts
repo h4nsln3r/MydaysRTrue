@@ -1207,6 +1207,39 @@ export interface Database {
         };
         Relationships: [];
       };
+      music_activity_todos: {
+        Row: {
+          id: string;
+          user_id: string;
+          activity: "rep" | "bas" | "gitarr" | "piano" | "ovning" | "inspelning";
+          text: string;
+          sort_order: number;
+          done_at: string | null;
+          done_placement_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          activity: "rep" | "bas" | "gitarr" | "piano" | "ovning" | "inspelning";
+          text: string;
+          sort_order?: number;
+          done_at?: string | null;
+          done_placement_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          activity?: "rep" | "bas" | "gitarr" | "piano" | "ovning" | "inspelning";
+          text?: string;
+          sort_order?: number;
+          done_at?: string | null;
+          done_placement_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       monthly_tasks: {
         Row: {
           id: string;

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
+import { MusicActivityTodos } from "@/components/MusicActivityTodos/MusicActivityTodos";
 import {
   completeWeeklyTaskAction,
   uncompleteWeeklyTaskAction,
@@ -14,8 +15,11 @@ import {
   formatWeeklyTaskDetail,
   musicActivityCreatesGig,
   musicActivityCreatesLiveEvent,
+  musicActivityHasTodos,
+  musicSessionComment,
   musicSessionIcon,
   musicSessionTitle,
+  musicTodosDoneOnPlacement,
   parseMusicActivity,
   type MusicActivity,
   type WeeklyTaskForWeek,
@@ -52,7 +56,21 @@ export function WeekMusicLogDialog({
   );
   const [musicPlace, setMusicPlace] = useState("");
   const [musicRating, setMusicRating] = useState("");
-  const [taskNote, setTaskNote] = useState(placement?.note ?? "");
+  const doneTodoTexts = musicTodosDoneOnPlacement(
+    task.musicTodos,
+    placement?.id,
+  ).map((todo) => todo.text);
+  const [taskNote, setTaskNote] = useState(
+    placement?.musicLogKind
+      ? (placement.note ?? "")
+      : musicSessionComment(placement?.note, doneTodoTexts),
+  );
+  const [checkedTodoIds, setCheckedTodoIds] = useState<string[]>(() =>
+    musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
+      (todo) => todo.id,
+    ),
+  );
+  const activityRef = useRef(musicActivity);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -68,6 +86,20 @@ export function WeekMusicLogDialog({
       document.body.style.overflow = prev;
     };
   }, [close]);
+
+  useEffect(() => {
+    if (activityRef.current === musicActivity) return;
+    activityRef.current = musicActivity;
+    setCheckedTodoIds(
+      (task.musicTodos ?? [])
+        .filter(
+          (todo) =>
+            todo.activity === musicActivity &&
+            todo.donePlacementId === placement?.id,
+        )
+        .map((todo) => todo.id),
+    );
+  }, [musicActivity, placement?.id, task.musicTodos]);
 
   const isGig = musicActivityCreatesGig(musicActivity);
   const isLive = musicActivityCreatesLiveEvent(musicActivity);
@@ -88,6 +120,9 @@ export function WeekMusicLogDialog({
           (isGig || isLive) && musicRating.trim() !== ""
             ? Number(musicRating)
             : null,
+        completedMusicTodoIds: musicActivityHasTodos(musicActivity)
+          ? checkedTodoIds
+          : undefined,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
@@ -146,9 +181,6 @@ export function WeekMusicLogDialog({
         </header>
 
         <div className={styles.body}>
-          {placement?.planTodo ? (
-            <p className={styles.hint}>Uppgift: {placement.planTodo}</p>
-          ) : null}
           {placement?.planNote ? (
             <p className={styles.hint}>Anteckning: {placement.planNote}</p>
           ) : null}
@@ -218,14 +250,25 @@ export function WeekMusicLogDialog({
               </label>
             </>
           ) : (
-            <Input
-              label="Kommentar (valfritt)"
-              value={taskNote}
-              onChange={(e) => setTaskNote(e.target.value)}
-              placeholder="Vad gjorde du?"
-              maxLength={500}
-              disabled={pending}
-            />
+            <>
+              <MusicActivityTodos
+                activity={musicActivity}
+                todos={task.musicTodos}
+                placementId={placement?.id}
+                mode="complete"
+                checkedIds={checkedTodoIds}
+                onCheckedIdsChange={setCheckedTodoIds}
+                disabled={pending}
+              />
+              <Input
+                label="Kommentar (valfritt)"
+                value={taskNote}
+                onChange={(e) => setTaskNote(e.target.value)}
+                placeholder="Vad gjorde du?"
+                maxLength={500}
+                disabled={pending}
+              />
+            </>
           )}
 
           {done && detail ? <p className={styles.hint}>Loggat: {detail}</p> : null}

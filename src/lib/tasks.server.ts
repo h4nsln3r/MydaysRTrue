@@ -24,9 +24,11 @@ import {
   type WeeklyTaskChecklistCompletion,
   type WeeklyTaskForWeek,
   type WeeklyTaskCompletionKind,
+  type MusicActivityTodo,
   type MusicLogKind,
   codingActivityFromLegacyKey,
   musicActivityFromLegacyKey,
+  musicActivityHasTodos,
   parseCodingActivity,
   parseMusicActivity,
   parseSpendKind,
@@ -334,6 +336,51 @@ interface ChecklistCompletionRow {
   local_date: string;
   note: string | null;
   done_at: string;
+}
+
+interface MusicTodoRow {
+  id: string;
+  activity: string;
+  text: string;
+  sort_order: number;
+  done_at: string | null;
+  done_placement_id: string | null;
+}
+
+function rowToMusicTodo(r: MusicTodoRow): MusicActivityTodo | null {
+  const activity = parseMusicActivity(r.activity);
+  if (!musicActivityHasTodos(activity)) return null;
+  return {
+    id: r.id,
+    activity,
+    text: r.text,
+    sortOrder: r.sort_order,
+    doneAt: r.done_at,
+    donePlacementId: r.done_placement_id,
+  };
+}
+
+function attachOpenMusicTodoTexts(
+  placementsByTask: Map<string, WeeklyPlacement[]>,
+  todos: MusicActivityTodo[],
+): void {
+  const openByActivity = new Map<string, string[]>();
+  for (const todo of todos) {
+    if (todo.doneAt) continue;
+    const list = openByActivity.get(todo.activity) ?? [];
+    list.push(todo.text);
+    openByActivity.set(todo.activity, list);
+  }
+  for (const placements of placementsByTask.values()) {
+    for (let i = 0; i < placements.length; i++) {
+      const placement = placements[i]!;
+      if (!musicActivityHasTodos(placement.musicActivity)) continue;
+      placements[i] = {
+        ...placement,
+        openMusicTodoTexts: openByActivity.get(placement.musicActivity) ?? [],
+      };
+    }
+  }
 }
 
 function rowToChecklistCompletion(
@@ -1144,6 +1191,35 @@ export async function getWeekSummary(
     }
   }
 
+  const placementIds = [...placementsByTask.values()].flat().map((p) => p.id);
+  const musicTodoSelect =
+    "id, activity, text, sort_order, done_at, done_placement_id";
+  const [openTodosRes, doneTodosRes] = await Promise.all([
+    supabase
+      .from("music_activity_todos")
+      .select(musicTodoSelect)
+      .eq("user_id", userId)
+      .is("done_at", null)
+      .order("sort_order", { ascending: true }),
+    placementIds.length > 0
+      ? supabase
+          .from("music_activity_todos")
+          .select(musicTodoSelect)
+          .eq("user_id", userId)
+          .in("done_placement_id", placementIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const musicTodos: MusicActivityTodo[] = [];
+  const seenTodoIds = new Set<string>();
+  for (const row of [...(openTodosRes.data ?? []), ...(doneTodosRes.data ?? [])]) {
+    if (seenTodoIds.has(row.id)) continue;
+    const todo = rowToMusicTodo(row);
+    if (!todo) continue;
+    seenTodoIds.add(todo.id);
+    musicTodos.push(todo);
+  }
+  attachOpenMusicTodoTexts(placementsByTask, musicTodos);
+
   const tasks: WeeklyTaskForWeek[] = taskRows
     .filter(includeWeeklyTask)
     .map((row) => {
@@ -1158,6 +1234,7 @@ export async function getWeekSummary(
         placements,
         checklist: checklistByTask.get(row.id) ?? [],
         checklistCompletions: completionsByTask.get(row.id) ?? [],
+        musicTodos: row.completion_kind === "music" ? musicTodos : [],
       };
     });
 

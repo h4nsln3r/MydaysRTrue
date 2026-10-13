@@ -30,6 +30,7 @@ import {
   isCodingWeeklyTaskKey,
   parseCodingActivity,
   isGameWeeklyTaskKey,
+  isHomeProjectWeeklyTaskKey,
   isLaundryBookingCompletion,
   isLaundryFollowUpPlacement,
   isRingWeeklyTaskKey,
@@ -40,7 +41,7 @@ import {
   musicSessionComment,
   musicSessionIcon,
   musicSessionTitle,
-  musicTodosDoneOnPlacement,
+  placementDoneCarryTodos,
   parseMusicActivity,
   parseRingPerson,
   parseSpendKind,
@@ -426,6 +427,7 @@ export function WeeklyTaskRow({
   const isCoding = isCodingWeeklyTaskKey(task.key);
   const isGame = isGameWeeklyTaskKey(task.key);
   const isRing = isRingWeeklyTaskKey(task.key);
+  const isHomeProject = isHomeProjectWeeklyTaskKey(task.key);
   const done = Boolean(placement?.doneAt);
   // Quick tasks complete with one tap on the circle; everything is still
   // expandable so any task can carry an optional comment.
@@ -446,15 +448,11 @@ export function WeeklyTaskRow({
       ? ""
       : musicSessionComment(
           placement?.note,
-          musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
-            (todo) => todo.text,
-          ),
+          placementDoneCarryTodos(task, placement?.id).map((todo) => todo.text),
         ),
   );
   const [checkedTodoIds, setCheckedTodoIds] = useState<string[]>(() =>
-    musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
-      (todo) => todo.id,
-    ),
+    placementDoneCarryTodos(task, placement?.id).map((todo) => todo.id),
   );
   const musicActivityRef = useRef(placement?.musicActivity ?? null);
   const [shopLocation, setShopLocation] = useState(
@@ -516,15 +514,11 @@ export function WeeklyTaskRow({
         ? ""
         : musicSessionComment(
             placement?.note,
-            musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
-              (todo) => todo.text,
-            ),
+            placementDoneCarryTodos(task, placement?.id).map((todo) => todo.text),
           ),
     );
     setCheckedTodoIds(
-      musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
-        (todo) => todo.id,
-      ),
+      placementDoneCarryTodos(task, placement?.id).map((todo) => todo.id),
     );
     setShopLocation(placement?.shopLocation ?? "");
     setShopAmount(
@@ -647,6 +641,7 @@ export function WeeklyTaskRow({
         completedMusicTodoIds: musicActivityHasTodos(musicActivity)
           ? checkedTodoIds
           : undefined,
+        completedHomeTodoIds: isHomeProject ? checkedTodoIds : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -675,6 +670,7 @@ export function WeeklyTaskRow({
         completedMusicTodoIds: musicActivityHasTodos(musicActivity)
           ? checkedTodoIds
           : undefined,
+        completedHomeTodoIds: isHomeProject ? checkedTodoIds : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -803,14 +799,9 @@ export function WeeklyTaskRow({
     ? ""
     : musicSessionComment(
         placement?.note,
-        musicTodosDoneOnPlacement(task.musicTodos, placement?.id).map(
-          (todo) => todo.text,
-        ),
+        placementDoneCarryTodos(task, placement?.id).map((todo) => todo.text),
       );
-  const savedCheckedKey = musicTodosDoneOnPlacement(
-    task.musicTodos,
-    placement?.id,
-  )
+  const savedCheckedKey = placementDoneCarryTodos(task, placement?.id)
     .map((todo) => todo.id)
     .sort()
     .join(",");
@@ -1217,6 +1208,17 @@ export function WeeklyTaskRow({
                   <span className={styles.planReadoutLabel}>Projekt</span>
                   {placement.codingProjectTitle}
                 </p>
+              ) : null}
+              {isHomeProject ? (
+                <MusicActivityTodos
+                  kind="home"
+                  todos={task.homeTodos}
+                  placementId={placement?.id}
+                  mode="complete"
+                  checkedIds={checkedTodoIds}
+                  onCheckedIdsChange={setCheckedTodoIds}
+                  disabled={pending}
+                />
               ) : null}
               <Input
                 label={

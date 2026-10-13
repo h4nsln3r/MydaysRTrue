@@ -4,22 +4,36 @@ import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
+  addHomeProjectTodoAction,
   addMusicActivityTodoAction,
+  deleteHomeProjectTodoAction,
   deleteMusicActivityTodoAction,
+  updateHomeProjectTodoAction,
   updateMusicActivityTodoAction,
 } from "@/app/(app)/tasks-actions";
 import {
   MUSIC_ACTIVITY_LABEL,
   musicActivityHasTodos,
   openMusicTodos,
+  type HomeProjectTodo,
   type MusicActivity,
   type MusicActivityTodo,
 } from "@/lib/tasks";
 import styles from "./MusicActivityTodos.module.scss";
 
+type TodoRow = {
+  id: string;
+  text: string;
+  sortOrder: number;
+  doneAt: string | null;
+  donePlacementId: string | null;
+  activity?: MusicActivity;
+};
+
 interface Props {
-  activity: MusicActivity | null;
-  todos: readonly MusicActivityTodo[];
+  kind?: "music" | "home";
+  activity?: MusicActivity | null;
+  todos: readonly (MusicActivityTodo | HomeProjectTodo)[];
   placementId?: string | null;
   mode: "plan" | "complete";
   checkedIds?: string[];
@@ -28,7 +42,8 @@ interface Props {
 }
 
 export function MusicActivityTodos({
-  activity,
+  kind = "music",
+  activity = null,
   todos,
   placementId,
   mode,
@@ -36,11 +51,12 @@ export function MusicActivityTodos({
   onCheckedIdsChange,
   disabled = false,
 }: Props) {
+  const home = kind === "home";
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
-  const [items, setItems] = useState<MusicActivityTodo[]>(() => [...todos]);
-  const [confirming, setConfirming] = useState<MusicActivityTodo | null>(null);
+  const [items, setItems] = useState<TodoRow[]>(() => [...todos]);
+  const [confirming, setConfirming] = useState<TodoRow | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +75,26 @@ export function MusicActivityTodos({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
 
-  if (activity != null && !musicActivityHasTodos(activity)) return null;
+  if (!home && activity != null && !musicActivityHasTodos(activity)) return null;
 
-  const visible =
-    mode === "plan"
-      ? openMusicTodos(items, activity)
+  const byOrder = (a: TodoRow, b: TodoRow) =>
+    a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv");
+
+  const visible = home
+    ? items
+        .filter((todo) =>
+          mode === "plan"
+            ? todo.doneAt == null
+            : todo.doneAt == null || todo.donePlacementId === placementId,
+        )
+        .sort(byOrder)
+    : mode === "plan"
+      ? openMusicTodos(
+          items.filter(
+            (todo): todo is MusicActivityTodo => todo.activity != null,
+          ),
+          activity,
+        )
       : items
           .filter(
             (todo) =>
@@ -71,22 +102,21 @@ export function MusicActivityTodos({
               todo.activity === activity &&
               (todo.doneAt == null || todo.donePlacementId === placementId),
           )
-          .sort(
-            (a, b) =>
-              a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"),
-          );
+          .sort(byOrder);
 
   const checkedTexts = visible
     .filter((todo) => checkedIds.includes(todo.id))
     .map((todo) => todo.text);
 
   const add = () => {
-    if (!musicActivityHasTodos(activity)) return;
+    if (!home && !musicActivityHasTodos(activity)) return;
     const text = draft.trim();
     if (!text) return;
     setError(null);
     startTransition(async () => {
-      const res = await addMusicActivityTodoAction({ activity, text });
+      const res = home
+        ? await addHomeProjectTodoAction({ text })
+        : await addMusicActivityTodoAction({ activity: activity!, text });
       if (!res.ok || !res.id) {
         setError(res.error ?? "Kunde inte lägga till.");
         return;
@@ -95,7 +125,7 @@ export function MusicActivityTodos({
         ...prev,
         {
           id: res.id!,
-          activity,
+          ...(home || activity == null ? {} : { activity }),
           text,
           sortOrder: prev.length,
           doneAt: null,
@@ -107,10 +137,12 @@ export function MusicActivityTodos({
     });
   };
 
-  const remove = (todo: MusicActivityTodo) => {
+  const remove = (todo: TodoRow) => {
     setError(null);
     startTransition(async () => {
-      const res = await deleteMusicActivityTodoAction({ id: todo.id });
+      const res = home
+        ? await deleteHomeProjectTodoAction({ id: todo.id })
+        : await deleteMusicActivityTodoAction({ id: todo.id });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte ta bort.");
         return;
@@ -122,13 +154,13 @@ export function MusicActivityTodos({
     });
   };
 
-  const startEdit = (todo: MusicActivityTodo) => {
+  const startEdit = (todo: TodoRow) => {
     setError(null);
     setEditingId(todo.id);
     setEditingText(todo.text);
   };
 
-  const saveEdit = (todo: MusicActivityTodo) => {
+  const saveEdit = (todo: TodoRow) => {
     const text = editingText.trim();
     if (!text || text === todo.text) {
       setEditingId(null);
@@ -136,7 +168,9 @@ export function MusicActivityTodos({
     }
     setError(null);
     startTransition(async () => {
-      const res = await updateMusicActivityTodoAction({ id: todo.id, text });
+      const res = home
+        ? await updateHomeProjectTodoAction({ id: todo.id, text })
+        : await updateMusicActivityTodoAction({ id: todo.id, text });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
         return;
@@ -161,7 +195,7 @@ export function MusicActivityTodos({
   return (
     <div className={styles.wrap}>
       <span className={styles.label}>Uppgifter</span>
-      {activity == null ? (
+      {!home && activity == null ? (
         <p className={styles.hint}>Välj vad du ska göra så kan du lägga till uppgifter.</p>
       ) : (
         <>
@@ -234,8 +268,12 @@ export function MusicActivityTodos({
           )}
           <p className={styles.hint}>
             {mode === "complete"
-              ? "Kryssa i det du blev klar med. Resten följer med till nästa pass."
-              : "De ligger kvar på nästa pass av samma typ tills du klarmarkerar eller tar bort dem."}
+              ? home
+                ? "Kryssa i det du blev klar med. Resten följer med till nästa hemmaprojekt."
+                : "Kryssa i det du blev klar med. Resten följer med till nästa pass."
+              : home
+                ? "De ligger kvar på nästa hemmaprojekt tills du klarmarkerar eller tar bort dem."
+                : "De ligger kvar på nästa pass av samma typ tills du klarmarkerar eller tar bort dem."}
           </p>
           {mode === "complete" && checkedTexts.length > 0 ? (
             <p className={styles.hint}>
@@ -253,7 +291,7 @@ export function MusicActivityTodos({
                   add();
                 }
               }}
-              placeholder="t.ex. lära sig introt till X"
+              placeholder={home ? "t.ex. måla hyllan" : "t.ex. lära sig introt till X"}
               maxLength={200}
               disabled={disabled || pending}
               aria-label="Ny uppgift"
@@ -290,9 +328,11 @@ export function MusicActivityTodos({
                 </h3>
                 <p className={styles.confirmBody}>
                   «{confirming.text}» tas bort
-                  {musicActivityHasTodos(activity)
-                    ? ` från alla ${MUSIC_ACTIVITY_LABEL[activity]}-pass`
-                    : ""}
+                  {home
+                    ? " från alla hemmaprojekt"
+                    : musicActivityHasTodos(activity)
+                      ? ` från alla ${MUSIC_ACTIVITY_LABEL[activity]}-pass`
+                      : ""}
                   . Den kommer inte med nästa gång.
                 </p>
                 <div className={styles.confirmActions}>

@@ -93,6 +93,7 @@ import {
   WEEKDAYS,
   isCodingWeeklyTaskKey,
   isGameWeeklyTaskKey,
+  isHomeProjectWeeklyTaskKey,
   isRingWeeklyTaskKey,
   parseCodingActivity,
   parseMusicActivity,
@@ -2983,14 +2984,25 @@ function ItemRowContent({
                     />
                   </>
                 ) : (
-                  <Input
-                    label="Vad ska du jobba med?"
-                    value={taskPlanNote}
-                    onChange={(e) => setTaskPlanNote(e.target.value)}
-                    placeholder="Beskriv uppgiften"
-                    maxLength={280}
-                    disabled={pending}
-                  />
+                  <>
+                    <Input
+                      label="Vad ska du jobba med?"
+                      value={taskPlanNote}
+                      onChange={(e) => setTaskPlanNote(e.target.value)}
+                      placeholder="Beskriv uppgiften"
+                      maxLength={280}
+                      disabled={pending}
+                    />
+                    {isHomeProjectWeeklyTaskKey(item.taskKey) ? (
+                      <MusicActivityTodos
+                        kind="home"
+                        todos={item.homeTodos}
+                        placementId={item.placementId}
+                        mode="plan"
+                        disabled={pending}
+                      />
+                    ) : null}
+                  </>
                 )
               ) : null}
               {item.completionKind === "music" ? (

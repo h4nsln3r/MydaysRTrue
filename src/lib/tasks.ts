@@ -250,6 +250,38 @@ export function musicTodosDoneOnPlacement(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"));
 }
 
+/** An inner task that follows Hemmaprojekt until it is finished or removed. */
+export interface HomeProjectTodo {
+  id: string;
+  text: string;
+  sortOrder: number;
+  doneAt: string | null;
+  donePlacementId: string | null;
+}
+
+export function homeTodosDoneOnPlacement(
+  todos: readonly HomeProjectTodo[],
+  placementId: string | null | undefined,
+): HomeProjectTodo[] {
+  if (!placementId) return [];
+  return todos
+    .filter((todo) => todo.donePlacementId === placementId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"));
+}
+
+/** Inner tasks finished on this session, music or hemmaprojekt. */
+export function placementDoneCarryTodos(
+  task: {
+    musicTodos?: readonly MusicActivityTodo[];
+    homeTodos?: readonly HomeProjectTodo[];
+  },
+  placementId: string | null | undefined,
+): { id: string; text: string }[] {
+  const home = homeTodosDoneOnPlacement(task.homeTodos ?? [], placementId);
+  if (home.length > 0) return home;
+  return musicTodosDoneOnPlacement(task.musicTodos ?? [], placementId);
+}
+
 /** Comment plus the inner tasks finished on this session. */
 export function composeMusicSessionNote(
   comment: string,
@@ -503,6 +535,12 @@ export function isLaundryBookingCompletion(placement: {
     placement.laundryLoads == null &&
     !placement.laundryBookedFromId
   );
+}
+
+export function isHomeProjectWeeklyTaskKey(
+  key: string | null | undefined,
+): boolean {
+  return key === "home_projekt" || (key?.startsWith("home_projekt_") ?? false);
 }
 
 export function isCodingWeeklyTaskKey(key: string | null | undefined): boolean {
@@ -776,6 +814,8 @@ export interface WeeklyPlacement {
   planTodo: string | null;
   /** Open inner tasks for this placement's music activity. */
   openMusicTodoTexts?: string[];
+  /** Open inner tasks shared by Hemmaprojekt. */
+  openHomeTodoTexts?: string[];
   /** Band or constellation name (Totes, Bojeng, or free text). */
   band: string | null;
   /** When set, completion also registered a gig or attended live concert. */
@@ -855,6 +895,8 @@ export interface WeeklyTaskForWeek extends WeeklyTask {
   checklistCompletions: WeeklyTaskChecklistCompletion[];
   /** Inner music tasks still open, plus ones finished on a placement this week. */
   musicTodos: MusicActivityTodo[];
+  /** Inner Hemmaprojekt tasks still open, plus ones finished on a placement this week. */
+  homeTodos: HomeProjectTodo[];
 }
 
 /**
@@ -974,6 +1016,8 @@ export function formatWeeklyTaskDetail(
   if (placement.band) musicParts.push(placement.band);
   if (!placement.doneAt && placement.openMusicTodoTexts?.length) {
     musicParts.push(placement.openMusicTodoTexts.join(", "));
+  } else if (!placement.doneAt && placement.openHomeTodoTexts?.length) {
+    musicParts.push(placement.openHomeTodoTexts.join(", "));
   } else if (placement.planTodo?.trim()) {
     musicParts.push(placement.planTodo.trim());
   }

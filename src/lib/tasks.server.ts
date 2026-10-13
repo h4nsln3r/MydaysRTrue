@@ -8,6 +8,7 @@ import {
   weeklyTaskVisibleOnLocalDate,
   FEST_TASK_KEY,
   isRepeatableWeeklyTaskKey,
+  isHomeProjectWeeklyTaskKey,
   isWeeklyTaskRepeatable,
   monthlyTaskKeeperScore,
   REPEATABLE_WEEKLY_TASK_GOAL,
@@ -24,6 +25,7 @@ import {
   type WeeklyTaskChecklistCompletion,
   type WeeklyTaskForWeek,
   type WeeklyTaskCompletionKind,
+  type HomeProjectTodo,
   type MusicActivityTodo,
   type MusicLogKind,
   codingActivityFromLegacyKey,
@@ -1220,6 +1222,50 @@ export async function getWeekSummary(
   }
   attachOpenMusicTodoTexts(placementsByTask, musicTodos);
 
+  const homeTodoSelect = "id, text, sort_order, done_at, done_placement_id";
+  const [openHomeRes, doneHomeRes] = await Promise.all([
+    supabase
+      .from("home_project_todos")
+      .select(homeTodoSelect)
+      .eq("user_id", userId)
+      .is("done_at", null)
+      .order("sort_order", { ascending: true }),
+    placementIds.length > 0
+      ? supabase
+          .from("home_project_todos")
+          .select(homeTodoSelect)
+          .eq("user_id", userId)
+          .in("done_placement_id", placementIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const homeTodos: HomeProjectTodo[] = [];
+  const seenHomeIds = new Set<string>();
+  for (const row of [...(openHomeRes.data ?? []), ...(doneHomeRes.data ?? [])]) {
+    if (seenHomeIds.has(row.id)) continue;
+    seenHomeIds.add(row.id);
+    homeTodos.push({
+      id: row.id,
+      text: row.text,
+      sortOrder: row.sort_order,
+      doneAt: row.done_at,
+      donePlacementId: row.done_placement_id,
+    });
+  }
+  const openHomeTexts = homeTodos
+    .filter((todo) => !todo.doneAt)
+    .map((todo) => todo.text);
+  for (const row of taskRows) {
+    if (!isHomeProjectWeeklyTaskKey(row.key)) continue;
+    const placements = placementsByTask.get(row.id);
+    if (!placements) continue;
+    for (let i = 0; i < placements.length; i++) {
+      placements[i] = {
+        ...placements[i]!,
+        openHomeTodoTexts: openHomeTexts,
+      };
+    }
+  }
+
   const tasks: WeeklyTaskForWeek[] = taskRows
     .filter(includeWeeklyTask)
     .map((row) => {
@@ -1235,6 +1281,7 @@ export async function getWeekSummary(
         checklist: checklistByTask.get(row.id) ?? [],
         checklistCompletions: completionsByTask.get(row.id) ?? [],
         musicTodos: row.completion_kind === "music" ? musicTodos : [],
+        homeTodos: isHomeProjectWeeklyTaskKey(row.key) ? homeTodos : [],
       };
     });
 

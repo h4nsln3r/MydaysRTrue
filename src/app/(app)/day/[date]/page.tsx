@@ -167,11 +167,6 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
                 : undefined
             }
           />
-          {isUpcoming ? null : (
-            <h1 className={styles.h1}>
-              Looking <span className={styles.accent}>back</span>
-            </h1>
-          )}
         </div>
       </header>
 

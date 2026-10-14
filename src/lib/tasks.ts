@@ -269,14 +269,36 @@ export function homeTodosDoneOnPlacement(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"));
 }
 
-/** Inner tasks finished on this session, music or hemmaprojekt. */
+/** An inner task that follows Dev until it is finished or removed. */
+export interface CodingTodo {
+  id: string;
+  text: string;
+  sortOrder: number;
+  doneAt: string | null;
+  donePlacementId: string | null;
+}
+
+export function codingTodosDoneOnPlacement(
+  todos: readonly CodingTodo[],
+  placementId: string | null | undefined,
+): CodingTodo[] {
+  if (!placementId) return [];
+  return todos
+    .filter((todo) => todo.donePlacementId === placementId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"));
+}
+
+/** Inner tasks finished on this session: Dev, hemmaprojekt, or music. */
 export function placementDoneCarryTodos(
   task: {
     musicTodos?: readonly MusicActivityTodo[];
     homeTodos?: readonly HomeProjectTodo[];
+    codingTodos?: readonly CodingTodo[];
   },
   placementId: string | null | undefined,
 ): { id: string; text: string }[] {
+  const coding = codingTodosDoneOnPlacement(task.codingTodos ?? [], placementId);
+  if (coding.length > 0) return coding;
   const home = homeTodosDoneOnPlacement(task.homeTodos ?? [], placementId);
   if (home.length > 0) return home;
   return musicTodosDoneOnPlacement(task.musicTodos ?? [], placementId);
@@ -816,6 +838,8 @@ export interface WeeklyPlacement {
   openMusicTodoTexts?: string[];
   /** Open inner tasks shared by Hemmaprojekt. */
   openHomeTodoTexts?: string[];
+  /** Open inner tasks shared by Dev. */
+  openCodingTodoTexts?: string[];
   /** Band or constellation name (Totes, Bojeng, or free text). */
   band: string | null;
   /** When set, completion also registered a gig or attended live concert. */
@@ -897,6 +921,8 @@ export interface WeeklyTaskForWeek extends WeeklyTask {
   musicTodos: MusicActivityTodo[];
   /** Inner Hemmaprojekt tasks still open, plus ones finished on a placement this week. */
   homeTodos: HomeProjectTodo[];
+  /** Inner Dev tasks still open, plus ones finished on a placement this week. */
+  codingTodos: CodingTodo[];
 }
 
 /**
@@ -972,11 +998,13 @@ export function formatWeeklyTaskDetail(
     if (placement.note?.trim()) parts.push(placement.note.trim());
     if (parts.length > 0) return parts.join(" · ");
   }
-  if (placement.codingProjectTitle?.trim() && placement.note?.trim()) {
-    return `${placement.codingProjectTitle.trim()} · ${placement.note.trim()}`;
-  }
   if (placement.codingProjectTitle?.trim()) {
-    return placement.codingProjectTitle.trim();
+    const parts = [placement.codingProjectTitle.trim()];
+    if (!placement.doneAt && placement.openCodingTodoTexts?.length) {
+      parts.push(placement.openCodingTodoTexts.join(", "));
+    }
+    if (placement.note?.trim()) parts.push(placement.note.trim());
+    return parts.join(" · ");
   }
   const gameKindLabel = placement.gameKind
     ? GAME_KIND_LABEL[placement.gameKind]
@@ -1018,6 +1046,8 @@ export function formatWeeklyTaskDetail(
     musicParts.push(placement.openMusicTodoTexts.join(", "));
   } else if (!placement.doneAt && placement.openHomeTodoTexts?.length) {
     musicParts.push(placement.openHomeTodoTexts.join(", "));
+  } else if (!placement.doneAt && placement.openCodingTodoTexts?.length) {
+    musicParts.push(placement.openCodingTodoTexts.join(", "));
   } else if (placement.planTodo?.trim()) {
     musicParts.push(placement.planTodo.trim());
   }

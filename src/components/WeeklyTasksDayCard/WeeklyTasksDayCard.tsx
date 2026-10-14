@@ -642,6 +642,7 @@ export function WeeklyTaskRow({
           ? checkedTodoIds
           : undefined,
         completedHomeTodoIds: isHomeProject ? checkedTodoIds : undefined,
+        completedCodingTodoIds: isCoding ? checkedTodoIds : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -671,6 +672,7 @@ export function WeeklyTaskRow({
           ? checkedTodoIds
           : undefined,
         completedHomeTodoIds: isHomeProject ? checkedTodoIds : undefined,
+        completedCodingTodoIds: isCoding ? checkedTodoIds : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -1213,6 +1215,17 @@ export function WeeklyTaskRow({
                 <MusicActivityTodos
                   kind="home"
                   todos={task.homeTodos}
+                  placementId={placement?.id}
+                  mode="complete"
+                  checkedIds={checkedTodoIds}
+                  onCheckedIdsChange={setCheckedTodoIds}
+                  disabled={pending}
+                />
+              ) : null}
+              {isCoding ? (
+                <MusicActivityTodos
+                  kind="dev"
+                  todos={task.codingTodos}
                   placementId={placement?.id}
                   mode="complete"
                   checkedIds={checkedTodoIds}

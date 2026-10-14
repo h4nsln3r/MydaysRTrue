@@ -2956,6 +2956,13 @@ function ItemRowContent({
                       maxLength={280}
                       disabled={pending}
                     />
+                    <MusicActivityTodos
+                      kind="dev"
+                      todos={item.codingTodos}
+                      placementId={item.placementId}
+                      mode="plan"
+                      disabled={pending}
+                    />
                   </>
                 ) : isRingWeeklyTaskKey(item.taskKey) ? (
                   <>

@@ -8,6 +8,7 @@ import {
   weeklyTaskVisibleOnLocalDate,
   FEST_TASK_KEY,
   isRepeatableWeeklyTaskKey,
+  isCodingWeeklyTaskKey,
   isHomeProjectWeeklyTaskKey,
   isWeeklyTaskRepeatable,
   monthlyTaskKeeperScore,
@@ -25,6 +26,7 @@ import {
   type WeeklyTaskChecklistCompletion,
   type WeeklyTaskForWeek,
   type WeeklyTaskCompletionKind,
+  type CodingTodo,
   type HomeProjectTodo,
   type MusicActivityTodo,
   type MusicLogKind,
@@ -1266,6 +1268,50 @@ export async function getWeekSummary(
     }
   }
 
+  const codingTodoSelect = "id, text, sort_order, done_at, done_placement_id";
+  const [openCodingRes, doneCodingRes] = await Promise.all([
+    supabase
+      .from("coding_todos")
+      .select(codingTodoSelect)
+      .eq("user_id", userId)
+      .is("done_at", null)
+      .order("sort_order", { ascending: true }),
+    placementIds.length > 0
+      ? supabase
+          .from("coding_todos")
+          .select(codingTodoSelect)
+          .eq("user_id", userId)
+          .in("done_placement_id", placementIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const codingTodos: CodingTodo[] = [];
+  const seenCodingIds = new Set<string>();
+  for (const row of [...(openCodingRes.data ?? []), ...(doneCodingRes.data ?? [])]) {
+    if (seenCodingIds.has(row.id)) continue;
+    seenCodingIds.add(row.id);
+    codingTodos.push({
+      id: row.id,
+      text: row.text,
+      sortOrder: row.sort_order,
+      doneAt: row.done_at,
+      donePlacementId: row.done_placement_id,
+    });
+  }
+  const openCodingTexts = codingTodos
+    .filter((todo) => !todo.doneAt)
+    .map((todo) => todo.text);
+  for (const row of taskRows) {
+    if (!isCodingWeeklyTaskKey(row.key)) continue;
+    const placements = placementsByTask.get(row.id);
+    if (!placements) continue;
+    for (let i = 0; i < placements.length; i++) {
+      placements[i] = {
+        ...placements[i]!,
+        openCodingTodoTexts: openCodingTexts,
+      };
+    }
+  }
+
   const tasks: WeeklyTaskForWeek[] = taskRows
     .filter(includeWeeklyTask)
     .map((row) => {
@@ -1282,6 +1328,7 @@ export async function getWeekSummary(
         checklistCompletions: completionsByTask.get(row.id) ?? [],
         musicTodos: row.completion_kind === "music" ? musicTodos : [],
         homeTodos: isHomeProjectWeeklyTaskKey(row.key) ? homeTodos : [],
+        codingTodos: isCodingWeeklyTaskKey(row.key) ? codingTodos : [],
       };
     });
 

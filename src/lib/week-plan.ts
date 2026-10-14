@@ -9,6 +9,7 @@ import type {
   TaskCategory,
   Weekday,
   WeeklyPlacement,
+  CodingTodo,
   HomeProjectTodo,
   MusicActivityTodo,
   WeeklyTaskChecklistItem,
@@ -54,6 +55,7 @@ export interface WeekPlanTaskItem extends WeekPlanItemBase {
   checklist: WeeklyTaskChecklistItem[];
   musicTodos: MusicActivityTodo[];
   homeTodos: HomeProjectTodo[];
+  codingTodos: CodingTodo[];
   singleWeekStart: string | null;
 }
 

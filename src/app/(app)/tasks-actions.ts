@@ -1664,6 +1664,193 @@ export async function updateHomeProjectTodoAction(input: {
   return { ok: true };
 }
 
+async function syncCodingTodos(
+  supabase: AppSupabase,
+  userId: string,
+  placementId: string,
+  completedIds: readonly string[],
+): Promise<
+  | {
+      ok: true;
+      texts: string[];
+      previous: {
+        id: string;
+        done_at: string | null;
+        done_placement_id: string | null;
+      }[];
+    }
+  | { ok: false; error: string }
+> {
+  const unique = [...new Set(completedIds)];
+  const { data: rows, error } = await supabase
+    .from("coding_todos")
+    .select("id, text, sort_order, done_at, done_placement_id")
+    .eq("user_id", userId)
+    .or(`done_at.is.null,done_placement_id.eq.${placementId}`)
+    .order("sort_order", { ascending: true });
+  if (error) return { ok: false, error: error.message };
+
+  const byId = new Map((rows ?? []).map((row) => [row.id, row]));
+  for (const id of unique) {
+    if (!byId.has(id)) {
+      return { ok: false, error: "En av uppgifterna finns inte längre." };
+    }
+  }
+
+  const previous = (rows ?? []).map((row) => ({
+    id: row.id,
+    done_at: row.done_at,
+    done_placement_id: row.done_placement_id,
+  }));
+  const now = new Date().toISOString();
+
+  for (const row of rows ?? []) {
+    const want = unique.includes(row.id);
+    const onThis = row.done_placement_id === placementId;
+    if (want && !onThis) {
+      const { error: updateError } = await supabase
+        .from("coding_todos")
+        .update({ done_at: now, done_placement_id: placementId })
+        .eq("id", row.id)
+        .eq("user_id", userId)
+        .is("done_at", null);
+      if (updateError) return { ok: false, error: updateError.message };
+    } else if (!want && onThis) {
+      const { error: updateError } = await supabase
+        .from("coding_todos")
+        .update({ done_at: null, done_placement_id: null })
+        .eq("id", row.id)
+        .eq("user_id", userId);
+      if (updateError) return { ok: false, error: updateError.message };
+    }
+  }
+
+  const { data: doneRows, error: doneError } = await supabase
+    .from("coding_todos")
+    .select("text, sort_order")
+    .eq("user_id", userId)
+    .eq("done_placement_id", placementId)
+    .order("sort_order", { ascending: true });
+  if (doneError) return { ok: false, error: doneError.message };
+
+  return {
+    ok: true,
+    texts: (doneRows ?? []).map((row) => row.text),
+    previous,
+  };
+}
+
+async function revertCodingTodos(
+  supabase: AppSupabase,
+  userId: string,
+  previous: {
+    id: string;
+    done_at: string | null;
+    done_placement_id: string | null;
+  }[],
+): Promise<void> {
+  for (const row of previous) {
+    await supabase
+      .from("coding_todos")
+      .update({
+        done_at: row.done_at,
+        done_placement_id: row.done_placement_id,
+      })
+      .eq("id", row.id)
+      .eq("user_id", userId);
+  }
+}
+
+/** Add an inner task that follows Dev until it is finished. */
+export async function addCodingTodoAction(input: {
+  text: string;
+}): Promise<ActionResult> {
+  const text = input.text.trim().slice(0, 200);
+  if (!text) return { ok: false, error: "Skriv uppgiften." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { count } = await supabase
+    .from("coding_todos")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .is("done_at", null);
+
+  const { data, error } = await supabase
+    .from("coding_todos")
+    .insert({
+      user_id: user.id,
+      text,
+      sort_order: count ?? 0,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Kunde inte lägga till." };
+  }
+
+  revalidatePath("/", "layout");
+  return { ok: true, id: data.id };
+}
+
+/** Remove an inner Dev task that is no longer relevant. */
+export async function deleteCodingTodoAction(input: {
+  id: string;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar uppgifts-id." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("coding_todos")
+    .delete()
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .is("done_at", null);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/** Rename an inner Dev task that is still open. */
+export async function updateCodingTodoAction(input: {
+  id: string;
+  text: string;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar uppgifts-id." };
+  const text = input.text.trim().slice(0, 200);
+  if (!text) return { ok: false, error: "Skriv uppgiften." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data, error } = await supabase
+    .from("coding_todos")
+    .update({ text })
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .is("done_at", null)
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Uppgiften kan inte ändras." };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Complete a weekly task with kind-specific fields. */
 export async function completeWeeklyTaskAction(input: {
   taskId: string;
@@ -1698,6 +1885,8 @@ export async function completeWeeklyTaskAction(input: {
   completedMusicTodoIds?: string[];
   /** Inner Hemmaprojekt tasks finished on this session. Omit to leave them unchanged. */
   completedHomeTodoIds?: string[];
+  /** Inner Dev tasks finished on this session. Omit to leave them unchanged. */
+  completedCodingTodoIds?: string[];
   /** Optional coding session project. */
   codingProjectId?: string | null;
   /** Kodning, Lära or Friend kod. */
@@ -1855,6 +2044,11 @@ export async function completeWeeklyTaskAction(input: {
     done_at: string | null;
     done_placement_id: string | null;
   }[] | null = null;
+  let codingTodoPrevious: {
+    id: string;
+    done_at: string | null;
+    done_placement_id: string | null;
+  }[] | null = null;
 
   if (kind === "shop" || kind === "expense") {
     if (!shopLocation) {
@@ -1912,6 +2106,30 @@ export async function completeWeeklyTaskAction(input: {
     }
     if (isRingWeeklyTaskKey(task.key)) {
       completionNote = note || null;
+    } else if (
+      isCodingWeeklyTaskKey(task.key) &&
+      input.completedCodingTodoIds != null
+    ) {
+      const sync = await syncCodingTodos(
+        supabase,
+        user.id,
+        existing.id,
+        input.completedCodingTodoIds,
+      );
+      if (!sync.ok) return sync;
+      codingTodoPrevious = sync.previous;
+      const composed = composeMusicSessionNote(note, sync.texts);
+      if (!composed) {
+        await revertCodingTodos(supabase, user.id, sync.previous);
+        codingTodoPrevious = null;
+        return { ok: false, error: "Anteckna vad du gjorde." };
+      }
+      if (composed.length > 500) {
+        await revertCodingTodos(supabase, user.id, sync.previous);
+        codingTodoPrevious = null;
+        return { ok: false, error: "Håll anteckningen under 500 tecken." };
+      }
+      completionNote = composed;
     } else if (
       isHomeProjectWeeklyTaskKey(task.key) &&
       input.completedHomeTodoIds != null
@@ -2211,6 +2429,9 @@ export async function completeWeeklyTaskAction(input: {
     if (homeTodoPrevious) {
       await revertHomeProjectTodos(supabase, user.id, homeTodoPrevious);
     }
+    if (codingTodoPrevious) {
+      await revertCodingTodos(supabase, user.id, codingTodoPrevious);
+    }
     return { ok: false, error: error.message };
   }
 
@@ -2237,6 +2458,8 @@ export async function updateWeeklyTaskCompletionAction(input: {
   completedMusicTodoIds?: string[];
   /** Inner Hemmaprojekt tasks finished on this session. Omit to leave them unchanged. */
   completedHomeTodoIds?: string[];
+  /** Inner Dev tasks finished on this session. Omit to leave them unchanged. */
+  completedCodingTodoIds?: string[];
   callPerson?: string | null;
   callOtherName?: string | null;
   codingActivity?: string | null;
@@ -2304,6 +2527,11 @@ export async function updateWeeklyTaskCompletionAction(input: {
     done_placement_id: string | null;
   }[] | null = null;
   let homeTodoPrevious: {
+    id: string;
+    done_at: string | null;
+    done_placement_id: string | null;
+  }[] | null = null;
+  let codingTodoPrevious: {
     id: string;
     done_at: string | null;
     done_placement_id: string | null;
@@ -2385,9 +2613,32 @@ export async function updateWeeklyTaskCompletionAction(input: {
       if (!codingActivity) {
         return { ok: false, error: "Välj kodning, lära eller friend kod." };
       }
-      if (!note) return { ok: false, error: "Anteckna vad du gjorde." };
       patch.coding_activity = codingActivity;
-      patch.note = note;
+      if (input.completedCodingTodoIds != null) {
+        const sync = await syncCodingTodos(
+          supabase,
+          user.id,
+          existing.id,
+          input.completedCodingTodoIds,
+        );
+        if (!sync.ok) return sync;
+        codingTodoPrevious = sync.previous;
+        const composed = composeMusicSessionNote(note, sync.texts);
+        if (!composed) {
+          await revertCodingTodos(supabase, user.id, sync.previous);
+          codingTodoPrevious = null;
+          return { ok: false, error: "Anteckna vad du gjorde." };
+        }
+        if (composed.length > 500) {
+          await revertCodingTodos(supabase, user.id, sync.previous);
+          codingTodoPrevious = null;
+          return { ok: false, error: "Håll anteckningen under 500 tecken." };
+        }
+        patch.note = composed;
+      } else {
+        if (!note) return { ok: false, error: "Anteckna vad du gjorde." };
+        patch.note = note;
+      }
     } else if (
       isHomeProjectWeeklyTaskKey(task.key) &&
       input.completedHomeTodoIds != null
@@ -2514,6 +2765,9 @@ export async function updateWeeklyTaskCompletionAction(input: {
     if (homeTodoPrevious) {
       await revertHomeProjectTodos(supabase, user.id, homeTodoPrevious);
     }
+    if (codingTodoPrevious) {
+      await revertCodingTodos(supabase, user.id, codingTodoPrevious);
+    }
     return { ok: false, error: error.message };
   }
 
@@ -2593,6 +2847,12 @@ export async function uncompleteWeeklyTaskAction(input: {
 
   await supabase
     .from("home_project_todos")
+    .update({ done_at: null, done_placement_id: null })
+    .eq("user_id", user.id)
+    .eq("done_placement_id", existing.id);
+
+  await supabase
+    .from("coding_todos")
     .update({ done_at: null, done_placement_id: null })
     .eq("user_id", user.id)
     .eq("done_placement_id", existing.id);

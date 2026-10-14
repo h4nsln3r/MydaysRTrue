@@ -4,10 +4,13 @@ import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
+  addCodingTodoAction,
   addHomeProjectTodoAction,
   addMusicActivityTodoAction,
+  deleteCodingTodoAction,
   deleteHomeProjectTodoAction,
   deleteMusicActivityTodoAction,
+  updateCodingTodoAction,
   updateHomeProjectTodoAction,
   updateMusicActivityTodoAction,
 } from "@/app/(app)/tasks-actions";
@@ -15,6 +18,7 @@ import {
   MUSIC_ACTIVITY_LABEL,
   musicActivityHasTodos,
   openMusicTodos,
+  type CodingTodo,
   type HomeProjectTodo,
   type MusicActivity,
   type MusicActivityTodo,
@@ -31,9 +35,9 @@ type TodoRow = {
 };
 
 interface Props {
-  kind?: "music" | "home";
+  kind?: "music" | "home" | "dev";
   activity?: MusicActivity | null;
-  todos: readonly (MusicActivityTodo | HomeProjectTodo)[];
+  todos: readonly (MusicActivityTodo | HomeProjectTodo | CodingTodo)[];
   placementId?: string | null;
   mode: "plan" | "complete";
   checkedIds?: string[];
@@ -52,6 +56,8 @@ export function MusicActivityTodos({
   disabled = false,
 }: Props) {
   const home = kind === "home";
+  const dev = kind === "dev";
+  const shared = home || dev;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
@@ -75,12 +81,12 @@ export function MusicActivityTodos({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
 
-  if (!home && activity != null && !musicActivityHasTodos(activity)) return null;
+  if (!shared && activity != null && !musicActivityHasTodos(activity)) return null;
 
   const byOrder = (a: TodoRow, b: TodoRow) =>
     a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv");
 
-  const visible = home
+  const visible = shared
     ? items
         .filter((todo) =>
           mode === "plan"
@@ -109,14 +115,16 @@ export function MusicActivityTodos({
     .map((todo) => todo.text);
 
   const add = () => {
-    if (!home && !musicActivityHasTodos(activity)) return;
+    if (!shared && !musicActivityHasTodos(activity)) return;
     const text = draft.trim();
     if (!text) return;
     setError(null);
     startTransition(async () => {
       const res = home
         ? await addHomeProjectTodoAction({ text })
-        : await addMusicActivityTodoAction({ activity: activity!, text });
+        : dev
+          ? await addCodingTodoAction({ text })
+          : await addMusicActivityTodoAction({ activity: activity!, text });
       if (!res.ok || !res.id) {
         setError(res.error ?? "Kunde inte lägga till.");
         return;
@@ -125,7 +133,7 @@ export function MusicActivityTodos({
         ...prev,
         {
           id: res.id!,
-          ...(home || activity == null ? {} : { activity }),
+          ...(shared || activity == null ? {} : { activity }),
           text,
           sortOrder: prev.length,
           doneAt: null,
@@ -142,7 +150,9 @@ export function MusicActivityTodos({
     startTransition(async () => {
       const res = home
         ? await deleteHomeProjectTodoAction({ id: todo.id })
-        : await deleteMusicActivityTodoAction({ id: todo.id });
+        : dev
+          ? await deleteCodingTodoAction({ id: todo.id })
+          : await deleteMusicActivityTodoAction({ id: todo.id });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte ta bort.");
         return;
@@ -170,7 +180,9 @@ export function MusicActivityTodos({
     startTransition(async () => {
       const res = home
         ? await updateHomeProjectTodoAction({ id: todo.id, text })
-        : await updateMusicActivityTodoAction({ id: todo.id, text });
+        : dev
+          ? await updateCodingTodoAction({ id: todo.id, text })
+          : await updateMusicActivityTodoAction({ id: todo.id, text });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
         return;
@@ -195,7 +207,7 @@ export function MusicActivityTodos({
   return (
     <div className={styles.wrap}>
       <span className={styles.label}>Uppgifter</span>
-      {!home && activity == null ? (
+      {!shared && activity == null ? (
         <p className={styles.hint}>Välj vad du ska göra så kan du lägga till uppgifter.</p>
       ) : (
         <>
@@ -270,10 +282,14 @@ export function MusicActivityTodos({
             {mode === "complete"
               ? home
                 ? "Kryssa i det du blev klar med. Resten följer med till nästa hemmaprojekt."
-                : "Kryssa i det du blev klar med. Resten följer med till nästa pass."
+                : dev
+                  ? "Kryssa i det du blev klar med. Resten följer med till nästa dev-pass."
+                  : "Kryssa i det du blev klar med. Resten följer med till nästa pass."
               : home
                 ? "De ligger kvar på nästa hemmaprojekt tills du klarmarkerar eller tar bort dem."
-                : "De ligger kvar på nästa pass av samma typ tills du klarmarkerar eller tar bort dem."}
+                : dev
+                  ? "De ligger kvar på nästa dev-pass tills du klarmarkerar eller tar bort dem."
+                  : "De ligger kvar på nästa pass av samma typ tills du klarmarkerar eller tar bort dem."}
           </p>
           {mode === "complete" && checkedTexts.length > 0 ? (
             <p className={styles.hint}>
@@ -291,7 +307,13 @@ export function MusicActivityTodos({
                   add();
                 }
               }}
-              placeholder={home ? "t.ex. måla hyllan" : "t.ex. lära sig introt till X"}
+              placeholder={
+                home
+                  ? "t.ex. måla hyllan"
+                  : dev
+                    ? "t.ex. fixa inloggningen"
+                    : "t.ex. lära sig introt till X"
+              }
               maxLength={200}
               disabled={disabled || pending}
               aria-label="Ny uppgift"
@@ -330,9 +352,11 @@ export function MusicActivityTodos({
                   «{confirming.text}» tas bort
                   {home
                     ? " från alla hemmaprojekt"
-                    : musicActivityHasTodos(activity)
-                      ? ` från alla ${MUSIC_ACTIVITY_LABEL[activity]}-pass`
-                      : ""}
+                    : dev
+                      ? " från alla dev-pass"
+                      : musicActivityHasTodos(activity)
+                        ? ` från alla ${MUSIC_ACTIVITY_LABEL[activity]}-pass`
+                        : ""}
                   . Den kommer inte med nästa gång.
                 </p>
                 <div className={styles.confirmActions}>

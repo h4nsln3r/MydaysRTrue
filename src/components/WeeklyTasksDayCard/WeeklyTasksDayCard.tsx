@@ -428,6 +428,7 @@ export function WeeklyTaskRow({
   const isGame = isGameWeeklyTaskKey(task.key);
   const isRing = isRingWeeklyTaskKey(task.key);
   const isHomeProject = isHomeProjectWeeklyTaskKey(task.key);
+  const isShop = task.completionKind === "shop";
   const done = Boolean(placement?.doneAt);
   // Quick tasks complete with one tap on the circle; everything is still
   // expandable so any task can carry an optional comment.
@@ -572,6 +573,8 @@ export function WeeklyTaskRow({
   }, [musicActivity, placement?.id, task.musicTodos]);
 
   const planNote = placement?.planNote?.trim() ?? "";
+  const openShopPreview =
+    isShop && !done ? (placement?.openShopTodoTexts ?? []).join(", ") : "";
   const planReadoutLabel =
     task.completionKind === "laundry" ? "Bokad tid" : "Anteckning";
   const showPlanNoteField = Boolean(placementId);
@@ -675,6 +678,7 @@ export function WeeklyTaskRow({
           ? checkedTodoIds
           : undefined,
         completedHomeTodoIds: isHomeProject ? checkedTodoIds : undefined,
+        completedShopTodoIds: isShop ? checkedTodoIds : undefined,
         completedCodingTodoIds: isCoding ? checkedTodoIds : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
@@ -705,6 +709,7 @@ export function WeeklyTaskRow({
           ? checkedTodoIds
           : undefined,
         completedHomeTodoIds: isHomeProject ? checkedTodoIds : undefined,
+        completedShopTodoIds: isShop ? checkedTodoIds : undefined,
         completedCodingTodoIds: isCoding ? checkedTodoIds : undefined,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
@@ -956,8 +961,10 @@ export function WeeklyTaskRow({
             />
           ) : null}
           <span className={styles.taskTitle}>{musicSessionTitle(task, placement)}</span>
-          {!expanded && planNote ? (
-            <span className={styles.taskDetail}>{planNote}</span>
+          {!expanded && (planNote || openShopPreview) ? (
+            <span className={styles.taskDetail}>
+              {[planNote, openShopPreview].filter(Boolean).join(" · ")}
+            </span>
           ) : null}
         </span>
         {needsExpand && !planningMode ? (
@@ -1173,6 +1180,17 @@ export function WeeklyTaskRow({
                 hint={shopAmountHint}
                 disabled={pending}
               />
+              {isShop ? (
+                <MusicActivityTodos
+                  kind="shop"
+                  todos={task.shopTodos}
+                  placementId={placement?.id}
+                  mode="complete"
+                  checkedIds={checkedTodoIds}
+                  onCheckedIdsChange={setCheckedTodoIds}
+                  disabled={pending}
+                />
+              ) : null}
             </>
           ) : null}
           {task.completionKind === "journal" ? (

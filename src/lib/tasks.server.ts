@@ -29,6 +29,7 @@ import {
   type CodingTodo,
   type HomeProjectTodo,
   type MusicActivityTodo,
+  type ShopTodo,
   type MusicLogKind,
   codingActivityFromLegacyKey,
   musicActivityFromLegacyKey,
@@ -1268,6 +1269,50 @@ export async function getWeekSummary(
     }
   }
 
+  const shopTodoSelect = "id, text, sort_order, done_at, done_placement_id";
+  const [openShopRes, doneShopRes] = await Promise.all([
+    supabase
+      .from("shop_todos")
+      .select(shopTodoSelect)
+      .eq("user_id", userId)
+      .is("done_at", null)
+      .order("sort_order", { ascending: true }),
+    placementIds.length > 0
+      ? supabase
+          .from("shop_todos")
+          .select(shopTodoSelect)
+          .eq("user_id", userId)
+          .in("done_placement_id", placementIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const shopTodos: ShopTodo[] = [];
+  const seenShopIds = new Set<string>();
+  for (const row of [...(openShopRes.data ?? []), ...(doneShopRes.data ?? [])]) {
+    if (seenShopIds.has(row.id)) continue;
+    seenShopIds.add(row.id);
+    shopTodos.push({
+      id: row.id,
+      text: row.text,
+      sortOrder: row.sort_order,
+      doneAt: row.done_at,
+      donePlacementId: row.done_placement_id,
+    });
+  }
+  const openShopTexts = shopTodos
+    .filter((todo) => !todo.doneAt)
+    .map((todo) => todo.text);
+  for (const row of taskRows) {
+    if (row.completion_kind !== "shop") continue;
+    const placements = placementsByTask.get(row.id);
+    if (!placements) continue;
+    for (let i = 0; i < placements.length; i++) {
+      placements[i] = {
+        ...placements[i]!,
+        openShopTodoTexts: openShopTexts,
+      };
+    }
+  }
+
   const codingTodoSelect = "id, text, sort_order, done_at, done_placement_id";
   const [openCodingRes, doneCodingRes] = await Promise.all([
     supabase
@@ -1328,6 +1373,7 @@ export async function getWeekSummary(
         checklistCompletions: completionsByTask.get(row.id) ?? [],
         musicTodos: row.completion_kind === "music" ? musicTodos : [],
         homeTodos: isHomeProjectWeeklyTaskKey(row.key) ? homeTodos : [],
+        shopTodos: row.completion_kind === "shop" ? shopTodos : [],
         codingTodos: isCodingWeeklyTaskKey(row.key) ? codingTodos : [],
       };
     });

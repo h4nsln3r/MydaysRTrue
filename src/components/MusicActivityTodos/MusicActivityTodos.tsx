@@ -7,12 +7,15 @@ import {
   addCodingTodoAction,
   addHomeProjectTodoAction,
   addMusicActivityTodoAction,
+  addShopTodoAction,
   deleteCodingTodoAction,
   deleteHomeProjectTodoAction,
   deleteMusicActivityTodoAction,
+  deleteShopTodoAction,
   updateCodingTodoAction,
   updateHomeProjectTodoAction,
   updateMusicActivityTodoAction,
+  updateShopTodoAction,
 } from "@/app/(app)/tasks-actions";
 import {
   MUSIC_ACTIVITY_LABEL,
@@ -22,6 +25,7 @@ import {
   type HomeProjectTodo,
   type MusicActivity,
   type MusicActivityTodo,
+  type ShopTodo,
 } from "@/lib/tasks";
 import styles from "./MusicActivityTodos.module.scss";
 
@@ -35,9 +39,9 @@ type TodoRow = {
 };
 
 interface Props {
-  kind?: "music" | "home" | "dev";
+  kind?: "music" | "home" | "dev" | "shop";
   activity?: MusicActivity | null;
-  todos: readonly (MusicActivityTodo | HomeProjectTodo | CodingTodo)[];
+  todos: readonly (MusicActivityTodo | HomeProjectTodo | CodingTodo | ShopTodo)[];
   placementId?: string | null;
   mode: "plan" | "complete";
   checkedIds?: string[];
@@ -57,7 +61,8 @@ export function MusicActivityTodos({
 }: Props) {
   const home = kind === "home";
   const dev = kind === "dev";
-  const shared = home || dev;
+  const shop = kind === "shop";
+  const shared = home || dev || shop;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState("");
@@ -122,9 +127,11 @@ export function MusicActivityTodos({
     startTransition(async () => {
       const res = home
         ? await addHomeProjectTodoAction({ text })
-        : dev
-          ? await addCodingTodoAction({ text })
-          : await addMusicActivityTodoAction({ activity: activity!, text });
+        : shop
+          ? await addShopTodoAction({ text })
+          : dev
+            ? await addCodingTodoAction({ text })
+            : await addMusicActivityTodoAction({ activity: activity!, text });
       if (!res.ok || !res.id) {
         setError(res.error ?? "Kunde inte lägga till.");
         return;
@@ -150,9 +157,11 @@ export function MusicActivityTodos({
     startTransition(async () => {
       const res = home
         ? await deleteHomeProjectTodoAction({ id: todo.id })
-        : dev
-          ? await deleteCodingTodoAction({ id: todo.id })
-          : await deleteMusicActivityTodoAction({ id: todo.id });
+        : shop
+          ? await deleteShopTodoAction({ id: todo.id })
+          : dev
+            ? await deleteCodingTodoAction({ id: todo.id })
+            : await deleteMusicActivityTodoAction({ id: todo.id });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte ta bort.");
         return;
@@ -180,9 +189,11 @@ export function MusicActivityTodos({
     startTransition(async () => {
       const res = home
         ? await updateHomeProjectTodoAction({ id: todo.id, text })
-        : dev
-          ? await updateCodingTodoAction({ id: todo.id, text })
-          : await updateMusicActivityTodoAction({ id: todo.id, text });
+        : shop
+          ? await updateShopTodoAction({ id: todo.id, text })
+          : dev
+            ? await updateCodingTodoAction({ id: todo.id, text })
+            : await updateMusicActivityTodoAction({ id: todo.id, text });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
         return;
@@ -206,7 +217,7 @@ export function MusicActivityTodos({
 
   return (
     <div className={styles.wrap}>
-      <span className={styles.label}>Uppgifter</span>
+      <span className={styles.label}>{shop ? "Inköpslista" : "Uppgifter"}</span>
       {!shared && activity == null ? (
         <p className={styles.hint}>Välj vad du ska göra så kan du lägga till uppgifter.</p>
       ) : (
@@ -282,14 +293,18 @@ export function MusicActivityTodos({
             {mode === "complete"
               ? home
                 ? "Kryssa i det du blev klar med. Resten följer med till nästa hemmaprojekt."
-                : dev
-                  ? "Kryssa i det du blev klar med. Resten följer med till nästa dev-pass."
-                  : "Kryssa i det du blev klar med. Resten följer med till nästa pass."
+                : shop
+                  ? "Kryssa i det du handlade. Resten följer med till nästa handling."
+                  : dev
+                    ? "Kryssa i det du blev klar med. Resten följer med till nästa dev-pass."
+                    : "Kryssa i det du blev klar med. Resten följer med till nästa pass."
               : home
                 ? "De ligger kvar på nästa hemmaprojekt tills du klarmarkerar eller tar bort dem."
-                : dev
-                  ? "De ligger kvar på nästa dev-pass tills du klarmarkerar eller tar bort dem."
-                  : "De ligger kvar på nästa pass av samma typ tills du klarmarkerar eller tar bort dem."}
+                : shop
+                  ? "De ligger kvar på nästa handling tills du klarmarkerar eller tar bort dem."
+                  : dev
+                    ? "De ligger kvar på nästa dev-pass tills du klarmarkerar eller tar bort dem."
+                    : "De ligger kvar på nästa pass av samma typ tills du klarmarkerar eller tar bort dem."}
           </p>
           {mode === "complete" && checkedTexts.length > 0 ? (
             <p className={styles.hint}>
@@ -310,13 +325,15 @@ export function MusicActivityTodos({
               placeholder={
                 home
                   ? "t.ex. måla hyllan"
-                  : dev
-                    ? "t.ex. fixa inloggningen"
-                    : "t.ex. lära sig introt till X"
+                  : shop
+                    ? "t.ex. mjölk, bröd"
+                    : dev
+                      ? "t.ex. fixa inloggningen"
+                      : "t.ex. lära sig introt till X"
               }
               maxLength={200}
               disabled={disabled || pending}
-              aria-label="Ny uppgift"
+              aria-label={shop ? "Ny sak att handla" : "Ny uppgift"}
             />
             <button
               type="button"
@@ -352,11 +369,13 @@ export function MusicActivityTodos({
                   «{confirming.text}» tas bort
                   {home
                     ? " från alla hemmaprojekt"
-                    : dev
-                      ? " från alla dev-pass"
-                      : musicActivityHasTodos(activity)
-                        ? ` från alla ${MUSIC_ACTIVITY_LABEL[activity]}-pass`
-                        : ""}
+                    : shop
+                      ? " från alla handlingar"
+                      : dev
+                        ? " från alla dev-pass"
+                        : musicActivityHasTodos(activity)
+                          ? ` från alla ${MUSIC_ACTIVITY_LABEL[activity]}-pass`
+                          : ""}
                   . Den kommer inte med nästa gång.
                 </p>
                 <div className={styles.confirmActions}>

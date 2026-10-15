@@ -16,6 +16,7 @@ import {
   type CodingTodo,
   type HomeProjectTodo,
   type MusicActivityTodo,
+  type ShopTodo,
   type WeeklyTaskChecklistItem,
   type WeeklyTaskCompletionKind,
   type MonthlyTaskCompletionKind,
@@ -59,6 +60,7 @@ export interface WeekPlanTaskItem extends WeekPlanItemBase {
   checklist: WeeklyTaskChecklistItem[];
   musicTodos: MusicActivityTodo[];
   homeTodos: HomeProjectTodo[];
+  shopTodos: ShopTodo[];
   codingTodos: CodingTodo[];
   singleWeekStart: string | null;
   /** Completions that count as hitting the week. */

@@ -152,6 +152,7 @@ export function GymWeekBoard({ weekStart, sessions }: Props) {
 
   return (
     <DndContext
+      id="gym-week-dnd"
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}

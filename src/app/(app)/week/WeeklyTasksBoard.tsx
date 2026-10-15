@@ -240,6 +240,7 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
 
   return (
     <DndContext
+      id="weekly-tasks-dnd"
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}

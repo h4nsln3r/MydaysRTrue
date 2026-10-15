@@ -148,6 +148,7 @@ export function CardioWeekBoard({ weekStart, sessions }: Props) {
 
   return (
     <DndContext
+      id="cardio-week-dnd"
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}

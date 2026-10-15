@@ -269,6 +269,25 @@ export function homeTodosDoneOnPlacement(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"));
 }
 
+/** An item on the Handla list. It follows every shopping trip until bought or removed. */
+export interface ShopTodo {
+  id: string;
+  text: string;
+  sortOrder: number;
+  doneAt: string | null;
+  donePlacementId: string | null;
+}
+
+export function shopTodosDoneOnPlacement(
+  todos: readonly ShopTodo[],
+  placementId: string | null | undefined,
+): ShopTodo[] {
+  if (!placementId) return [];
+  return todos
+    .filter((todo) => todo.donePlacementId === placementId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"));
+}
+
 /** An inner task that follows Dev until it is finished or removed. */
 export interface CodingTodo {
   id: string;
@@ -288,11 +307,12 @@ export function codingTodosDoneOnPlacement(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.text.localeCompare(b.text, "sv"));
 }
 
-/** Inner tasks finished on this session: Dev, hemmaprojekt, or music. */
+/** Inner tasks finished on this session: Dev, hemmaprojekt, handla, or music. */
 export function placementDoneCarryTodos(
   task: {
     musicTodos?: readonly MusicActivityTodo[];
     homeTodos?: readonly HomeProjectTodo[];
+    shopTodos?: readonly ShopTodo[];
     codingTodos?: readonly CodingTodo[];
   },
   placementId: string | null | undefined,
@@ -301,6 +321,8 @@ export function placementDoneCarryTodos(
   if (coding.length > 0) return coding;
   const home = homeTodosDoneOnPlacement(task.homeTodos ?? [], placementId);
   if (home.length > 0) return home;
+  const shop = shopTodosDoneOnPlacement(task.shopTodos ?? [], placementId);
+  if (shop.length > 0) return shop;
   return musicTodosDoneOnPlacement(task.musicTodos ?? [], placementId);
 }
 
@@ -838,6 +860,8 @@ export interface WeeklyPlacement {
   openMusicTodoTexts?: string[];
   /** Open inner tasks shared by Hemmaprojekt. */
   openHomeTodoTexts?: string[];
+  /** Open shopping-list items shared by Handla. */
+  openShopTodoTexts?: string[];
   /** Open inner tasks shared by Dev. */
   openCodingTodoTexts?: string[];
   /** Band or constellation name (Totes, Bojeng, or free text). */
@@ -921,6 +945,8 @@ export interface WeeklyTaskForWeek extends WeeklyTask {
   musicTodos: MusicActivityTodo[];
   /** Inner Hemmaprojekt tasks still open, plus ones finished on a placement this week. */
   homeTodos: HomeProjectTodo[];
+  /** Shopping-list items still open, plus ones bought on a placement this week. */
+  shopTodos: ShopTodo[];
   /** Inner Dev tasks still open, plus ones finished on a placement this week. */
   codingTodos: CodingTodo[];
 }
@@ -1032,7 +1058,15 @@ export function formatWeeklyTaskDetail(
     const loc = placement.shopLocation.trim();
     return spendLabel ? `${spendLabel} · ${loc}` : loc;
   }
-  if (spendLabel) return spendLabel;
+  if (spendLabel) {
+    if (placement.doneAt) return spendLabel;
+    const parts = [spendLabel];
+    if (placement.planNote?.trim()) parts.push(placement.planNote.trim());
+    if (placement.openShopTodoTexts?.length) {
+      parts.push(placement.openShopTodoTexts.join(", "));
+    }
+    return parts.join(" · ");
+  }
   if (placement.laundryLoads != null) {
     const time = placement.planNote ? `${placement.planNote} · ` : "";
     return `${time}${placement.laundryLoads} tvättar`;
@@ -1046,6 +1080,8 @@ export function formatWeeklyTaskDetail(
     musicParts.push(placement.openMusicTodoTexts.join(", "));
   } else if (!placement.doneAt && placement.openHomeTodoTexts?.length) {
     musicParts.push(placement.openHomeTodoTexts.join(", "));
+  } else if (!placement.doneAt && placement.openShopTodoTexts?.length) {
+    musicParts.push(placement.openShopTodoTexts.join(", "));
   } else if (!placement.doneAt && placement.openCodingTodoTexts?.length) {
     musicParts.push(placement.openCodingTodoTexts.join(", "));
   } else if (placement.planTodo?.trim()) {

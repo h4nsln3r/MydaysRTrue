@@ -768,6 +768,7 @@ export function UnifiedWeekBoard({
 
   return (
     <DndContext
+      id="week-plan-dnd"
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
@@ -3074,17 +3075,38 @@ function ItemRowContent({
               ) : null}
               {item.completionKind === "shop" ||
               item.completionKind === "expense" ? (
-                <SpendKindFields
-                  kinds={allowedSpendKinds(item.completionKind)}
-                  value={spendKind}
-                  onChange={setSpendKind}
-                  disabled={pending}
-                  label={
-                    item.completionKind === "expense"
-                      ? "Privat eller delat?"
-                      : "Mat, privat eller delat?"
-                  }
-                />
+                <>
+                  <SpendKindFields
+                    kinds={allowedSpendKinds(item.completionKind)}
+                    value={spendKind}
+                    onChange={setSpendKind}
+                    disabled={pending}
+                    label={
+                      item.completionKind === "expense"
+                        ? "Privat eller delat?"
+                        : "Mat, privat eller delat?"
+                    }
+                  />
+                  {item.completionKind === "shop" ? (
+                    <>
+                      <Input
+                        label="Anteckning (valfritt)"
+                        value={taskPlanNote}
+                        onChange={(e) => setTaskPlanNote(e.target.value)}
+                        placeholder="t.ex. ICA efter jobbet"
+                        maxLength={280}
+                        disabled={pending}
+                      />
+                      <MusicActivityTodos
+                        kind="shop"
+                        todos={item.shopTodos}
+                        placementId={item.placementId}
+                        mode="plan"
+                        disabled={pending}
+                      />
+                    </>
+                  ) : null}
+                </>
               ) : null}
               <Button
                 type="button"

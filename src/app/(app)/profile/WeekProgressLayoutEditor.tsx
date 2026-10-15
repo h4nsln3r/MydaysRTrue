@@ -191,6 +191,7 @@ function LayoutList<T extends string>({
         <p className={styles.listSubtitle}>{subtitle}</p>
       </header>
       <DndContext
+        id="week-progress-layout-dnd"
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={onDragEnd}

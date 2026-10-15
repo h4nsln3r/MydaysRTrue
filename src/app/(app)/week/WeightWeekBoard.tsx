@@ -181,6 +181,7 @@ export function WeightWeekBoard({ weekStart, plan }: Props) {
         </p>
       ) : (
         <DndContext
+          id="weight-week-dnd"
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}

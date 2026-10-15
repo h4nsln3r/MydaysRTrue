@@ -290,6 +290,96 @@
     white-space: pre-line;
 }
 
+.notePencil {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid $color-line;
+    background: $color-ink;
+    color: $color-cream-dim;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-orange;
+        background: rgba(255, 122, 26, 0.08);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.noteEdit {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.noteEditInput {
+    width: 100%;
+    min-height: 64px;
+    resize: vertical;
+    padding: 8px 10px;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: inherit;
+    font-size: 0.85rem;
+    line-height: 1.4;
+
+    &:focus {
+        outline: none;
+        border-color: $color-orange;
+    }
+
+    &:disabled {
+        opacity: 0.6;
+    }
+}
+
+.noteEditActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.noteEditCancel,
+.noteEditSave {
+    padding: 6px 10px;
+    border-radius: $radius-pill;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+
+.noteEditCancel {
+    border: 1px solid $color-line;
+    background: transparent;
+    color: $color-cream-dim;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+    }
+}
+
+.noteEditSave {
+    border: 1px solid $color-orange;
+    background: rgba(255, 122, 26, 0.12);
+    color: $color-orange-bright;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
 .notesBlock {
     margin: 0;
     color: $color-cream-dim;
@@ -503,6 +593,14 @@
     font-size: 0.85rem;
 }
 
+.planReadoutHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
 .planReadoutLabel {
     display: block;
     font-size: 0.68rem;
@@ -510,6 +608,15 @@
     letter-spacing: 0.1em;
     color: $color-fog;
     margin-bottom: 4px;
+}
+
+.planReadoutHead .planReadoutLabel {
+    margin-bottom: 0;
+}
+
+.planNoteEmpty {
+    color: $color-fog;
+    font-style: italic;
 }
 
 .undoBtn {

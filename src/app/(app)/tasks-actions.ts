@@ -1099,6 +1099,40 @@ export async function unplaceWeeklyTaskAction(input: {
   return { ok: true };
 }
 
+/** Save only the note shown under a weekly task in the day view. */
+export async function updateWeeklyPlacementNoteAction(input: {
+  placementId: string;
+  taskId: string;
+  weekStart: string;
+  planNote: string;
+}): Promise<ActionResult> {
+  if (!input.placementId || !input.taskId) {
+    return { ok: false, error: "Saknar uppgifts-id." };
+  }
+  if (!isMonday(input.weekStart)) {
+    return { ok: false, error: "Veckan måste börja på en måndag." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const note = input.planNote.trim().slice(0, 280);
+  const { error } = await supabase
+    .from("weekly_task_placements")
+    .update({ plan_note: note || null })
+    .eq("id", input.placementId)
+    .eq("task_id", input.taskId)
+    .eq("week_start", input.weekStart)
+    .eq("user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Save planning fields (plan note) without marking the task done. */
 export async function updateWeeklyTaskPlanAction(input: {
   taskId: string;

@@ -14,6 +14,7 @@ import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
 import {
   completeWeeklyTaskAction,
   updateWeeklyTaskCompletionAction,
+  updateWeeklyPlacementNoteAction,
   createOneOffWeeklyTaskAction,
   deleteWeeklyTaskPlacementAction,
   moveWeeklyTaskPlacementAction,
@@ -26,7 +27,6 @@ import {
   setWeeklyTaskOnHoldAction,
 } from "@/app/(app)/tasks-actions";
 import {
-  formatWeeklyTaskDetail,
   isCodingWeeklyTaskKey,
   parseCodingActivity,
   isGameWeeklyTaskKey,
@@ -500,6 +500,9 @@ export function WeeklyTaskRow({
   const [callOtherName, setCallOtherName] = useState(
     placement?.callOtherName ?? "",
   );
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteError, setNoteError] = useState<string | null>(null);
   const [newProjectTitle, setNewProjectTitle] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
   const isLoggedMusicEvent =
@@ -568,8 +571,38 @@ export function WeeklyTaskRow({
     );
   }, [musicActivity, placement?.id, task.musicTodos]);
 
-  const detail = placement ? formatWeeklyTaskDetail(placement, task.completionKind) : null;
   const planNote = placement?.planNote?.trim() ?? "";
+  const planReadoutLabel =
+    task.completionKind === "laundry" ? "Bokad tid" : "Anteckning";
+  const showPlanNoteField = Boolean(placementId);
+
+  useEffect(() => {
+    if (!editingNote) setNoteDraft(planNote);
+  }, [editingNote, planNote]);
+
+  const saveNote = () => {
+    if (!placementId || !showPlanNoteField) return;
+    setNoteError(null);
+    onError(null);
+    onPendingId(placementId);
+    startTransition(async () => {
+      const res = await updateWeeklyPlacementNoteAction({
+        taskId: task.id,
+        weekStart,
+        placementId,
+        planNote: noteDraft,
+      });
+      onPendingId(null);
+      if (!res.ok) {
+        const message = res.error ?? "Kunde inte spara anteckningen.";
+        setNoteError(message);
+        onError(message);
+        return;
+      }
+      setEditingNote(false);
+      onRefresh();
+    });
+  };
   const isLaundryFollowUp = isLaundryFollowUpPlacement(placement ?? {});
   const isLaundryBookingDone = placement
     ? isLaundryBookingCompletion(placement)
@@ -923,16 +956,8 @@ export function WeeklyTaskRow({
             />
           ) : null}
           <span className={styles.taskTitle}>{musicSessionTitle(task, placement)}</span>
-          {detail ? (
-            <span className={styles.taskDetail}>{detail}</span>
-          ) : !done && planNote && task.completionKind === "journal" ? (
-            <span className={styles.planHint}>Planerat: {planNote}</span>
-          ) : !done && planNote && task.completionKind === "laundry" ? (
-            <span className={styles.planHint}>Bokad: {planNote}</span>
-          ) : !done && planNote && task.completionKind === "music" ? (
-            <span className={styles.planHint}>{planNote}</span>
-          ) : !done && placement?.planTodo && task.completionKind === "music" ? (
-            <span className={styles.planHint}>{placement.planTodo}</span>
+          {!expanded && planNote ? (
+            <span className={styles.taskDetail}>{planNote}</span>
           ) : null}
         </span>
         {needsExpand && !planningMode ? (
@@ -972,28 +997,86 @@ export function WeeklyTaskRow({
 
       {expanded && needsExpand && !planningMode ? (
         <div className={styles.taskActions}>
-          {task.completionKind === "journal" && planNote ? (
-            <p className={styles.planReadout}>
-              <span className={styles.planReadoutLabel}>Planerat</span>
-              {planNote}
-            </p>
-          ) : null}
-          {task.completionKind === "laundry" && planNote ? (
-            <p className={styles.planReadout}>
-              <span className={styles.planReadoutLabel}>Bokad tid</span>
-              {planNote}
-            </p>
+          {showPlanNoteField ? (
+            <div className={styles.planReadout}>
+              <div className={styles.planReadoutHead}>
+                <span className={styles.planReadoutLabel}>{planReadoutLabel}</span>
+                {!editingNote ? (
+                  <button
+                    type="button"
+                    className={styles.notePencil}
+                    onClick={() => {
+                      setNoteDraft(planNote);
+                      setNoteError(null);
+                      setEditingNote(true);
+                    }}
+                    disabled={pending}
+                    aria-label={`Redigera ${planReadoutLabel.toLowerCase()}`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path
+                        d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                      />
+                      <path d="m13.5 6.5 3 3" stroke="currentColor" strokeWidth="2" />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
+              {editingNote ? (
+                <form
+                  className={styles.noteEdit}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    saveNote();
+                  }}
+                >
+                  <textarea
+                    className={styles.noteEditInput}
+                    value={noteDraft}
+                    onChange={(e) => setNoteDraft(e.target.value.slice(0, 280))}
+                    maxLength={280}
+                    rows={3}
+                    disabled={pending}
+                    autoFocus
+                    aria-label={planReadoutLabel}
+                  />
+                  {noteError ? <p className={styles.error}>{noteError}</p> : null}
+                  <div className={styles.noteEditActions}>
+                    <button
+                      type="button"
+                      className={styles.noteEditCancel}
+                      onClick={() => {
+                        setNoteDraft(planNote);
+                        setNoteError(null);
+                        setEditingNote(false);
+                      }}
+                      disabled={pending}
+                    >
+                      Avbryt
+                    </button>
+                    <button
+                      type="submit"
+                      className={styles.noteEditSave}
+                      disabled={pending || noteDraft.trim() === planNote}
+                    >
+                      Spara
+                    </button>
+                  </div>
+                </form>
+              ) : planNote ? (
+                planNote
+              ) : (
+                <span className={styles.planNoteEmpty}>Skriv en anteckning</span>
+              )}
+            </div>
           ) : null}
           {task.completionKind === "music" && placement?.planTodo ? (
             <p className={styles.planReadout}>
               <span className={styles.planReadoutLabel}>Uppgift</span>
               {placement.planTodo}
-            </p>
-          ) : null}
-          {task.completionKind === "music" && planNote ? (
-            <p className={styles.planReadout}>
-              <span className={styles.planReadoutLabel}>Anteckning</span>
-              {planNote}
             </p>
           ) : null}
 

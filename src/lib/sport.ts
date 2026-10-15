@@ -5,6 +5,9 @@ import type { Weekday } from "@/lib/tasks";
 
 export type SportKey = "sport";
 
+/** Sessions to place in a week for the sport template. */
+export const SPORT_WEEKLY_GOAL = 2;
+
 export interface SportSessionTemplate {
   id: string;
   key: SportKey | string;

@@ -372,6 +372,7 @@ export async function getUnifiedWeekPlan(
         done: false,
         sortOrder: t.sortOrder,
         singleWeekStart: t.singleWeekStart,
+        weeklyGoal: t.weeklyGoal,
       });
 
       for (const placement of placed) {
@@ -403,6 +404,7 @@ export async function getUnifiedWeekPlan(
             t.sortOrder,
           ),
           singleWeekStart: t.singleWeekStart,
+          weeklyGoal: t.weeklyGoal,
         });
       }
       continue;
@@ -438,6 +440,7 @@ export async function getUnifiedWeekPlan(
             t.sortOrder,
           ),
           singleWeekStart: t.singleWeekStart,
+          weeklyGoal: t.weeklyGoal,
         });
       }
       continue;
@@ -473,6 +476,7 @@ export async function getUnifiedWeekPlan(
         t.sortOrder,
       ),
       singleWeekStart: t.singleWeekStart,
+      weeklyGoal: t.weeklyGoal,
     });
   }
 

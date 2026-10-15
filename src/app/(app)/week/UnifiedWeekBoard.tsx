@@ -120,12 +120,22 @@ import {
   weekPlanDragId,
   weekPlanShakeSourceDragId,
   weekdayFromWeekPlanDropId,
+  weekPlanBacklogGoal,
   type UnifiedWeekPlan,
+  type WeekPlanGoalProgress,
   type WeekPlanItem,
   type WeekPlanTaskItem,
 } from "@/lib/week-plan";
 import { useSyncNavPending } from "@/components/NavProgress/NavProgress";
 import styles from "./weekly-tasks.module.scss";
+
+function goalProgressLabel(progress: WeekPlanGoalProgress): string {
+  const ratio = `${progress.planned} av ${progress.goal} planerade`;
+  if (progress.missing <= 0) return ratio;
+  return progress.missing === 1
+    ? `${ratio}, saknas 1`
+    : `${ratio}, saknas ${progress.missing}`;
+}
 
 function isPlanSource(item: WeekPlanItem): boolean {
   return (
@@ -706,6 +716,7 @@ export function UnifiedWeekBoard({
         }}
         games={games}
         sports={sports}
+        goalProgress={null}
       />
     ) : (
       <DraggableItemRow
@@ -737,6 +748,7 @@ export function UnifiedWeekBoard({
         }}
         games={games}
         sports={sports}
+        goalProgress={weekPlanBacklogGoal(item, localItems)}
       />
     )
   );
@@ -1138,6 +1150,7 @@ interface DraggableItemRowProps {
   onDone: () => void;
   games?: UserGame[];
   sports?: UserSport[];
+  goalProgress?: WeekPlanGoalProgress | null;
 }
 
 function isFestPlacementItem(item: WeekPlanItem): boolean {
@@ -1209,6 +1222,7 @@ function SortableItemRow(props: DraggableItemRowProps) {
         onDone={props.onDone}
         games={props.games}
         sports={props.sports}
+        goalProgress={props.goalProgress}
       />
     </li>
   );
@@ -1233,6 +1247,7 @@ function DraggableItemRow({
   onDone,
   games = [],
   sports = [],
+  goalProgress = null,
 }: DraggableItemRowProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: item.dragId,
@@ -1277,6 +1292,7 @@ function DraggableItemRow({
         onDone={onDone}
         games={games}
         sports={sports}
+        goalProgress={goalProgress}
       />
     </li>
   );
@@ -1343,6 +1359,7 @@ interface ItemRowContentProps {
   onDone: () => void;
   games?: UserGame[];
   sports?: UserSport[];
+  goalProgress?: WeekPlanGoalProgress | null;
 }
 
 function isTaskOnHold(item: WeekPlanItem): boolean {
@@ -1385,6 +1402,7 @@ function ItemRowContent({
   onDone,
   games = [],
   sports = [],
+  goalProgress = null,
 }: ItemRowContentProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -2045,9 +2063,25 @@ function ItemRowContent({
             <span aria-hidden />
           )}
         </button>
-      ) : (
+      ) : !preview && goalProgress ? null : (
         <span className={styles.checkPlaceholder} aria-hidden />
       )}
+
+      {!preview && goalProgress ? (
+        <span
+          className={[
+            styles.goalBadge,
+            goalProgress.missing > 0
+              ? styles.goalBadgeShort
+              : styles.goalBadgeMet,
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          title={goalProgressLabel(goalProgress)}
+        >
+          {goalProgress.planned}/{goalProgress.goal}
+        </span>
+      ) : null}
 
       {!preview ? (
         <button

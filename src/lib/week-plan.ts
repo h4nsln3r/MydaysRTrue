@@ -2,19 +2,23 @@
 // Server aggregation lives in `./week-plan.server`.
 
 import type { BathingSessionForWeek } from "@/lib/bathing";
-import type { CardioSessionForWeek } from "@/lib/cardio";
-import type { SportSessionForWeek } from "@/lib/sport";
+import {
+  CARDIO_WEEKLY_GOAL,
+  type CardioSessionForWeek,
+} from "@/lib/cardio";
+import { SPORT_WEEKLY_GOAL, type SportSessionForWeek } from "@/lib/sport";
 import type { GymSessionForWeek, GymWarmup } from "@/lib/gym";
-import type {
-  TaskCategory,
-  Weekday,
-  WeeklyPlacement,
-  CodingTodo,
-  HomeProjectTodo,
-  MusicActivityTodo,
-  WeeklyTaskChecklistItem,
-  WeeklyTaskCompletionKind,
-  MonthlyTaskCompletionKind,
+import {
+  normalizeWeeklyGoal,
+  type TaskCategory,
+  type Weekday,
+  type WeeklyPlacement,
+  type CodingTodo,
+  type HomeProjectTodo,
+  type MusicActivityTodo,
+  type WeeklyTaskChecklistItem,
+  type WeeklyTaskCompletionKind,
+  type MonthlyTaskCompletionKind,
 } from "@/lib/tasks";
 import type { WeightLog, WeightWeekPlan } from "@/lib/weight";
 import { WEIGHT_ITEM_ID } from "@/lib/weight";
@@ -57,6 +61,8 @@ export interface WeekPlanTaskItem extends WeekPlanItemBase {
   homeTodos: HomeProjectTodo[];
   codingTodos: CodingTodo[];
   singleWeekStart: string | null;
+  /** Completions that count as hitting the week. */
+  weeklyGoal: number;
 }
 
 export interface WeekPlanGymItem extends WeekPlanItemBase {
@@ -320,3 +326,58 @@ export function parseWeekPlanDragId(dragId: string): ParsedWeekPlanDragId | null
 }
 
 export const WEIGHT_DRAG_ID = weekPlanDragId("weight", WEIGHT_ITEM_ID);
+
+export interface WeekPlanGoalProgress {
+  planned: number;
+  goal: number;
+  missing: number;
+}
+
+/**
+ * Planned placements vs the weekly target for a backlog source
+ * (repeatable task, sport, cardio). Null for items without a target.
+ */
+export function weekPlanBacklogGoal(
+  item: WeekPlanItem,
+  items: WeekPlanItem[],
+): WeekPlanGoalProgress | null {
+  let goal: number | null = null;
+  let planned = 0;
+
+  if (item.kind === "task" && item.taskRole === "source") {
+    goal = normalizeWeeklyGoal(item.weeklyGoal);
+    planned = items.filter(
+      (other) =>
+        other.kind === "task" &&
+        other.taskRole === "placement" &&
+        other.taskId === item.taskId &&
+        other.weekday != null &&
+        !other.placement?.onHold,
+    ).length;
+  } else if (item.kind === "sport" && item.sportRole === "source") {
+    goal = SPORT_WEEKLY_GOAL;
+    planned = items.filter(
+      (other) =>
+        other.kind === "sport" &&
+        other.sportRole === "placement" &&
+        other.templateId === item.templateId &&
+        other.weekday != null,
+    ).length;
+  } else if (item.kind === "cardio" && item.cardioRole === "source") {
+    goal = CARDIO_WEEKLY_GOAL;
+    planned = items.filter(
+      (other) =>
+        other.kind === "cardio" &&
+        other.cardioRole === "placement" &&
+        other.templateId === item.templateId &&
+        other.weekday != null,
+    ).length;
+  }
+
+  if (goal == null) return null;
+  return {
+    planned,
+    goal,
+    missing: Math.max(0, goal - planned),
+  };
+}

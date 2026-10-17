@@ -219,7 +219,20 @@ export function DayQuickAdd({
                     onClick={() => openStep(item.step)}
                   >
                     <span aria-hidden>{item.icon}</span>
-                    {item.label}
+                    <span className={styles.choiceLabel}>{item.label}</span>
+                    {item.progress ? (
+                      <span
+                        className={[
+                          styles.progress,
+                          item.progress.done >= item.progress.goal
+                            ? styles.progressMet
+                            : styles.progressShort,
+                        ].join(" ")}
+                        title={`${item.progress.done} av ${item.progress.goal} klara den här veckan`}
+                      >
+                        {item.progress.done}/{item.progress.goal}
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </div>

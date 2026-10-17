@@ -683,6 +683,17 @@ function weeklyTaskCountedCompletions(task: WeeklyTaskScoreInput): number {
   return Math.min(completed, goal);
 }
 
+/** Finished placements this week against the task's weekly goal. */
+export function weeklyTaskCompletionProgress(task: WeeklyTaskScoreInput): {
+  done: number;
+  goal: number;
+} {
+  return {
+    done: weeklyTaskCountedCompletions(task),
+    goal: normalizeWeeklyGoal(task.weeklyGoal),
+  };
+}
+
 /**
  * Category week score = sum of recurring task goals vs all completions.
  * One-offs and extra repeats can push `done` above `total` (bonus points).

@@ -25,6 +25,8 @@ import {
   type MusicActivity,
   type SpendKind,
   type TaskCategory,
+  weeklyTaskCompletionProgress,
+  type Weekday,
   type WeeklyTask,
   type WeeklyTaskCompletionKind,
 } from "@/lib/tasks";
@@ -40,6 +42,10 @@ export interface DayQuickAddTask {
   enabled: boolean;
   isRepeatable: boolean;
   singleWeekStart: string | null;
+  /** Placements finished this week. */
+  done: number;
+  /** Weekly completion target. */
+  goal: number;
 }
 
 export interface DayQuickAddTemplate {
@@ -91,6 +97,8 @@ export interface DayQuickAddItem {
   label: string;
   icon: string;
   step: DayQuickAddStep;
+  /** Finished this week / weekly goal. Omitted for choices without a target. */
+  progress?: { done: number; goal: number };
 }
 
 const CATEGORY_ORDER = ["HOME", "DEV", "MUSIC", "SPEL", "Livet"] as const;
@@ -263,7 +271,9 @@ function categoryItem(
     label: task.title,
     icon: task.icon,
     step: taskStep(task, games),
+    progress: { done: task.done, goal: task.goal },
   }));
+  const progress = sumProgress(items);
 
   if (items.length === 1) {
     const only = items[0];
@@ -272,21 +282,52 @@ function categoryItem(
         id: name,
         label: name,
         icon,
+        progress,
         step: { ...only.step, title: name },
       };
     }
-    return { id: name, label: name, icon, step: only.step };
+    return { id: name, label: name, icon, progress, step: only.step };
   }
 
   return {
     id: name,
     label: name,
     icon,
+    progress,
     step: { type: "menu", title: name, items },
   };
 }
 
-export function toDayQuickAddTask(task: WeeklyTask): DayQuickAddTask {
+function sumProgress(
+  items: Array<{ progress?: { done: number; goal: number } }>,
+): { done: number; goal: number } | undefined {
+  let done = 0;
+  let goal = 0;
+  let any = false;
+  for (const item of items) {
+    if (!item.progress) continue;
+    any = true;
+    done += item.progress.done;
+    goal += item.progress.goal;
+  }
+  return any ? { done, goal } : undefined;
+}
+
+export function toDayQuickAddTask(
+  task: WeeklyTask & {
+    placements?: Array<{
+      weekday: Weekday | null;
+      onHold?: boolean;
+      doneAt: string | null;
+    }>;
+    placement?: {
+      weekday: Weekday | null;
+      onHold?: boolean;
+      doneAt: string | null;
+    } | null;
+  },
+): DayQuickAddTask {
+  const progress = weeklyTaskCompletionProgress(task);
   return {
     id: task.id,
     key: task.key,
@@ -298,6 +339,8 @@ export function toDayQuickAddTask(task: WeeklyTask): DayQuickAddTask {
     enabled: task.enabled,
     isRepeatable: task.isRepeatable,
     singleWeekStart: task.singleWeekStart,
+    done: progress.done,
+    goal: progress.goal,
   };
 }
 

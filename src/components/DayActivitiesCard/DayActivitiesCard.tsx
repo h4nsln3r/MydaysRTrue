@@ -441,7 +441,7 @@ export function DayActivitiesCard({
     </span>
   ) : null;
 
-  const showHint = !tripDay && (localItems.length > 0 || onLeave);
+  const showHint = !tripDay && onLeave;
   const showWeek = showWeekLink || planningMode;
   const showCardHeader = (!tripDay && showControls) || showHint || showWeek;
 
@@ -464,13 +464,9 @@ export function DayActivitiesCard({
               {counter}
             </div>
           ) : null}
-          {!tripDay && (localItems.length > 0 || onLeave) ? (
+          {!tripDay && onLeave ? (
             <p className={styles.planHint}>
-              {onLeave
-                ? "Ledig idag — Jobb visas inte. Dagsuppgifter följer visningen under Inställningar."
-                : planningMode
-                  ? "Dra ⠿ för att planera ordningen inför dagen"
-                  : "Dra ⠿ för att ändra ordning idag"}
+              Ledig idag — Jobb visas inte. Dagsuppgifter följer visningen under Inställningar.
             </p>
           ) : null}
           {showWeekLink || planningMode ? (

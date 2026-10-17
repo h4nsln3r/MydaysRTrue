@@ -51,6 +51,10 @@
 
 .planHeader {
     gap: 2px;
+    // Card padding is 24px; the gap under the header is 8px. Pull the
+    // plus-row up so the space above it matches the space below it (16px).
+    margin-top: -8px;
+    margin-bottom: 8px;
 }
 
 .planTitle {
@@ -546,6 +550,11 @@
     .card.planCard {
         margin-inline: -16px;
         padding: 12px 6px;
+    }
+
+    .planHeader {
+        margin-top: 0;
+        margin-bottom: 4px;
     }
 
     .task {

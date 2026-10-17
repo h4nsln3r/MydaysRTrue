@@ -335,6 +335,111 @@ export interface WeekPlanGoalProgress {
   missing: number;
 }
 
+const EMPTY_WEEKDAY_COUNTS: Record<Weekday, number> = {
+  1: 0,
+  2: 0,
+  3: 0,
+  4: 0,
+  5: 0,
+  6: 0,
+  7: 0,
+};
+
+/** A placement created in the UI before the server has returned a real id. */
+export function isOptimisticWeekPlanDragId(dragId: string): boolean {
+  return dragId.includes(":optimistic-");
+}
+
+/**
+ * True when `other` is a placed instance of the same backlog source
+ * (repeatable task, sport, cardio, bathing, monthly, shake).
+ */
+export function matchesWeekPlanSource(
+  source: WeekPlanItem,
+  other: WeekPlanItem,
+): boolean {
+  if (other.weekday == null || other.dragId === source.dragId) return false;
+
+  if (source.kind === "task" && source.taskRole === "source") {
+    return (
+      other.kind === "task" &&
+      other.taskRole === "placement" &&
+      other.taskId === source.taskId &&
+      other.placement?.onHold !== true
+    );
+  }
+  if (source.kind === "sport" && source.sportRole === "source") {
+    return (
+      other.kind === "sport" &&
+      other.sportRole === "placement" &&
+      other.templateId === source.templateId
+    );
+  }
+  if (source.kind === "cardio" && source.cardioRole === "source") {
+    return (
+      other.kind === "cardio" &&
+      other.cardioRole === "placement" &&
+      other.templateId === source.templateId
+    );
+  }
+  if (source.kind === "bathing" && source.bathingRole === "source") {
+    return (
+      other.kind === "bathing" &&
+      other.bathingRole === "placement" &&
+      other.templateId === source.templateId
+    );
+  }
+  if (source.kind === "monthly_bill" && source.monthlyRole === "source") {
+    return (
+      other.kind === "monthly_bill" &&
+      other.monthlyRole === "placement" &&
+      other.taskId === source.taskId &&
+      other.monthStart === source.monthStart
+    );
+  }
+  if (source.kind === "shake" && source.shakeRole === "source") {
+    return (
+      other.kind === "shake" &&
+      other.shakeRole === "placement" &&
+      other.habitId === source.habitId
+    );
+  }
+  return false;
+}
+
+/** How many times this backlog source is already placed on each weekday. */
+export function weekPlanPlacedCountByWeekday(
+  source: WeekPlanItem,
+  items: WeekPlanItem[],
+): Record<Weekday, number> {
+  const counts: Record<Weekday, number> = { ...EMPTY_WEEKDAY_COUNTS };
+  for (const other of items) {
+    if (!matchesWeekPlanSource(source, other) || other.weekday == null) continue;
+    counts[other.weekday] += 1;
+  }
+  return counts;
+}
+
+/**
+ * One placed instance to remove from a weekday.
+ * Prefers a saved row over an optimistic placeholder.
+ */
+export function weekPlanPlacementToRemove(
+  source: WeekPlanItem,
+  items: WeekPlanItem[],
+  weekday: Weekday,
+): WeekPlanItem | null {
+  const matches = items.filter(
+    (other) =>
+      matchesWeekPlanSource(source, other) && other.weekday === weekday,
+  );
+  if (matches.length === 0) return null;
+  for (let i = matches.length - 1; i >= 0; i--) {
+    if (!isOptimisticWeekPlanDragId(matches[i].dragId)) return matches[i];
+  }
+  return matches[matches.length - 1];
+}
+
 /**
  * Planned placements vs the weekly target for a backlog source
  * (repeatable task, sport, cardio). Null for items without a target.
@@ -344,39 +449,17 @@ export function weekPlanBacklogGoal(
   items: WeekPlanItem[],
 ): WeekPlanGoalProgress | null {
   let goal: number | null = null;
-  let planned = 0;
 
   if (item.kind === "task" && item.taskRole === "source") {
     goal = normalizeWeeklyGoal(item.weeklyGoal);
-    planned = items.filter(
-      (other) =>
-        other.kind === "task" &&
-        other.taskRole === "placement" &&
-        other.taskId === item.taskId &&
-        other.weekday != null &&
-        !other.placement?.onHold,
-    ).length;
   } else if (item.kind === "sport" && item.sportRole === "source") {
     goal = SPORT_WEEKLY_GOAL;
-    planned = items.filter(
-      (other) =>
-        other.kind === "sport" &&
-        other.sportRole === "placement" &&
-        other.templateId === item.templateId &&
-        other.weekday != null,
-    ).length;
   } else if (item.kind === "cardio" && item.cardioRole === "source") {
     goal = CARDIO_WEEKLY_GOAL;
-    planned = items.filter(
-      (other) =>
-        other.kind === "cardio" &&
-        other.cardioRole === "placement" &&
-        other.templateId === item.templateId &&
-        other.weekday != null,
-    ).length;
   }
 
   if (goal == null) return null;
+  const planned = items.filter((other) => matchesWeekPlanSource(item, other)).length;
   return {
     planned,
     goal,

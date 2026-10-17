@@ -121,6 +121,9 @@ import {
   weekPlanShakeSourceDragId,
   weekdayFromWeekPlanDropId,
   weekPlanBacklogGoal,
+  weekPlanPlacedCountByWeekday,
+  weekPlanPlacementToRemove,
+  isOptimisticWeekPlanDragId,
   type UnifiedWeekPlan,
   type WeekPlanGoalProgress,
   type WeekPlanItem,
@@ -491,6 +494,8 @@ export function UnifiedWeekBoard({
     setLocalItems((prev) => {
       if (item.kind === "bathing" && item.bathingRole === "placement") {
         const without = prev.filter((i) => i.dragId !== dragId);
+        const sourceId = weekPlanBathingSourceDragId(item.templateId);
+        if (without.some((i) => i.dragId === sourceId)) return without;
         const sourceItem: WeekPlanItem = {
           dragId: weekPlanBathingSourceDragId(item.templateId),
           kind: "bathing",
@@ -561,6 +566,18 @@ export function UnifiedWeekBoard({
       }
       router.refresh();
     });
+  };
+
+  const removePlaced = (sourceDragId: string, weekday: Weekday) => {
+    const source = localItems.find((i) => i.dragId === sourceDragId);
+    if (!source) return;
+    const target = weekPlanPlacementToRemove(source, localItems, weekday);
+    if (!target) return;
+    if (isOptimisticWeekPlanDragId(target.dragId)) {
+      setLocalItems((prev) => prev.filter((i) => i.dragId !== target.dragId));
+      return;
+    }
+    unplace(target.dragId);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -708,6 +725,8 @@ export function UnifiedWeekBoard({
         }
         onPlace={place}
         onUnplace={unplace}
+        onRemovePlaced={(weekday) => removePlaced(item.dragId, weekday)}
+        placedCounts={weekPlanPlacedCountByWeekday(item, localItems)}
         onError={setError}
         onPendingId={setPendingId}
         onDone={() => {
@@ -740,6 +759,8 @@ export function UnifiedWeekBoard({
         }
         onPlace={place}
         onUnplace={unplace}
+        onRemovePlaced={(weekday) => removePlaced(item.dragId, weekday)}
+        placedCounts={weekPlanPlacedCountByWeekday(item, localItems)}
         onError={setError}
         onPendingId={setPendingId}
         onDone={() => {
@@ -1146,6 +1167,8 @@ interface DraggableItemRowProps {
   onToggleExpand: () => void;
   onPlace: (dragId: string, weekday: Weekday) => void;
   onUnplace: (dragId: string) => void;
+  onRemovePlaced?: (weekday: Weekday) => void;
+  placedCounts?: Record<Weekday, number>;
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
@@ -1218,6 +1241,8 @@ function SortableItemRow(props: DraggableItemRowProps) {
         onToggleExpand={props.onToggleExpand}
         onPlace={props.onPlace}
         onUnplace={props.onUnplace}
+        onRemovePlaced={props.onRemovePlaced}
+        placedCounts={props.placedCounts}
         onError={props.onError}
         onPendingId={props.onPendingId}
         onDone={props.onDone}
@@ -1243,6 +1268,8 @@ function DraggableItemRow({
   onToggleExpand,
   onPlace,
   onUnplace,
+  onRemovePlaced,
+  placedCounts,
   onError,
   onPendingId,
   onDone,
@@ -1288,6 +1315,8 @@ function DraggableItemRow({
         onToggleExpand={onToggleExpand}
         onPlace={onPlace}
         onUnplace={onUnplace}
+        onRemovePlaced={onRemovePlaced}
+        placedCounts={placedCounts}
         onError={onError}
         onPendingId={onPendingId}
         onDone={onDone}
@@ -1355,6 +1384,8 @@ interface ItemRowContentProps {
   onToggleExpand: () => void;
   onPlace: (dragId: string, weekday: Weekday) => void;
   onUnplace: (dragId: string) => void;
+  onRemovePlaced?: (weekday: Weekday) => void;
+  placedCounts?: Record<Weekday, number>;
   onError: (msg: string | null) => void;
   onPendingId: (id: string | null) => void;
   onDone: () => void;
@@ -1398,6 +1429,8 @@ function ItemRowContent({
   onToggleExpand,
   onPlace,
   onUnplace,
+  onRemovePlaced,
+  placedCounts,
   onError,
   onPendingId,
   onDone,
@@ -2304,20 +2337,47 @@ function ItemRowContent({
             </span>
           </button>
           {placeOpen ? (
-            <div className={styles.weekdayRow} role="radiogroup">
-              {WEEKDAYS.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  role="radio"
-                  aria-checked={false}
-                  className={styles.weekdayBtn}
-                  onClick={() => onPlace(item.dragId, d)}
-                  disabled={pending}
-                >
-                  {WEEKDAY_SHORT[d]}
-                </button>
-              ))}
+            <div className={styles.weekdayRow} role="group" aria-label="Välj dag">
+              {WEEKDAYS.map((d) => {
+                const count = placedCounts?.[d] ?? 0;
+                const level =
+                  count >= 3 ? "strong" : count === 2 ? "mid" : count === 1 ? "soft" : "";
+                return (
+                  <div key={d} className={styles.weekdayCell}>
+                    <button
+                      type="button"
+                      className={[
+                        styles.weekdayBtn,
+                        level === "soft" ? styles.weekdayBtnSoft : "",
+                        level === "mid" ? styles.weekdayBtnMid : "",
+                        level === "strong" ? styles.weekdayBtnStrong : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onClick={() => onPlace(item.dragId, d)}
+                      disabled={pending}
+                      aria-label={
+                        count > 0
+                          ? `Lägg till en till ${item.label} på ${WEEKDAY_LONG[d]}, redan ${count}`
+                          : `Placera ${item.label} på ${WEEKDAY_LONG[d]}`
+                      }
+                    >
+                      {WEEKDAY_SHORT[d]}
+                    </button>
+                    {count > 0 ? (
+                      <button
+                        type="button"
+                        className={styles.weekdayMinus}
+                        onClick={() => onRemovePlaced?.(d)}
+                        disabled={pending}
+                        aria-label={`Ta bort en ${item.label} från ${WEEKDAY_LONG[d]}`}
+                      >
+                        −
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           ) : null}
         </div>

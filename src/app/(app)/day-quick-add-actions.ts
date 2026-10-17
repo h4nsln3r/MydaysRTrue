@@ -4,7 +4,10 @@ import { addBathingPlacementAction } from "@/app/(app)/bathing-actions";
 import { addCardioPlacementAction } from "@/app/(app)/cardio-actions";
 import { moveGymSessionAction } from "@/app/(app)/gym-actions";
 import { addSportPlacementAction } from "@/app/(app)/sport-actions";
-import { addWeeklyTaskPlacementAction } from "@/app/(app)/tasks-actions";
+import {
+  addWeeklyTaskPlacementAction,
+  placeWeeklyTaskAction,
+} from "@/app/(app)/tasks-actions";
 import type { DayQuickAddPayload } from "@/lib/day-quick-add";
 import { addDaysISO } from "@/lib/date";
 import {
@@ -171,7 +174,11 @@ async function addPlannedWeeklyTask(input: {
       isRepeatable: task.is_repeatable,
     })
   ) {
-    return { ok: false, error: "Den här uppgiften kan bara finnas en gång." };
+    return placeWeeklyTaskAction({
+      taskId: input.taskId,
+      weekStart: input.weekStart,
+      weekday: input.weekday,
+    });
   }
 
   const kind = task.completion_kind as WeeklyTaskCompletionKind;

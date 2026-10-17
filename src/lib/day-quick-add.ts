@@ -1,5 +1,6 @@
-// Choices behind the day-plan plus button. Only repeatable week-plan
-// standards: training variants, bad, shake, and HOME / DEV / MUSIC / SPEL / Livet.
+// Choices behind the day-plan plus button: training variants, bad, shake,
+// and HOME / DEV / MUSIC / SPEL / Livet. HOME also includes the once-a-week
+// standards Städning and Tvätta.
 
 import { RING_PERSONS, RING_TASK_KEY, type RingPerson } from "@/lib/calls";
 import { CARDIO_KINDS, type CardioKind } from "@/lib/cardio";
@@ -94,14 +95,19 @@ export interface DayQuickAddItem {
 
 const CATEGORY_ORDER = ["HOME", "DEV", "MUSIC", "SPEL", "Livet"] as const;
 
-/** Repeatable standards only. Legacy numbered slots stay out once a canonical row exists. */
+/** Once-a-week HOME chores. They are not repeatable, but still belong on the day plus-button. */
+const QUICK_ADD_ONCE_KEYS = new Set(["home_stadning", "home_tvatta"]);
+
+/** Week-plan standards the plus button can drop on a day. Legacy numbered slots stay out once a canonical row exists. */
 export function isQuickAddWeeklyTask(task: {
   enabled: boolean;
   isRepeatable: boolean;
   singleWeekStart: string | null;
   key: string | null;
 }): boolean {
-  if (!task.enabled || !task.isRepeatable || task.singleWeekStart) return false;
+  if (!task.enabled || task.singleWeekStart) return false;
+  const onceAWeek = task.key != null && QUICK_ADD_ONCE_KEYS.has(task.key);
+  if (!task.isRepeatable && !onceAWeek) return false;
   if (isMusicWeeklyTaskKey(task.key) && task.key !== "music") return false;
   if (isRingWeeklyTaskKey(task.key) && task.key !== RING_TASK_KEY) return false;
   if (isGameWeeklyTaskKey(task.key) && task.key !== "game") return false;

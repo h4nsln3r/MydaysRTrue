@@ -1391,7 +1391,7 @@ export interface WeeklyTasksDaySummary {
   weekTasks: WeeklyTaskForWeek[];
   /** One-off tasks paused for this week. */
   onHoldTasks: WeeklyTaskForWeek[];
-  /** Repeatable week-plan standards the day plus-button can add. */
+  /** Week-plan standards the day plus-button can add. */
   addableTasks: WeeklyTaskForWeek[];
   categories: TaskCategory[];
 }

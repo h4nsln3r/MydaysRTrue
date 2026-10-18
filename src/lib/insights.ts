@@ -116,13 +116,25 @@ export interface InsightStat {
 
 export interface InsightRow {
   id: string;
+  /** Short name, e.g. "v.41" or "September". */
   label: string;
-  value: string;
+  /** Date span under the name, e.g. "5–11 okt". */
+  span: string | null;
+  steps: number;
+  sessions: number;
+  spendLabel: string | null;
   detail: string;
-  /** Most steps in the comparison. */
+  /** Most steps — the period we call best. */
   peak: boolean;
   /** Most training sessions in the comparison. */
   trainPeak: boolean;
+}
+
+export interface InsightBest {
+  kicker: string;
+  title: string;
+  facts: string;
+  why: string | null;
 }
 
 export interface PeriodInsightModel {
@@ -130,6 +142,8 @@ export interface PeriodInsightModel {
   kicker: string;
   lead: string;
   why: string | null;
+  /** The standout week or month, with why it stood out. */
+  best: InsightBest | null;
   stats: InsightStat[];
   rowsCaption: string | null;
   rows: InsightRow[];
@@ -166,6 +180,7 @@ interface Bucket {
   steps: number;
   sessions: number;
   spendKr: number;
+  span: string | null;
 }
 
 function sv(n: number): string {
@@ -754,6 +769,7 @@ function makeBucket(
   inPhrase: string,
   start: string,
   end: string,
+  span: string | null,
 ): Bucket {
   const days = pastDays(slice)
     .filter((day) => day.date >= start && day.date <= end)
@@ -772,6 +788,7 @@ function makeBucket(
     steps: sumSteps(days),
     sessions,
     spendKr: spendKrIn(slice, start, end),
+    span,
   };
 }
 
@@ -796,11 +813,12 @@ function weekBuckets(slice: InsightSlice): Bucket[] {
     return makeBucket(
       slice,
       weekStart,
-      `v.${week} · ${formatSpan(start, end)}`,
+      `v.${week}`,
       `vecka ${week}`,
       `vecka ${week}`,
       start,
       end,
+      formatSpan(start, end),
     );
   });
 }
@@ -837,6 +855,7 @@ function buildBuckets(slice: InsightSlice): Bucket[] {
       `i ${monthName(yearMonth)}`,
       start,
       end,
+      null,
     );
   });
 }
@@ -871,7 +890,6 @@ function rowDetail(
   bucket: Bucket,
   slice: InsightSlice,
   openBucket: boolean,
-  tags: string[],
 ): string {
   const explained = explainRange(
     slice.days,
@@ -882,7 +900,7 @@ function rowDetail(
     bucket.end,
     slice.today,
   );
-  const parts: string[] = [...tags];
+  const parts: string[] = [];
   if (openBucket) parts.push("hittills");
   if (explained.chip) parts.push(explained.chip);
   const loggedGoal = bucket.days.filter((day) => day.steps > 0 && day.stepsGoal > 0);
@@ -903,20 +921,7 @@ function rowDetail(
       if (logged > 0) parts.push(`snitt ${sv(bucket.steps / logged)} / dag`);
     }
   }
-  if (bucket.steps > 0 || bucket.sessions > 0) {
-    if (bucket.spendKr > 0) parts.push(formatKr(bucket.spendKr));
-  }
   return parts.join(" · ");
-}
-
-function rowValue(bucket: Bucket): string {
-  const parts: string[] = [];
-  if (bucket.steps > 0) parts.push(sv(bucket.steps));
-  if (bucket.sessions > 0) {
-    parts.push(`${bucket.sessions} pass`);
-  }
-  if (parts.length === 0 && bucket.spendKr > 0) parts.push(formatKr(bucket.spendKr));
-  return parts.length > 0 ? parts.join(" · ") : "—";
 }
 
 function extraGood(days: InsightDay[]): string | null {
@@ -1324,22 +1329,6 @@ function moneyHighlight(slice: InsightSlice, buckets: Bucket[]): string | null {
   return sentences(parts);
 }
 
-function trainingComparison(buckets: Bucket[], stepPeaks: Bucket[]): string | null {
-  const trainPeaks = peakBy(buckets, (bucket) => bucket.sessions);
-  if (trainPeaks.length === 0) return null;
-  if (
-    stepPeaks.length === 1 &&
-    trainPeaks.length === 1 &&
-    stepPeaks[0].id === trainPeaks[0].id
-  ) {
-    return null;
-  }
-  if (trainPeaks.length === 1) {
-    return `Mest tränade du ${trainPeaks[0].inPhrase}, ${trainPeaks[0].sessions} pass.`;
-  }
-  return `Mest tränade du ${trainPeaks[0].inPhrase} och ${trainPeaks[1].inPhrase}, ${trainPeaks[0].sessions} pass.`;
-}
-
 function yearWeekHighlights(slice: InsightSlice): string[] {
   if (slice.scope !== "year") return [];
   const weeks = weekBuckets(slice);
@@ -1377,12 +1366,7 @@ function yearWeekHighlights(slice: InsightSlice): string[] {
   return notes;
 }
 
-function buildLead(
-  slice: InsightSlice,
-  days: InsightDay[],
-  buckets: Bucket[],
-  open: boolean,
-): string {
+function buildLead(slice: InsightSlice, days: InsightDay[], open: boolean): string {
   const total = sumSteps(days);
   if (total <= 0) return fallbackLead(slice, days) ?? "";
   const where = wherePhrase(slice);
@@ -1392,26 +1376,53 @@ function buildLead(
   if (slice.scope === "week") {
     return sentences([head, bestDaySentence(days, slice.scope), goalSentence(days)]);
   }
-  const peaks = buckets.length >= 2 ? peakBuckets(buckets) : [];
-  if (peaks.length === 0) return sentences([head, goalSentence(days)]);
-  const peak = peaks[0];
-  const second = peaks[1];
-  const trainPeaks = peakBy(buckets, (bucket) => bucket.sessions);
-  const folded =
-    !second &&
-    trainPeaks.length === 1 &&
-    trainPeaks[0].id === peak.id;
-  const peakLine = second
-    ? `Högst ligger ${peak.name} och ${second.name}, med ${sv(peak.steps)} steg.`
-    : folded
-      ? `Mest gick du ${peak.inPhrase}, ${sv(peak.steps)} steg, och där tränade du också mest, ${peak.sessions} pass.`
-      : `Mest gick du ${peak.inPhrase}, ${sv(peak.steps)} steg.`;
-  return sentences([
-    head,
-    peakLine,
-    folded ? null : trainingComparison(buckets, peaks),
-    goalSentence(days),
-  ]);
+  return sentences([head, goalSentence(days)]);
+}
+
+function buildBest(
+  slice: InsightSlice,
+  peaks: Bucket[],
+  trainPeaks: Bucket[],
+): InsightBest | null {
+  if (slice.scope === "week" || peaks.length === 0 || peaks.length > 2) return null;
+  if (peaks.length === 2) {
+    const noun = slice.scope === "month" ? "veckorna" : "månaderna";
+    return {
+      kicker: `Lika flest steg`,
+      title: `${cap(peaks[0].name)} och ${cap(peaks[1].name)}`,
+      facts: `${sv(peaks[0].steps)} steg`,
+      why: `De två ${noun} ligger lika.`,
+    };
+  }
+  const bucket = peaks[0];
+  const openBucket = bucketInProgress(bucket, slice);
+  const trainToo = trainPeaks.length === 1 && trainPeaks[0].id === bucket.id;
+  const facts = [
+    bucket.steps > 0 ? `${sv(bucket.steps)} steg` : null,
+    bucket.sessions > 0 ? `${bucket.sessions} pass` : null,
+    trainToo ? "mest träning också" : null,
+    bucket.spendKr > 0 ? formatKr(bucket.spendKr) : null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" · ");
+  const explained = explainRange(
+    slice.days,
+    slice.leavePeriods,
+    slice.sessions,
+    slice.moments,
+    bucket.start,
+    bucket.end,
+    slice.today,
+  );
+  const dayLine = bestDaySentence(bucket.days, slice.scope);
+  const why = sentences([explained.sentence, dayLine, goalSentence(bucket.days)]);
+  const noun = slice.scope === "month" ? "veckan" : "månaden";
+  return {
+    kicker: openBucket ? `Bästa ${noun} hittills` : `Bästa ${noun}`,
+    title: cap(bucket.name),
+    facts,
+    why: why || null,
+  };
 }
 
 function hasSignal(slice: InsightSlice, days: InsightDay[]): boolean {
@@ -1467,7 +1478,7 @@ export function buildPeriodInsights(slice: InsightSlice): PeriodInsightModel | n
     explained.sentence ??
     (slice.scope === "week" ? null : bestDaySentence(focus.days, slice.scope));
 
-  const lead = buildLead(slice, days, buckets, open);
+  const lead = buildLead(slice, days, open);
   if (!lead && !why) return null;
 
   const whyText = why ?? "";
@@ -1513,31 +1524,28 @@ export function buildPeriodInsights(slice: InsightSlice): PeriodInsightModel | n
       ? comparable.map((bucket) => {
           const stepPeak = peaks.some((peak) => peak.id === bucket.id);
           const trainPeak = trainPeaks.some((peak) => peak.id === bucket.id);
-          const tags: string[] = [];
-          if (stepPeak && trainPeak) tags.push("mest steg och träning");
-          else if (stepPeak && trainPeaks.length > 0) tags.push("mest steg");
-          else if (trainPeak) tags.push("mest träning");
           return {
             id: bucket.id,
             label: bucket.label,
-            value: rowValue(bucket),
-            detail: rowDetail(
-              bucket,
-              slice,
-              bucketInProgress(bucket, slice),
-              tags,
-            ),
+            span: bucket.span,
+            steps: bucket.steps,
+            sessions: bucket.sessions,
+            spendLabel: bucket.spendKr > 0 ? formatKr(bucket.spendKr) : null,
+            detail: rowDetail(bucket, slice, bucketInProgress(bucket, slice)),
             peak: stepPeak,
             trainPeak,
           };
         })
       : [];
 
+  const best = buildBest(slice, peaks, trainPeaks);
+
   return {
     title: TITLE[slice.scope],
     kicker: open ? "hittills" : "vad som stack ut",
     lead,
-    why,
+    why: best ? null : why,
+    best,
     stats: buildStats(slice, days),
     rowsCaption:
       rows.length === 0 ? null : slice.scope === "month" ? "Vecka för vecka" : "Månad för månad",

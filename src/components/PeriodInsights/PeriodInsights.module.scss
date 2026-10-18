@@ -83,6 +83,47 @@
     font-size: 0.72rem;
 }
 
+.best {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: $space-3 $space-3 $space-3 $space-4;
+    background: $color-ink;
+    border-left: 3px solid $color-orange;
+    border-radius: 0 $radius-sm $radius-sm 0;
+}
+
+.bestKicker {
+    margin: 0;
+    color: $color-orange-bright;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.bestTitle {
+    margin: 0;
+    color: $color-cream;
+    font-family: $font-display;
+    font-size: 1.35rem;
+    line-height: 1.15;
+}
+
+.bestFacts {
+    margin: 0;
+    color: $color-cream;
+    font-family: $font-mono;
+    font-size: 0.82rem;
+}
+
+.bestWhy {
+    margin: $space-1 0 0;
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
 .rows {
     display: flex;
     flex-direction: column;
@@ -95,43 +136,135 @@
     font-size: 0.75rem;
 }
 
-.rowList {
-    list-style: none;
+.compare {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(9.6rem, 1fr);
+    gap: $space-2;
     margin: 0;
-    padding: 0;
+    padding: 2px 2px $space-2;
+    list-style: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: $color-line transparent;
+
+    &:focus-visible {
+        outline: 2px solid $color-orange;
+        outline-offset: 3px;
+    }
+}
+
+.card {
     display: flex;
     flex-direction: column;
+    gap: $space-1;
+    min-width: 0;
+    scroll-snap-align: start;
+    padding: $space-3;
+    background: $color-ink;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
 }
 
-.row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 2px $space-3;
-    padding: $space-2 0;
-    border-top: 1px solid $color-line;
+.cardBest {
+    border-color: $color-orange;
+    box-shadow: 0 0 0 1px $color-orange;
 }
 
-.rowPeak .rowLabel,
-.rowPeak .rowValue {
+.cardTrain {
+    border-color: $color-cream-dim;
+}
+
+.badge,
+.badgeEmpty {
+    margin: 0;
+    min-height: 1rem;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.badge {
     color: $color-orange-bright;
 }
 
-.rowLabel {
-    color: $color-cream;
-    font-size: 0.88rem;
+.cardTrain .badge {
+    color: $color-cream-dim;
 }
 
-.rowValue {
+.badgeEmpty {
+    color: transparent;
+}
+
+.cardLabel {
+    margin: 0;
+    color: $color-cream;
+    font-size: 0.95rem;
+}
+
+.cardBest .cardLabel {
+    color: $color-orange-bright;
+}
+
+.cardSpan {
+    margin: 0;
+    min-height: 1rem;
+    color: $color-fog;
+    font-size: 0.72rem;
+}
+
+.metric {
+    display: flex;
+    align-items: baseline;
+    gap: $space-1;
+    margin: $space-1 0 0;
+}
+
+.metricValue {
     color: $color-cream;
     font-family: $font-mono;
-    font-size: 0.82rem;
-    white-space: nowrap;
+    font-size: 0.95rem;
 }
 
-.rowDetail {
-    grid-column: 1 / -1;
+.metricUnit {
     color: $color-fog;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.track {
+    height: 4px;
+    border-radius: $radius-pill;
+    background: $color-line;
+    overflow: hidden;
+}
+
+.fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: $color-orange;
+}
+
+.fillTrain {
+    background: $color-cream-dim;
+}
+
+.cardSpend {
+    margin: $space-1 0 0;
+    color: $color-cream-dim;
+    font-family: $font-mono;
     font-size: 0.75rem;
+}
+
+.cardDetail {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.72rem;
     line-height: 1.35;
 }
 

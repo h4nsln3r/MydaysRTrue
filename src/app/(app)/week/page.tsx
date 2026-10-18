@@ -19,7 +19,7 @@ import { getWeightWeekPlan } from "@/lib/weight.server";
 import { getWeekJournalSummary } from "@/lib/journal.server";
 
 import { getWorkLogsForWeek } from "@/lib/work.server";
-import { getTripDaysInRange } from "@/lib/leave.server";
+import { getLeavePeriodsInRange, getTripDaysInRange } from "@/lib/leave.server";
 
 import { getUnifiedWeekPlan } from "@/lib/week-plan.server";
 import { getUserGames } from "@/lib/games.server";
@@ -44,11 +44,22 @@ import { WeekProgressBoard } from "./WeekProgressBoard";
 
 import { WeekMealsBoard } from "./WeekMealsBoard";
 
+import { collectWeekExpenses, collectWeekShopping } from "@/lib/expenses";
 import { getWeekCompletions } from "@/lib/completions.server";
 import { WeekCompletionsList } from "./WeekCompletionsList";
 import { monthlyTasksWithWeekCompletions } from "@/lib/monthly-bills";
 
 import { WeekNav } from "@/components/WeekNav/WeekNav";
+import { PeriodInsights } from "@/components/PeriodInsights/PeriodInsights";
+import {
+  buildPeriodInsights,
+  doneTrainingSessions,
+  insightDaysFromHabits,
+  insightMonthlyExpensesFromTasks,
+  insightSavingsFromTasks,
+  insightSpendsFromEntries,
+} from "@/lib/insights";
+import { getAttendedLiveMoments } from "@/lib/insights.server";
 
 import styles from "./week.module.scss";
 
@@ -100,6 +111,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     games,
     sports,
     tripByDate,
+    leavePeriods,
+    liveMoments,
   ] = await Promise.all([
     getWeeklySummary(user.id, start),
     getWeekHabitSummary(user.id, start),
@@ -120,6 +133,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getUserGames(user.id),
     getUserSports(user.id),
     getTripDaysInRange(user.id, start, addDaysISO(start, 6)),
+    getLeavePeriodsInRange(user.id, start, addDaysISO(start, 6)),
+    getAttendedLiveMoments(user.id, start, addDaysISO(start, 6)),
   ]);
 
   const journalWeek = await getWeekJournalSummary(user.id, {
@@ -135,6 +150,58 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     tripByDate,
   });
 
+  const weekEnd = addDaysISO(start, 6);
+  const weekInsights = buildPeriodInsights({
+    scope: "week",
+    start,
+    end: weekEnd,
+    today,
+    days: insightDaysFromHabits({
+      days: habitWeek.days,
+      workByDate,
+      leavePeriods,
+      today,
+    }),
+    sessions: doneTrainingSessions({
+      gym: gymWeek.sessions,
+      cardio: cardioWeek.sessions,
+      sport: sportWeek.sessions,
+      bathing: bathingWeek.placedSessions,
+    }).filter((session) => session.date >= start && session.date <= weekEnd),
+    moments: [
+      ...liveMoments,
+      ...weekCompletions
+        .filter((item) => item.domain === "gig")
+        .map((item) => ({
+          date: item.date,
+          label: `spelningen ${item.title}`,
+        })),
+    ],
+    completions: weekCompletions.map((item) => ({
+      date: item.date,
+      title: item.title,
+      subtitle: item.subtitle,
+    })),
+    leavePeriods,
+    spends: [
+      ...insightSpendsFromEntries(
+        collectWeekExpenses(weeklyTasks.tasks, weeklyTasks.categories).entries,
+        "expense",
+      ),
+      ...insightSpendsFromEntries(
+        collectWeekShopping(weeklyTasks.tasks, weeklyTasks.categories).entries,
+        "shopping",
+      ),
+      ...insightMonthlyExpensesFromTasks(
+        monthlyBillsWeek.tasks,
+        monthlyBillsWeek.categories,
+        start,
+        weekEnd,
+      ),
+      ...insightSavingsFromTasks(monthlyBillsWeek.tasks, start, weekEnd),
+    ],
+  });
+
   return (
     <main className={styles.main} key={start}>
       <WeekNav
@@ -146,6 +213,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
 
       {view === "progress" ? (
         <>
+          <PeriodInsights model={weekInsights} />
           <WeekCompletionsList weekStart={start} completions={weekCompletions} />
           <WeekMealsBoard summary={mealsWeek} savedRestaurants={mealRestaurants} />
           <WeekProgressBoard

@@ -18,7 +18,7 @@ import {
   maxPlanMonthStart,
   todayYearMonth,
 } from "@/lib/month-plan-horizon";
-import { getCategories, getMonthTaskSummary } from "@/lib/tasks.server";
+import { getCategories, getMonthFinanceSnapshot, getMonthTaskSummary } from "@/lib/tasks.server";
 import { getMonthActivityProgress } from "@/lib/month-progress.server";
 import { collectMonthExpenses, collectMonthShopping } from "@/lib/expenses";
 import { SALARY_TASK_KEY } from "@/lib/monthly-finance";
@@ -29,6 +29,20 @@ import {
 } from "@/lib/tasks";
 import { todayLocalISO } from "@/lib/date";
 import { getWorkLogsInRange } from "@/lib/work.server";
+import { getLeavePeriodsInRange } from "@/lib/leave.server";
+import { getCompletionsInRange } from "@/lib/completions.server";
+import { isGigPlayed } from "@/lib/gigs";
+import { isLiveEventAttended } from "@/lib/live-events";
+import { PeriodInsights } from "@/components/PeriodInsights/PeriodInsights";
+import {
+  buildPeriodInsights,
+  doneTrainingSessions,
+  insightDaysFromHabits,
+  insightSavingsFromTasks,
+  insightSpendsFromEntries,
+  insightWealth,
+} from "@/lib/insights";
+import { liveMomentLabel } from "@/lib/insights.server";
 import { parsePeriodView, type PeriodView } from "@/lib/period-view";
 import { MonthProgressBoard } from "./MonthProgressBoard";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
@@ -71,7 +85,9 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
-  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, activity, workByDate, mealsRange, mediaContexts, savedRestaurants] =
+  const prev = shiftMonth(year, month, -1);
+  const prevMonthStart = `${prev.year}-${String(prev.month).padStart(2, "0")}-01`;
+  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, activity, workByDate, mealsRange, mediaContexts, savedRestaurants, leavePeriods, monthCompletions, previousFinance] =
     await Promise.all([
     getMonthSummary(user.id, year, month),
     getMonthTaskSummary(user.id, monthStart),
@@ -84,6 +100,9 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     getMealsInRange(user.id, monthStart, monthEnd),
     getMediaContextsInRange(user.id, monthStart, monthEnd),
     getMealRestaurants(user.id),
+    getLeavePeriodsInRange(user.id, monthStart, monthEnd),
+    getCompletionsInRange(user.id, monthStart, monthEnd),
+    getMonthFinanceSnapshot(user.id, prevMonthStart),
   ]);
   const weeklyTasks = activity.weeks.flatMap((w) => w.tasks);
   const spendCategories =
@@ -121,11 +140,59 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
   const financeTask = monthlyTasks.tasks.find((t) => t.key === "finance_ekonomi");
   const salaryTask = monthlyTasks.tasks.find((t) => t.key === SALARY_TASK_KEY);
 
-  const prev = shiftMonth(year, month, -1);
   const next = shiftMonth(year, month, +1);
   const maxPlan = maxPlanMonthStart(today);
   const maxPlanYear = Number(maxPlan.slice(0, 4));
   const maxPlanMonth = Number(maxPlan.slice(5, 7));
+  const monthInsights = buildPeriodInsights({
+    scope: "month",
+    start: monthStart,
+    end: monthEnd,
+    today,
+    days: insightDaysFromHabits({
+      days: summary.days,
+      workByDate,
+      leavePeriods,
+      today,
+    }),
+    sessions: activity.weeks
+      .flatMap((week) =>
+        doneTrainingSessions({
+          gym: week.gym,
+          cardio: week.cardio,
+          sport: week.sport,
+          bathing: week.bathing,
+        }),
+      )
+      .filter((session) => session.date >= monthStart && session.date <= monthEnd),
+    moments: [
+      ...monthLive.events
+        .filter((event) => isLiveEventAttended(event))
+        .map((event) => ({
+          date: event.eventDate,
+          label: liveMomentLabel(event.kind, event.title),
+        })),
+      ...monthGigs.gigs
+        .filter((gig) => isGigPlayed(gig))
+        .map((gig) => ({
+          date: gig.eventDate,
+          label: `spelningen ${gig.title}`,
+        })),
+    ],
+    completions: monthCompletions.map((item) => ({
+      date: item.date,
+      title: item.title,
+      subtitle: item.subtitle,
+    })),
+    leavePeriods,
+    spends: [
+      ...insightSpendsFromEntries(spendSummaries.expenses.entries, "expense"),
+      ...insightSpendsFromEntries(spendSummaries.shopping.entries, "shopping"),
+      ...insightSavingsFromTasks(monthlyTasks.tasks, monthStart, monthEnd),
+    ],
+    wealth: insightWealth(monthlyTasks.financeSnapshot, previousFinance),
+  });
+
   const canGoForward =
     view === "plan"
       ? next.year < maxPlanYear ||
@@ -172,6 +239,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
 
       {view === "progress" ? (
         <>
+        <PeriodInsights model={monthInsights} />
         <MonthProgressBoard
             summary={summary}
             monthStart={monthStart}

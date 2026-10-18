@@ -18,6 +18,15 @@ import { GigsYearBoard } from "@/components/GigsYearBoard/GigsYearBoard";
 import { GigsYearProgress } from "@/components/GigsYearProgress/GigsYearProgress";
 import { getYearRestaurantMeals } from "@/lib/meals.server";
 import { todayLocalISO } from "@/lib/date";
+import { isGigPlayed } from "@/lib/gigs";
+import { isLiveEventAttended } from "@/lib/live-events";
+import { PeriodInsights } from "@/components/PeriodInsights/PeriodInsights";
+import { buildPeriodInsights, insightDaysFromMovement } from "@/lib/insights";
+import {
+  getYearInsightExtras,
+  getYearMovement,
+  liveMomentLabel,
+} from "@/lib/insights.server";
 import { parsePeriodView } from "@/lib/period-view";
 import {
   buildYearCompletions,
@@ -42,7 +51,8 @@ export default async function YearPage({ searchParams }: YearPageProps) {
 
   const params = await searchParams;
   const view = parsePeriodView(params.view);
-  const currentYear = Number(todayLocalISO().slice(0, 4));
+  const today = todayLocalISO();
+  const currentYear = Number(today.slice(0, 4));
 
   let year = currentYear;
   if (params.y && YEAR_QS_RE.test(params.y)) {
@@ -50,7 +60,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
   }
   if (year > currentYear) year = currentYear;
 
-  const [yearMedia, yearLive, yearGigs, yearRestaurants, yearLeave, codingProjects] =
+  const [yearMedia, yearLive, yearGigs, yearRestaurants, yearLeave, codingProjects, yearMovement, yearExtras] =
     await Promise.all([
       getYearMedia(user.id, year),
       getYearLiveEvents(user.id, year),
@@ -58,6 +68,8 @@ export default async function YearPage({ searchParams }: YearPageProps) {
       getYearRestaurantMeals(user.id, year),
       getYearLeave(user.id, year),
       getCodingProjects(user.id),
+      getYearMovement(user.id, year),
+      getYearInsightExtras(user.id, year),
     ]);
   const canGoForward = year < currentYear;
   const yearCompletions = filterCompletionsForYear(
@@ -68,6 +80,42 @@ export default async function YearPage({ searchParams }: YearPageProps) {
     }),
     year,
   );
+  const topRestaurant = [...yearRestaurants].sort(
+    (a, b) => b.visitCount - a.visitCount,
+  )[0];
+  const yearInsights = buildPeriodInsights({
+    scope: "year",
+    start: `${year}-01-01`,
+    end: `${year}-12-31`,
+    today,
+    days: insightDaysFromMovement(yearMovement, yearLeave.periods, today),
+    sessions: yearExtras.sessions,
+    moments: [
+      ...yearLive.events
+        .filter((event) => isLiveEventAttended(event))
+        .map((event) => ({
+          date: event.eventDate,
+          label: liveMomentLabel(event.kind, event.title),
+        })),
+      ...yearGigs.gigs
+        .filter((gig) => isGigPlayed(gig))
+        .map((gig) => ({
+          date: gig.eventDate,
+          label: `spelningen ${gig.title}`,
+        })),
+    ],
+    completions: yearCompletions.map((item) => ({
+      date: item.date,
+      title: item.title,
+      subtitle: item.subtitle,
+    })),
+    leavePeriods: yearLeave.periods,
+    topRestaurant: topRestaurant
+      ? { name: topRestaurant.name, visits: topRestaurant.visitCount }
+      : null,
+    spends: yearExtras.spends,
+    wealth: yearExtras.wealth,
+  });
 
   return (
     <main className={styles.main}>
@@ -105,6 +153,8 @@ export default async function YearPage({ searchParams }: YearPageProps) {
           )}
         </div>
       </header>
+
+      {view === "progress" ? <PeriodInsights model={yearInsights} /> : null}
 
       <section className={styles.section}>
         <header className={styles.sectionHeader}>

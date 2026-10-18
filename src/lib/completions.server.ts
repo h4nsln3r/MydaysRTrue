@@ -21,12 +21,12 @@ function isMusicBand(value: string): value is MusicBand {
   return (MUSIC_BANDS as readonly string[]).includes(value);
 }
 
-/** Completions that landed in this ISO week (Mon–Sun). */
-export async function getWeekCompletions(
+/** Completions whose date falls in [start, end] inclusive. */
+export async function getCompletionsInRange(
   userId: string,
-  weekStart: string,
+  start: string,
+  end: string,
 ): Promise<DayCompletion[]> {
-  const weekEnd = addDaysISO(weekStart, 6);
   const supabase = await createClient();
 
   const [{ data: mediaRows }, { data: gigRows }, projects] = await Promise.all([
@@ -38,8 +38,8 @@ export async function getWeekCompletions(
       .eq("user_id", userId)
       .is("archived_at", null)
       .not("completed_on", "is", null)
-      .gte("completed_on", weekStart)
-      .lte("completed_on", weekEnd),
+      .gte("completed_on", start)
+      .lte("completed_on", end),
     supabase
       .from("gigs")
       .select(
@@ -48,8 +48,8 @@ export async function getWeekCompletions(
       .eq("user_id", userId)
       .is("archived_at", null)
       .not("played_at", "is", null)
-      .gte("event_date", weekStart)
-      .lte("event_date", weekEnd),
+      .gte("event_date", start)
+      .lte("event_date", end),
     getCodingProjects(userId),
   ]);
 
@@ -100,7 +100,7 @@ export async function getWeekCompletions(
   const all: DayCompletion[] = [
     ...buildMediaCompletions(mediaItems),
     ...buildGigCompletions(gigs),
-    ...completionsInDateRange(buildCodingCompletions(projects), weekStart, weekEnd),
+    ...completionsInDateRange(buildCodingCompletions(projects), start, end),
   ].sort((a, b) =>
     a.date === b.date
       ? a.title.localeCompare(b.title, "sv")
@@ -108,4 +108,12 @@ export async function getWeekCompletions(
   );
 
   return all;
+}
+
+/** Completions that landed in this ISO week (Mon–Sun). */
+export async function getWeekCompletions(
+  userId: string,
+  weekStart: string,
+): Promise<DayCompletion[]> {
+  return getCompletionsInRange(userId, weekStart, addDaysISO(weekStart, 6));
 }

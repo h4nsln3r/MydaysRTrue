@@ -8,9 +8,9 @@ import { useNavPending } from "@/components/NavProgress/NavProgress";
 import { PeriodBadge } from "@/components/PeriodBadge/PeriodBadge";
 import { WeekDayJump } from "@/components/WeekDayJump/WeekDayJump";
 import {
-  addDaysISO,
-  formatDayShort,
   formatNavMonthBadge,
+  formatNavWeekBadge,
+  formatNavYearBadge,
   formatWeekdayShort,
   parseLocalISO,
   todayLocalISO,
@@ -355,8 +355,9 @@ function PeriodBarTitle({
         : weekStartISO();
     return (
       <div className={styles.daySlot}>
-        <span className={styles.dayTitle}>{weekBarLabel(weekStart)}</span>
-        <PeriodBadge kind="week" date={weekStart} variant="header" />
+        <span className={[styles.dayTitle, styles.periodTitle].join(" ")}>
+          {formatNavWeekBadge(weekStart)}
+        </span>
       </div>
     );
   }
@@ -369,8 +370,9 @@ function PeriodBarTitle({
     const date = `${year}-${String(month).padStart(2, "0")}-01`;
     return (
       <div className={styles.daySlot}>
-        <span className={styles.dayTitle}>{monthBarLabel(date, today)}</span>
-        <PeriodBadge kind="month" date={date} variant="header" />
+        <span className={[styles.dayTitle, styles.periodTitle].join(" ")}>
+          {formatNavMonthBadge(date)}
+        </span>
       </div>
     );
   }
@@ -381,32 +383,14 @@ function PeriodBarTitle({
     const date = `${year}-01-01`;
     return (
       <div className={styles.daySlot}>
-        <span className={styles.dayTitle}>{yearBarLabel(year, today)}</span>
-        <PeriodBadge kind="year" date={date} variant="header" />
+        <span className={[styles.dayTitle, styles.periodTitle].join(" ")}>
+          {formatNavYearBadge(date)}
+        </span>
       </div>
     );
   }
 
   return <div className={styles.daySlot} />;
-}
-
-function weekBarLabel(weekStart: string): string {
-  const current = weekStartISO();
-  if (weekStart === current) return "Veckan";
-  if (weekStart === addDaysISO(current, 7)) return "Nästa";
-  const end = addDaysISO(weekStart, 6);
-  const startDay = String(Number(weekStart.slice(8, 10)));
-  return `${startDay}–${formatDayShort(end)}`;
-}
-
-function monthBarLabel(monthDate: string, today: string): string {
-  if (monthDate.slice(0, 7) === today.slice(0, 7)) return "Månaden";
-  return formatNavMonthBadge(monthDate);
-}
-
-function yearBarLabel(year: number, today: string): string {
-  if (year === Number(today.slice(0, 4))) return "Året";
-  return String(year);
 }
 
 function SignOutItem() {

@@ -48,6 +48,10 @@
     white-space: nowrap;
 }
 
+.periodTitle {
+    font-size: clamp(1.55rem, 6vw, 2rem);
+}
+
 .wrap {
     position: relative;
     justify-self: end;

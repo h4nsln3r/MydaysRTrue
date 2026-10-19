@@ -43,6 +43,7 @@ import {
 import {
   balancesFromSnapshotRow,
   SAVINGS_TRANSFER_TASKS,
+  withCarpaySuggestedAmount,
   type MonthlyFinanceBalances,
   type MonthlyFinanceSnapshot,
 } from "@/lib/monthly-finance";
@@ -1854,17 +1855,20 @@ export async function getMonthTaskSummary(
     compsByTask.set(c.taskId, list);
   }
 
-  const tasks: MonthlyTaskForMonth[] = dedupeMonthlyTasks(
-    (tasksRes.data ?? [])
-      .filter(isActiveMonthlyRow)
-      .map((row) => {
-        const completions = compsByTask.get(row.id) ?? [];
-        return {
-          ...rowToMonthly(row),
-          completion: completions.find((c) => !c.isInstance) ?? completions[0] ?? null,
-          completions,
-        };
-      }),
+  const tasks: MonthlyTaskForMonth[] = withCarpaySuggestedAmount(
+    dedupeMonthlyTasks(
+      (tasksRes.data ?? [])
+        .filter(isActiveMonthlyRow)
+        .map((row) => {
+          const completions = compsByTask.get(row.id) ?? [];
+          return {
+            ...rowToMonthly(row),
+            completion: completions.find((c) => !c.isInstance) ?? completions[0] ?? null,
+            completions,
+          };
+        }),
+    ),
+    monthStart,
   );
 
   const categories = (catsRes.data ?? []).map(rowToCategory);

@@ -5,12 +5,18 @@ import { getSportWeekSummary } from "@/lib/sport.server";
 import { cardioSessionDisplay, formatCardioDetail } from "@/lib/cardio";
 import { formatSportDetail } from "@/lib/sport";
 import { getGymWeekSummary } from "@/lib/gym.server";
-import { formatWeeklyTaskDetail, formatFestOccasionWhen, formatMonthlyTaskDetail, isCodingWeeklyTaskKey, isGameWeeklyTaskKey, isMonthlyTaskRepeatable, isRingWeeklyTaskKey, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
+import { formatWeeklyTaskDetail, formatFestOccasionWhen, formatMonthlyTaskDetail, isCodingWeeklyTaskKey, isGameWeeklyTaskKey, isMonthlyTaskRepeatable, isRingWeeklyTaskKey, isWeeklyTaskRepeatable, musicSessionIcon, musicSessionTitle, type MonthlyCompletion, type MonthlyTaskForMonth, type Weekday, type WeeklyTaskCompletionKind } from "@/lib/tasks";
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { getGorShakeWeekPlan } from "@/lib/habits.server";
 import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
-import { monthlyTaskDisplayTitle } from "@/lib/monthly-finance";
+import {
+  CARPAY_TASK_KEY,
+  SALARY_TASK_KEY,
+  carpayAmountFromSalary,
+  carpayUsesSalaryShare,
+  monthlyTaskDisplayTitle,
+} from "@/lib/monthly-finance";
 import {
   weekPlanBathingPlacementDragId,
   weekPlanBathingSourceDragId,
@@ -29,6 +35,37 @@ import {
   type WeekPlanItem,
 } from "@/lib/week-plan";
 import { WEIGHT_ITEM_ID } from "@/lib/weight";
+
+function amountForMonthTask(
+  tasks: MonthlyTaskForMonth[],
+  completionsByTaskMonth: Map<string, MonthlyCompletion[]>,
+  monthStart: string,
+  taskKey: string,
+): number | null {
+  const task = tasks.find((entry) => entry.key === taskKey);
+  if (!task) return null;
+  const comps = completionsByTaskMonth.get(`${task.id}|${monthStart}`);
+  const primary = comps?.find((completion) => !completion.isInstance) ?? comps?.[0];
+  const amount = primary?.amount;
+  return amount != null && Number.isFinite(amount) ? amount : null;
+}
+
+function plannedAmountKr(
+  task: MonthlyTaskForMonth,
+  monthStart: string,
+  tasks: MonthlyTaskForMonth[],
+  completionsByTaskMonth: Map<string, MonthlyCompletion[]>,
+): number | null {
+  if (task.key !== CARPAY_TASK_KEY || !carpayUsesSalaryShare(monthStart)) {
+    return task.defaultAmountKr;
+  }
+  return (
+    carpayAmountFromSalary(
+      amountForMonthTask(tasks, completionsByTaskMonth, monthStart, SALARY_TASK_KEY),
+      monthStart,
+    ) ?? task.defaultAmountKr
+  );
+}
 
 const KIND_SORT: Record<WeekPlanItem["kind"], number> = {
   gym: 0,
@@ -549,6 +586,13 @@ export async function getUnifiedWeekPlan(
   for (const slot of placed) {
     const completion = slot.task.completion;
     const repeatable = isMonthlyTaskRepeatable(slot.task);
+    const defaultAmountKr = plannedAmountKr(
+      slot.task,
+      slot.monthStart,
+      billsWeek.tasks,
+      billsWeek.completionsByTaskMonth,
+    );
+    const taskForAmount = { ...slot.task, defaultAmountKr };
     items.push({
       dragId: repeatable && completion
         ? weekPlanMonthlyInstanceDragId(completion.id)
@@ -564,7 +608,7 @@ export async function getUnifiedWeekPlan(
       completionKind: slot.task.completionKind,
       completion,
       notes: slot.task.notes,
-      defaultAmountKr: slot.task.defaultAmountKr,
+      defaultAmountKr,
       label: monthlyTaskDisplayTitle(slot.task, completion),
       subtitle: repeatable
         ? formatFestOccasionWhen(completion ?? { occasion: null, scheduledDayOfMonth: null, doneAt: null }, slot.monthStart)
@@ -574,8 +618,8 @@ export async function getUnifiedWeekPlan(
             "Fyll i ekonomitabellen"
           : slot.task.completionKind === "amount"
             ? formatMonthlyTaskDetail(slot.task, completion) ??
-              formatBillAmountKr({ ...slot.task, completion })
-            : formatBillAmountKr({ ...slot.task, completion }) ?? slot.task.notes,
+              formatBillAmountKr({ ...taskForAmount, completion })
+            : formatBillAmountKr({ ...taskForAmount, completion }) ?? slot.task.notes,
       icon: slot.task.icon,
       accent: slot.task.accent,
       defaultWeekday: null,
@@ -594,6 +638,13 @@ export async function getUnifiedWeekPlan(
   for (const entry of backlog) {
     const completion = entry.task.completion;
     const repeatable = isMonthlyTaskRepeatable(entry.task);
+    const defaultAmountKr = plannedAmountKr(
+      entry.task,
+      entry.monthStart,
+      billsWeek.tasks,
+      billsWeek.completionsByTaskMonth,
+    );
+    const taskForAmount = { ...entry.task, defaultAmountKr };
     items.push({
       dragId: repeatable
         ? weekPlanMonthlySourceDragId(entry.task.id, entry.monthStart)
@@ -608,7 +659,7 @@ export async function getUnifiedWeekPlan(
       completionKind: entry.task.completionKind,
       completion: repeatable ? null : completion,
       notes: entry.task.notes,
-      defaultAmountKr: entry.task.defaultAmountKr,
+      defaultAmountKr,
       label: monthlyTaskDisplayTitle(entry.task),
       subtitle: repeatable
         ? "Dra till en dag — skriv slags fest där. Källan ligger kvar så du kan lägga fler"
@@ -618,8 +669,8 @@ export async function getUnifiedWeekPlan(
             "Placera på en dag — fyll i ekonomitabellen"
           : entry.task.completionKind === "amount"
             ? formatMonthlyTaskDetail(entry.task, completion) ??
-              formatBillAmountKr({ ...entry.task, completion })
-            : formatBillAmountKr({ ...entry.task, completion }) ??
+              formatBillAmountKr({ ...taskForAmount, completion })
+            : formatBillAmountKr({ ...taskForAmount, completion }) ??
               entry.task.notes ??
               "Placera på en dag den här månaden",
       icon: entry.task.icon,

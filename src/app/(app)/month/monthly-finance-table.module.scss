@@ -271,3 +271,19 @@
     flex: 1 1 140px;
     min-width: 120px;
 }
+
+.carpayShare {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: $space-3;
+    margin: 0;
+    font-size: 0.92rem;
+    color: $color-cream-dim;
+
+    strong {
+        font-family: $font-mono;
+        font-weight: 600;
+        color: $color-cream;
+    }
+}

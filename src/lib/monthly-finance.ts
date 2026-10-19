@@ -108,6 +108,48 @@ export const SALARY_TASK_KEY = "finance_lon";
 export const CARPAY_TASK_KEY = "finance_carpay";
 export const FINANCE_EKONOMI_TASK_KEY = "finance_ekonomi";
 
+/** Share of that month's salary that goes to Carpay. */
+export const CARPAY_SALARY_SHARE = 0.1;
+
+/** First month where Carpay is 10 % of salary. Earlier months keep their saved amounts. */
+export const CARPAY_SALARY_SHARE_FROM = "2026-10-01";
+
+export function carpayUsesSalaryShare(monthStart: string): boolean {
+  return monthStart >= CARPAY_SALARY_SHARE_FROM;
+}
+
+/** Nearest krona: 10 % of the salary saved for the same month. */
+export function carpayAmountFromSalary(
+  salaryKr: number | null | undefined,
+  monthStart?: string,
+): number | null {
+  if (monthStart != null && !carpayUsesSalaryShare(monthStart)) return null;
+  if (salaryKr == null || !Number.isFinite(salaryKr) || salaryKr <= 0) return null;
+  return Math.round(salaryKr * CARPAY_SALARY_SHARE);
+}
+
+/**
+ * Prefill Carpay with 10 % of this month's salary when no transfer is saved yet.
+ * Saved completion amounts are left as they are.
+ */
+export function withCarpaySuggestedAmount<
+  T extends {
+    key: string | null;
+    defaultAmountKr: number | null;
+    completion?: { amount: number | null } | null;
+  },
+>(tasks: T[], monthStart: string): T[] {
+  if (!carpayUsesSalaryShare(monthStart)) return tasks;
+  const salary = tasks.find((task) => task.key === SALARY_TASK_KEY);
+  const suggested = carpayAmountFromSalary(salary?.completion?.amount ?? null, monthStart);
+  if (suggested == null) return tasks;
+  return tasks.map((task) =>
+    task.key === CARPAY_TASK_KEY
+      ? { ...task, defaultAmountKr: suggested }
+      : task,
+  );
+}
+
 /** Month plan URL that scrolls to the ekonomi accounts table. */
 export function monthPlanEkonomiHref(monthStart: string): string {
   return `/month?m=${monthStart.slice(0, 7)}&view=plan#ekonomi`;

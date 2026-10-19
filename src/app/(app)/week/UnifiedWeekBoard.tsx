@@ -79,7 +79,7 @@ import {
   bathingRequiresWaterTemp,
   formatWaterTemp,
 } from "@/lib/bathing";
-import { monthPlanEkonomiHref, parseKrInput, SALARY_TASK_KEY, CARPAY_TASK_KEY } from "@/lib/monthly-finance";
+import { monthPlanEkonomiHref, parseKrInput, SALARY_TASK_KEY, CARPAY_TASK_KEY, carpayUsesSalaryShare } from "@/lib/monthly-finance";
 import { SAVINGS_CATEGORY_NAME } from "@/lib/monthly-bills";
 import {
   GYM_WARMUP_ICON,
@@ -1521,13 +1521,16 @@ function ItemRowContent({
       : null,
   );
   const [placeOpen, setPlaceOpen] = useState(false);
-  const [monthlyAmount, setMonthlyAmount] = useState(
+  const savedMonthlyAmount =
     item.kind === "monthly_bill" && item.completion?.amount != null
       ? String(item.completion.amount)
       : item.kind === "monthly_bill" && item.defaultAmountKr != null
         ? String(item.defaultAmountKr)
-        : "",
-  );
+        : "";
+  const [monthlyAmount, setMonthlyAmount] = useState(savedMonthlyAmount);
+  useEffect(() => {
+    setMonthlyAmount(savedMonthlyAmount);
+  }, [savedMonthlyAmount]);
   const isMonthlyAmount =
     item.kind === "monthly_bill" && item.completionKind === "amount";
   const isMonthlyFinance =
@@ -2940,8 +2943,8 @@ function ItemRowContent({
                     ? "t.ex. 32000"
                     : item.defaultAmountKr != null
                       ? String(item.defaultAmountKr)
-                      : isCarpayTask
-                        ? "t.ex. 2750"
+                      : isCarpayTask && carpayUsesSalaryShare(item.monthStart)
+                        ? "10 % av lönen"
                         : "t.ex. 1500"
                 }
                 inputMode="decimal"

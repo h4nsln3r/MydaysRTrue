@@ -9,6 +9,8 @@ import {
   EMPTY_FINANCE_BALANCES,
   FINANCE_TABLE_ROWS,
   financeTotal,
+  carpayAmountFromSalary,
+  carpayUsesSalaryShare,
   formatKr,
   lfTotal,
   parseKrInput,
@@ -67,6 +69,10 @@ export function MonthlyFinanceTable({
 
   const lfSum = lfTotal(balances);
   const grand = financeTotal(balances);
+  const carpayFromSalary = carpayUsesSalaryShare(monthStart);
+  const carpayTarget = carpayFromSalary
+    ? carpayAmountFromSalary(parseKrInput(salary), monthStart)
+    : null;
 
   const save = (markDone: boolean) => {
     if (!financeTaskId) {
@@ -158,6 +164,12 @@ export function MonthlyFinanceTable({
               </Button>
             </div>
           )}
+          {carpayFromSalary ? (
+            <p className={styles.carpayShare}>
+              <span>Carpay (10 % av lönen)</span>
+              <strong>{carpayTarget != null ? formatKr(carpayTarget) : "—"}</strong>
+            </p>
+          ) : null}
         </div>
       ) : null}
 

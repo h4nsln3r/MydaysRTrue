@@ -132,6 +132,45 @@
     border: 2px solid transparent;
 }
 
+.weekdayRow {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.weekdayBtn {
+    height: 32px;
+    padding: 0 2px;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    font-weight: 700;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange;
+        color: $color-cream;
+    }
+
+    &:disabled {
+        opacity: 0.55;
+    }
+}
+
+.weekdayBtnActive {
+    background: $color-orange;
+    color: $color-ink;
+    border-color: $color-orange;
+}
+
+.weekdayHint {
+    margin: 0;
+    font-size: 0.74rem;
+    color: $color-fog;
+}
+
 .checkRow {
     display: flex;
     align-items: flex-start;

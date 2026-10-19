@@ -84,11 +84,35 @@ function rowToCategory(r: CategoryRow): TaskCategory {
   };
 }
 
+/** One-off tasks can be filed under Work. Created once per user. */
+async function ensureWorkCategory(userId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("task_categories")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("scope", "task")
+    .eq("name", "Work")
+    .maybeSingle();
+  if (existing) return;
+
+  const { error } = await supabase.from("task_categories").insert({
+    user_id: userId,
+    scope: "task",
+    name: "Work",
+    icon: "💼",
+    accent: "#f59e0b",
+    sort_order: 6,
+  });
+  if (error && error.code !== "23505") return;
+}
+
 /** All active categories for the user, optionally filtered by scope. */
 export async function getCategories(
   userId: string,
   scope?: TaskScope,
 ): Promise<TaskCategory[]> {
+  await ensureWorkCategory(userId);
   const supabase = await createClient();
   let q = supabase
     .from("task_categories")
@@ -971,6 +995,7 @@ export async function getWeekSummary(
   await pinCompletedOneOffsToTheirCompletionWeek(userId);
   await ensureRepeatableWeeklyTasks(userId);
   await ensureGameWeeklyTask(userId);
+  await ensureWorkCategory(userId);
 
   const weekEnd = addDaysISO(weekStart, 6);
   const supabase = await createClient();
@@ -1790,6 +1815,7 @@ export async function getMonthTaskSummary(
   await repairMonthlySavingsTaskLabels(supabase, userId);
   await repairAmountCompletionsMissingDone(userId);
   await ensureDefaultMonthlyFest(supabase, userId);
+  await ensureWorkCategory(userId);
   const [tasksRes, completionsRes, catsRes, financeRes] = await Promise.all([
     supabase
       .from("monthly_tasks")

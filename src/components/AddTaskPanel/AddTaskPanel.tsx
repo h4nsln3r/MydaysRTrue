@@ -12,7 +12,14 @@ import {
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { todayLocalISO } from "@/lib/date";
-import type { TaskCategory, TaskScope } from "@/lib/tasks";
+import {
+  WEEKDAYS,
+  WEEKDAY_LONG,
+  WEEKDAY_SHORT,
+  type TaskCategory,
+  type TaskScope,
+  type Weekday,
+} from "@/lib/tasks";
 import styles from "./AddTaskPanel.module.scss";
 
 const PRESET_ICONS = [
@@ -84,6 +91,7 @@ export function AddTaskPanel({
   const [icon, setIcon] = useState(PRESET_ICONS[0]);
   const [accent, setAccent] = useState(PRESET_ACCENTS[0]);
   const [oneOff, setOneOff] = useState(false);
+  const [weekday, setWeekday] = useState<Weekday | null>(null);
   const [intervalDays, setIntervalDays] = useState(1);
   const [intervalAnchorDate, setIntervalAnchorDate] = useState(todayLocalISO());
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +101,7 @@ export function AddTaskPanel({
     allowOneOff && monthStart != null && scope === "monthly" && !weeklyOnly;
   const forceOneOffWeekly = weeklyOnly && weekStart != null;
   const canOneOff = canOneOffWeekly || canOneOffMonthly;
+  const placingOneOff = forceOneOffWeekly || (canOneOffWeekly && oneOff);
 
   // Weekly + monthly tasks share one 'task' category set; daily habits use 'daily'.
   const scopeCategories = useMemo(() => {
@@ -108,6 +117,7 @@ export function AddTaskPanel({
     setIcon(PRESET_ICONS[0]);
     setAccent(PRESET_ACCENTS[0]);
     setOneOff(false);
+    setWeekday(null);
     setIntervalDays(1);
     setIntervalAnchorDate(todayLocalISO());
     setError(null);
@@ -147,6 +157,7 @@ export function AddTaskPanel({
                 title,
                 weekStart: weekStart!,
                 categoryId: categoryId || null,
+                weekday: placingOneOff ? weekday : null,
                 icon,
                 accent,
               })
@@ -206,7 +217,7 @@ export function AddTaskPanel({
           <h2 className={styles.title}>Lägg till uppgift</h2>
           <p className={styles.sub}>
             {weeklyOnly
-              ? "Skapar en engångsuppgift för den här veckan — dra den till en veckodag"
+              ? "Skapar en engångsuppgift för den här veckan — välj vilken dag den ska ligga på"
               : "Dagliga vanor, veckouppgifter eller månadsuppgifter"}
           </p>
         </header>
@@ -314,6 +325,46 @@ export function AddTaskPanel({
                   </option>
                 ))}
               </select>
+            </div>
+          ) : null}
+
+          {placingOneOff ? (
+            <div className={styles.field}>
+              <span className={styles.label} id="add-task-weekday-label">
+                Dag
+              </span>
+              <div
+                className={styles.weekdayRow}
+                role="radiogroup"
+                aria-labelledby="add-task-weekday-label"
+              >
+                {WEEKDAYS.map((day) => {
+                  const selected = weekday === day;
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={[
+                        styles.weekdayBtn,
+                        selected ? styles.weekdayBtnActive : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      disabled={pending}
+                      onClick={() => setWeekday(selected ? null : day)}
+                    >
+                      {WEEKDAY_SHORT[day]}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className={styles.weekdayHint}>
+                {weekday == null
+                  ? "Välj en dag, eller lämna tom så hamnar den i veckoaktiviteterna."
+                  : `Läggs på ${WEEKDAY_LONG[weekday].toLowerCase()}.`}
+              </p>
             </div>
           ) : null}
 

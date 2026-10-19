@@ -98,7 +98,7 @@ function isBacklogTrainingItem(item: WeekPlanItem): boolean {
   return TRAINING_KINDS.has(item.kind);
 }
 
-/** Groups everything in the left backlog: training, weight, HOME, DEV, MUSIC, SPEL, Livet, bills, other. */
+/** Groups everything in the left backlog: training, weight, HOME, DEV, MUSIC, SPEL, Livet, Work, bills, other. */
 export function groupWeekPlanBacklogItems(
   items: WeekPlanItem[],
   categories: TaskCategory[],
@@ -108,6 +108,7 @@ export function groupWeekPlanBacklogItems(
   const musicId = categoryIdByName(categories, "MUSIC");
   const spelId = categoryIdByName(categories, "SPEL");
   const lifeId = categoryIdByName(categories, "Livet");
+  const workId = categoryIdByName(categories, "Work");
   const billsId = categoryIdByName(categories, "Räkningar");
   const financeId = categoryIdByName(categories, "Ekonomi");
   const savingsId = categoryIdByName(categories, "Sparande");
@@ -129,6 +130,9 @@ export function groupWeekPlanBacklogItems(
     (i) =>
       (i.kind === "task" && i.categoryId === lifeId) ||
       (i.kind === "monthly_bill" && i.categoryId === lifeId),
+  );
+  const work = items.filter(
+    (i) => i.kind === "task" && i.categoryId === workId,
   );
   const bills = items.filter(
     (i) =>
@@ -157,6 +161,7 @@ export function groupWeekPlanBacklogItems(
       i.categoryId !== musicId &&
       i.categoryId !== spelId &&
       i.categoryId !== lifeId &&
+      i.categoryId !== workId &&
       i.categoryId !== billsId &&
       i.categoryId !== savingsId,
   );
@@ -181,6 +186,9 @@ export function groupWeekPlanBacklogItems(
   }
   if (life.length > 0) {
     groups.push({ id: "life", label: "Livet", items: life });
+  }
+  if (work.length > 0) {
+    groups.push({ id: "work", label: "Work", items: work });
   }
   if (financeMonthly.length > 0) {
     groups.push({ id: "finance", label: "Ekonomi", items: financeMonthly });

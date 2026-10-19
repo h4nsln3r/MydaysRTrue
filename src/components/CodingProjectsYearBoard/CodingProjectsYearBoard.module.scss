@@ -197,15 +197,45 @@
     gap: $space-2;
 }
 
+.noteField {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 100%;
+}
+
+.noteTextarea {
+    width: 100%;
+    min-height: 4.5rem;
+    padding: 8px 10px;
+    border-radius: $radius-md;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font: inherit;
+    font-size: 0.85rem;
+    resize: vertical;
+
+    &::placeholder {
+        color: $color-fog;
+    }
+}
+
 .versionSummary {
     list-style: none;
     margin: 4px 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: $space-2;
     font-size: 0.78rem;
     color: $color-cream-dim;
+
+    li {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
 }
 
 .linkRow {

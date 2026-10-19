@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  codingProjectVersionLabel,
   isCodingProjectStatus,
   normalizeOptionalUrl,
   parseCodingProjectDate,
   type CodingProjectStatus,
 } from "@/lib/coding";
+import { completionJournalBody } from "@/lib/completions";
 import { createClient } from "@/lib/supabase/server";
 
 export interface ActionResult {
@@ -153,6 +155,34 @@ export async function updateCodingProjectAction(input: {
   return { ok: true };
 }
 
+/** Status is its own choice: Pågår or Klart for the whole project. */
+export async function setCodingProjectStatusAction(input: {
+  id: string;
+  status: string;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar projekt." };
+  if (!isCodingProjectStatus(input.status)) {
+    return { ok: false, error: "Ogiltig status." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { error } = await supabase
+    .from("coding_projects")
+    .update({ status: input.status })
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .is("archived_at", null);
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCoding();
+  return { ok: true };
+}
+
 export async function archiveCodingProjectAction(input: {
   id: string;
 }): Promise<ActionResult> {
@@ -179,10 +209,18 @@ export async function archiveCodingProjectAction(input: {
 export async function addCodingProjectVersionAction(input: {
   projectId: string;
   completedOn: string;
+  note?: string | null;
+  /** Used when a comment is copied into the journal. */
+  title?: string;
 }): Promise<ActionResult> {
   if (!input.projectId) return { ok: false, error: "Saknar projekt." };
   const date = parseCodingProjectDate(input.completedOn);
   if (!date.ok) return date;
+
+  const note = (input.note ?? "").trim();
+  if (note.length > 280) {
+    return { ok: false, error: "Håll kommentaren under 280 tecken." };
+  }
 
   const supabase = await createClient();
   const {
@@ -220,10 +258,32 @@ export async function addCodingProjectVersionAction(input: {
       project_id: input.projectId,
       version_number: nextVersion,
       completed_on: date.date,
+      note: note || null,
     })
     .select("id")
     .single();
   if (error) return { ok: false, error: error.message };
+
+  if (note) {
+    const body = completionJournalBody({
+      title: (input.title ?? "").trim() || "Klart",
+      subtitle: `💻 ${codingProjectVersionLabel(nextVersion)}`,
+      note,
+    }).slice(0, 2000);
+    const { error: journalError } = await supabase.from("journal_entries").insert({
+      user_id: user.id,
+      local_date: date.date,
+      body,
+    });
+    if (journalError) {
+      revalidateCoding();
+      return {
+        ok: false,
+        error: `Versionen sparades, men dagboken: ${journalError.message}`,
+        id: data.id,
+      };
+    }
+  }
 
   revalidateCoding();
   return { ok: true, id: data.id };

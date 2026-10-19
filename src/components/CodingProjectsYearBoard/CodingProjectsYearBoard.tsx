@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addCodingProjectVersionAction,
   archiveCodingProjectAction,
   createCodingProjectAction,
   deleteCodingProjectVersionAction,
+  setCodingProjectStatusAction,
   updateCodingProjectAction,
-  updateCodingProjectVersionAction,
 } from "@/app/(app)/coding-actions";
+import { updateDayCompletionAction } from "@/app/(app)/completions-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import {
@@ -155,8 +156,9 @@ export function CodingProjectsYearBoard({
   return (
     <div className={styles.board}>
       <p className={styles.hint}>
-        Projekt du kodar på. Markera versioner med datum (första, andra, …) och
-        ange GitHub/live-länk om du vill.
+        Pågår eller klart gäller hela projektet. En version är ett släpp
+        (första, andra, …) med datum och valfri kommentar. Båda sparas när du
+        lägger till versionen, och syns igen under Redigera.
       </p>
 
       {projects.length > 0 ? (
@@ -199,11 +201,35 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
     project.status,
   );
   const [newVersionDate, setNewVersionDate] = useState(todayLocalISO());
+  const [newVersionNote, setNewVersionNote] = useState("");
+  const [versionTouched, setVersionTouched] = useState(false);
+  const [versionEdits, setVersionEdits] = useState<
+    Record<string, { date: string; note: string }>
+  >({});
   const [localPending, startTransition] = useTransition();
   const [localError, setLocalError] = useState<string | null>(null);
 
   const busy = pending || localPending;
   const nextVersionNumber = (project.versions.at(-1)?.versionNumber ?? 0) + 1;
+  const versionDraftPending =
+    versionTouched || newVersionNote.trim().length > 0;
+
+  useEffect(() => {
+    if (!isEditing) return;
+    setVersionEdits((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const version of project.versions) {
+        if (next[version.id]) continue;
+        next[version.id] = {
+          date: version.completedOn,
+          note: version.note ?? "",
+        };
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [isEditing, project.versions]);
 
   const startEdit = () => {
     setEditTitle(project.title);
@@ -213,6 +239,16 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
     setEditIsLive(project.isLive);
     setEditStatus(project.status);
     setNewVersionDate(todayLocalISO());
+    setNewVersionNote("");
+    setVersionTouched(false);
+    setVersionEdits(
+      Object.fromEntries(
+        project.versions.map((version) => [
+          version.id,
+          { date: version.completedOn, note: version.note ?? "" },
+        ]),
+      ),
+    );
     setLocalError(null);
     onError(null);
     setIsEditing(true);
@@ -223,7 +259,10 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
     setLocalError(null);
   };
 
-  const saveEdit = () => {
+  const persist = (
+    status: CodingProjectStatus,
+    options: { close: boolean; createVersion: boolean },
+  ) => {
     if (!editTitle.trim()) {
       setLocalError("Skriv ett projektnamn.");
       return;
@@ -232,39 +271,71 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
     setLocalError(null);
     onError(null);
     startTransition(async () => {
-      const res = await updateCodingProjectAction({
+      const saved = await updateCodingProjectAction({
         id: project.id,
         title: editTitle,
         description: editDescription,
         githubUrl: editGithubUrl,
         liveUrl: editLiveUrl,
         isLive: editIsLive,
-        status: editStatus,
+        status,
       });
-      if (!res.ok) {
-        setLocalError(res.error ?? "Kunde inte spara.");
+      if (!saved.ok) {
+        setLocalError(saved.error ?? "Kunde inte spara projektet.");
         return;
       }
-      setIsEditing(false);
+
+      for (const version of project.versions) {
+        const edit = versionEdits[version.id];
+        if (!edit) continue;
+        const noteChanged =
+          edit.note.trim() !== (version.note ?? "").trim();
+        const dateChanged = edit.date !== version.completedOn;
+        if (!noteChanged && !dateChanged) continue;
+        const res = await updateDayCompletionAction({
+          domain: "coding",
+          entityId: version.id,
+          date: edit.date,
+          note: edit.note,
+          title: editTitle.trim(),
+          subtitle: `💻 ${codingProjectVersionLabel(version.versionNumber)}`,
+        });
+        if (!res.ok) {
+          setLocalError(res.error ?? "Kunde inte spara versionen.");
+          return;
+        }
+      }
+
+      if (options.createVersion) {
+        const res = await addCodingProjectVersionAction({
+          projectId: project.id,
+          completedOn: newVersionDate,
+          note: newVersionNote,
+          title: editTitle,
+        });
+        if (!res.ok) {
+          setLocalError(res.error ?? "Kunde inte lägga till version.");
+          return;
+        }
+        setNewVersionDate(todayLocalISO());
+        setNewVersionNote("");
+        setVersionTouched(false);
+      }
+
+      if (options.close) setIsEditing(false);
       router.refresh();
     });
   };
 
-  const addVersion = () => {
-    setLocalError(null);
-    onError(null);
-    startTransition(async () => {
-      const res = await addCodingProjectVersionAction({
-        projectId: project.id,
-        completedOn: newVersionDate,
-      });
-      if (!res.ok) {
-        setLocalError(res.error ?? "Kunde inte lägga till version.");
-        return;
-      }
-      setNewVersionDate(todayLocalISO());
-      router.refresh();
+  const saveEdit = () => {
+    persist(editStatus, {
+      close: true,
+      createVersion: versionDraftPending,
     });
+  };
+
+  const addVersion = () => {
+    persist(editStatus, { close: false, createVersion: true });
   };
 
   const remove = () => {
@@ -330,9 +401,23 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
                 className={styles.statusSelect}
                 value={editStatus}
                 disabled={busy}
-                onChange={(e) =>
-                  setEditStatus(e.target.value as CodingProjectStatus)
-                }
+                onChange={(e) => {
+                  const next = e.target.value as CodingProjectStatus;
+                  setEditStatus(next);
+                  setLocalError(null);
+                  onError(null);
+                  startTransition(async () => {
+                    const res = await setCodingProjectStatusAction({
+                      id: project.id,
+                      status: next,
+                    });
+                    if (!res.ok) {
+                      setLocalError(res.error ?? "Kunde inte spara status.");
+                      return;
+                    }
+                    router.refresh();
+                  });
+                }}
               >
                 {CODING_PROJECT_STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -340,32 +425,93 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
                   </option>
                 ))}
               </select>
+              <span className={styles.itemSub}>
+                Klart sparas direkt och gäller hela projektet. En version är
+                datumet och texten för ett släpp.
+              </span>
             </label>
 
             <div className={styles.versionsBlock}>
-              <p className={styles.versionsTitle}>Versioner</p>
+              <p className={styles.versionsTitle}>Sparade versioner</p>
               {project.versions.length > 0 ? (
                 <ul className={styles.versionList}>
-                  {project.versions.map((version) => (
-                    <VersionEditRow
-                      key={version.id}
-                      version={version}
-                      busy={busy}
-                      onError={setLocalError}
-                    />
-                  ))}
+                  {project.versions.map((version) => {
+                    const edit = versionEdits[version.id] ?? {
+                      date: version.completedOn,
+                      note: version.note ?? "",
+                    };
+                    return (
+                      <VersionEditRow
+                        key={version.id}
+                        version={version}
+                        date={edit.date}
+                        note={edit.note}
+                        busy={busy}
+                        onDateChange={(date) =>
+                          setVersionEdits((prev) => {
+                            const current = prev[version.id] ?? {
+                              date: version.completedOn,
+                              note: version.note ?? "",
+                            };
+                            return {
+                              ...prev,
+                              [version.id]: { ...current, date },
+                            };
+                          })
+                        }
+                        onNoteChange={(note) =>
+                          setVersionEdits((prev) => {
+                            const current = prev[version.id] ?? {
+                              date: version.completedOn,
+                              note: version.note ?? "",
+                            };
+                            return {
+                              ...prev,
+                              [version.id]: { ...current, note },
+                            };
+                          })
+                        }
+                        onError={setLocalError}
+                      />
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className={styles.itemSub}>Inga versioner markerade ännu.</p>
               )}
               <div className={styles.addVersionRow}>
+                <p className={styles.itemSub}>
+                  Texten du redan skrivit på en version ligger i rutan ovan.
+                  Spara längst ner skriver in ändringar. Fältet här under blir
+                  nästa version.
+                </p>
                 <Input
                   label={`När blev ${codingProjectVersionLabel(nextVersionNumber).toLowerCase()} klar?`}
                   type="date"
                   value={newVersionDate}
-                  onChange={(e) => setNewVersionDate(e.target.value)}
+                  onChange={(e) => {
+                    setVersionTouched(true);
+                    setNewVersionDate(e.target.value);
+                  }}
                   disabled={busy}
                 />
+                <label className={styles.noteField}>
+                  <span className={styles.statusLabel}>
+                    Kommentar till versionen (valfritt)
+                  </span>
+                  <textarea
+                    className={styles.noteTextarea}
+                    value={newVersionNote}
+                    onChange={(e) => {
+                      setVersionTouched(true);
+                      setNewVersionNote(e.target.value);
+                    }}
+                    placeholder="Vad släpptes i den här versionen?"
+                    maxLength={280}
+                    rows={3}
+                    disabled={busy}
+                  />
+                </label>
                 <Button
                   type="button"
                   variant="outline"
@@ -374,7 +520,8 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
                   disabled={busy}
                   onClick={addVersion}
                 >
-                  Lägg till {codingProjectVersionLabel(nextVersionNumber).toLowerCase()}
+                  Spara och lägg till{" "}
+                  {codingProjectVersionLabel(nextVersionNumber).toLowerCase()}
                 </Button>
               </div>
             </div>
@@ -446,8 +593,17 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
             <ul className={styles.versionSummary}>
               {project.versions.map((version) => (
                 <li key={version.id}>
-                  {codingProjectVersionLabel(version.versionNumber)} ·{" "}
-                  {formatCodingProjectDate(version.completedOn)}
+                  <span>
+                    {codingProjectVersionLabel(version.versionNumber)} ·{" "}
+                    {formatCodingProjectDate(version.completedOn)}
+                  </span>
+                  {version.note ? (
+                    <span className={styles.itemNote}>{version.note}</span>
+                  ) : (
+                    <span className={styles.itemSub}>
+                      Ingen kommentar sparad på den här versionen
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -498,33 +654,24 @@ function ProjectRow({ project, pending, onError }: ProjectRowProps) {
 
 function VersionEditRow({
   version,
+  date,
+  note,
   busy,
+  onDateChange,
+  onNoteChange,
   onError,
 }: {
   version: CodingProjectVersion;
+  date: string;
+  note: string;
   busy: boolean;
+  onDateChange: (date: string) => void;
+  onNoteChange: (note: string) => void;
   onError: (msg: string | null) => void;
 }) {
   const router = useRouter();
-  const [date, setDate] = useState(version.completedOn);
   const [localPending, startTransition] = useTransition();
   const rowBusy = busy || localPending;
-  const dirty = date !== version.completedOn;
-
-  const save = () => {
-    onError(null);
-    startTransition(async () => {
-      const res = await updateCodingProjectVersionAction({
-        id: version.id,
-        completedOn: date,
-      });
-      if (!res.ok) {
-        onError(res.error ?? "Kunde inte spara datum.");
-        return;
-      }
-      router.refresh();
-    });
-  };
 
   const remove = () => {
     onError(null);
@@ -547,19 +694,9 @@ function VersionEditRow({
         type="date"
         className={styles.versionDate}
         value={date}
-        onChange={(e) => setDate(e.target.value)}
+        onChange={(e) => onDateChange(e.target.value)}
         disabled={rowBusy}
       />
-      {dirty ? (
-        <button
-          type="button"
-          className={styles.editBtn}
-          onClick={save}
-          disabled={rowBusy}
-        >
-          Spara datum
-        </button>
-      ) : null}
       <button
         type="button"
         className={styles.removeBtn}
@@ -568,6 +705,20 @@ function VersionEditRow({
       >
         Ta bort
       </button>
+      <label className={styles.noteField}>
+        <span className={styles.statusLabel}>
+          Vad skrev du på {codingProjectVersionLabel(version.versionNumber).toLowerCase()}?
+        </span>
+        <textarea
+          className={styles.noteTextarea}
+          value={note}
+          onChange={(e) => onNoteChange(e.target.value)}
+          placeholder="Texten sparas när du trycker Spara"
+          maxLength={280}
+          rows={3}
+          disabled={rowBusy}
+        />
+      </label>
     </li>
   );
 }

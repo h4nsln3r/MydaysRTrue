@@ -4,7 +4,6 @@ import { RestaurantsYearBoard } from "@/components/RestaurantsYearBoard/Restaura
 import { MediaYearBoard } from "@/components/MediaYearBoard/MediaYearBoard";
 import { MediaYearProgress } from "@/components/MediaYearProgress/MediaYearProgress";
 import { CodingProjectsYearBoard } from "@/components/CodingProjectsYearBoard/CodingProjectsYearBoard";
-import { CodingProjectsYearProgress } from "@/components/CodingProjectsYearProgress/CodingProjectsYearProgress";
 import { ProgressPlanTabs } from "@/components/ProgressPlanTabs/ProgressPlanTabs";
 import { getAuthUser } from "@/lib/auth.server";
 import { getYearMedia } from "@/lib/media.server";
@@ -175,14 +174,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
           <span className={styles.muted}>projekt du kodar på</span>
         </header>
 
-        {view === "progress" ? (
-          <>
-            <CodingProjectsYearProgress projects={codingProjects} />
-            <CodingProjectsYearBoard projects={codingProjects} createOnly />
-          </>
-        ) : (
-          <CodingProjectsYearBoard projects={codingProjects} />
-        )}
+        <CodingProjectsYearBoard projects={codingProjects} />
       </section>
 
       <section className={styles.section}>

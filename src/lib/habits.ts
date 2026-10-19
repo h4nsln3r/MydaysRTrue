@@ -387,6 +387,13 @@ export interface MealEntry {
   mealBoxStockId: string | null;
 }
 
+/** Planning note for a meal, saved before it is logged as eaten. */
+export interface MealPlan {
+  note: string | null;
+  /** True when the user is the one who will cook this meal. */
+  cooksSelf: boolean;
+}
+
 /**
  * Derive a tri-state status from a water amount + goal.
  * `null` means "no entry" — we don't paint anything for those days.

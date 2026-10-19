@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { MealKey, MealRestaurant } from "@/lib/habits";
+import type { MealKey, MealPlan, MealRestaurant } from "@/lib/habits";
 import { MEAL_LABEL } from "@/lib/habits";
 
 export interface RestaurantYearVisit {
@@ -80,6 +80,34 @@ export async function getYearRestaurantMeals(
   return [...grouped.values()].sort((a, b) =>
     a.name.localeCompare(b.name, "sv"),
   );
+}
+
+/** Planning notes for breakfast, lunch and dinner on one day. */
+export async function getDailyMealPlans(
+  userId: string,
+  localDate: string,
+): Promise<Record<MealKey, MealPlan | null>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("meal_plans")
+    .select("meal, note, cooks_self")
+    .eq("user_id", userId)
+    .eq("local_date", localDate);
+
+  const out: Record<MealKey, MealPlan | null> = {
+    breakfast: null,
+    lunch: null,
+    dinner: null,
+  };
+  for (const row of data ?? []) {
+    const meal = row.meal as MealKey;
+    if (out[meal] === undefined) continue;
+    out[meal] = {
+      note: row.note?.trim() ? row.note.trim() : null,
+      cooksSelf: row.cooks_self,
+    };
+  }
+  return out;
 }
 
 /** Find or create a restaurant row for the user (case-insensitive name). */

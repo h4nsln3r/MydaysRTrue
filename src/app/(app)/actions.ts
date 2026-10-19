@@ -1461,6 +1461,59 @@ export async function clearMealAction(input: {
   return { ok: true };
 }
 
+const MEAL_PLAN_NOTE_MAX = 280;
+
+/** Save the planning note and "I cook" flag without logging the meal as eaten. */
+export async function saveMealPlanAction(input: {
+  meal: MealKey;
+  localDate: string;
+  note: string;
+  cooksSelf: boolean;
+}): Promise<ActionResult> {
+  if (!VALID_MEAL_KEYS.has(input.meal)) {
+    return { ok: false, error: "Invalid meal." };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
+    return { ok: false, error: "Invalid date." };
+  }
+
+  const note = input.note.trim().slice(0, MEAL_PLAN_NOTE_MAX);
+  const cooksSelf = Boolean(input.cooksSelf);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  if (!note && !cooksSelf) {
+    const { error } = await supabase
+      .from("meal_plans")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("local_date", input.localDate)
+      .eq("meal", input.meal);
+    if (error) return { ok: false, error: error.message };
+    revalidatePath("/", "layout");
+    return { ok: true };
+  }
+
+  const { error } = await supabase.from("meal_plans").upsert(
+    {
+      user_id: user.id,
+      local_date: input.localDate,
+      meal: input.meal,
+      note: note || null,
+      cooks_self: cooksSelf,
+    },
+    { onConflict: "user_id,local_date,meal" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Log a meal by eating one matlåda from inventory. */
 export async function eatMealBoxAction(input: {
   localDate: string;

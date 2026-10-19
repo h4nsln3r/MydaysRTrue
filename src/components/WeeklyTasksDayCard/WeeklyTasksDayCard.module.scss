@@ -513,6 +513,28 @@
     min-width: 0;
 }
 
+.taskWithCookMark {
+    padding-top: 1.55rem;
+}
+
+.cookMark {
+    position: absolute;
+    top: 5px;
+    left: 8px;
+    z-index: 1;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    color: $color-orange-bright;
+    font-family: $font-display;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    pointer-events: none;
+}
+
 .taskTitle {
     font-family: $font-display;
     font-size: 1rem;
@@ -626,6 +648,51 @@
 .planNoteEmpty {
     color: $color-fog;
     font-style: italic;
+}
+
+button.planNoteEmpty {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    font-style: italic;
+
+    &:disabled {
+        cursor: not-allowed;
+    }
+}
+
+.cookSelfBtn {
+    align-self: flex-start;
+    margin-top: 8px;
+    padding: 6px 12px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink;
+    color: $color-cream-dim;
+    font-family: $font-display;
+    font-size: 0.82rem;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.cookSelfBtnOn {
+    background: rgba(255, 122, 26, 0.12);
+    border-color: $color-orange;
+    color: $color-orange-bright;
 }
 
 .undoBtn {

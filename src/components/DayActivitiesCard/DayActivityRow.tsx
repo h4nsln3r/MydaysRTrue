@@ -174,16 +174,17 @@ export function DayActivityRow(props: Props) {
   }
 
   if (DAILY_KINDS.has(item.kind)) {
+    const planLocked = planningMode && item.kind !== "meal";
     return (
       <DayPlanDailyRow
         item={item}
         date={date}
         savedRestaurants={savedRestaurants}
         mealBoxStock={mealBoxStock}
-        expanded={planningMode ? false : props.expanded}
+        expanded={planLocked ? false : props.expanded}
         busy={props.busy}
         pending={props.pending}
-        onToggleExpand={planningMode ? () => {} : props.onToggleExpand}
+        onToggleExpand={planLocked ? () => {} : props.onToggleExpand}
         onError={props.onError}
         onPendingKey={(active) =>
           props.onPendingId(active ? item.itemKey : null)

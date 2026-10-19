@@ -1594,6 +1594,36 @@ export interface Database {
           },
         ];
       };
+      meal_plans: {
+        Row: {
+          user_id: string;
+          local_date: string;
+          meal: "breakfast" | "lunch" | "dinner";
+          note: string | null;
+          cooks_self: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          local_date: string;
+          meal: "breakfast" | "lunch" | "dinner";
+          note?: string | null;
+          cooks_self?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          local_date?: string;
+          meal?: "breakfast" | "lunch" | "dinner";
+          note?: string | null;
+          cooks_self?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       meal_box_stock: {
         Row: {
           id: string;

@@ -17,6 +17,7 @@ import {
   type HabitStatus,
   type MealEntry,
   type MealKey,
+  type MealPlan,
   type SnackSlot,
 } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
@@ -192,6 +193,7 @@ export type DayPlanItem =
       doneAt: string | null;
       meal: MealKey;
       entry: MealEntry | null;
+      plan: MealPlan | null;
     }
   | {
       kind: "snack";
@@ -304,6 +306,7 @@ export interface DayPlanInput {
   weight: WeightDayContext;
   habits: DailyHabit[];
   meals: Record<MealKey, MealEntry | null>;
+  mealPlans?: Record<MealKey, MealPlan | null>;
   snacks: DailySnacks;
   intake: Record<IntakeKind, IntakeEntry | null>;
   work: WorkDailyLog;
@@ -596,6 +599,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
         doneAt: entry ? `${input.date}T12:00:00.000Z` : null,
         meal,
         entry,
+        plan: input.mealPlans?.[meal] ?? null,
       });
     }
   }

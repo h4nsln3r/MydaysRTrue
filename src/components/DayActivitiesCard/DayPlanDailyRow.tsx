@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
   clearMealAction,
   clearSnackAction,
   saveDailyActivityAction,
   saveMealAction,
+  saveMealPlanAction,
   saveSnackAction,
   setHabitStatusAction,
   skipGorShakeDayAction,
@@ -131,6 +133,10 @@ interface ShellProps extends PlanSortableProps {
   pending: boolean;
   onToggleExpand: () => void;
   planningMode?: boolean;
+  /** Open the row on a future day, for planning fields only. */
+  expandInPlanning?: boolean;
+  /** Pinned in the top-left corner while the row is collapsed. */
+  titleExtra?: ReactNode;
   children?: ReactNode;
 }
 
@@ -144,11 +150,14 @@ function PlanRowShell({
   pending,
   onToggleExpand,
   planningMode = false,
+  expandInPlanning = false,
+  titleExtra,
   dragHandle,
   sortableRef,
   sortableStyle,
   children,
 }: ShellProps) {
+  const locked = planningMode && !expandInPlanning;
   const accent = dayPlanItemAccent(item);
   const icon = dayPlanItemIcon(item);
   const label = dayPlanItemLabel(item);
@@ -162,11 +171,13 @@ function PlanRowShell({
         styles.taskDraggable,
         done ? styles.taskDone : "",
         busy ? styles.taskBusy : "",
+        !expanded && titleExtra ? styles.taskWithCookMark : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
       {cadence ? <PlanCadenceBadge cadence={cadence} done={done} corner /> : null}
+      {!expanded && titleExtra ? titleExtra : null}
       {dragHandle}
       <span className={styles.taskIcon} aria-hidden style={{ borderColor: accent }}>
         {icon}
@@ -176,9 +187,9 @@ function PlanRowShell({
         className={[styles.checkBtn, done ? styles.checkBtnDone : ""]
           .filter(Boolean)
           .join(" ")}
-        aria-label={planningMode ? undefined : done ? "Klart" : "Logga"}
-        onClick={planningMode ? undefined : onToggleExpand}
-        disabled={pending || planningMode}
+        aria-label={locked ? undefined : done ? "Klart" : "Logga"}
+        onClick={locked ? undefined : onToggleExpand}
+        disabled={pending || locked}
       >
         {done ? (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -198,15 +209,15 @@ function PlanRowShell({
       <button
         type="button"
         className={styles.taskBody}
-        onClick={planningMode ? undefined : onToggleExpand}
-        aria-expanded={planningMode ? undefined : expanded}
-        disabled={pending || planningMode}
+        onClick={locked ? undefined : onToggleExpand}
+        aria-expanded={locked ? undefined : expanded}
+        disabled={pending || locked}
       >
         <span className={styles.taskMeta}>
           <span className={styles.taskTitle}>{label}</span>
           {detail ? <span className={styles.taskDetail}>{detail}</span> : null}
         </span>
-        {planningMode ? null : (
+        {locked ? null : (
           <span
             className={[styles.chevron, expanded ? styles.chevronUp : ""]
               .filter(Boolean)
@@ -218,10 +229,171 @@ function PlanRowShell({
         )}
       </button>
 
-      {!planningMode && expanded ? (
+      {!locked && expanded ? (
         <div className={styles.taskActions}>{children}</div>
       ) : null}
     </li>
+  );
+}
+
+function MealPlanNote({
+  meal,
+  date,
+  note,
+  cooksSelf,
+  pending,
+  onCooksSelfChange,
+  onError,
+  onPendingKey,
+}: {
+  meal: MealKey;
+  date: string;
+  note: string;
+  cooksSelf: boolean;
+  pending: boolean;
+  onCooksSelfChange: (next: boolean) => void;
+  onError: (msg: string | null) => void;
+  onPendingKey: (active: boolean) => void;
+}) {
+  const router = useRouter();
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(note);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!editingNote) setNoteDraft(note);
+  }, [editingNote, note]);
+
+  const save = (next: { note: string; cooksSelf: boolean }) => {
+    setError(null);
+    onError(null);
+    onPendingKey(true);
+    startTransition(async () => {
+      const res = await saveMealPlanAction({
+        meal,
+        localDate: date,
+        note: next.note,
+        cooksSelf: next.cooksSelf,
+      });
+      onPendingKey(false);
+      if (!res.ok) {
+        const message = res.error ?? "Kunde inte spara anteckningen.";
+        setError(message);
+        onError(message);
+        return;
+      }
+      setEditingNote(false);
+      router.refresh();
+    });
+  };
+
+  const startEdit = () => {
+    setNoteDraft(note);
+    setError(null);
+    setEditingNote(true);
+  };
+
+  return (
+    <div className={styles.planReadout}>
+      <div className={styles.planReadoutHead}>
+        <span className={styles.planReadoutLabel}>Anteckning</span>
+        {!editingNote ? (
+          <button
+            type="button"
+            className={styles.notePencil}
+            onClick={startEdit}
+            disabled={pending}
+            aria-label="Redigera anteckning"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+              <path d="m13.5 6.5 3 3" stroke="currentColor" strokeWidth="2" />
+            </svg>
+          </button>
+        ) : null}
+      </div>
+      {editingNote ? (
+        <form
+          className={styles.noteEdit}
+          onSubmit={(e) => {
+            e.preventDefault();
+            save({ note: noteDraft, cooksSelf });
+          }}
+        >
+          <textarea
+            className={styles.noteEditInput}
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value.slice(0, 280))}
+            maxLength={280}
+            rows={3}
+            disabled={pending}
+            autoFocus
+            placeholder="t.ex. kycklinggryta, tina i tid"
+            aria-label="Anteckning"
+          />
+          {error ? <p className={styles.error}>{error}</p> : null}
+          <div className={styles.noteEditActions}>
+            <button
+              type="button"
+              className={styles.noteEditCancel}
+              onClick={() => {
+                setNoteDraft(note);
+                setError(null);
+                setEditingNote(false);
+              }}
+              disabled={pending}
+            >
+              Avbryt
+            </button>
+            <button
+              type="submit"
+              className={styles.noteEditSave}
+              disabled={pending || noteDraft.trim() === note}
+            >
+              Spara
+            </button>
+          </div>
+        </form>
+      ) : note ? (
+        note
+      ) : (
+        <button
+          type="button"
+          className={styles.planNoteEmpty}
+          onClick={startEdit}
+          disabled={pending}
+        >
+          Skriv en anteckning
+        </button>
+      )}
+      {!editingNote && error ? <p className={styles.error}>{error}</p> : null}
+      <div>
+        <button
+          type="button"
+          className={[
+            styles.cookSelfBtn,
+            cooksSelf ? styles.cookSelfBtnOn : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          aria-pressed={cooksSelf}
+          disabled={pending}
+          onClick={() => {
+            const next = !cooksSelf;
+            onCooksSelfChange(next);
+            save({ note: editingNote ? noteDraft : note, cooksSelf: next });
+          }}
+        >
+          Jag lagar
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -251,23 +423,49 @@ function MealPlanRow(
   const [rating, setRating] = useState(
     entry?.rating != null ? String(entry.rating) : "",
   );
-  const [cookingMeta, setCookingMeta] = useState(() =>
-    initialMealCookingMeta(entry),
-  );
+  const [cookingMeta, setCookingMeta] = useState(() => {
+    const next = initialMealCookingMeta(entry);
+    if (!entry && item.plan?.cooksSelf && mealHasCookingMeta(item.meal)) {
+      next.cookedBy = "self";
+    }
+    return next;
+  });
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const entrySyncKey = [
+    entry?.id ?? "",
+    entry?.description ?? "",
+    entry?.waterMl ?? "",
+    entry?.drinkNote ?? "",
+    entry?.rating ?? "",
+    entry?.cookedBy ?? "",
+    entry?.restaurantId ?? "",
+    entry?.restaurantName ?? "",
+    entry?.cookedByName ?? "",
+    entry?.mealBoxes ?? "",
+    entry?.fromMealBox ? "1" : "0",
+    entry?.mealBoxStockId ?? "",
+  ].join("|");
 
   useEffect(() => {
     setDescription(entry?.description ?? "");
     setWaterMl(entry?.waterMl ? String(entry.waterMl) : "");
     setDrinkNote(entry?.drinkNote ?? "");
     setRating(entry?.rating != null ? String(entry.rating) : "");
-    setCookingMeta(initialMealCookingMeta(entry));
-  }, [entry]);
+    const next = initialMealCookingMeta(entry);
+    if (!entry && item.plan?.cooksSelf && mealHasCookingMeta(item.meal)) {
+      next.cookedBy = "self";
+    }
+    setCookingMeta(next);
+    // Keyed on the logged meal, so saving the plan note does not wipe a draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entrySyncKey]);
 
   const showCookingMeta = mealHasCookingMeta(item.meal);
   const eatingMealBox = showCookingMeta && cookingMeta.cookedBy === "meal_box";
 
+  const planNote = item.plan?.note?.trim() ?? "";
+  const cooksSelf = item.plan?.cooksSelf ?? false;
   const detail = entry
     ? [
         entry.description,
@@ -278,10 +476,11 @@ function MealPlanRow(
         ),
         foodDrinkSummary(entry.waterMl, entry.drinkNote),
         foodRatingLabel(entry.rating),
+        planNote && planNote !== entry.description.trim() ? planNote : null,
       ]
         .filter(Boolean)
-        .join(" · ")
-    : null;
+        .join(" · ") || null
+    : planNote || null;
 
   const save = () => {
     onError(null);
@@ -373,9 +572,46 @@ function MealPlanRow(
       onToggleExpand={onToggleExpand}
       {...sortableShellProps(props)}
       planningMode={props.planningMode}
+      expandInPlanning
+      titleExtra={
+        cooksSelf ? (
+          <span className={styles.cookMark}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M17 21a1 1 0 0 0 1-1v-5.35c0-.457.316-.844.727-1.041a4 4 0 0 0-2.134-7.589 5 5 0 0 0-9.186 0 4 4 0 0 0-2.134 7.588c.411.198.727.585.727 1.041V20a1 1 0 0 0 1 1Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M6 17h12"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span>I'm chef</span>
+          </span>
+        ) : null
+      }
     >
+      <MealPlanNote
+        meal={item.meal}
+        date={date}
+        note={planNote}
+        cooksSelf={cooksSelf}
+        pending={pending}
+        onError={onError}
+        onPendingKey={onPendingKey}
+        onCooksSelfChange={(next) => {
+          if (next && !done && showCookingMeta && !cookingMeta.cookedBy) {
+            setCookingMeta((meta) => ({ ...meta, cookedBy: "self" }));
+          }
+        }}
+      />
       {error ? <p className={styles.error}>{error}</p> : null}
-      {!done ? (
+      {props.planningMode ? null : !done ? (
         <>
           <Input
             label="Vad åt du?"

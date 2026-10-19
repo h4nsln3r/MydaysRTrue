@@ -38,7 +38,7 @@ import { getUserGames } from "@/lib/games.server";
 import { getUserSports } from "@/lib/sports.server";
 import { getDayQuickAddSources } from "@/lib/day-quick-add.server";
 import { getDailyPlanOrder } from "@/lib/day-plan.server";
-import { getMealRestaurants } from "@/lib/meals.server";
+import { getDailyMealPlans, getMealRestaurants } from "@/lib/meals.server";
 import { getMealBoxStock } from "@/lib/meal-box.server";
 import { todayLocalISO } from "@/lib/date";
 import { parsePeriodView } from "@/lib/period-view";
@@ -74,6 +74,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     summary,
     habits,
     meals,
+    mealPlans,
     snacks,
     intake,
     gymDay,
@@ -101,6 +102,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
     getDailySummary(user.id, date),
     getDailyHabits(user.id, date),
     getDailyMeals(user.id, date),
+    getDailyMealPlans(user.id, date),
     getDailySnacks(user.id, date),
     getDailyIntake(user.id, date),
     getGymSessionsForDate(user.id, date),
@@ -186,6 +188,7 @@ export default async function DayPage({ params, searchParams }: DayPageProps) {
               weight={weightDay}
               habits={habits}
               meals={meals}
+              mealPlans={mealPlans}
               snacks={snacks}
               savedRestaurants={savedRestaurants}
               mealBoxStock={mealBoxStock}

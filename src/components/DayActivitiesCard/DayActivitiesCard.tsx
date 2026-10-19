@@ -28,7 +28,7 @@ import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import { buildDayPlanItems, sortDayPlanItems, type DayPlanItem } from "@/lib/day-plan";
 import { isoWeekdayFromLocalISO } from "@/lib/date";
-import type { DailyHabit, DailySnacks, MealBoxStockItem, MealEntry, MealKey, MealRestaurant } from "@/lib/habits";
+import type { DailyHabit, DailySnacks, MealBoxStockItem, MealEntry, MealKey, MealPlan, MealRestaurant } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
 import type { IntakeEntry, IntakeKind } from "@/lib/intake";
 import type { GymSessionForWeek } from "@/lib/gym";
@@ -90,6 +90,7 @@ interface Props {
   weight: WeightDayContext;
   habits: DailyHabit[];
   meals: Record<MealKey, MealEntry | null>;
+  mealPlans?: Record<MealKey, MealPlan | null>;
   snacks: DailySnacks;
   savedRestaurants?: MealRestaurant[];
   mealBoxStock?: MealBoxStockItem[];
@@ -133,6 +134,7 @@ export function DayActivitiesCard({
   weight,
   habits,
   meals,
+  mealPlans,
   snacks,
   savedRestaurants = [],
   mealBoxStock = [],
@@ -186,6 +188,7 @@ export function DayActivitiesCard({
         weight,
         habits,
         meals,
+        mealPlans,
         snacks,
         intake,
         work,
@@ -210,6 +213,7 @@ export function DayActivitiesCard({
       weight,
       habits,
       meals,
+      mealPlans,
       snacks,
       intake,
       work,

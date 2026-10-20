@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/PageSkeleton/PageSkeleton";
+import { DayProgressFallback } from "./day-view/DayProgressFallback";
 
 export default function AppLoading() {
-  return <PageSkeleton />;
+  return <DayProgressFallback />;
 }

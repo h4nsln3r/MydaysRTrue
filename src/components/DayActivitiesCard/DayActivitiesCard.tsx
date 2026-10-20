@@ -44,6 +44,7 @@ import type { WorkDailyLog } from "@/lib/work";
 import type { LeaveKind, TripDayContext } from "@/lib/leave";
 import { reorderDayPlanAction } from "@/app/(app)/day-plan-actions";
 import { useBackgroundSave } from "@/components/NavProgress/NavProgress";
+import { usePlanExtras } from "@/app/(app)/day-view/PlanExtras";
 import { DayActivityRow } from "./DayActivityRow";
 import { PlanSortableRow } from "./PlanSortableRow";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
@@ -292,13 +293,21 @@ export function DayActivitiesCard({
   const addWeekday =
     date != null ? (isoWeekdayFromLocalISO(date) as Weekday) : null;
 
-  const quickAddSourcesOrEmpty: DayQuickAddSources = quickAddSources ?? {
-    gym: [],
-    cardioTemplateId: null,
-    sportTemplateId: null,
-    baths: [],
-    shake: null,
-  };
+  const { extras, ready } = usePlanExtras();
+  const codingProjectsLive = ready ? extras.codingProjects : codingProjects;
+  const gamesLive = ready ? extras.games : games;
+  const sportsLive = ready ? extras.sports : sports;
+  const restaurantsLive = ready ? extras.savedRestaurants : savedRestaurants;
+  const mealBoxLive = ready ? extras.mealBoxStock : mealBoxStock;
+  const quickAddSourcesOrEmpty: DayQuickAddSources = ready
+    ? extras.quickAddSources
+    : (quickAddSources ?? {
+        gym: [],
+        cardioTemplateId: null,
+        sportTemplateId: null,
+        baths: [],
+        shake: null,
+      });
 
   const beginAdding = () => {
     if (addingBaseline.current == null) {
@@ -332,8 +341,8 @@ export function DayActivitiesCard({
         categories={categories}
         tasks={addableTasks.map(toDayQuickAddTask)}
         sources={quickAddSourcesOrEmpty}
-        games={games}
-        sports={sports}
+        games={gamesLive}
+        sports={sportsLive}
         onCancel={() => setAddOpen(false)}
         onListPending={(waiting) => {
           if (waiting) beginAdding();
@@ -514,11 +523,11 @@ export function DayActivitiesCard({
                       date={planDate}
                       weekStart={weekStart}
                       categories={categories}
-                      codingProjects={codingProjects}
-                      games={games}
-                      sports={sports}
-                      savedRestaurants={savedRestaurants}
-                      mealBoxStock={mealBoxStock}
+                      codingProjects={codingProjectsLive}
+                      games={gamesLive}
+                      sports={sportsLive}
+                      savedRestaurants={restaurantsLive}
+                      mealBoxStock={mealBoxLive}
                       canReschedule={canReschedule}
                       isOverdue={isOverdue}
                       rescheduleDays={rescheduleDays}

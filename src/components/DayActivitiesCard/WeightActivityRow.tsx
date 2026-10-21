@@ -18,6 +18,7 @@ import {
   type WeightTimeOfDay,
 } from "@/lib/weight";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
+import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import { trainingCategory } from "@/lib/activity-category";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
 import { TrainingRescheduleSelect } from "@/components/DayActivitiesCard/TrainingRescheduleSelect";
@@ -147,6 +148,7 @@ export function WeightActivityRow({
         .filter(Boolean)
         .join(" ")}
     >
+      <PlanCadenceBadge cadence="weekly" done={done} corner />
       {dragHandle}
       <button
         type="button"

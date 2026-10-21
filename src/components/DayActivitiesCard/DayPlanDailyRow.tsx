@@ -144,7 +144,7 @@ function PlanRowShell({
   item,
   done,
   detail,
-  cadence,
+  cadence = "daily",
   expanded,
   busy,
   pending,
@@ -176,7 +176,7 @@ function PlanRowShell({
         .filter(Boolean)
         .join(" ")}
     >
-      {cadence ? <PlanCadenceBadge cadence={cadence} done={done} corner /> : null}
+      <PlanCadenceBadge cadence={cadence} done={done} corner />
       {!expanded && titleExtra ? titleExtra : null}
       {dragHandle}
       <span className={styles.taskIcon} aria-hidden style={{ borderColor: accent }}>

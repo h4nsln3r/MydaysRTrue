@@ -476,7 +476,7 @@
     gap: $space-2;
     background: transparent;
     border: none;
-    padding: 4px 3.4rem 4px 0;
+    padding: 4px 4.6rem 4px 0;
     color: $color-cream;
     text-align: left;
     width: 100%;
@@ -558,8 +558,17 @@
 }
 
 .chevron {
-    font-size: 0.85rem;
+    position: absolute;
+    top: 1.4rem;
+    right: 6px;
+    z-index: 1;
+    width: 4.4rem;
+    display: block;
+    text-align: center;
+    font-size: 1.2rem;
+    line-height: 1;
     color: $color-fog;
+    pointer-events: none;
     transition: transform 160ms $ease-out;
 }
 

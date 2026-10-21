@@ -17,6 +17,7 @@ import {
   type BathingSessionForWeek,
 } from "@/lib/bathing";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
+import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import { trainingCategory } from "@/lib/activity-category";
 import { sortIncompleteFirst, type Weekday } from "@/lib/tasks";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
@@ -263,6 +264,7 @@ export function BathingSessionRow({
         .filter(Boolean)
         .join(" ")}
     >
+      <PlanCadenceBadge cadence="weekly" done={done} corner />
       {dragHandle}
       <button
         type="button"

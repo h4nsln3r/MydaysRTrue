@@ -17,6 +17,7 @@ import { formatSportDetail, type SportSessionForWeek } from "@/lib/sport";
 import { matchSportId, type UserSport } from "@/lib/sports";
 import { SportFields } from "@/components/SportFields/SportFields";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
+import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import { trainingCategory } from "@/lib/activity-category";
 import { sortIncompleteFirst, type Weekday } from "@/lib/tasks";
 import type { RescheduleDay } from "@/components/DayActivitiesCard/types";
@@ -294,6 +295,7 @@ export function SportSessionRow({
         .filter(Boolean)
         .join(" ")}
     >
+      <PlanCadenceBadge cadence="weekly" done={done} corner />
       {dragHandle}
       <button
         type="button"

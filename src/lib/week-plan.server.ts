@@ -9,6 +9,7 @@ import { formatWeeklyTaskDetail, formatFestOccasionWhen, formatMonthlyTaskDetail
 import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { getGorShakeWeekPlan } from "@/lib/habits.server";
+import { todayLocalISO } from "@/lib/date";
 import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
 import {
   CARPAY_TASK_KEY,
@@ -581,6 +582,7 @@ export async function getUnifiedWeekPlan(
     weekStart,
     billsWeek.completionsByTaskMonth,
     billsWeek.categories,
+    todayLocalISO(),
   );
 
   for (const slot of placed) {

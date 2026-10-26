@@ -2,6 +2,7 @@ import {
   addDaysISO,
   localISOFromTimestamp,
   parseLocalISO,
+  todayLocalISO,
   weekStartISO,
 } from "@/lib/date";
 import { FINANCE_EKONOMI_TASK_KEY, formatKr, monthPlanEkonomiHref } from "@/lib/monthly-finance";
@@ -34,6 +35,14 @@ export function isMonthlyBill(
   categories: TaskCategory[],
 ): boolean {
   const id = billsCategoryId(categories);
+  return id != null && task.categoryId === id;
+}
+
+export function isMonthlySavings(
+  task: Pick<MonthlyTask, "categoryId">,
+  categories: TaskCategory[],
+): boolean {
+  const id = savingsCategoryId(categories);
   return id != null && task.categoryId === id;
 }
 
@@ -467,15 +476,22 @@ export interface MonthlyBillForWeekBacklog {
  * - Unplanned plannable tasks sit in the backlog (Att placera).
  * - Planned week/day: visible that week (or backlog if day missing / overdue).
  * - Done tasks appear on their scheduled or completion day.
+ * - Savings and "Gör ekonomin" stay on the month you are in. A week that only
+ *   spills into the next month does not pull that month in early.
  */
 export function resolveMonthlyBillsForWeek(
   tasks: MonthlyTaskForMonth[],
   weekStart: string,
   completionsByTaskMonth: Map<string, MonthlyCompletion[]>,
   categories: TaskCategory[],
+  today: string = todayLocalISO(),
 ): { placed: MonthlyBillWeekSlot[]; backlog: MonthlyBillForWeekBacklog[] } {
   const weekDates = new Set(weekDayDates(weekStart));
   const monthStarts = [...new Set([...weekDates].map(monthStartFromDate))];
+  const currentMonth = monthStartFromDate(today);
+  const repeatableSourceMonth = monthStarts.includes(currentMonth)
+    ? currentMonth
+    : monthStarts[0];
   const placed: MonthlyBillWeekSlot[] = [];
   const backlog: MonthlyBillForWeekBacklog[] = [];
   const inBacklog = new Set<string>();
@@ -498,6 +514,12 @@ export function resolveMonthlyBillsForWeek(
     for (const monthStart of monthStarts) {
       if (task.singleMonthStart && task.singleMonthStart !== monthStart) continue;
       if (!isWeekPlannableMonthlyTask(task, categories)) continue;
+      if (
+        monthStart !== currentMonth &&
+        (isMonthlySavings(task, categories) || isMonthlyFinanceTask(task))
+      ) {
+        continue;
+      }
 
       const all = completionsForTaskMonth(
         completionsByTaskMonth,
@@ -534,11 +556,8 @@ export function resolveMonthlyBillsForWeek(
             });
           }
         }
-        const overlapsMonth = [...weekDates].some(
-          (d) => monthStartFromDate(d) === monthStart,
-        );
-        if (overlapsMonth) {
-          const recurringBacklogKey = `${task.id}|${monthStart}|source`;
+        if (monthStart === repeatableSourceMonth) {
+          const recurringBacklogKey = `${task.id}|source`;
           if (!unplannedRecurringBacklog.has(recurringBacklogKey)) {
             unplannedRecurringBacklog.add(recurringBacklogKey);
             backlog.push({

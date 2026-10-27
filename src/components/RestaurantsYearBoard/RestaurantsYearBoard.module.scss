@@ -30,6 +30,106 @@
     margin: 0 6px;
 }
 
+.ranks {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: $space-3;
+
+    @media (min-width: $bp-sm) {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.rankCard {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    min-width: 0;
+    padding: $space-3 $space-3 $space-2;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+}
+
+.rankTitle {
+    margin: 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: $color-fog;
+}
+
+.rankEmpty {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.85rem;
+}
+
+.rankList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.rankButton {
+    display: grid;
+    grid-template-columns: 1.1rem minmax(0, 1fr) auto;
+    gap: $space-2;
+    align-items: center;
+    width: 100%;
+    margin: 0;
+    padding: 7px 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+
+    &:hover .rankName {
+        color: $color-orange-bright;
+    }
+
+    &:focus-visible {
+        outline: 2px solid $color-orange-bright;
+        outline-offset: 2px;
+    }
+}
+
+.rankIndex {
+    font-family: $font-mono;
+    font-size: 0.75rem;
+    color: $color-orange-bright;
+}
+
+.rankName {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: $color-cream;
+    font-size: 0.88rem;
+}
+
+.rankValue {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    color: $color-cream;
+    white-space: nowrap;
+}
+
+.rankHint {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-fog;
+}
+
 .list {
     list-style: none;
     margin: 0;
@@ -46,6 +146,7 @@
     background: $color-ink-soft;
     border: 1px solid $color-line;
     overflow: hidden;
+    scroll-margin-top: $nav-height + $space-4;
 }
 
 .cardHeader {

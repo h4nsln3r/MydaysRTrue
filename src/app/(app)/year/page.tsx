@@ -225,7 +225,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
         )}
       </section>
 
-      <section className={styles.section}>
+      <section id="restauranger" className={styles.section}>
         <header className={styles.sectionHeader}>
           <h2 className={styles.h2}>Restauranger</h2>
           <span className={styles.muted}>lunch & middag ute</span>

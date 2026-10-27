@@ -1,0 +1,233 @@
+@use "abstracts" as *;
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: $color-cream;
+}
+
+.link {
+    color: $color-orange-bright;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.lede {
+    margin: 0;
+    color: $color-cream;
+    font-size: 0.95rem;
+}
+
+.slots,
+.empty {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.85rem;
+}
+
+.cook {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-3;
+    border-radius: $radius-md;
+    background: $color-ink-soft;
+    border: 1px solid $color-line;
+}
+
+.cookLabel {
+    margin: 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: $color-fog;
+}
+
+.bar {
+    display: flex;
+    height: 16px;
+    gap: 2px;
+    overflow: hidden;
+    border-radius: $radius-pill;
+    background: $color-ink;
+}
+
+.seg {
+    appearance: none;
+    flex-basis: 0;
+    min-width: 8px;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+
+    &.segOpen {
+        outline: 2px solid $color-cream;
+        outline-offset: 1px;
+    }
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-1 $space-2;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.legendButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: $radius-pill;
+    background: transparent;
+    color: $color-cream-dim;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+
+    &:hover,
+    &.legendButtonOpen {
+        color: $color-cream;
+        background: $color-ink;
+        border-color: $color-line;
+    }
+
+    &:focus-visible {
+        outline: 2px solid $color-orange-bright;
+        outline-offset: 2px;
+    }
+}
+
+.chevron {
+    font-size: 0.95rem;
+    line-height: 1;
+    transform: rotate(90deg);
+}
+
+.legendButtonOpen .chevron {
+    transform: rotate(-90deg);
+}
+
+.detail {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.detailHeading {
+    margin: $space-1 0 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: $color-fog;
+}
+
+.detailStatus {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.85rem;
+}
+
+.detailList {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.detailItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.detailWhen,
+.detailPlace {
+    margin: 0;
+    color: $color-fog;
+    font-size: 0.75rem;
+}
+
+.detailWhat {
+    margin: 0;
+    color: $color-cream;
+    font-size: 0.88rem;
+    line-height: 1.35;
+}
+
+.swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.self {
+    background: $color-orange;
+}
+
+.julia {
+    background: $color-cream;
+}
+
+.restaurant {
+    background: $color-warning;
+}
+
+.mealBox {
+    background: $color-success;
+}
+
+.bought {
+    background: $color-water;
+}
+
+.other {
+    background: $color-fog;
+}
+
+.notes {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: $color-cream-dim;
+    font-size: 0.92rem;
+    line-height: 1.4;
+
+    li {
+        margin: 0;
+    }
+
+    &:empty {
+        display: none;
+    }
+}

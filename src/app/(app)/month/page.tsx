@@ -11,6 +11,7 @@ import { getMonthLiveEvents } from "@/lib/live-events.server";
 import { getMonthGigs } from "@/lib/gigs.server";
 import { LiveEventsMonthSummary } from "@/components/LiveEventsMonthSummary/LiveEventsMonthSummary";
 import { GigsMonthSummary } from "@/components/GigsMonthSummary/GigsMonthSummary";
+import { MealMonthSummary } from "@/components/MealMonthSummary/MealMonthSummary";
 import { MediaMonthSummary } from "@/components/MediaMonthSummary/MediaMonthSummary";
 import {
   clampMonthNavigation,
@@ -261,6 +262,13 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             savedRestaurants={savedRestaurants}
             mediaContexts={mediaContexts}
         />
+        <section className={styles.section}>
+          <MealMonthSummary
+            days={mealsRange.days}
+            year={year}
+            monthStart={monthStart}
+          />
+        </section>
         <section className={styles.section}>
           <MediaMonthSummary monthMedia={monthMedia} year={year} />
         </section>

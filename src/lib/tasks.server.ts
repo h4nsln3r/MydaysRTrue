@@ -477,6 +477,19 @@ const REPEATABLE_CANONICAL: Array<{
     sortOrder: 0,
   },
   {
+    key: "home_stadning",
+    legacyLike: "home_stadning_%",
+    title: "Städning",
+    notes:
+      "Dra in hur många städtillfällen du vill — målet är 1 per vecka. Plocka upp saker, damma, dammsuga och blöttorka.",
+    icon: "🧹",
+    accent: "#6ee7a3",
+    completionKind: "note",
+    categoryName: "HOME",
+    sortOrder: 0,
+    weeklyGoal: 1,
+  },
+  {
     key: "home_handla",
     legacyLike: "home_handla_%",
     title: "Handla",

@@ -489,6 +489,7 @@ export function UnifiedWeekBoard({
     const item = localItems.find((i) => i.dragId === dragId);
     if (!item || item.weekday == null) return;
     if (isPlanSource(item)) return;
+    const fromWeekday = item.weekday;
 
     setError(null);
     setLocalItems((prev) => {
@@ -557,7 +558,11 @@ export function UnifiedWeekBoard({
     });
     setPendingId(dragId);
     startTransition(async () => {
-      const res = await unplaceWeekPlanItemAction({ dragId, weekStart });
+      const res = await unplaceWeekPlanItemAction({
+        dragId,
+        weekStart,
+        weekday: fromWeekday,
+      });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte flytta tillbaka.");
         setLocalItems(plan.items);

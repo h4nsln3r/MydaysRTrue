@@ -146,12 +146,19 @@ export function gorShakeOccursOnDate(
   } = {},
 ): boolean {
   if (options.completedOnDate) return true;
+  // Week-plan drag pins the task to one day (reset and placed are the same
+  // date). It stays there until a new batch is logged and the pin is cleared.
+  const resetOn = habit.shakeResetOn ?? null;
+  const placedOn = habit.shakePlacedOn ?? null;
+  if (resetOn && placedOn && resetOn === placedOn) {
+    if (habit.shakeSkippedOn === localDate) return false;
+    return localDate === resetOn;
+  }
   if (habit.shakeSkippedOn) {
     if (habit.shakeSkippedOn === localDate) return false;
     const postponed = addDaysISO(habit.shakeSkippedOn, 1);
-    if (localDate === postponed) return true;
+    if (localDate === postponed && habit.shakeResetOn === postponed) return true;
   }
-  const placedOn = habit.shakePlacedOn ?? null;
   if (placedOn) {
     const madeSincePlace = (options.batches ?? []).some(
       (batch) => batch.madeOn >= placedOn,
@@ -164,7 +171,6 @@ export function gorShakeOccursOnDate(
       }
     }
   }
-  const resetOn = habit.shakeResetOn ?? null;
   const relevant = batchesAfterReset(habit, options.batches ?? []);
   if (resetOn && relevant.length === 0) {
     if (localDate < resetOn) return false;

@@ -240,8 +240,32 @@ export async function getGorShakeWeekPlan(
 
   const today = todayLocalISO();
   const dayContexts = await habitContextsForRange(userId, weekStart, weekEnd);
+  const pinnedOn =
+    habit.shakeResetOn && habit.shakePlacedOn === habit.shakeResetOn
+      ? habit.shakeResetOn
+      : null;
+  if (
+    pinnedOn &&
+    pinnedOn >= weekStart &&
+    pinnedOn <= weekEnd &&
+    habit.shakeSkippedOn !== pinnedOn
+  ) {
+    const ctx = dayContexts.get(pinnedOn);
+    if (!ctx || habitVisibleOnDay(habit, ctx)) {
+      const status = checkByDate.get(pinnedOn) ?? null;
+      return {
+        habitId: habit.id,
+        label: habit.label,
+        icon: habit.icon,
+        accent: habit.accent,
+        weekday: isoWeekdayFromLocalISO(pinnedOn) as Weekday,
+        done: status === "yes",
+      };
+    }
+  }
   let weekday: Weekday | null = null;
   let done = false;
+  const weekIsPast = weekEnd < today;
   for (let i = 0; i < 7; i++) {
     const date = addDaysISO(weekStart, i);
     const status = checkByDate.get(date) ?? null;
@@ -251,6 +275,7 @@ export async function getGorShakeWeekPlan(
     });
     const ctx = dayContexts.get(date);
     if (!occurs || (ctx && !habitVisibleOnDay(habit, ctx))) continue;
+    if (!weekIsPast && date < today) continue;
     const isoDow = isoWeekdayFromLocalISO(date) as Weekday;
     if (weekday == null || date === today) {
       weekday = isoDow;

@@ -91,7 +91,11 @@ async function placeGorShakeWeekAction(input: {
   const localDate = addDaysISO(input.weekStart, input.weekday - 1);
   const { error } = await supabase
     .from("habits")
-    .update({ shake_reset_on: localDate, shake_skipped_on: null })
+    .update({
+      shake_reset_on: localDate,
+      shake_placed_on: localDate,
+      shake_skipped_on: null,
+    })
     .eq("id", habit.id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };
@@ -100,17 +104,29 @@ async function placeGorShakeWeekAction(input: {
   return { ok: true };
 }
 
-async function unplaceGorShakeWeekAction(habitId: string): Promise<ActionResult> {
+async function unplaceGorShakeWeekAction(input: {
+  habitId: string;
+  weekStart: string;
+  weekday: Weekday;
+}): Promise<ActionResult> {
+  if (input.weekday < 1 || input.weekday > 7) {
+    return { ok: false, error: "Ogiltig veckodag." };
+  }
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
+  const localDate = addDaysISO(input.weekStart, input.weekday - 1);
   const { error } = await supabase
     .from("habits")
-    .update({ shake_reset_on: null })
-    .eq("id", habitId)
+    .update({
+      shake_skipped_on: localDate,
+      shake_reset_on: null,
+      shake_placed_on: null,
+    })
+    .eq("id", input.habitId)
     .eq("user_id", user.id)
     .eq("key", "gor_shake");
   if (error) return { ok: false, error: error.message };
@@ -239,6 +255,7 @@ export async function placeWeekPlanItemAction(input: {
 export async function unplaceWeekPlanItemAction(input: {
   dragId: string;
   weekStart: string;
+  weekday?: Weekday;
 }): Promise<ActionResult> {
   const parsed = parseWeekPlanDragId(input.dragId);
   if (!parsed) return { ok: false, error: "Ogiltig aktivitet." };
@@ -296,7 +313,14 @@ export async function unplaceWeekPlanItemAction(input: {
       if (parsed.shakeRole === "source") {
         return { ok: true };
       }
-      return unplaceGorShakeWeekAction(parsed.entityId);
+      if (input.weekday == null) {
+        return { ok: false, error: "Ogiltig veckodag." };
+      }
+      return unplaceGorShakeWeekAction({
+        habitId: parsed.entityId,
+        weekStart: input.weekStart,
+        weekday: input.weekday,
+      });
     case "monthly_bill":
       if (parsed.monthlyRole === "source") {
         return { ok: true };

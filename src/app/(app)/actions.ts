@@ -171,7 +171,7 @@ export async function setHabitStatusAction(input: {
   // (water status is derived from water_logs, not stored as a check).
   const { data: habit, error: lookupErr } = await supabase
     .from("habits")
-    .select("id, kind, key, user_id")
+    .select("id, kind, key, user_id, shake_reset_on, shake_placed_on")
     .eq("id", input.habitId)
     .maybeSingle();
   if (lookupErr) return { ok: false, error: lookupErr.message };
@@ -213,6 +213,25 @@ export async function setHabitStatusAction(input: {
       { onConflict: "user_id,habit_id,local_date" },
     );
     if (error) return { ok: false, error: error.message };
+  }
+
+  if (
+    isGorShake &&
+    input.status === "yes" &&
+    habit.shake_reset_on &&
+    habit.shake_placed_on === habit.shake_reset_on &&
+    input.localDate >= habit.shake_reset_on
+  ) {
+    const { error: pinErr } = await supabase
+      .from("habits")
+      .update({
+        shake_reset_on: null,
+        shake_placed_on: null,
+        shake_skipped_on: null,
+      })
+      .eq("id", habit.id)
+      .eq("user_id", user.id);
+    if (pinErr) return { ok: false, error: pinErr.message };
   }
 
   revalidatePath("/", "layout");

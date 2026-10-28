@@ -61,6 +61,11 @@ import {
   unplaceWeekPlanItemAction,
 } from "@/app/(app)/week-plan-actions";
 import { AddTaskPanel } from "@/components/AddTaskPanel/AddTaskPanel";
+import { DayQuickAdd } from "@/components/DayQuickAdd/DayQuickAdd";
+import {
+  type DayQuickAddSources,
+  type DayQuickAddTask,
+} from "@/lib/day-quick-add";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { CodingActivityFields } from "@/components/CodingActivityFields/CodingActivityFields";
@@ -151,12 +156,22 @@ function isPlanSource(item: WeekPlanItem): boolean {
   );
 }
 
+const EMPTY_QUICK_ADD_SOURCES: DayQuickAddSources = {
+  gym: [],
+  cardioTemplateId: null,
+  sportTemplateId: null,
+  baths: [],
+  shake: null,
+};
+
 interface Props {
   weekStart: string;
   plan: UnifiedWeekPlan;
   weightEnabled: boolean;
   games?: UserGame[];
   sports?: UserSport[];
+  quickAddTasks?: DayQuickAddTask[];
+  quickAddSources?: DayQuickAddSources;
 }
 
 export function UnifiedWeekBoard({
@@ -165,6 +180,8 @@ export function UnifiedWeekBoard({
   weightEnabled,
   games = [],
   sports = [],
+  quickAddTasks = [],
+  quickAddSources = EMPTY_QUICK_ADD_SOURCES,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -172,6 +189,8 @@ export function UnifiedWeekBoard({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [addWeekday, setAddWeekday] = useState<Weekday | null>(null);
+  const [addingWeekday, setAddingWeekday] = useState<Weekday | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useSyncNavPending(pending || pendingId != null, plan.items);
@@ -179,6 +198,7 @@ export function UnifiedWeekBoard({
   useEffect(() => {
     if (draggingId != null || pending || pendingId != null) return;
     setLocalItems(plan.items);
+    setAddingWeekday(null);
   }, [plan.items, draggingId, pending, pendingId]);
 
   useEffect(() => {
@@ -887,12 +907,33 @@ export function UnifiedWeekBoard({
                     <h3 className={styles.dayTitle}>{WEEKDAY_LONG[d]}</h3>
                     <p className={styles.daySub}>{WEEKDAY_SHORT[d]}</p>
                   </div>
-                  <span className={styles.dayCount}>
-                    {dayItems.length > 0
-                      ? `${dayDone}/${dayItems.length}`
-                      : "—"}
-                  </span>
+                  <div className={styles.dayHeaderEnd}>
+                    <button
+                      type="button"
+                      className={styles.dayAdd}
+                      aria-label={`Lägg till på ${WEEKDAY_LONG[d]}`}
+                      title="Lägg till engångsuppgift eller en veckoaktivitet"
+                      aria-pressed={addWeekday === d}
+                      aria-expanded={addWeekday === d}
+                      onClick={() =>
+                        setAddWeekday((current) => (current === d ? null : d))
+                      }
+                    >
+                      +
+                    </button>
+                    <span className={styles.dayCount}>
+                      {dayItems.length > 0
+                        ? `${dayDone}/${dayItems.length}`
+                        : "—"}
+                    </span>
+                  </div>
                 </header>
+
+                {addingWeekday === d ? (
+                  <p className={styles.dayPending} role="status">
+                    Lägger till…
+                  </p>
+                ) : null}
 
                 {dayItems.length === 0 ? (
                   <p className={styles.dayEmpty}>Släpp en aktivitet här.</p>
@@ -953,6 +994,26 @@ export function UnifiedWeekBoard({
           ↺ Standarddagar
         </button>
       </div>
+
+      {addWeekday != null ? (
+        <DayQuickAdd
+          weekStart={weekStart}
+          weekday={addWeekday}
+          categories={plan.categories}
+          tasks={quickAddTasks}
+          sources={quickAddSources}
+          games={games}
+          sports={sports}
+          onCancel={() => setAddWeekday(null)}
+          onListPending={(waiting) => {
+            setAddingWeekday(waiting ? addWeekday : null);
+          }}
+          onAdded={() => {
+            setAddWeekday(null);
+            router.refresh();
+          }}
+        />
+      ) : null}
 
       <DragOverlay dropAnimation={null}>
         {draggingItem ? (

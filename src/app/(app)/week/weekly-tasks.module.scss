@@ -199,10 +199,60 @@
 
 .dayHeader {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: $space-3;
     margin-bottom: $space-1;
+}
+
+.dayHeaderEnd {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    flex-shrink: 0;
+}
+
+.dayAdd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: $color-orange;
+    color: $color-ink;
+    font-family: $font-display;
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition:
+        background 160ms $ease-out,
+        transform 160ms $ease-bounce,
+        box-shadow 200ms $ease-out;
+
+    &:hover:not(:disabled) {
+        background: $color-orange-bright;
+        transform: translateY(-1px);
+        box-shadow: $glow-orange;
+    }
+
+    &:active:not(:disabled) {
+        transform: translateY(0);
+    }
+
+    &[aria-pressed="true"] {
+        background: $color-orange-bright;
+        box-shadow: $glow-orange;
+    }
+}
+
+.dayPending {
+    margin: 0;
+    color: $color-cream-dim;
+    font-size: 0.82rem;
 }
 
 .dayTitle {

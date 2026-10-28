@@ -22,6 +22,8 @@ import { getWorkLogsForWeek } from "@/lib/work.server";
 import { getLeavePeriodsInRange, getTripDaysInRange } from "@/lib/leave.server";
 
 import { getUnifiedWeekPlan } from "@/lib/week-plan.server";
+import { getDayQuickAddSources } from "@/lib/day-quick-add.server";
+import { isQuickAddWeeklyTask, toDayQuickAddTask } from "@/lib/day-quick-add";
 import { getUserGames } from "@/lib/games.server";
 import { getUserSports } from "@/lib/sports.server";
 import { getWeekMealsSummary } from "@/lib/meal-box.server";
@@ -110,6 +112,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     workByDate,
     games,
     sports,
+    quickAddSources,
     tripByDate,
     leavePeriods,
     liveMoments,
@@ -132,6 +135,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getWorkLogsForWeek(user.id, start),
     getUserGames(user.id),
     getUserSports(user.id),
+    getDayQuickAddSources(user.id),
     getTripDaysInRange(user.id, start, addDaysISO(start, 6)),
     getLeavePeriodsInRange(user.id, start, addDaysISO(start, 6)),
     getAttendedLiveMoments(user.id, start, addDaysISO(start, 6)),
@@ -253,6 +257,10 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
             weightEnabled={weightPlan.enabled}
             games={games}
             sports={sports}
+            quickAddTasks={weeklyTasks.tasks
+              .filter((task) => isQuickAddWeeklyTask(task))
+              .map(toDayQuickAddTask)}
+            quickAddSources={quickAddSources}
           />
         </section>
       )}

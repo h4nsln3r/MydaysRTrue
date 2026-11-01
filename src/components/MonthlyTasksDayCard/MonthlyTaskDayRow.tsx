@@ -287,7 +287,12 @@ export function MonthlyTaskDayRow({
           ) : null}
           <span className={styles.taskTitle}>{displayTitle}</span>
           {isBill && billAmountLabel ? (
-            <span className={styles.taskDetail}>{billAmountLabel}</span>
+            <span className={styles.taskDetail}>
+              {billAmountLabel}
+              {task.paidAlone ? " · bara du" : ""}
+            </span>
+          ) : task.paidAlone ? (
+            <span className={styles.taskDetail}>Bara du</span>
           ) : detail ? (
             <span className={styles.taskDetail}>{detail}</span>
           ) : transferTarget ? (

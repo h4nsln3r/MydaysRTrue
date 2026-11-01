@@ -642,7 +642,15 @@ function MonthlyTaskRow({
             {(isBill || isMonthlyAmountTask(task)) && billAmountLabel ? (
               <span className={styles.billAmountBadge}>{billAmountLabel}</span>
             ) : null}
+            {task.paidAlone ? (
+              <span className={styles.soloBadge}>Bara du</span>
+            ) : null}
           </span>
+          {task.paidAlone && schedule.dayOfMonth == null && !done ? (
+            <span className={styles.taskNoteHint}>
+              Välj vilken dag den ska betalas. Samma dag varje månad.
+            </span>
+          ) : null}
           {amountDetail && !isBill && !billAmountLabel ? (
             <span className={styles.taskNoteHint}>{amountDetail}</span>
           ) : isFestSource ? (
@@ -806,7 +814,9 @@ function MonthlyTaskRow({
               </select>
             </label>
             <label className={styles.taskDay}>
-              <span className={styles.taskDayLabel}>Dag</span>
+              <span className={styles.taskDayLabel}>
+                {task.paidAlone ? "Betalas dag" : "Dag"}
+              </span>
               <select
                 className={styles.taskDaySelect}
                 value={schedule.dayOfMonth ?? ""}

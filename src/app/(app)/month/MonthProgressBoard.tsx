@@ -610,6 +610,7 @@ function MonthlyTaskCard({
           ) : scheduledDay != null ? (
             <p className={styles.monthlyCardDetail}>
               Dag {scheduledDay}
+              {task.paidAlone ? " · bara du" : ""}
               {scheduledDate ? (
                 <span className={styles.monthlyCardDate}>
                   {" "}

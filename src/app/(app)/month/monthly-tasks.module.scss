@@ -577,6 +577,17 @@
     vertical-align: middle;
 }
 
+.soloBadge {
+    margin-left: 8px;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-fog;
+    vertical-align: middle;
+}
+
 .transferTargetBadge {
     margin-left: 8px;
     font-family: $font-mono;

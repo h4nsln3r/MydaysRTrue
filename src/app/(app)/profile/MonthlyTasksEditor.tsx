@@ -123,7 +123,13 @@ export function MonthlyTasksEditor({ tasks, categories }: Props) {
             const isEditing = editingId === t.id;
             const category = t.categoryId ? catById.get(t.categoryId) : null;
             const meta = [
-              t.dayOfMonth ? `Dag ${t.dayOfMonth}` : "När som helst",
+              t.paidAlone
+                ? t.dayOfMonth
+                  ? `Bara du · dag ${t.dayOfMonth} varje månad`
+                  : "Bara du · välj betalningsdag"
+                : t.dayOfMonth
+                  ? `Dag ${t.dayOfMonth}`
+                  : "När som helst",
               category ? `${category.icon} ${category.name}` : "Ingen kategori",
             ].join(" · ");
 

@@ -621,7 +621,8 @@ export async function getUnifiedWeekPlan(
           : slot.task.completionKind === "amount"
             ? formatMonthlyTaskDetail(slot.task, completion) ??
               formatBillAmountKr({ ...taskForAmount, completion })
-            : formatBillAmountKr({ ...taskForAmount, completion }) ?? slot.task.notes,
+            : formatBillAmountKr({ ...taskForAmount, completion }) ??
+              (slot.task.paidAlone ? "Bara du betalar" : slot.task.notes),
       icon: slot.task.icon,
       accent: slot.task.accent,
       defaultWeekday: null,
@@ -672,9 +673,11 @@ export async function getUnifiedWeekPlan(
           : entry.task.completionKind === "amount"
             ? formatMonthlyTaskDetail(entry.task, completion) ??
               formatBillAmountKr({ ...taskForAmount, completion })
-            : formatBillAmountKr({ ...taskForAmount, completion }) ??
-              entry.task.notes ??
-              "Placera på en dag den här månaden",
+            : entry.task.paidAlone
+              ? "Välj betalningsdag — samma dag varje månad"
+              : formatBillAmountKr({ ...taskForAmount, completion }) ??
+                entry.task.notes ??
+                "Placera på en dag den här månaden",
       icon: entry.task.icon,
       accent: entry.task.accent,
       defaultWeekday: null,

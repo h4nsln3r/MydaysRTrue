@@ -839,6 +839,8 @@ export interface MonthlyTask {
   enabled: boolean;
   /** Can be placed on several days in the same month (Fest). */
   isRepeatable: boolean;
+  /** Full amount is yours. Shared bills are split across the household. */
+  paidAlone: boolean;
 }
 
 export interface WeeklyPlacement {

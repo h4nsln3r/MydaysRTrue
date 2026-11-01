@@ -24,24 +24,48 @@ export function MonthlyBillsSummary({ tasks, categories }: Props) {
             {summary.withAmount > 0 ? formatKr(summary.totalKr) : "—"}
           </span>
         </div>
-        <div className={styles.stat}>
-          <span className={styles.statLabel}>Per person (÷ 2)</span>
-          <span className={styles.statValueAccent}>
-            {summary.withAmount > 0 ? formatKr(summary.perPersonKr) : "—"}
-          </span>
-        </div>
+        {summary.soloCount > 0 ? (
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>Min andel</span>
+            <span className={styles.statValueAccent}>
+              {summary.withAmount > 0 ? formatKr(summary.myShareKr) : "—"}
+            </span>
+          </div>
+        ) : (
+          <div className={styles.stat}>
+            <span className={styles.statLabel}>Per person (÷ 2)</span>
+            <span className={styles.statValueAccent}>
+              {summary.withAmount > 0 ? formatKr(summary.perPersonKr) : "—"}
+            </span>
+          </div>
+        )}
+        {summary.soloCount > 0 ? (
+          <>
+            <div className={styles.stat}>
+              <span className={styles.statLabel}>Delat per person</span>
+              <span className={styles.statValue}>
+                {summary.sharedKr > 0 ? formatKr(summary.perPersonKr) : "—"}
+              </span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statLabel}>Bara jag</span>
+              <span className={styles.statValue}>
+                {summary.soloWithAmount > 0 ? formatKr(summary.soloKr) : "—"}
+              </span>
+            </div>
+          </>
+        ) : null}
       </div>
-      {summary.missingAmount > 0 ? (
-        <p className={styles.hint}>
-          {summary.missingAmount} räkning
-          {summary.missingAmount === 1 ? "" : "ar"} saknar kostnad — lägg till under
-          respektive räkning.
-        </p>
-      ) : (
-        <p className={styles.hint}>
-          Delat på två personer i hushållet.
-        </p>
-      )}
+      <p className={styles.hint}>
+        {summary.missingAmount > 0
+          ? `${summary.missingAmount} räkning${
+              summary.missingAmount === 1 ? "" : "ar"
+            } saknar kostnad — lägg till under respektive räkning. `
+          : ""}
+        {summary.soloCount > 0
+          ? "Delade räkningar delas på två. Räkningar som bara du betalar räknas helt på din andel."
+          : "Delat på två personer i hushållet."}
+      </p>
     </aside>
   );
 }

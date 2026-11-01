@@ -1539,6 +1539,7 @@ interface MonthlyTaskRow {
   default_amount_kr: number | null;
   enabled: boolean;
   is_repeatable: boolean;
+  paid_alone: boolean;
 }
 
 function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
@@ -1558,6 +1559,7 @@ function rowToMonthly(r: MonthlyTaskRow): MonthlyTask {
       r.default_amount_kr != null ? Number(r.default_amount_kr) : null,
     enabled: r.enabled ?? true,
     isRepeatable: r.is_repeatable ?? false,
+    paidAlone: r.paid_alone ?? false,
   };
 }
 
@@ -1643,7 +1645,7 @@ function rowToCompletion(r: MonthlyCompletionRow): MonthlyCompletion {
 }
 
 const MONTHLY_TASK_SELECT =
-  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start, default_amount_kr, enabled, is_repeatable";
+  "id, category_id, key, title, notes, day_of_month, icon, accent, sort_order, completion_kind, single_month_start, default_amount_kr, enabled, is_repeatable, paid_alone";
 
 const MONTHLY_COMPLETION_SELECT =
   "id, task_id, month_start, done_at, note, amount, scheduled_day_of_month, scheduled_week_start, is_unscheduled, is_instance, occasion, day_sort_order";

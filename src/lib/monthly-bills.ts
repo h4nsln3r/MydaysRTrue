@@ -148,7 +148,16 @@ export interface MonthlyBillsTotal {
   withAmount: number;
   missingAmount: number;
   totalKr: number;
+  /** Bills split across the household. */
+  sharedKr: number;
+  /** Bills only you pay. */
+  soloKr: number;
+  soloCount: number;
+  soloWithAmount: number;
+  /** Your half of the shared bills. */
   perPersonKr: number;
+  /** Your half of shared bills, plus everything you pay alone. */
+  myShareKr: number;
 }
 
 export function sumMonthlyBills(
@@ -157,20 +166,36 @@ export function sumMonthlyBills(
 ): MonthlyBillsTotal {
   const bills = tasks.filter((t) => isMonthlyBill(t, categories));
   let totalKr = 0;
+  let sharedKr = 0;
+  let soloKr = 0;
   let withAmount = 0;
+  let soloCount = 0;
+  let soloWithAmount = 0;
   for (const bill of bills) {
+    if (bill.paidAlone) soloCount += 1;
     const amount = effectiveBillAmountKr(bill);
-    if (amount != null) {
-      totalKr += amount;
-      withAmount += 1;
+    if (amount == null) continue;
+    totalKr += amount;
+    withAmount += 1;
+    if (bill.paidAlone) {
+      soloKr += amount;
+      soloWithAmount += 1;
+    } else {
+      sharedKr += amount;
     }
   }
+  const perPersonKr = sharedKr / 2;
   return {
     billCount: bills.length,
     withAmount,
     missingAmount: bills.length - withAmount,
     totalKr,
-    perPersonKr: totalKr / 2,
+    sharedKr,
+    soloKr,
+    soloCount,
+    soloWithAmount,
+    perPersonKr,
+    myShareKr: perPersonKr + soloKr,
   };
 }
 
@@ -604,6 +629,11 @@ export function resolveMonthlyBillsForWeek(
 
       const schedule = resolveMonthlyTaskSchedule(task, completion, monthStart);
       if (!schedule.isPlanned || !schedule.weekStart) {
+        // Personal bills stay on the month plan until a due day is chosen,
+        // so a week that only spills into next month does not pull them in.
+        if (task.paidAlone && task.dayOfMonth == null && completion?.scheduledDayOfMonth == null) {
+          continue;
+        }
         if (skipRecurringBacklog(task)) continue;
         if (!task.singleMonthStart) {
           const recurringBacklogKey = `${task.id}|${monthStart}`;

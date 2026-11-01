@@ -3705,6 +3705,23 @@ async function upsertMonthlyBillSchedule(
     if (error) return { ok: false, error: error.message };
   }
 
+  if (scheduledDayOfMonth != null) {
+    const { data: task } = await supabase
+      .from("monthly_tasks")
+      .select("paid_alone")
+      .eq("id", taskId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (task?.paid_alone) {
+      const { error } = await supabase
+        .from("monthly_tasks")
+        .update({ day_of_month: scheduledDayOfMonth })
+        .eq("id", taskId)
+        .eq("user_id", userId);
+      if (error) return { ok: false, error: error.message };
+    }
+  }
+
   revalidatePath("/", "layout");
   return { ok: true };
 }

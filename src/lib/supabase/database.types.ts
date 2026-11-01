@@ -1347,6 +1347,7 @@ export interface Database {
           default_amount_kr: number | null;
           enabled: boolean;
           is_repeatable: boolean;
+          paid_alone: boolean;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -1367,6 +1368,7 @@ export interface Database {
           default_amount_kr?: number | null;
           enabled?: boolean;
           is_repeatable?: boolean;
+          paid_alone?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1387,6 +1389,7 @@ export interface Database {
           default_amount_kr?: number | null;
           enabled?: boolean;
           is_repeatable?: boolean;
+          paid_alone?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;

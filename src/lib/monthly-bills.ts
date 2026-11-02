@@ -331,9 +331,9 @@ export function primaryMonthlyCompletion(
 }
 
 /**
- * Day-view / journal: a placed monthly task stays on its scheduled calendar
- * day even if it was logged later. Completion date is only used when there is
- * no day placement (or for one-offs, which land on the finish date).
+ * Day view and diary: a placed monthly task stays on its scheduled calendar
+ * day even if it was logged later, including a one-off. Completion date is
+ * only used when there is no day placement.
  */
 export function monthlyTaskVisibleOnLocalDate(
   task: Pick<MonthlyTask, "dayOfMonth" | "singleMonthStart">,
@@ -344,10 +344,6 @@ export function monthlyTaskVisibleOnLocalDate(
   const monthStart = monthStartFromDate(localDate);
   if (task.singleMonthStart && task.singleMonthStart !== monthStart) {
     return false;
-  }
-
-  if (task.singleMonthStart && completion?.doneAt) {
-    return localISOFromTimestamp(completion.doneAt) === localDate;
   }
 
   const schedule = resolveMonthlyTaskSchedule(
@@ -611,11 +607,9 @@ export function resolveMonthlyBillsForWeek(
           { includeWhenDone: true },
         );
         const showDate =
-          task.singleMonthStart
-            ? localISOFromTimestamp(completion.doneAt)
-            : schedule.isPlanned && schedule.dayOfMonth != null
-              ? dateInMonth(monthStart, schedule.dayOfMonth)
-              : localISOFromTimestamp(completion.doneAt);
+          schedule.isPlanned && schedule.dayOfMonth != null
+            ? dateInMonth(monthStart, schedule.dayOfMonth)
+            : localISOFromTimestamp(completion.doneAt);
         if (weekDates.has(showDate)) {
           markPlaced({
             task: taskWithCompletion,

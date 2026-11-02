@@ -992,7 +992,7 @@ function sessionsForDate<T extends { placement: { weekday: number | null } }>(
   );
 }
 
-/** Weekly tasks completed on this calendar day (one-offs use finish date). */
+/** Weekly tasks completed on this calendar day (the day they were planned). */
 function journalWeeklyTasksForDate(
   tasks: WeeklyTaskForWeek[],
   localDate: string,

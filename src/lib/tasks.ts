@@ -4,7 +4,6 @@
 import {
   addDaysISO,
   formatMonthDayLong,
-  localISOFromTimestamp,
   parseLocalISO,
 } from "@/lib/date";
 import {
@@ -965,16 +964,14 @@ export interface WeeklyTaskForWeek extends WeeklyTask {
 }
 
 /**
- * Day-view / journal: incomplete tasks stay on the planned weekday.
- * Completed one-offs land on the Stockholm calendar day they were finished.
+ * Day view and diary: a placed task stays on its planned weekday, including
+ * a finished one-off. Checking it off later does not move it.
  */
 export function weeklyTaskVisibleOnLocalDate(
   task: {
-    singleWeekStart: string | null;
     placement?: {
       weekday: number | null;
       weekStart: string;
-      doneAt: string | null;
       onHold?: boolean;
     } | null;
   },
@@ -982,9 +979,6 @@ export function weeklyTaskVisibleOnLocalDate(
 ): boolean {
   const placement = task.placement;
   if (!placement || placement.weekday == null || placement.onHold) return false;
-  if (task.singleWeekStart && placement.doneAt) {
-    return localISOFromTimestamp(placement.doneAt) === localDate;
-  }
   return addDaysISO(placement.weekStart, placement.weekday - 1) === localDate;
 }
 

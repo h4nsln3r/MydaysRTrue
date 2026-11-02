@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatMl } from "@/lib/water";
 import styles from "./WaterBottle.module.scss";
 
@@ -17,6 +17,28 @@ interface WaterBottleProps {
 
 // easeOutCubic — fast start, gentle landing. Feels natural for "filling".
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+// ViewBox y of the waterline for each whole percent (index = 0..100).
+// Sampled from the bottle silhouette's area: the base and body are wide, the
+// neck is narrow, so the same percent climbs faster near the top. 0% rests on
+// the base (y=148); 100% meets the goal line (y=18).
+const WATERLINE_Y = [
+  148, 146.3, 144.9, 143.5, 142.3, 141, 139.8, 138.6, 137.4, 136.2, 135, 133.8,
+  132.6, 131.4, 130.2, 129, 127.8, 126.6, 125.4, 124.2, 123, 121.8, 120.7, 119.5,
+  118.3, 117.1, 115.9, 114.7, 113.5, 112.3, 111.1, 109.9, 108.7, 107.5, 106.3,
+  105.1, 104, 102.8, 101.6, 100.4, 99.2, 98, 96.8, 95.6, 94.4, 93.2, 92, 90.8,
+  89.6, 88.4, 87.3, 86.1, 84.9, 83.7, 82.5, 81.3, 80.1, 78.9, 77.7, 76.5, 75.3,
+  74.1, 72.9, 71.7, 70.6, 69.4, 68.2, 67, 65.8, 64.6, 63.4, 62.2, 61, 59.8, 58.6,
+  57.4, 56.2, 55, 53.8, 52.6, 51.4, 50.2, 48.9, 47.7, 46.4, 45.1, 43.7, 42.4, 41,
+  39.5, 38, 36.4, 34.8, 33, 31.1, 29.1, 26.9, 24.7, 22.4, 20.2, 18,
+] as const;
+
+function waterlineY(progress: number): number {
+  const pct = Math.min(1, Math.max(0, progress)) * 100;
+  const i = Math.min(99, Math.floor(pct));
+  const t = pct - i;
+  return WATERLINE_Y[i] + (WATERLINE_Y[i + 1] - WATERLINE_Y[i]) * t;
+}
 
 /**
  * Animates from the previously-displayed value to the new target whenever
@@ -81,14 +103,21 @@ export function WaterBottle({
   const percent = Math.round(animatedProgress * 100);
   const remaining = Math.max(0, goalMl - Math.round(animatedTotal));
 
-  // The internal liquid surface y goes from y=82 (empty) to y=18 (full).
-  const liquidTop = 82 - animatedProgress * 64;
+  // Surface follows the bottle's volume, so the drawn water matches the %.
+  const surface = waterlineY(animatedProgress);
+  const depth = Math.max(0, 148 - surface);
+  // A fixed ripple would make a shallow fill look fuller than it is.
+  const wave = Math.min(4.2, depth * 0.11);
+  const liquidTop = surface + wave * 0.15;
+  const showBubbles = depth > 24;
+  const bubbleTravel = Math.min(54, depth * 0.62);
 
   const isFull = clamped >= 1;
 
   return (
     <div
       className={[styles.wrap, isFull ? styles.full : ""].join(" ")}
+      style={{ "--bubble-rise": `-${bubbleTravel}px` } as CSSProperties}
       aria-label={`Water progress: ${Math.round(clamped * 100)}%`}
       role="progressbar"
       aria-valuemin={0}
@@ -130,18 +159,40 @@ export function WaterBottle({
           {/* Wavy surface — two layered waves moving in opposite directions */}
           <path
             className={styles.waveBack}
-            d={`M-20 ${liquidTop} Q10 ${liquidTop - 4}, 40 ${liquidTop} T100 ${liquidTop} T160 ${liquidTop} V160 H-20 Z`}
+            d={`M-20 ${liquidTop} Q10 ${liquidTop - wave}, 40 ${liquidTop} T100 ${liquidTop} T160 ${liquidTop} V160 H-20 Z`}
             fill="rgba(255,255,255,0.18)"
           />
           <path
             className={styles.waveFront}
-            d={`M-20 ${liquidTop + 1} Q10 ${liquidTop - 5}, 40 ${liquidTop + 1} T100 ${liquidTop + 1} T160 ${liquidTop + 1} V160 H-20 Z`}
+            d={`M-20 ${liquidTop + 0.6} Q10 ${liquidTop - wave * 1.15}, 40 ${liquidTop + 0.6} T100 ${liquidTop + 0.6} T160 ${liquidTop + 0.6} V160 H-20 Z`}
             fill="rgba(255,255,255,0.32)"
           />
-          {/* Bubbles */}
-          <circle className={styles.bubble1} cx="50" cy="120" r="3" fill="rgba(255,255,255,0.7)" />
-          <circle className={styles.bubble2} cx="70" cy="140" r="2" fill="rgba(255,255,255,0.6)" />
-          <circle className={styles.bubble3} cx="60" cy="100" r="2.5" fill="rgba(255,255,255,0.55)" />
+          {/* Bubbles stay inside the water and fade as they reach the surface. */}
+          {showBubbles ? (
+            <>
+              <circle
+                className={styles.bubble1}
+                cx="52"
+                cy={surface + bubbleTravel * 0.95}
+                r="3"
+                fill="rgba(255,255,255,0.7)"
+              />
+              <circle
+                className={styles.bubble2}
+                cx="70"
+                cy={Math.min(144, surface + bubbleTravel * 1.55)}
+                r="2"
+                fill="rgba(255,255,255,0.6)"
+              />
+              <circle
+                className={styles.bubble3}
+                cx="61"
+                cy={surface + bubbleTravel * 1.2}
+                r="2.5"
+                fill="rgba(255,255,255,0.55)"
+              />
+            </>
+          ) : null}
         </g>
 
         {/* Cap */}

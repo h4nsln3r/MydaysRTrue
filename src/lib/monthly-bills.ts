@@ -6,13 +6,16 @@ import {
   weekStartISO,
 } from "@/lib/date";
 import { FINANCE_EKONOMI_TASK_KEY, formatKr, monthPlanEkonomiHref } from "@/lib/monthly-finance";
-import type {
-  MonthlyCompletion,
-  MonthlyTask,
-  MonthlyTaskForMonth,
-  TaskCategory,
+import {
+  isKlarnaBill,
+  isMonthlyTaskRepeatable,
+  klarnaPurchaseSummary,
+  monthlyTaskCompletions,
+  type MonthlyCompletion,
+  type MonthlyTask,
+  type MonthlyTaskForMonth,
+  type TaskCategory,
 } from "@/lib/tasks";
-import { isMonthlyTaskRepeatable, monthlyTaskCompletions } from "@/lib/tasks";
 
 export const BILLS_CATEGORY_NAME = "Räkningar";
 export const FINANCE_CATEGORY_NAME = "Ekonomi";
@@ -140,7 +143,19 @@ export function effectiveBillAmountKr(task: MonthlyTaskForMonth): number | null 
 
 export function formatBillAmountKr(task: MonthlyTaskForMonth): string | null {
   const amount = effectiveBillAmountKr(task);
-  return amount != null ? formatKr(amount) : null;
+  if (amount == null) return null;
+  if (isKlarnaBill(task) && amount === 0) return "0 kr · inget handlat";
+  return formatKr(amount);
+}
+
+/** Amount plus the Klarna purchase list, for week cards and similar one-liners. */
+export function formatBillSubtitle(task: MonthlyTaskForMonth): string | null {
+  const amount = formatBillAmountKr(task);
+  const purchases = isKlarnaBill(task)
+    ? klarnaPurchaseSummary(task.completion?.note)
+    : null;
+  if (amount && purchases) return `${amount} · ${purchases}`;
+  return amount;
 }
 
 export interface MonthlyBillsTotal {

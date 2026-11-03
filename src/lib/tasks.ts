@@ -1194,6 +1194,32 @@ export function formatFestOccasionWhen(
   return "Fest · inte placerad på en dag";
 }
 
+/** Private Klarna bill. The month total is whatever was bought, or 0. */
+export const KLARNA_BILL_KEY = "bill_klarna";
+export const KLARNA_NOTHING_BOUGHT = "Inget handlat";
+export const KLARNA_NOTE_MAX = 2000;
+
+export function isKlarnaBill(task: Pick<MonthlyTask, "key">): boolean {
+  return task.key === KLARNA_BILL_KEY;
+}
+
+/**
+ * One-line summary of the Klarna purchase list.
+ * The stored "Inget handlat" line is not a purchase, so it returns null.
+ */
+export function klarnaPurchaseSummary(
+  note: string | null | undefined,
+): string | null {
+  const text = note?.trim() ?? "";
+  if (!text) return null;
+  const lines = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => line.toLowerCase() !== KLARNA_NOTHING_BOUGHT.toLowerCase());
+  return lines.length > 0 ? lines.join(" · ") : null;
+}
+
 export function formatMonthlyTaskDetail(
   task: Pick<MonthlyTask, "completionKind" | "key">,
   completion: MonthlyCompletion | null,
@@ -1206,7 +1232,7 @@ export function formatMonthlyTaskDetail(
 
   // Amount tasks, bills with a saved cost, and savings transfers.
   if (task.completionKind === "amount" || hasAmount) {
-    if (!hasAmount && !note) return null;
+    if (!hasAmount && !note && task.key !== KLARNA_BILL_KEY) return null;
     const parts: string[] = [];
     if (hasAmount) {
       const amountLabel = `${Math.round(completion.amount!).toLocaleString("sv-SE")} kr`;
@@ -1215,7 +1241,13 @@ export function formatMonthlyTaskDetail(
         transferTarget ? `${amountLabel} → ${transferTarget}` : amountLabel,
       );
     }
-    if (note) parts.push(note);
+    if (task.key === KLARNA_BILL_KEY) {
+      const purchases = klarnaPurchaseSummary(note);
+      if (purchases) parts.push(purchases);
+      else if (hasAmount && completion.amount === 0) parts.push(KLARNA_NOTHING_BOUGHT);
+    } else if (note) {
+      parts.push(note);
+    }
     return parts.length > 0 ? parts.join(" · ") : null;
   }
 

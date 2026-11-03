@@ -13,8 +13,13 @@ import { saveMobileGamesDailyLogAction } from "@/app/(app)/mobile-games-actions"
 import { saveSmokeFreeDailyLogAction } from "@/app/(app)/smoke-free-actions";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
-import { MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
-import { parseFoodDrink, parseFoodRating } from "@/lib/meal-log";
+import { FoodMacroFields, MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
+import {
+  foodMacroInput,
+  parseFoodDrink,
+  parseFoodMacros,
+  parseFoodRating,
+} from "@/lib/meal-log";
 import { formatDayShort, formatWeekdayShort } from "@/lib/date";
 import {
   MEAL_ICON,
@@ -369,6 +374,8 @@ export function WeekSnackLogDialog({
   const [rating, setRating] = useState(
     initial?.rating != null ? String(initial.rating) : "",
   );
+  const [calories, setCalories] = useState(foodMacroInput(initial?.calories));
+  const [protein, setProtein] = useState(foodMacroInput(initial?.proteinG));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -376,6 +383,8 @@ export function WeekSnackLogDialog({
     setWaterMl(initial?.waterMl ? String(initial.waterMl) : "");
     setDrinkNote(initial?.drinkNote ?? "");
     setRating(initial?.rating != null ? String(initial.rating) : "");
+    setCalories(foodMacroInput(initial?.calories));
+    setProtein(foodMacroInput(initial?.proteinG));
     setError(null);
   }, [initial, date, slot]);
 
@@ -392,6 +401,11 @@ export function WeekSnackLogDialog({
       setError(foodRating.error);
       return;
     }
+    const macros = parseFoodMacros(calories, protein);
+    if (!macros.ok) {
+      setError(macros.error);
+      return;
+    }
     startTransition(async () => {
       const res = await saveSnackAction({
         localDate: date,
@@ -400,6 +414,8 @@ export function WeekSnackLogDialog({
         waterMl: drink.waterMl,
         drinkNote: drink.drinkNote,
         rating: foodRating.rating,
+        calories: macros.calories,
+        proteinG: macros.proteinG,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
@@ -439,11 +455,15 @@ export function WeekSnackLogDialog({
           waterMl={waterMl}
           drinkNote={drinkNote}
           rating={rating}
+          calories={calories}
+          protein={protein}
           disabled={pending}
           resetKey={`${date}:snack:${slot}:${initial?.id ?? "new"}`}
           onWaterMl={setWaterMl}
           onDrinkNote={setDrinkNote}
           onRating={setRating}
+          onCalories={setCalories}
+          onProtein={setProtein}
         />
         <Button
           type="submit"
@@ -475,9 +495,12 @@ function IntakeKindForm({
   const [pending, startTransition] = useTransition();
   const [description, setDescription] = useState("");
   const [waterMl, setWaterMl] = useState("");
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
   const [error, setError] = useState<string | null>(null);
   const hasWater = INTAKE_HAS_WATER[kind];
   const requiresDescription = INTAKE_REQUIRES_DESCRIPTION[kind];
+  const isShake = kind === "shake";
 
   const save = () => {
     if (pending) return;
@@ -489,6 +512,13 @@ function IntakeKindForm({
         return;
       }
     }
+    const macros = isShake
+      ? parseFoodMacros(calories, protein)
+      : { ok: true as const, calories: null, proteinG: null };
+    if (!macros.ok) {
+      setError(macros.error);
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const res = await saveIntakeAction({
@@ -496,6 +526,8 @@ function IntakeKindForm({
         localDate: date,
         description,
         waterMl: hasWater ? Math.round(parsedWater) : 0,
+        calories: macros.calories,
+        proteinG: macros.proteinG,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
@@ -552,6 +584,16 @@ function IntakeKindForm({
               placeholder="0"
               suffix="ml"
               disabled={pending}
+            />
+          ) : null}
+          {isShake ? (
+            <FoodMacroFields
+              calories={calories}
+              protein={protein}
+              disabled={pending}
+              resetKey={`${date}:shake:new`}
+              onCalories={setCalories}
+              onProtein={setProtein}
             />
           ) : null}
           <Button

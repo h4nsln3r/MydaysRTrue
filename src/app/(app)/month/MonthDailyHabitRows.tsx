@@ -45,7 +45,7 @@ import {
   type IntakeKind,
 } from "@/lib/intake";
 import type { MealBoxStockItem, WeekMealDay } from "@/lib/meal-box.server";
-import { foodDrinkSummary, foodRatingLabel } from "@/lib/meal-log";
+import { foodDrinkSummary, foodMacroLabel, foodRatingLabel } from "@/lib/meal-log";
 import type { DailyMediaContext } from "@/lib/media";
 import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
 import { SMOKE_FREE_SUBSTANCES } from "@/lib/smoke-free";
@@ -561,6 +561,8 @@ function formatMealHover(label: string, entry: MealEntry | null, isFuture: boole
   if (drink) bits.push(drink);
   const ratingLabel = foodRatingLabel(entry.rating);
   if (ratingLabel) bits.push(ratingLabel);
+  const macroLabel = foodMacroLabel(entry.calories, entry.proteinG);
+  if (macroLabel) bits.push(macroLabel);
   return `${label}: ${bits.join(" · ")}`;
 }
 
@@ -576,6 +578,8 @@ function formatSnackHover(
   if (drink) bits.push(drink);
   const ratingLabel = foodRatingLabel(entry.rating);
   if (ratingLabel) bits.push(ratingLabel);
+  const macroLabel = foodMacroLabel(entry.calories, entry.proteinG);
+  if (macroLabel) bits.push(macroLabel);
   return `${SNACK_LABEL[slot]}: ${bits.join(" · ")}`;
 }
 

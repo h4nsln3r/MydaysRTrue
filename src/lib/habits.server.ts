@@ -349,7 +349,7 @@ export async function getDailySnacks(
   const supabase = await createClient();
   const { data } = await supabase
     .from("snack_checks")
-    .select("slot, description, water_log_id, drink_note, rating")
+    .select("slot, description, water_log_id, drink_note, rating, calories, protein_g")
     .eq("user_id", userId)
     .eq("local_date", localDate);
 
@@ -377,6 +377,8 @@ export async function getDailySnacks(
         waterLogId: r.water_log_id,
         drinkNote: r.drink_note,
         rating: r.rating,
+        calories: r.calories,
+        proteinG: r.protein_g,
       };
     }
   }
@@ -777,7 +779,7 @@ export async function getDailyMeals(
   const { data: rows } = await supabase
     .from("meal_entries")
     .select(
-      "id, meal, description, water_log_id, drink_note, rating, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
+      "id, meal, description, water_log_id, drink_note, rating, calories, protein_g, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
     )
     .eq("user_id", userId)
     .eq("local_date", localDate);
@@ -810,6 +812,8 @@ export async function getDailyMeals(
       waterLogId: r.water_log_id,
       drinkNote: r.drink_note,
       rating: r.rating,
+      calories: r.calories,
+      proteinG: r.protein_g,
       cookedBy: (r.cooked_by as MealEntry["cookedBy"]) ?? null,
       restaurantId: r.restaurant_id,
       restaurantName: restaurant?.name ?? null,

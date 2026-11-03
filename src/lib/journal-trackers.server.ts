@@ -51,6 +51,8 @@ export interface JournalDailyTrackers {
     waterMl: number;
     drinkNote: string | null;
     rating: number | null;
+    calories: number | null;
+    proteinG: number | null;
     cookedBy: MealCookedBy | null;
     restaurantName: string | null;
     cookedByName: string | null;
@@ -63,12 +65,16 @@ export interface JournalDailyTrackers {
     waterMl: number;
     drinkNote: string | null;
     rating: number | null;
+    calories: number | null;
+    proteinG: number | null;
     loggedAt: string;
   }[];
   intake: {
     id: string;
     kind: IntakeKind;
     description: string;
+    calories: number | null;
+    proteinG: number | null;
     loggedAt: string;
   }[];
   waterLogs: {
@@ -169,19 +175,19 @@ export async function getJournalTrackersForWeek(
   ] = await Promise.all([
     supabase
       .from("meal_entries")
-      .select("id, local_date, meal, description, water_log_id, drink_note, rating, cooked_by, meal_boxes, cooked_by_name, restaurant_id, meal_restaurants(name), created_at")
+      .select("id, local_date, meal, description, water_log_id, drink_note, rating, calories, protein_g, cooked_by, meal_boxes, cooked_by_name, restaurant_id, meal_restaurants(name), created_at")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
     supabase
       .from("snack_checks")
-      .select("local_date, slot, description, water_log_id, drink_note, rating, done_at")
+      .select("local_date, slot, description, water_log_id, drink_note, rating, calories, protein_g, done_at")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
     supabase
       .from("intake_entries")
-      .select("id, local_date, kind, description, water_log_id, created_at")
+      .select("id, local_date, kind, description, water_log_id, calories, protein_g, created_at")
       .eq("user_id", userId)
       .gte("local_date", weekStart)
       .lte("local_date", weekEnd),
@@ -284,6 +290,8 @@ export async function getJournalTrackersForWeek(
       waterMl: row.water_log_id ? waterMap.get(row.water_log_id) ?? 0 : 0,
       drinkNote: row.drink_note,
       rating: row.rating,
+      calories: row.calories,
+      proteinG: row.protein_g,
       cookedBy: (row.cooked_by as MealCookedBy | null) ?? null,
       restaurantName: restaurant?.name ?? null,
       cookedByName: row.cooked_by_name,
@@ -301,6 +309,8 @@ export async function getJournalTrackersForWeek(
       waterMl: row.water_log_id ? waterMap.get(row.water_log_id) ?? 0 : 0,
       drinkNote: row.drink_note,
       rating: row.rating,
+      calories: row.calories,
+      proteinG: row.protein_g,
       loggedAt: row.done_at,
     });
   }
@@ -314,6 +324,8 @@ export async function getJournalTrackersForWeek(
       id: row.id,
       kind,
       description: row.description ?? "",
+      calories: row.calories,
+      proteinG: row.protein_g,
       loggedAt: row.created_at,
     });
   }

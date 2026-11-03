@@ -6,7 +6,9 @@ import { formatHabitPoints, habitStatusPoints } from "@/lib/habits";
 import type { MonthDay, MonthSummary } from "@/lib/habits.server";
 import {
   formatMonthlyTaskDetail,
+  isKlarnaBill,
   isMonthlyTaskRepeatable,
+  klarnaPurchaseSummary,
   monthlyTaskCompletions,
   type MonthlyTaskForMonth,
   type TaskCategory,
@@ -547,6 +549,9 @@ function MonthlyTaskCard({
   const billAmountLabel = formatBillAmountKr(task);
   const amountDetail = formatMonthlyTaskDetail(task, task.completion);
   const isBill = isMonthlyBill(task, categories);
+  const purchaseSummary = isKlarnaBill(task)
+    ? klarnaPurchaseSummary(task.completion?.note)
+    : null;
   const isFuture = scheduledDate ? scheduledDate > today : false;
   const isToday = scheduledDate === today;
   const planHref = `/month?m=${monthStart.slice(0, 7)}&view=plan`;
@@ -621,7 +626,11 @@ function MonthlyTaskCard({
           ) : (
             <p className={styles.monthlyCardDetail}>Planerad vecka (ingen specifik dag)</p>
           )}
-          {status === "done" && (amountDetail || task.completion?.note) ? (
+          {status === "done" && purchaseSummary ? (
+            <p className={styles.monthlyCardHint}>{purchaseSummary}</p>
+          ) : status === "done" &&
+            !isKlarnaBill(task) &&
+            (amountDetail || task.completion?.note) ? (
             <p className={styles.monthlyCardHint}>
               {amountDetail ?? task.completion?.note}
             </p>

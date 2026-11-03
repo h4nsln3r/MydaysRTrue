@@ -13,6 +13,7 @@ import {
   type MealRestaurant,
 } from "@/lib/habits";
 import type { WeekMealsSummary } from "@/lib/meal-box.server";
+import { dayFoodTotals, foodMacroLabel } from "@/lib/meal-log";
 import { formatDayShort, isoWeekdayFromLocalISO } from "@/lib/date";
 import { WEEKDAY_SHORT, type Weekday } from "@/lib/tasks";
 import { WeekMealLogDialog } from "./WeekMealLogDialog";
@@ -115,6 +116,7 @@ export function WeekMealsBoard({ summary, savedRestaurants = [] }: Props) {
               </th>
               {summary.days.map((day) => {
                 const wd = isoWeekdayFromLocalISO(day.date) as Weekday;
+                const nutrition = dayFoodTotals(day.meals, day.snacks);
                 return (
                   <th
                     key={day.date}
@@ -129,6 +131,18 @@ export function WeekMealsBoard({ summary, savedRestaurants = [] }: Props) {
                   >
                     <span className={styles.dayWeekday}>{WEEKDAY_SHORT[wd]}</span>
                     <span className={styles.dayDate}>{formatDayShort(day.date)}</span>
+                    {nutrition ? (
+                      <span
+                        className={styles.dayMacros}
+                        title={
+                          nutrition.missing > 0
+                            ? `${nutrition.label}. Saknas på ${nutrition.missing} ${nutrition.missing === 1 ? "måltid" : "måltider"}.`
+                            : "Frukost, lunch, middag och mellanmål"
+                        }
+                      >
+                        {nutrition.compact}
+                      </span>
+                    ) : null}
                     {day.boxesProduced > 0 ? (
                       <span className={styles.dayBoxesMade}>
                         +{day.boxesProduced} matlåd{day.boxesProduced === 1 ? "a" : "or"}
@@ -267,6 +281,7 @@ function MealCell({
     entry.restaurantName,
     entry.cookedByName,
   );
+  const macroLabel = foodMacroLabel(entry.calories, entry.proteinG, "compact");
 
   return (
     <div className={styles.mealCell}>
@@ -285,6 +300,7 @@ function MealCell({
         {cookedLabel ? (
           <span className={styles.cookedBy}>{cookedLabel}</span>
         ) : null}
+        {macroLabel ? <span className={styles.cookedBy}>{macroLabel}</span> : null}
       </div>
     </div>
   );

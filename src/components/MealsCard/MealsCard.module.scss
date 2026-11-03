@@ -35,6 +35,17 @@
     font-size: 0.82rem;
 }
 
+.nutritionLine {
+    margin: 2px 0 0;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    color: $color-cream;
+}
+
+.nutritionMissing {
+    color: $color-fog;
+}
+
 .counter {
     display: inline-flex;
     align-items: baseline;
@@ -258,6 +269,20 @@ button.row {
     -webkit-line-clamp: 1;
     line-clamp: 1;
     -webkit-box-orient: vertical;
+}
+
+.macroBadge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: $radius-pill;
+    background: rgba(110, 231, 163, 0.1);
+    border: 1px solid rgba(110, 231, 163, 0.45);
+    color: $color-success;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
 }
 
 .ratingBadge {

@@ -24,7 +24,15 @@ import {
 } from "@/lib/habits";
 import { MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
 import { MealForm } from "./MealForm";
-import { foodRatingLabel, parseFoodDrink, parseFoodRating } from "@/lib/meal-log";
+import {
+  dayFoodTotals,
+  foodMacroInput,
+  foodMacroLabel,
+  foodRatingLabel,
+  parseFoodDrink,
+  parseFoodMacros,
+  parseFoodRating,
+} from "@/lib/meal-log";
 import { formatMl } from "@/lib/water";
 import {
   clearMealAction,
@@ -93,6 +101,10 @@ export function MealsCard({
   const totalSlots =
     (showMeals ? MEAL_ORDER.length : 0) + (showSnacks ? SNACK_SLOTS.length : 0);
   const logged = mealsLogged + snacksLogged;
+  const nutrition = dayFoodTotals(
+    showMeals ? meals : { breakfast: null, lunch: null, dinner: null },
+    showSnacks ? snacks : { 1: null, 2: null },
+  );
   const title =
     showMeals && showSnacks
       ? "Måltider"
@@ -125,6 +137,18 @@ export function MealsCard({
               ? "Tryck på varje måltid och skriv vad du åt."
               : "Logga mellanmål med vad de innehöll."}
         </p>
+        {nutrition ? (
+          <p className={styles.nutritionLine}>
+            <span>{nutrition.label}</span>
+            {nutrition.missing > 0 ? (
+              <span className={styles.nutritionMissing}>
+                {" "}
+                · saknas på {nutrition.missing}{" "}
+                {nutrition.missing === 1 ? "måltid" : "måltider"}
+              </span>
+            ) : null}
+          </p>
+        ) : null}
       </header>
 
       <ul className={styles.list}>
@@ -154,6 +178,8 @@ export function MealsCard({
                       waterMl={entry.waterMl}
                       drinkNote={entry.drinkNote}
                       rating={entry.rating}
+                      calories={entry.calories}
+                      proteinG={entry.proteinG}
                       cookedBy={entry.cookedBy}
                       restaurantName={entry.restaurantName}
                       cookedByName={entry.cookedByName}
@@ -213,6 +239,8 @@ export function MealsCard({
                       waterMl={entry.waterMl}
                       drinkNote={entry.drinkNote}
                       rating={entry.rating}
+                      calories={entry.calories}
+                      proteinG={entry.proteinG}
                       pending={pending}
                       onEdit={() => setEditing(editKey)}
                       onClear={() => clearSnack(slot)}
@@ -248,6 +276,8 @@ interface LoggedRowProps {
   waterMl?: number;
   drinkNote?: string | null;
   rating?: number | null;
+  calories?: number | null;
+  proteinG?: number | null;
   cookedBy?: MealCookedBy | null;
   restaurantName?: string | null;
   cookedByName?: string | null;
@@ -270,6 +300,8 @@ function LoggedRow({
   waterMl = 0,
   drinkNote = null,
   rating = null,
+  calories = null,
+  proteinG = null,
   cookedBy = null,
   restaurantName = null,
   cookedByName = null,
@@ -284,6 +316,7 @@ function LoggedRow({
   editLabel,
   clearLabel,
 }: LoggedRowProps) {
+  const macroLabel = foodMacroLabel(calories, proteinG, "compact");
   return (
     <div className={[styles.row, styles.rowDone].join(" ")}>
       <button
@@ -317,6 +350,8 @@ function LoggedRow({
         waterMl > 0 ||
         drinkNote ||
         rating != null ||
+        calories != null ||
+        proteinG != null ||
         fromMealBox ||
         (mealBoxes != null && mealBoxes > 0) ? (
           <span className={styles.metaBadges}>
@@ -365,6 +400,9 @@ function LoggedRow({
             ) : null}
             {rating != null ? (
               <span className={styles.ratingBadge}>{foodRatingLabel(rating)}</span>
+            ) : null}
+            {macroLabel ? (
+              <span className={styles.macroBadge}>{macroLabel}</span>
             ) : null}
           </span>
         ) : null}
@@ -459,6 +497,8 @@ function SnackForm({ slot, date, initial, onCancel, onSaved }: SnackFormProps) {
   const [rating, setRating] = useState(
     initial?.rating != null ? String(initial.rating) : "",
   );
+  const [calories, setCalories] = useState(foodMacroInput(initial?.calories));
+  const [protein, setProtein] = useState(foodMacroInput(initial?.proteinG));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -475,6 +515,11 @@ function SnackForm({ slot, date, initial, onCancel, onSaved }: SnackFormProps) {
       setError(foodRating.error);
       return;
     }
+    const macros = parseFoodMacros(calories, protein);
+    if (!macros.ok) {
+      setError(macros.error);
+      return;
+    }
 
     startTransition(async () => {
       const res = await saveSnackAction({
@@ -484,6 +529,8 @@ function SnackForm({ slot, date, initial, onCancel, onSaved }: SnackFormProps) {
         waterMl: drink.waterMl,
         drinkNote: drink.drinkNote,
         rating: foodRating.rating,
+        calories: macros.calories,
+        proteinG: macros.proteinG,
       });
       if (!res.ok) {
         setError(res.error ?? "Kunde inte spara.");
@@ -527,11 +574,15 @@ function SnackForm({ slot, date, initial, onCancel, onSaved }: SnackFormProps) {
         waterMl={waterMl}
         drinkNote={drinkNote}
         rating={rating}
+        calories={calories}
+        protein={protein}
         disabled={pending}
         resetKey={`${date}:snack:${slot}:${initial?.id ?? "new"}`}
         onWaterMl={setWaterMl}
         onDrinkNote={setDrinkNote}
         onRating={setRating}
+        onCalories={setCalories}
+        onProtein={setProtein}
       />
 
       {error ? <p className={styles.error}>{error}</p> : null}

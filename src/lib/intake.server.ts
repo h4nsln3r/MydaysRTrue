@@ -21,7 +21,7 @@ export async function getDailyIntake(
 
   const { data: rows } = await supabase
     .from("intake_entries")
-    .select("id, kind, description, water_log_id")
+    .select("id, kind, description, water_log_id, calories, protein_g")
     .eq("user_id", userId)
     .eq("local_date", localDate);
 
@@ -51,6 +51,8 @@ export async function getDailyIntake(
       description: r.description,
       waterMl: r.water_log_id ? waterMap.get(r.water_log_id) ?? 0 : 0,
       waterLogId: r.water_log_id,
+      calories: r.calories,
+      proteinG: r.protein_g,
     };
   }
 

@@ -18,7 +18,12 @@ import {
   validateMealCookingMeta,
 } from "@/components/MealCookingMeta/MealCookingMetaFields";
 import { MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
-import { parseFoodDrink, parseFoodRating } from "@/lib/meal-log";
+import {
+  foodMacroInput,
+  parseFoodDrink,
+  parseFoodMacros,
+  parseFoodRating,
+} from "@/lib/meal-log";
 import { saveMealAction } from "@/app/(app)/actions";
 import styles from "./MealsCard.module.scss";
 
@@ -49,6 +54,8 @@ export function MealForm({
   const [rating, setRating] = useState(
     initial?.rating != null ? String(initial.rating) : "",
   );
+  const [calories, setCalories] = useState(foodMacroInput(initial?.calories));
+  const [protein, setProtein] = useState(foodMacroInput(initial?.proteinG));
   const [cookingMeta, setCookingMeta] = useState(() =>
     initialMealCookingMeta(initial),
   );
@@ -70,6 +77,11 @@ export function MealForm({
     const foodRating = parseFoodRating(rating);
     if (!foodRating.ok) {
       setError(foodRating.error);
+      return;
+    }
+    const macros = parseFoodMacros(calories, protein);
+    if (!macros.ok) {
+      setError(macros.error);
       return;
     }
 
@@ -104,6 +116,8 @@ export function MealForm({
         waterMl: drink.waterMl,
         drinkNote: drink.drinkNote,
         rating: foodRating.rating,
+        calories: macros.calories,
+        proteinG: macros.proteinG,
         cookedBy: showCookingMeta ? cookingMeta.cookedBy : null,
         mealBoxes: cookingResult.mealBoxes,
         mealBoxStockId: cookingResult.mealBoxStockId,
@@ -180,11 +194,15 @@ export function MealForm({
         waterMl={waterMl}
         drinkNote={drinkNote}
         rating={rating}
+        calories={calories}
+        protein={protein}
         disabled={pending}
         resetKey={`${date}:${meal}:${initial?.id ?? "new"}`}
         onWaterMl={setWaterMl}
         onDrinkNote={setDrinkNote}
         onRating={setRating}
+        onCalories={setCalories}
+        onProtein={setProtein}
       />
 
       {error ? <p className={styles.error}>{error}</p> : null}

@@ -77,9 +77,13 @@ export interface IntakeEntry {
   id: string;
   kind: IntakeKind;
   description: string;
-  /** Water-only kinds (currently `creatine`). 0 if no water logged. */
+  /** Water-only kinds (currently `creatine` and `shake`). 0 if no water logged. */
   waterMl: number;
   waterLogId: string | null;
+  /** Shake only. Null when the field was left empty. */
+  calories: number | null;
+  /** Shake only, in grams. Null when the field was left empty. */
+  proteinG: number | null;
 }
 
 /** True if the given YYYY-MM-DD falls on Saturday/Sunday. */

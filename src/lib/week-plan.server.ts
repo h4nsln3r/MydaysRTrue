@@ -10,7 +10,7 @@ import { getWeekSummary, getMonthlyBillsForWeek } from "@/lib/tasks.server";
 import { getWeightWeekPlan } from "@/lib/weight.server";
 import { getGorShakeWeekPlan } from "@/lib/habits.server";
 import { todayLocalISO } from "@/lib/date";
-import { formatBillAmountKr, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
+import { formatBillAmountKr, formatBillSubtitle, resolveMonthlyBillsForWeek, isMonthlyTaskComplete } from "@/lib/monthly-bills";
 import {
   CARPAY_TASK_KEY,
   SALARY_TASK_KEY,
@@ -621,7 +621,7 @@ export async function getUnifiedWeekPlan(
           : slot.task.completionKind === "amount"
             ? formatMonthlyTaskDetail(slot.task, completion) ??
               formatBillAmountKr({ ...taskForAmount, completion })
-            : formatBillAmountKr({ ...taskForAmount, completion }) ??
+            : formatBillSubtitle({ ...taskForAmount, completion }) ??
               (slot.task.paidAlone ? "Bara du betalar" : slot.task.notes),
       icon: slot.task.icon,
       accent: slot.task.accent,

@@ -18,6 +18,8 @@ import {
   type IntakeKind,
 } from "@/lib/intake";
 import { formatMl } from "@/lib/water";
+import { FoodMacroFields } from "@/components/MealLogExtras/MealLogExtras";
+import { foodMacroInput, foodMacroLabel, parseFoodMacros } from "@/lib/meal-log";
 import {
   clearIntakeAction,
   saveIntakeAction,
@@ -137,6 +139,10 @@ export function IntakeCard({ date, intake }: Props) {
                         {entry.description || (
                           <span className={styles.descriptionMuted}>Done</span>
                         )}
+                        {kind === "shake" &&
+                        foodMacroLabel(entry.calories, entry.proteinG)
+                          ? ` · ${foodMacroLabel(entry.calories, entry.proteinG)}`
+                          : null}
                       </span>
                     </span>
                     {entry.waterMl > 0 ? (
@@ -233,6 +239,8 @@ function IntakeForm({ kind, date, initial, onCancel, onSaved }: IntakeFormProps)
   const [waterMl, setWaterMl] = useState<string>(
     initial?.waterMl ? String(initial.waterMl) : "",
   );
+  const [calories, setCalories] = useState(foodMacroInput(initial?.calories));
+  const [protein, setProtein] = useState(foodMacroInput(initial?.proteinG));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -248,6 +256,14 @@ function IntakeForm({ kind, date, initial, onCancel, onSaved }: IntakeFormProps)
         return;
       }
     }
+    const macros =
+      kind === "shake"
+        ? parseFoodMacros(calories, protein)
+        : { ok: true as const, calories: null, proteinG: null };
+    if (!macros.ok) {
+      setError(macros.error);
+      return;
+    }
 
     startTransition(async () => {
       const res = await saveIntakeAction({
@@ -255,6 +271,8 @@ function IntakeForm({ kind, date, initial, onCancel, onSaved }: IntakeFormProps)
         localDate: date,
         description,
         waterMl: hasWater ? Math.round(parsedWater) : 0,
+        calories: macros.calories,
+        proteinG: macros.proteinG,
       });
       if (!res.ok) {
         setError(res.error ?? "Could not save.");
@@ -335,6 +353,17 @@ function IntakeForm({ kind, date, initial, onCancel, onSaved }: IntakeFormProps)
           </div>
           <p className={styles.hint}>Added to your water log automatically.</p>
         </div>
+      ) : null}
+
+      {kind === "shake" ? (
+        <FoodMacroFields
+          calories={calories}
+          protein={protein}
+          disabled={pending}
+          resetKey={`${date}:shake:${initial?.id ?? "new"}`}
+          onCalories={setCalories}
+          onProtein={setProtein}
+        />
       ) : null}
 
       {error ? <p className={styles.error}>{error}</p> : null}

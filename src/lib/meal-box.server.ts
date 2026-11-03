@@ -396,7 +396,7 @@ export async function getMealsInRange(
     supabase
       .from("meal_entries")
       .select(
-        "id, local_date, meal, description, water_log_id, drink_note, rating, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
+        "id, local_date, meal, description, water_log_id, drink_note, rating, calories, protein_g, cooked_by, meal_boxes, restaurant_id, cooked_by_name, from_meal_box, meal_box_stock_id, meal_restaurants(name)",
       )
       .eq("user_id", userId)
       .gte("local_date", startISO)
@@ -404,7 +404,7 @@ export async function getMealsInRange(
       .order("local_date", { ascending: true }),
     supabase
       .from("snack_checks")
-      .select("local_date, slot, description, water_log_id, drink_note, rating")
+      .select("local_date, slot, description, water_log_id, drink_note, rating, calories, protein_g")
       .eq("user_id", userId)
       .gte("local_date", startISO)
       .lte("local_date", endISO),
@@ -438,6 +438,8 @@ export async function getMealsInRange(
       waterLogId: r.water_log_id,
       drinkNote: r.drink_note,
       rating: r.rating,
+      calories: r.calories,
+      proteinG: r.protein_g,
       cookedBy: (r.cooked_by as MealEntry["cookedBy"]) ?? null,
       restaurantId: r.restaurant_id,
       restaurantName: restaurant?.name ?? null,
@@ -470,6 +472,8 @@ export async function getMealsInRange(
       waterLogId: r.water_log_id,
       drinkNote: r.drink_note,
       rating: r.rating,
+      calories: r.calories,
+      proteinG: r.protein_g,
     };
     snacksByDate.set(r.local_date, snacks);
   }

@@ -15,23 +15,31 @@ interface MealLogExtrasProps {
   waterMl: string;
   drinkNote: string;
   rating: string;
+  calories: string;
+  protein: string;
   disabled?: boolean;
   /** Remount-style reset when the logged meal or day changes. */
   resetKey: string;
   onWaterMl: (value: string) => void;
   onDrinkNote: (value: string) => void;
   onRating: (value: string) => void;
+  onCalories: (value: string) => void;
+  onProtein: (value: string) => void;
 }
 
 export function MealLogExtras({
   waterMl,
   drinkNote,
   rating,
+  calories,
+  protein,
   disabled = false,
   resetKey,
   onWaterMl,
   onDrinkNote,
   onRating,
+  onCalories,
+  onProtein,
 }: MealLogExtrasProps) {
   const [drinkOpen, setDrinkOpen] = useState(
     () => waterMl.trim() !== "" || drinkNote.trim() !== "",
@@ -152,6 +160,94 @@ export function MealLogExtras({
           </div>
         ) : null}
       </section>
+
+      <FoodMacroFields
+        calories={calories}
+        protein={protein}
+        disabled={disabled}
+        resetKey={resetKey}
+        onCalories={onCalories}
+        onProtein={onProtein}
+      />
     </div>
+  );
+}
+
+interface FoodMacroFieldsProps {
+  calories: string;
+  protein: string;
+  disabled?: boolean;
+  resetKey: string;
+  onCalories: (value: string) => void;
+  onProtein: (value: string) => void;
+}
+
+/** Optional calories and protein. Either field, both, or neither may be filled in. */
+export function FoodMacroFields({
+  calories,
+  protein,
+  disabled = false,
+  resetKey,
+  onCalories,
+  onProtein,
+}: FoodMacroFieldsProps) {
+  const [open, setOpen] = useState(
+    () => calories.trim() !== "" || protein.trim() !== "",
+  );
+
+  useEffect(() => {
+    setOpen(calories.trim() !== "" || protein.trim() !== "");
+    // Only reopen when switching entry. Typing should not collapse the section.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
+
+  return (
+    <section className={styles.extra}>
+      <button
+        type="button"
+        className={styles.toggle}
+        aria-expanded={open}
+        onClick={() => setOpen((next) => !next)}
+        disabled={disabled}
+      >
+        <span>Kalorier och protein</span>
+        <span className={styles.chevron} aria-hidden>
+          {open ? "▴" : "▾"}
+        </span>
+      </button>
+      {open ? (
+        <div className={styles.body}>
+          <div className={styles.macroRow}>
+            <Input
+              label="Kalorier"
+              type="number"
+              min={0}
+              max={20000}
+              step={1}
+              inputMode="numeric"
+              value={calories}
+              onChange={(e) => onCalories(e.target.value)}
+              placeholder="0"
+              suffix="kcal"
+              disabled={disabled}
+            />
+            <Input
+              label="Protein"
+              type="number"
+              min={0}
+              max={1000}
+              step={1}
+              inputMode="numeric"
+              value={protein}
+              onChange={(e) => onProtein(e.target.value)}
+              placeholder="0"
+              suffix="g"
+              disabled={disabled}
+            />
+          </div>
+          <p className={styles.hint}>Valfritt. Fyll i en, båda eller ingen.</p>
+        </div>
+      ) : null}
+    </section>
   );
 }

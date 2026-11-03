@@ -358,6 +358,10 @@ export interface SnackEntry {
   drinkNote: string | null;
   /** Optional 1–10 rating of the snack. */
   rating: number | null;
+  /** Optional calories. Null when the field was left empty. */
+  calories: number | null;
+  /** Optional protein in grams. Null when the field was left empty. */
+  proteinG: number | null;
 }
 
 export type DailySnacks = Record<SnackSlot, SnackEntry | null>;
@@ -372,6 +376,10 @@ export interface MealEntry {
   drinkNote: string | null;
   /** Optional 1–10 rating of the meal. */
   rating: number | null;
+  /** Optional calories. Null when the field was left empty. */
+  calories: number | null;
+  /** Optional protein in grams. Null when the field was left empty. */
+  proteinG: number | null;
   /** Who prepared lunch/dinner — null for breakfast or legacy rows. */
   cookedBy: MealCookedBy | null;
   /** Saved restaurant when cooked_by is restaurant. */

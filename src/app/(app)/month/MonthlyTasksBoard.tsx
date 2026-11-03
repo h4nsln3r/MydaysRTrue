@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
+import { KlarnaPurchaseField } from "@/components/KlarnaPurchaseField/KlarnaPurchaseField";
 import {
   archiveMonthlyTaskAction,
   copyMonthPlanFromPreviousAction,
@@ -26,6 +27,8 @@ import {
 import {
   formatFestOccasionWhen,
   formatMonthlyTaskDetail,
+  isKlarnaBill,
+  klarnaPurchaseSummary,
   groupByCategory,
   expandMonthlyTaskOccurrences,
   isMonthlyTaskRepeatable,
@@ -94,6 +97,10 @@ export function MonthlyTasksBoard({
       setExpandedId(task.id);
       return;
     }
+    if (isKlarnaBill(task) && !task.completion?.doneAt) {
+      setExpandedId(monthlyTaskInstanceKey(task));
+      return;
+    }
     run(task.id, () =>
       toggleMonthlyTaskDoneAction({
         taskId: task.id,
@@ -107,7 +114,17 @@ export function MonthlyTasksBoard({
     );
   };
 
-  const completeSimple = (task: MonthlyTaskForMonth, note: string) =>
+  const completeSimple = (
+    task: MonthlyTaskForMonth,
+    note: string,
+    amountRaw?: string,
+  ) => {
+    const typed = amountRaw !== undefined ? parseKrInput(amountRaw) : null;
+    if (isKlarnaBill(task) && (typed == null || typed < 0)) {
+      setError("Ange Klarna-beloppet, eller 0 om du inte handlat.");
+      return;
+    }
+    const alreadyDone = Boolean(task.completion?.doneAt);
     run(task.id, async () => {
       const res = await toggleMonthlyTaskDoneAction({
         taskId: task.id,
@@ -116,12 +133,13 @@ export function MonthlyTasksBoard({
         note,
         completionId: task.completion?.id,
         amount: isMonthlyBill(task, categories)
-          ? effectiveBillAmountKr(task) ?? undefined
+          ? typed ?? effectiveBillAmountKr(task) ?? undefined
           : undefined,
       });
-      if (res.ok) setExpandedId(null);
+      if (res.ok && !alreadyDone) setExpandedId(null);
       return res;
     });
+  };
 
   const completeAmount = (
     task: MonthlyTaskForMonth,
@@ -447,7 +465,11 @@ interface MonthlyTaskRowProps {
   onSaveEdit: (values: MonthlyTaskEditValues) => void;
   onDelete?: () => void;
   onToggleQuick: (task: MonthlyTaskForMonth) => void;
-  onCompleteSimple: (task: MonthlyTaskForMonth, note: string) => void;
+  onCompleteSimple: (
+    task: MonthlyTaskForMonth,
+    note: string,
+    amountRaw?: string,
+  ) => void;
   onCompleteAmount: (
     task: MonthlyTaskForMonth,
     amountRaw: string,
@@ -495,6 +517,10 @@ function MonthlyTaskRow({
   const billAmountLabel = formatBillAmountKr(task);
   const amountDetail = formatMonthlyTaskDetail(task, task.completion);
   const isBill = isMonthlyBill(task, categories);
+  const klarna = isKlarnaBill(task);
+  const purchaseSummary = klarna
+    ? klarnaPurchaseSummary(task.completion?.note)
+    : null;
   const displayTitle = monthlyTaskDisplayTitle(task, task.completion);
   const transferTarget = transferTaskFinanceLabel(task.key);
   const done = isMonthlyTaskComplete(task, task.completion);
@@ -658,7 +684,9 @@ function MonthlyTaskRow({
               Lägg till flera fester här. Avplanera med knappen vid tillfället.
             </span>
           ) : detail && !isBill ? <span className={styles.taskNoteHint}>{detail}</span> : null}
-          {isBill && done && detail ? (
+          {klarna && purchaseSummary ? (
+            <span className={styles.taskNoteHint}>{purchaseSummary}</span>
+          ) : isBill && done && detail ? (
             <span className={styles.taskNoteHint}>{detail}</span>
           ) : null}
           <span
@@ -878,24 +906,33 @@ function MonthlyTaskRow({
                 value={billAmount}
                 onChange={(e) => setBillAmount(e.target.value)}
                 placeholder={
-                  task.defaultAmountKr != null
-                    ? String(task.defaultAmountKr)
-                    : "t.ex. 850"
+                  klarna
+                    ? "0 om du inte handlat"
+                    : task.defaultAmountKr != null
+                      ? String(task.defaultAmountKr)
+                      : "t.ex. 850"
+                }
+                hint={
+                  klarna
+                    ? "Skriv 0 de månader du inte handlat något på Klarna."
+                    : undefined
                 }
                 inputMode="decimal"
                 disabled={pending}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="md"
-                fullWidth
-                loading={pending && busy}
-                disabled={pending}
-                onClick={() => onSaveBillAmount(task, billAmount)}
-              >
-                Spara kostnad
-              </Button>
+              {klarna ? null : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={() => onSaveBillAmount(task, billAmount)}
+                >
+                  Spara kostnad
+                </Button>
+              )}
             </>
           ) : null}
 
@@ -940,14 +977,22 @@ function MonthlyTaskRow({
                   disabled={pending}
                 />
               ) : null}
-              <Input
-                label="Kommentar (valfritt)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Skriv en kommentar"
-                maxLength={500}
-                disabled={pending}
-              />
+              {klarna ? (
+                <KlarnaPurchaseField
+                  value={note}
+                  onChange={setNote}
+                  disabled={pending}
+                />
+              ) : (
+                <Input
+                  label="Kommentar (valfritt)"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Skriv en kommentar"
+                  maxLength={500}
+                  disabled={pending}
+                />
+              )}
               <Button
                 type="button"
                 variant="primary"
@@ -958,7 +1003,7 @@ function MonthlyTaskRow({
                 onClick={() =>
                   task.completionKind === "amount"
                     ? onCompleteAmount(task, amount, note)
-                    : onCompleteSimple(task, note)
+                    : onCompleteSimple(task, note, isBill ? billAmount : undefined)
                 }
               >
                 Markera klart
@@ -966,7 +1011,32 @@ function MonthlyTaskRow({
             </>
           ) : (
             <>
-              {detail ? (
+              {klarna ? (
+                <>
+                  <KlarnaPurchaseField
+                    value={note}
+                    onChange={setNote}
+                    disabled={pending}
+                  />
+                  {note !== savedNote ||
+                  billAmount !==
+                    (task.completion?.amount != null
+                      ? String(task.completion.amount)
+                      : "") ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="md"
+                      fullWidth
+                      loading={pending && busy}
+                      disabled={pending}
+                      onClick={() => onCompleteSimple(task, note, billAmount)}
+                    >
+                      Spara
+                    </Button>
+                  ) : null}
+                </>
+              ) : detail ? (
                 <p className={styles.noteReadout}>
                   <span className={styles.noteReadoutLabel}>Detaljer</span>
                   {detail}

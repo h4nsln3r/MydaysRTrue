@@ -45,6 +45,13 @@
     padding: 0 12px 12px;
 }
 
+.macroRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-2;
+    align-items: end;
+}
+
 .waterRow {
     display: grid;
     grid-template-columns: minmax(0, 1fr);

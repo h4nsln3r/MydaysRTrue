@@ -36,11 +36,14 @@ import {
   initialMealCookingMeta,
   validateMealCookingMeta,
 } from "@/components/MealCookingMeta/MealCookingMetaFields";
-import { MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
+import { FoodMacroFields, MealLogExtras } from "@/components/MealLogExtras/MealLogExtras";
 import {
   foodDrinkSummary,
+  foodMacroInput,
+  foodMacroLabel,
   foodRatingLabel,
   parseFoodDrink,
+  parseFoodMacros,
   parseFoodRating,
 } from "@/lib/meal-log";
 import { formatInteger } from "@/lib/format";
@@ -423,6 +426,8 @@ function MealPlanRow(
   const [rating, setRating] = useState(
     entry?.rating != null ? String(entry.rating) : "",
   );
+  const [calories, setCalories] = useState(foodMacroInput(entry?.calories));
+  const [protein, setProtein] = useState(foodMacroInput(entry?.proteinG));
   const [cookingMeta, setCookingMeta] = useState(() => {
     const next = initialMealCookingMeta(entry);
     if (!entry && item.plan?.cooksSelf && mealHasCookingMeta(item.meal)) {
@@ -438,6 +443,8 @@ function MealPlanRow(
     entry?.waterMl ?? "",
     entry?.drinkNote ?? "",
     entry?.rating ?? "",
+    entry?.calories ?? "",
+    entry?.proteinG ?? "",
     entry?.cookedBy ?? "",
     entry?.restaurantId ?? "",
     entry?.restaurantName ?? "",
@@ -452,6 +459,8 @@ function MealPlanRow(
     setWaterMl(entry?.waterMl ? String(entry.waterMl) : "");
     setDrinkNote(entry?.drinkNote ?? "");
     setRating(entry?.rating != null ? String(entry.rating) : "");
+    setCalories(foodMacroInput(entry?.calories));
+    setProtein(foodMacroInput(entry?.proteinG));
     const next = initialMealCookingMeta(entry);
     if (!entry && item.plan?.cooksSelf && mealHasCookingMeta(item.meal)) {
       next.cookedBy = "self";
@@ -476,6 +485,7 @@ function MealPlanRow(
         ),
         foodDrinkSummary(entry.waterMl, entry.drinkNote),
         foodRatingLabel(entry.rating),
+        foodMacroLabel(entry.calories, entry.proteinG),
         planNote && planNote !== entry.description.trim() ? planNote : null,
       ]
         .filter(Boolean)
@@ -492,6 +502,11 @@ function MealPlanRow(
     const foodRating = parseFoodRating(rating);
     if (!foodRating.ok) {
       setError(foodRating.error);
+      return;
+    }
+    const macros = parseFoodMacros(calories, protein);
+    if (!macros.ok) {
+      setError(macros.error);
       return;
     }
     const cookingResult = showCookingMeta
@@ -525,6 +540,8 @@ function MealPlanRow(
         waterMl: drink.waterMl,
         drinkNote: drink.drinkNote,
         rating: foodRating.rating,
+        calories: macros.calories,
+        proteinG: macros.proteinG,
         cookedBy: showCookingMeta ? cookingMeta.cookedBy : null,
         mealBoxes: cookingResult.mealBoxes,
         mealBoxStockId: cookingResult.mealBoxStockId,
@@ -642,11 +659,15 @@ function MealPlanRow(
             waterMl={waterMl}
             drinkNote={drinkNote}
             rating={rating}
+            calories={calories}
+            protein={protein}
             disabled={pending}
             resetKey={`${date}:${item.meal}:${entry?.id ?? "new"}`}
             onWaterMl={setWaterMl}
             onDrinkNote={setDrinkNote}
             onRating={setRating}
+            onCalories={setCalories}
+            onProtein={setProtein}
           />
           <Button
             type="button"
@@ -666,15 +687,21 @@ function MealPlanRow(
             waterMl={waterMl}
             drinkNote={drinkNote}
             rating={rating}
+            calories={calories}
+            protein={protein}
             disabled={pending}
             resetKey={`${date}:${item.meal}:${entry?.id ?? "new"}`}
             onWaterMl={setWaterMl}
             onDrinkNote={setDrinkNote}
             onRating={setRating}
+            onCalories={setCalories}
+            onProtein={setProtein}
           />
           {waterMl !== (entry?.waterMl ? String(entry.waterMl) : "") ||
           drinkNote !== (entry?.drinkNote ?? "") ||
-          rating !== (entry?.rating != null ? String(entry.rating) : "") ? (
+          rating !== (entry?.rating != null ? String(entry.rating) : "") ||
+          calories !== foodMacroInput(entry?.calories) ||
+          protein !== foodMacroInput(entry?.proteinG) ? (
             <Button
               type="button"
               variant="outline"
@@ -720,6 +747,8 @@ function SnackPlanRow(
   const [rating, setRating] = useState(
     entry?.rating != null ? String(entry.rating) : "",
   );
+  const [calories, setCalories] = useState(foodMacroInput(entry?.calories));
+  const [protein, setProtein] = useState(foodMacroInput(entry?.proteinG));
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -728,6 +757,8 @@ function SnackPlanRow(
     setWaterMl(entry?.waterMl ? String(entry.waterMl) : "");
     setDrinkNote(entry?.drinkNote ?? "");
     setRating(entry?.rating != null ? String(entry.rating) : "");
+    setCalories(foodMacroInput(entry?.calories));
+    setProtein(foodMacroInput(entry?.proteinG));
   }, [entry]);
 
   const save = () => {
@@ -742,6 +773,11 @@ function SnackPlanRow(
       setError(foodRating.error);
       return;
     }
+    const macros = parseFoodMacros(calories, protein);
+    if (!macros.ok) {
+      setError(macros.error);
+      return;
+    }
     onPendingKey(true);
     startTransition(async () => {
       const res = await saveSnackAction({
@@ -751,6 +787,8 @@ function SnackPlanRow(
         waterMl: drink.waterMl,
         drinkNote: drink.drinkNote,
         rating: foodRating.rating,
+        calories: macros.calories,
+        proteinG: macros.proteinG,
       });
       if (!res.ok) {
         onError(res.error ?? "Kunde inte spara.");
@@ -782,6 +820,7 @@ function SnackPlanRow(
               entry.description,
               foodDrinkSummary(entry.waterMl, entry.drinkNote),
               foodRatingLabel(entry.rating),
+              foodMacroLabel(entry.calories, entry.proteinG),
             ]
               .filter(Boolean)
               .join(" · ")
@@ -808,11 +847,15 @@ function SnackPlanRow(
         waterMl={waterMl}
         drinkNote={drinkNote}
         rating={rating}
+        calories={calories}
+        protein={protein}
         disabled={pending}
         resetKey={`${date}:snack:${item.slot}:${entry?.id ?? "new"}`}
         onWaterMl={setWaterMl}
         onDrinkNote={setDrinkNote}
         onRating={setRating}
+        onCalories={setCalories}
+        onProtein={setProtein}
       />
       {!done ? (
         <Button
@@ -831,7 +874,9 @@ function SnackPlanRow(
           {description !== (entry?.description ?? "") ||
           waterMl !== (entry?.waterMl ? String(entry.waterMl) : "") ||
           drinkNote !== (entry?.drinkNote ?? "") ||
-          rating !== (entry?.rating != null ? String(entry.rating) : "") ? (
+          rating !== (entry?.rating != null ? String(entry.rating) : "") ||
+          calories !== foodMacroInput(entry?.calories) ||
+          protein !== foodMacroInput(entry?.proteinG) ? (
             <Button
               type="button"
               variant="outline"
@@ -872,20 +917,29 @@ function IntakePlanRow(
   const done = Boolean(entry);
   const hasWater = INTAKE_HAS_WATER[kind];
   const requiresDescription = INTAKE_REQUIRES_DESCRIPTION[kind];
+  const isShake = kind === "shake";
   const [description, setDescription] = useState(entry?.description ?? "");
   const [waterMl, setWaterMl] = useState(
     entry?.waterMl ? String(entry.waterMl) : "",
   );
+  const [calories, setCalories] = useState(foodMacroInput(entry?.calories));
+  const [protein, setProtein] = useState(foodMacroInput(entry?.proteinG));
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
     setDescription(entry?.description ?? "");
     setWaterMl(entry?.waterMl ? String(entry.waterMl) : "");
+    setCalories(foodMacroInput(entry?.calories));
+    setProtein(foodMacroInput(entry?.proteinG));
   }, [entry]);
 
   const detail = entry
-    ? [entry.description, entry.waterMl > 0 ? formatMl(entry.waterMl) : null]
+    ? [
+        entry.description,
+        entry.waterMl > 0 ? formatMl(entry.waterMl) : null,
+        isShake ? foodMacroLabel(entry.calories, entry.proteinG) : null,
+      ]
         .filter(Boolean)
         .join(" · ") || "Klart"
     : null;
@@ -900,6 +954,13 @@ function IntakePlanRow(
         return;
       }
     }
+    const macros = isShake
+      ? parseFoodMacros(calories, protein)
+      : { ok: true as const, calories: null, proteinG: null };
+    if (!macros.ok) {
+      setError(macros.error);
+      return;
+    }
     onPendingKey(true);
     startTransition(async () => {
       const res = await saveIntakeAction({
@@ -907,6 +968,8 @@ function IntakePlanRow(
         localDate: date,
         description,
         waterMl: hasWater ? Math.round(parsedWater) : 0,
+        calories: macros.calories,
+        proteinG: macros.proteinG,
       });
       if (!res.ok) {
         onError(res.error ?? "Kunde inte spara.");
@@ -965,6 +1028,16 @@ function IntakePlanRow(
           disabled={pending}
         />
       ) : null}
+      {isShake ? (
+        <FoodMacroFields
+          calories={calories}
+          protein={protein}
+          disabled={pending}
+          resetKey={`${date}:shake:${entry?.id ?? "new"}`}
+          onCalories={setCalories}
+          onProtein={setProtein}
+        />
+      ) : null}
       {!done ? (
         <Button
           type="button"
@@ -983,7 +1056,10 @@ function IntakePlanRow(
         <>
           {description !== (entry?.description ?? "") ||
           (hasWater &&
-            waterMl !== (entry?.waterMl ? String(entry.waterMl) : "")) ? (
+            waterMl !== (entry?.waterMl ? String(entry.waterMl) : "")) ||
+          (isShake &&
+            (calories !== foodMacroInput(entry?.calories) ||
+              protein !== foodMacroInput(entry?.proteinG))) ? (
             <Button
               type="button"
               variant="outline"

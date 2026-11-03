@@ -19,6 +19,7 @@ import {
   MEAL_WATER_LABEL,
   foodWaterNote,
   parseFoodDrink,
+  parseFoodMacros,
   parseFoodRating,
 } from "@/lib/meal-log";
 import { resolveMealRestaurant } from "@/lib/meals.server";
@@ -527,6 +528,8 @@ export async function saveSnackAction(input: {
   waterMl?: number;
   drinkNote?: string | null;
   rating?: number | null;
+  calories?: number | null;
+  proteinG?: number | null;
 }): Promise<ActionResult> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
     return { ok: false, error: "Ogiltigt datum." };
@@ -552,6 +555,11 @@ export async function saveSnackAction(input: {
     input.rating == null ? "" : String(input.rating),
   );
   if (!ratingParsed.ok) return ratingParsed;
+  const macros = parseFoodMacros(
+    input.calories == null ? "" : String(input.calories),
+    input.proteinG == null ? "" : String(input.proteinG),
+  );
+  if (!macros.ok) return macros;
 
   const supabase = await createClient();
   const {
@@ -586,6 +594,8 @@ export async function saveSnackAction(input: {
         water_log_id: waterRes.waterLogId,
         drink_note: drinkParsed.drinkNote,
         rating: ratingParsed.rating,
+        calories: macros.calories,
+        protein_g: macros.proteinG,
       })
       .eq("user_id", user.id)
       .eq("local_date", input.localDate)
@@ -609,6 +619,8 @@ export async function saveSnackAction(input: {
       water_log_id: waterRes.waterLogId,
       drink_note: drinkParsed.drinkNote,
       rating: ratingParsed.rating,
+      calories: macros.calories,
+      protein_g: macros.proteinG,
       done_at: new Date().toISOString(),
     });
     if (error) {
@@ -1100,6 +1112,8 @@ export async function saveMealAction(input: {
   waterMl?: number;
   drinkNote?: string | null;
   rating?: number | null;
+  calories?: number | null;
+  proteinG?: number | null;
   cookedBy?: MealCookedBy | null;
   mealBoxes?: number | null;
   mealBoxStockId?: string | null;
@@ -1128,6 +1142,11 @@ export async function saveMealAction(input: {
     input.rating == null ? "" : String(input.rating),
   );
   if (!ratingParsed.ok) return ratingParsed;
+  const macros = parseFoodMacros(
+    input.calories == null ? "" : String(input.calories),
+    input.proteinG == null ? "" : String(input.proteinG),
+  );
+  if (!macros.ok) return macros;
 
   const needsCookingMeta = mealHasCookingMeta(input.meal);
   let cookedBy: MealCookedBy | null = input.cookedBy ?? null;
@@ -1367,6 +1386,8 @@ export async function saveMealAction(input: {
         water_log_id: waterLogId,
         drink_note: drinkParsed.drinkNote,
         rating: ratingParsed.rating,
+        calories: macros.calories,
+        protein_g: macros.proteinG,
         cooked_by: cookedBy,
         meal_boxes: isMealBoxMeal ? null : mealBoxes,
         restaurant_id: isMealBoxMeal ? null : restaurantId,
@@ -1395,6 +1416,8 @@ export async function saveMealAction(input: {
       water_log_id: waterLogId,
       drink_note: drinkParsed.drinkNote,
       rating: ratingParsed.rating,
+      calories: macros.calories,
+      protein_g: macros.proteinG,
       cooked_by: cookedBy,
       meal_boxes: isMealBoxMeal ? null : mealBoxes,
       restaurant_id: isMealBoxMeal ? null : restaurantId,

@@ -27,6 +27,7 @@ import {
 import type { BathingSessionForWeek } from "@/lib/bathing";
 import type { CardioSessionForWeek } from "@/lib/cardio";
 import { buildDayPlanItems, sortDayPlanItems, type DayPlanItem } from "@/lib/day-plan";
+import { dayFoodTotals } from "@/lib/meal-log";
 import { isoWeekdayFromLocalISO } from "@/lib/date";
 import type { DailyHabit, DailySnacks, MealBoxStockItem, MealEntry, MealKey, MealPlan, MealRestaurant } from "@/lib/habits";
 import type { DailyActivityLog, DailyTrackerGoals } from "@/lib/habits.server";
@@ -407,6 +408,7 @@ export function DayActivitiesCard({
   }
 
   const showSaveSpinner = savingOrder || listBusy;
+  const nutrition = dayFoodTotals(meals, snacks, [intake.shake]);
 
   const showControls =
     addWeekday != null || showSaveSpinner || localItems.length > 0;
@@ -491,6 +493,19 @@ export function DayActivitiesCard({
             </Link>
           ) : null}
         </header>
+      ) : null}
+
+      {nutrition ? (
+        <p className={styles.nutritionLine}>
+          <span>{nutrition.label}</span>
+          {nutrition.missing > 0 ? (
+            <span className={styles.nutritionMissing}>
+              {" "}
+              · saknas på {nutrition.missing}{" "}
+              {nutrition.missing === 1 ? "måltid" : "måltider"}
+            </span>
+          ) : null}
+        </p>
       ) : null}
 
       {error ? <p className={styles.error}>{error}</p> : null}

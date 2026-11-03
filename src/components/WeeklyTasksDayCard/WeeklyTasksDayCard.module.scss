@@ -49,6 +49,17 @@
     gap: $space-2;
 }
 
+.nutritionLine {
+    margin: 0;
+    font-family: $font-mono;
+    font-size: 0.78rem;
+    color: $color-cream;
+}
+
+.nutritionMissing {
+    color: $color-fog;
+}
+
 .planHeader {
     gap: 2px;
     // Card padding is 24px; the gap under the header is 8px. Pull the

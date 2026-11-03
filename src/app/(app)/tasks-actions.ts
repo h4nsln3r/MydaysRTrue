@@ -4514,6 +4514,15 @@ export async function toggleMonthlyTaskDoneAction(input: {
     amountValue = Math.round(input.amount * 100) / 100;
   }
 
+  if (task.key === "bill_klarna" && input.done) {
+    if (amountValue == null || amountValue < 0) {
+      return {
+        ok: false,
+        error: "Ange Klarna-beloppet, eller 0 om du inte handlat.",
+      };
+    }
+  }
+
   const previousAmount =
     existing?.amount != null ? Number(existing.amount) : null;
   const transferAccount =
@@ -4522,9 +4531,25 @@ export async function toggleMonthlyTaskDoneAction(input: {
   const doneAt = input.done
     ? (existing?.done_at ?? new Date().toISOString())
     : null;
-  const trimmedNote = (input.note ?? "").trim();
-  const noteValue = input.done ? trimmedNote.slice(0, 500) || null : null;
-  const setNote = input.done ? input.note !== undefined : true;
+  const noteLimit = task.key === "bill_klarna" ? 2000 : 500;
+  let trimmedNote = (input.note ?? "").trim().slice(0, noteLimit);
+  if (
+    task.key === "bill_klarna" &&
+    input.done &&
+    amountValue === 0 &&
+    !trimmedNote
+  ) {
+    trimmedNote = "Inget handlat";
+  }
+  const noteValue = input.done ? trimmedNote || null : null;
+  const synthesizedNothingBought =
+    task.key === "bill_klarna" &&
+    input.done &&
+    amountValue === 0 &&
+    !(input.note ?? "").trim();
+  const setNote = input.done
+    ? input.note !== undefined || synthesizedNothingBought
+    : true;
 
   if (existing) {
     const patch: {

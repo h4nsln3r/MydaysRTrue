@@ -30,7 +30,7 @@ import {
   type WeekJournalSummary,
 } from "@/lib/journal";
 import { INTAKE_REQUIRES_DESCRIPTION } from "@/lib/intake";
-import { foodDrinkSummary, foodRatingLabel } from "@/lib/meal-log";
+import { foodDrinkSummary, foodMacroLabel, foodRatingLabel } from "@/lib/meal-log";
 import { MOOD_ICON, MOOD_LABEL, type MoodKey } from "@/lib/mood";
 import { isMoodKey } from "@/lib/mood";
 import {
@@ -152,6 +152,7 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
         ),
         foodDrinkSummary(meal.waterMl, meal.drinkNote),
         foodRatingLabel(meal.rating),
+        foodMacroLabel(meal.calories, meal.proteinG),
       ]
         .filter(Boolean)
         .join(" · "),
@@ -170,6 +171,7 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
         snack.description.trim() || "Mellanmål",
         foodDrinkSummary(snack.waterMl, snack.drinkNote),
         foodRatingLabel(snack.rating),
+        foodMacroLabel(snack.calories, snack.proteinG),
       ]
         .filter(Boolean)
         .join(" · "),
@@ -180,12 +182,16 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
 
   for (const item of trackers.intake) {
     const note = item.description.trim();
-    const body =
+    const body = [
       item.kind === "creatine"
         ? note || "Kreatin"
         : item.kind === "shake"
           ? note || "Shake"
-          : note;
+          : note,
+      item.kind === "shake" ? foodMacroLabel(item.calories, item.proteinG) : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
     entries.push({
       id: `intake-${item.id}`,
       source: "intake",

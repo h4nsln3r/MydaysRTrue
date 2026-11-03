@@ -8,6 +8,7 @@ import {
   INTAKE_REQUIRES_DESCRIPTION,
   type IntakeKind,
 } from "@/lib/intake";
+import { parseFoodMacros } from "@/lib/meal-log";
 
 interface ActionResult {
   ok: boolean;
@@ -32,6 +33,8 @@ export async function saveIntakeAction(input: {
   localDate: string;
   description?: string;
   waterMl?: number;
+  calories?: number | null;
+  proteinG?: number | null;
 }): Promise<ActionResult> {
   if (!VALID_KINDS.has(input.kind)) {
     return { ok: false, error: "Invalid intake type." };
@@ -57,6 +60,15 @@ export async function saveIntakeAction(input: {
   if (waterMl > 5000) {
     return { ok: false, error: "Max 5000 ml per entry." };
   }
+
+  const macros =
+    input.kind === "shake"
+      ? parseFoodMacros(
+          input.calories == null ? "" : String(input.calories),
+          input.proteinG == null ? "" : String(input.proteinG),
+        )
+      : { ok: true as const, calories: null, proteinG: null };
+  if (!macros.ok) return macros;
 
   const supabase = await createClient();
   const {
@@ -119,6 +131,8 @@ export async function saveIntakeAction(input: {
       .update({
         description,
         water_log_id: waterLogId,
+        calories: macros.calories,
+        protein_g: macros.proteinG,
       })
       .eq("id", existing.id)
       .eq("user_id", user.id);
@@ -136,6 +150,8 @@ export async function saveIntakeAction(input: {
       kind: input.kind,
       description,
       water_log_id: waterLogId,
+      calories: macros.calories,
+      protein_g: macros.proteinG,
     });
     if (error) return { ok: false, error: error.message };
   }

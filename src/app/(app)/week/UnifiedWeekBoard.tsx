@@ -68,6 +68,7 @@ import {
 } from "@/lib/day-quick-add";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { KlarnaPurchaseField } from "@/components/KlarnaPurchaseField/KlarnaPurchaseField";
 import { CodingActivityFields } from "@/components/CodingActivityFields/CodingActivityFields";
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import { MusicActivityTodos } from "@/components/MusicActivityTodos/MusicActivityTodos";
@@ -97,6 +98,7 @@ import {
   WEEKDAY_SHORT,
   WEEKDAYS,
   isCodingWeeklyTaskKey,
+  isKlarnaBill,
   isGameWeeklyTaskKey,
   isHomeProjectWeeklyTaskKey,
   isRingWeeklyTaskKey,
@@ -1599,6 +1601,13 @@ function ItemRowContent({
   }, [savedMonthlyAmount]);
   const isMonthlyAmount =
     item.kind === "monthly_bill" && item.completionKind === "amount";
+  const isKlarna = item.kind === "monthly_bill" && isKlarnaBill({ key: item.taskKey });
+  const savedKlarnaNote =
+    item.kind === "monthly_bill" ? (item.completion?.note?.trim() ?? "") : "";
+  const [klarnaNote, setKlarnaNote] = useState(savedKlarnaNote);
+  useEffect(() => {
+    setKlarnaNote(savedKlarnaNote);
+  }, [savedKlarnaNote]);
   const isMonthlyFinance =
     item.kind === "monthly_bill" && item.completionKind === "finance";
   const isFestPlacement =
@@ -1669,6 +1678,7 @@ function ItemRowContent({
     item.kind === "weight" ||
     isMonthlyAmount ||
     isMonthlyFinance ||
+    isKlarna ||
     isFestPlacement;
 
   const taskCategories = categories.filter((c) => c.scope === "task");
@@ -1780,7 +1790,7 @@ function ItemRowContent({
       router.push(monthPlanEkonomiHref(item.monthStart));
       return;
     }
-    if (isMonthlyAmount && !item.done) {
+    if ((isMonthlyAmount || isKlarna) && !item.done) {
       onToggleExpand();
       return;
     }
@@ -1807,6 +1817,30 @@ function ItemRowContent({
       const res = await updateMonthlyTaskInstanceAction({
         completionId: item.completion!.id,
         occasion: festInstanceOccasion,
+      });
+      if (!res.ok) onError(res.error ?? "Kunde inte spara.");
+      onPendingId(null);
+      onDone();
+    });
+  };
+
+  const saveKlarna = () => {
+    if (item.kind !== "monthly_bill" || !isKlarna) return;
+    const parsed = parseKrInput(monthlyAmount);
+    if (parsed == null || parsed < 0) {
+      onError("Ange Klarna-beloppet, eller 0 om du inte handlat.");
+      return;
+    }
+    onError(null);
+    onPendingId(item.dragId);
+    startTransition(async () => {
+      const res = await toggleMonthlyTaskDoneAction({
+        taskId: item.taskId,
+        monthStart: item.monthStart,
+        done: true,
+        amount: parsed,
+        note: klarnaNote,
+        completionId: item.completion?.id,
       });
       if (!res.ok) onError(res.error ?? "Kunde inte spara.");
       onPendingId(null);
@@ -3038,6 +3072,50 @@ function ItemRowContent({
               >
                 Markera klart
               </Button>
+            </>
+          ) : null}
+
+          {isKlarna ? (
+            <>
+              <Input
+                label="Kostnad den här månaden (kr)"
+                value={monthlyAmount}
+                onChange={(e) => setMonthlyAmount(e.target.value)}
+                placeholder="0 om du inte handlat"
+                hint="Skriv 0 de månader du inte handlat något på Klarna."
+                inputMode="decimal"
+                disabled={pending}
+              />
+              <KlarnaPurchaseField
+                value={klarnaNote}
+                onChange={setKlarnaNote}
+                disabled={pending}
+              />
+              {!item.done ||
+              klarnaNote !== savedKlarnaNote ||
+              monthlyAmount !== savedMonthlyAmount ? (
+                <Button
+                  type="button"
+                  variant={item.done ? "outline" : "primary"}
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={saveKlarna}
+                >
+                  {item.done ? "Spara" : "Markera klart"}
+                </Button>
+              ) : null}
+              {item.done ? (
+                <button
+                  type="button"
+                  className={styles.undoBtn}
+                  onClick={toggleMonthlyBill}
+                  disabled={pending}
+                >
+                  Ångra klarmarkering
+                </button>
+              ) : null}
             </>
           ) : null}
 

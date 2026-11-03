@@ -34,7 +34,7 @@ import type { MoodKey } from "@/lib/mood";
 import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
 import { MOOD_ICON, MOOD_LABEL } from "@/lib/mood";
 import { SMOKE_FREE_SUBSTANCES } from "@/lib/smoke-free";
-import { foodDrinkSummary, foodRatingLabel } from "@/lib/meal-log";
+import { dayFoodTotals, foodDrinkSummary, foodMacroLabel, foodRatingLabel } from "@/lib/meal-log";
 import type { WeekMealsSummary } from "@/lib/meal-box.server";
 import type { WeekMediaSummary } from "@/lib/media.server";
 import type { WeekDay, WeekSummary } from "@/lib/water.server";
@@ -107,6 +107,8 @@ function formatMealHover(
   if (drink) bits.push(drink);
   const ratingLabel = foodRatingLabel(entry.rating);
   if (ratingLabel) bits.push(ratingLabel);
+  const macroLabel = foodMacroLabel(entry.calories, entry.proteinG);
+  if (macroLabel) bits.push(macroLabel);
   return `${label}: ${bits.join(" · ")}`;
 }
 
@@ -122,6 +124,8 @@ function formatSnackHover(
   if (drink) bits.push(drink);
   const ratingLabel = foodRatingLabel(entry.rating);
   if (ratingLabel) bits.push(ratingLabel);
+  const macroLabel = foodMacroLabel(entry.calories, entry.proteinG);
+  if (macroLabel) bits.push(macroLabel);
   return `${SNACK_LABEL[slot]}: ${bits.join(" · ")}`;
 }
 
@@ -155,15 +159,23 @@ function formatMealsDayHover(
   mealDay: WeekMealsSummary["days"][number] | undefined,
 ): string {
   if (day.isFuture) return "Kommande";
+  const nutrition = dayFoodTotals(mealDay?.meals, mealDay?.snacks);
   return [
     mealsRollupLabel(mealDay),
+    nutrition
+      ? nutrition.missing > 0
+        ? `${nutrition.label} (saknas på ${nutrition.missing})`
+        : nutrition.label
+      : null,
     ...MEAL_ORDER.map((key) =>
       formatMealHover(MEAL_LABEL_SV[key], mealDay?.meals[key] ?? null, false),
     ),
     ...SNACK_SLOTS.map((slot) =>
       formatSnackHover(slot, mealDay?.snacks[slot] ?? null, false),
     ),
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 interface SubRowDef {

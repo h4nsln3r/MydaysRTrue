@@ -52,6 +52,8 @@ export interface Database {
           water_log_id: string | null;
           drink_note: string | null;
           rating: number | null;
+          calories: number | null;
+          protein_g: number | null;
           done_at: string;
           created_at: string;
         };
@@ -63,6 +65,8 @@ export interface Database {
           water_log_id?: string | null;
           drink_note?: string | null;
           rating?: number | null;
+          calories?: number | null;
+          protein_g?: number | null;
           done_at?: string;
           created_at?: string;
         };
@@ -74,6 +78,8 @@ export interface Database {
           water_log_id?: string | null;
           drink_note?: string | null;
           rating?: number | null;
+          calories?: number | null;
+          protein_g?: number | null;
           done_at?: string;
           created_at?: string;
         };
@@ -1514,6 +1520,8 @@ export interface Database {
           water_log_id: string | null;
           drink_note: string | null;
           rating: number | null;
+          calories: number | null;
+          protein_g: number | null;
           cooked_by:
             | "self"
             | "julia"
@@ -1539,6 +1547,8 @@ export interface Database {
           water_log_id?: string | null;
           drink_note?: string | null;
           rating?: number | null;
+          calories?: number | null;
+          protein_g?: number | null;
           cooked_by?:
             | "self"
             | "julia"
@@ -1564,6 +1574,8 @@ export interface Database {
           water_log_id?: string | null;
           drink_note?: string | null;
           rating?: number | null;
+          calories?: number | null;
+          protein_g?: number | null;
           cooked_by?:
             | "self"
             | "julia"
@@ -1719,6 +1731,8 @@ export interface Database {
           kind: "fruit" | "creatine" | "vitamin" | "shake";
           description: string;
           water_log_id: string | null;
+          calories: number | null;
+          protein_g: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -1729,6 +1743,8 @@ export interface Database {
           kind: "fruit" | "creatine" | "vitamin" | "shake";
           description?: string;
           water_log_id?: string | null;
+          calories?: number | null;
+          protein_g?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1739,6 +1755,8 @@ export interface Database {
           kind?: "fruit" | "creatine" | "vitamin" | "shake";
           description?: string;
           water_log_id?: string | null;
+          calories?: number | null;
+          protein_g?: number | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
+import { KlarnaPurchaseField } from "@/components/KlarnaPurchaseField/KlarnaPurchaseField";
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import {
@@ -21,6 +22,8 @@ import {
 } from "@/lib/monthly-bills";
 import {
   formatMonthlyTaskDetail,
+  isKlarnaBill,
+  klarnaPurchaseSummary,
   type MonthlyTaskForMonth,
   type TaskCategory,
 } from "@/lib/tasks";
@@ -63,6 +66,10 @@ export function MonthlyTaskDayRow({
   const detail = formatMonthlyTaskDetail(task, task.completion);
   const billAmountLabel = formatBillAmountKr(task);
   const isBill = isMonthlyBill(task, categories);
+  const klarna = isKlarnaBill(task);
+  const purchaseSummary = klarna
+    ? klarnaPurchaseSummary(task.completion?.note)
+    : null;
   const displayTitle = monthlyTaskDisplayTitle(task, task.completion);
   const transferTarget = transferTaskFinanceLabel(task.key);
   const category = task.categoryId
@@ -173,7 +180,26 @@ export function MonthlyTaskDayRow({
     return effectiveBillAmountKr(task) ?? undefined;
   };
 
-  const completeSimple = () =>
+  const completeSimple = () => {
+    if (klarna) {
+      const parsed = parseKrInput(billAmount);
+      if (parsed == null || parsed < 0) {
+        onError("Ange Klarna-beloppet, eller 0 om du inte handlat.");
+        return;
+      }
+      run(async () => {
+        const res = await toggleMonthlyTaskDoneAction({
+          taskId: task.id,
+          monthStart,
+          done: true,
+          completionId: task.completion?.id,
+          note,
+          amount: parsed,
+        });
+        return res;
+      }, done);
+      return;
+    }
     run(async () => {
       const res = await toggleMonthlyTaskDoneAction({
         taskId: task.id,
@@ -185,6 +211,7 @@ export function MonthlyTaskDayRow({
       });
       return res;
     }, done);
+  };
 
   const completeAmount = () => {
     const parsed = parseKrInput(amount);
@@ -290,6 +317,7 @@ export function MonthlyTaskDayRow({
             <span className={styles.taskDetail}>
               {billAmountLabel}
               {task.paidAlone ? " · bara du" : ""}
+              {purchaseSummary ? ` · ${purchaseSummary}` : ""}
             </span>
           ) : task.paidAlone ? (
             <span className={styles.taskDetail}>Bara du</span>
@@ -322,24 +350,33 @@ export function MonthlyTaskDayRow({
                 value={billAmount}
                 onChange={(e) => setBillAmount(e.target.value)}
                 placeholder={
-                  task.defaultAmountKr != null
-                    ? String(task.defaultAmountKr)
-                    : "t.ex. 850"
+                  klarna
+                    ? "0 om du inte handlat"
+                    : task.defaultAmountKr != null
+                      ? String(task.defaultAmountKr)
+                      : "t.ex. 850"
+                }
+                hint={
+                  klarna
+                    ? "Skriv 0 de månader du inte handlat något på Klarna."
+                    : undefined
                 }
                 inputMode="decimal"
                 disabled={pending}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="md"
-                fullWidth
-                loading={pending && busy}
-                disabled={pending}
-                onClick={saveBillAmount}
-              >
-                Spara kostnad
-              </Button>
+              {klarna ? null : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  loading={pending && busy}
+                  disabled={pending}
+                  onClick={saveBillAmount}
+                >
+                  Spara kostnad
+                </Button>
+              )}
             </>
           ) : null}
           {task.completionKind === "finance" ? (
@@ -374,14 +411,22 @@ export function MonthlyTaskDayRow({
                   disabled={pending}
                 />
               ) : null}
-              <Input
-                label="Kommentar (valfritt)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Skriv en kommentar"
-                maxLength={500}
-                disabled={pending}
-              />
+              {klarna ? (
+                <KlarnaPurchaseField
+                  value={note}
+                  onChange={setNote}
+                  disabled={pending}
+                />
+              ) : (
+                <Input
+                  label="Kommentar (valfritt)"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Skriv en kommentar"
+                  maxLength={500}
+                  disabled={pending}
+                />
+              )}
               <Button
                 type="button"
                 variant="primary"
@@ -415,15 +460,28 @@ export function MonthlyTaskDayRow({
                   disabled={pending}
                 />
               ) : null}
-              <Input
-                label="Kommentar (valfritt)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Skriv en kommentar"
-                maxLength={500}
-                disabled={pending}
-              />
+              {klarna ? (
+                <KlarnaPurchaseField
+                  value={note}
+                  onChange={setNote}
+                  disabled={pending}
+                />
+              ) : (
+                <Input
+                  label="Kommentar (valfritt)"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Skriv en kommentar"
+                  maxLength={500}
+                  disabled={pending}
+                />
+              )}
               {note !== savedNote ||
+              (klarna &&
+                billAmount !==
+                  (task.completion?.amount != null
+                    ? String(task.completion.amount)
+                    : "")) ||
               (task.completionKind === "amount" &&
                 amount !==
                   (task.completion?.amount != null

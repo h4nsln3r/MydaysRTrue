@@ -256,6 +256,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             expenseSummary={spendSummaries.expenses}
             shoppingSummary={spendSummaries.shopping}
             workByDate={workByDate}
+            leavePeriods={leavePeriods}
             activity={activity}
             mealDays={mealsRange.days}
             mealBoxStock={mealsRange.stock}

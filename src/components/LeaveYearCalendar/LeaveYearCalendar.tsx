@@ -16,6 +16,7 @@ import {
   type DayCompletion,
 } from "@/lib/completions";
 import { formatDayLong, todayLocalISO } from "@/lib/date";
+import { publicHolidayMap, type PublicHoliday } from "@/lib/holidays";
 import {
   LEAVE_KIND_ICON,
   LEAVE_KIND_LABEL,
@@ -97,6 +98,10 @@ export function LeaveYearCalendar({
   const leaveMap = useMemo(
     () => leaveKindByDate(yearLeave.periods),
     [yearLeave.periods],
+  );
+  const holidays = useMemo(
+    () => publicHolidayMap(yearLeave.year),
+    [yearLeave.year],
   );
   const completionMap = useMemo(
     () => completionsByDate(completions),
@@ -196,6 +201,10 @@ export function LeaveYearCalendar({
           Val
         </span>
         <span className={styles.legendItem}>
+          <span className={styles.holidaySample}>1</span>
+          Helgdag
+        </span>
+        <span className={styles.legendItem}>
           <span className={styles.completionDotLegend} />
           Klart (bok · film · spelning · version)
         </span>
@@ -209,6 +218,7 @@ export function LeaveYearCalendar({
             monthIndex={monthIndex}
             label={label}
             leaveMap={leaveMap}
+            holidays={holidays}
             completionMap={completionMap}
             rangeStart={rangeStart}
             rangeEnd={rangeEnd}
@@ -544,6 +554,7 @@ function MonthGrid({
   monthIndex,
   label,
   leaveMap,
+  holidays,
   completionMap,
   rangeStart,
   rangeEnd,
@@ -556,6 +567,7 @@ function MonthGrid({
   monthIndex: number;
   label: string;
   leaveMap: Map<string, LeaveKind>;
+  holidays: Map<string, PublicHoliday>;
   completionMap: Map<string, DayCompletion[]>;
   rangeStart: string | null;
   rangeEnd: string | null;
@@ -592,6 +604,7 @@ function MonthGrid({
             return <span key={`e-${i}`} className={styles.dayEmpty} />;
           }
           const leaveKind = leaveMap.get(cell.date);
+          const holiday = holidays.get(cell.date) ?? null;
           const dayCompletions = completionMap.get(cell.date) ?? [];
           const hasCompletion = dayCompletions.length > 0;
           const selected = inSelectedRange(cell.date, rangeStart, rangeEnd);
@@ -602,6 +615,7 @@ function MonthGrid({
             leaveKind === "vacation" ? styles.dayVacation : null,
             leaveKind === "day_off" ? styles.dayOff : null,
             leaveKind === "travel" ? styles.dayTravel : null,
+            holiday ? styles.dayHoliday : null,
             selected ? styles.daySelected : null,
             isToday ? styles.dayToday : null,
             hasCompletion ? styles.dayHasCompletion : null,
@@ -612,12 +626,17 @@ function MonthGrid({
 
           const ariaExtra = [
             leaveKind ? LEAVE_KIND_LABEL[leaveKind] : null,
+            holiday?.name ?? null,
             hasCompletion
               ? `${dayCompletions.length} klart`
               : null,
           ]
             .filter(Boolean)
             .join(", ");
+          const dayTitle =
+            [leaveKind ? LEAVE_KIND_LABEL[leaveKind] : null, holiday?.name]
+              .filter(Boolean)
+              .join(" · ") || undefined;
 
           const inner = (
             <>
@@ -633,7 +652,7 @@ function MonthGrid({
               <span
                 key={cell.date}
                 className={classNames}
-                title={leaveKind ? LEAVE_KIND_LABEL[leaveKind] : undefined}
+                title={dayTitle}
               >
                 {inner}
               </span>
@@ -647,6 +666,7 @@ function MonthGrid({
               className={classNames}
               onClick={() => onDayClick(cell.date!)}
               aria-label={`${cell.date}${ariaExtra ? `, ${ariaExtra}` : ""}`}
+              title={dayTitle}
               aria-pressed={readOnly ? isActive : selected}
             >
               {inner}

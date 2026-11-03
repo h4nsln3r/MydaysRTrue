@@ -61,6 +61,15 @@
     border-color: $color-orange;
 }
 
+.holidaySample {
+    color: $color-danger;
+    font-family: $font-mono;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: inset 0 -2px 0 $color-danger;
+}
+
 .yearGrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -133,6 +142,11 @@
 
 .dayNum {
     line-height: 1;
+}
+
+.dayHoliday .dayNum {
+    color: $color-danger;
+    box-shadow: inset 0 -1px 0 $color-danger;
 }
 
 .dayHasCompletion {

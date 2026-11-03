@@ -26,6 +26,9 @@ import {
   SpendSplitOverview,
 } from "@/components/ExpensesSummary/ExpensesSummary";
 import type { ExpenseSummary } from "@/lib/expenses";
+import { jobDayMark } from "@/lib/job-day";
+import { leaveForDate, type LeavePeriod } from "@/lib/leave";
+import { publicHolidayMap } from "@/lib/holidays";
 import {
   WORK_KINDS,
   WORK_KIND_ICON,
@@ -62,6 +65,7 @@ interface Props {
   expenseSummary: ExpenseSummary;
   shoppingSummary: ExpenseSummary;
   workByDate: Map<string, WorkDailyLog>;
+  leavePeriods: LeavePeriod[];
   activity: MonthActivityProgress;
   mealDays: WeekMealDay[];
   mealBoxStock: MealBoxStockItem[];
@@ -86,6 +90,7 @@ export function MonthProgressBoard({
   expenseSummary,
   shoppingSummary,
   workByDate,
+  leavePeriods,
   activity,
   mealDays,
   mealBoxStock,
@@ -96,6 +101,7 @@ export function MonthProgressBoard({
   const hasTasks = monthlyTasks.length > 0;
   const workCounts = summarizeWorkLogs(workByDate.values());
   const workTotal = workKindCountTotal(workCounts);
+  const holidays = publicHolidayMap(Number(monthStart.slice(0, 4)));
   const monthEnd = activity.monthEnd;
   const mondayCount = mondaysInRange(monthStart, monthEnd).length;
   const gym = filterPlacedToRange(
@@ -208,6 +214,8 @@ export function MonthProgressBoard({
               {WORK_KIND_ICON[kind]} {WORK_KIND_LABEL[kind]} {workCounts[kind]}
             </span>
           ))}
+          <span className={styles.legendMarkDim}>Helg</span>
+          <span className={styles.legendHoliday}>Helgdag</span>
         </span>
       </div>
 
@@ -260,28 +268,40 @@ export function MonthProgressBoard({
               <RowLabel sticky icon="💼" label="Jobb" />
               {summary.days.map((d) => {
                 const log = workByDate.get(d.date);
-                const kind = log?.startedAt ? log.kind : null;
+                const mark = jobDayMark({
+                  isFuture: d.isFuture,
+                  weekday: d.weekday,
+                  workKind: log?.startedAt ? log.kind : null,
+                  leave: leaveForDate(d.date, leavePeriods),
+                  holiday: holidays.get(d.date) ?? null,
+                });
+                const explained =
+                  mark.mode === "icon" ||
+                  mark.mode === "word" ||
+                  mark.mode === "holiday";
                 return (
                   <td
                     key={d.date}
                     className={cellClass(
                       styles.dataCell,
-                      d.isFuture && styles.cellFuture,
+                      d.isFuture && !explained && styles.cellFuture,
                       d.isToday && styles.cellToday,
                     )}
-                    title={
-                      d.isFuture
-                        ? "Kommande"
-                        : kind
-                          ? WORK_KIND_LABEL[kind]
-                          : "Ej ifylld"
-                    }
+                    title={mark.title}
                   >
-                    {!d.isFuture && kind ? (
-                      <span aria-label={WORK_KIND_LABEL[kind]}>
-                        {WORK_KIND_ICON[kind]}
+                    {mark.mode === "icon" && mark.mark ? (
+                      <span aria-label={mark.title}>{mark.mark}</span>
+                    ) : mark.mode === "holiday" || mark.mode === "word" ? (
+                      <span
+                        className={cellClass(
+                          styles.jobWord,
+                          mark.mode === "holiday" && styles.jobWordHoliday,
+                        )}
+                        aria-label={mark.title}
+                      >
+                        {mark.mark}
                       </span>
-                    ) : !d.isFuture ? (
+                    ) : mark.mode === "missing" ? (
                       <span className={styles.legendMarkDim}>·</span>
                     ) : null}
                   </td>

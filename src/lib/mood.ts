@@ -37,12 +37,11 @@ export function isMoodKey(value: string): value is MoodKey {
   return MOOD_OPTIONS.some((o) => o.key === value);
 }
 
+/** Logged mood counts as done. The feeling itself is shown with its icon. */
 export function moodStatusFor(
   ctx: DailyMoodContext,
   isFuture: boolean,
 ): HabitStatus | null {
   if (isFuture || !ctx.mood) return null;
-  if (ctx.mood === "happy" || ctx.mood === "joyful") return "yes";
-  if (ctx.mood === "tired") return "half";
-  return "no";
+  return "yes";
 }

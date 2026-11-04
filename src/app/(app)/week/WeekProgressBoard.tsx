@@ -57,6 +57,9 @@ import {
   type WeekProgressLayout,
   type WeekProgressTrainingKey,
 } from "@/lib/week-progress-layout";
+import { jobDayMark } from "@/lib/job-day";
+import { leaveForDate, type LeavePeriod } from "@/lib/leave";
+import { publicHolidayOn } from "@/lib/holidays";
 import {
   WORK_KINDS,
   WORK_KIND_ICON,
@@ -88,6 +91,7 @@ interface Props {
   journalWeek: WeekJournalSummary;
   layout: WeekProgressLayout;
   workByDate: Map<string, WorkDailyLog>;
+  leavePeriods?: LeavePeriod[];
   savedRestaurants?: MealRestaurant[];
   sports?: UserSport[];
   monthlyTasks?: MonthlyTaskForMonth[];
@@ -111,6 +115,7 @@ export function WeekProgressBoard({
   journalWeek,
   layout,
   workByDate,
+  leavePeriods = [],
   savedRestaurants = [],
   sports = [],
   monthlyTasks = [],
@@ -232,6 +237,12 @@ export function WeekProgressBoard({
               </span>
             </span>
           ))}
+          <span className={styles.legendItem}>
+            <span className={styles.legendItemLabel}>Helg</span>
+          </span>
+          <span className={styles.legendItem}>
+            <span className={styles.legendHoliday}>Helgdag</span>
+          </span>
         </span>
       </div>
 
@@ -270,6 +281,7 @@ export function WeekProgressBoard({
                     <WorkKindRow
                       days={week.days}
                       workByDate={workByDate}
+                      leavePeriods={leavePeriods}
                       counts={workCounts}
                       total={workTotal}
                     />
@@ -1133,11 +1145,13 @@ function DayHeader({ day, fallbackLabel }: { day: WeekDay; fallbackLabel: string
 function WorkKindRow({
   days,
   workByDate,
+  leavePeriods,
   counts,
   total,
 }: {
   days: WeekDay[];
   workByDate: Map<string, WorkDailyLog>;
+  leavePeriods: LeavePeriod[];
   counts: Record<WorkKind, number>;
   total: number;
 }) {
@@ -1146,29 +1160,43 @@ function WorkKindRow({
       <RowLabel sticky icon="💼" label="Jobb" />
       {days.map((d) => {
         const log = workByDate.get(d.date);
-        const kind = log?.startedAt ? log.kind : null;
+        const mark = jobDayMark({
+          isFuture: d.isFuture,
+          weekday: isoWeekdayFromLocalISO(d.date),
+          workKind: log?.startedAt ? log.kind : null,
+          leave: leaveForDate(d.date, leavePeriods),
+          holiday: publicHolidayOn(d.date),
+        });
+        const explained =
+          mark.mode === "icon" ||
+          mark.mode === "word" ||
+          mark.mode === "holiday";
         return (
           <td
             key={d.date}
             className={cellClass(
               styles.dataCell,
-              d.isFuture && styles.cellFuture,
+              d.isFuture && !explained && styles.cellFuture,
               d.isToday && styles.cellToday,
             )}
-            title={
-              d.isFuture
-                ? "Kommande"
-                : kind
-                  ? WORK_KIND_LABEL[kind]
-                  : "Ej ifylld"
-            }
+            title={mark.title}
           >
-            {!d.isFuture && kind ? (
-              <span className={styles.moodMark} aria-label={WORK_KIND_LABEL[kind]}>
-                {WORK_KIND_ICON[kind]}
+            {mark.mode === "icon" && mark.mark ? (
+              <span className={styles.moodMark} aria-label={mark.title}>
+                {mark.mark}
               </span>
-            ) : !d.isFuture ? (
-              <span className={styles.emptyMark}>—</span>
+            ) : mark.mode === "holiday" || mark.mode === "word" ? (
+              <span
+                className={cellClass(
+                  styles.jobWord,
+                  mark.mode === "holiday" && styles.jobWordHoliday,
+                )}
+                aria-label={mark.title}
+              >
+                {mark.mark}
+              </span>
+            ) : mark.mode === "missing" ? (
+              <span className={styles.emptyMark}>·</span>
             ) : null}
           </td>
         );

@@ -58,6 +58,30 @@
     font-size: 0.62rem;
 }
 
+.legendHoliday {
+    color: $color-danger;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    font-weight: 700;
+}
+
+.jobWord {
+    display: block;
+    max-width: 100%;
+    margin: 0 auto;
+    white-space: pre-line;
+    font-family: $font-mono;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: $color-fog;
+}
+
+.jobWordHoliday {
+    color: $color-danger;
+}
+
 .swatch {
     width: 12px;
     height: 12px;

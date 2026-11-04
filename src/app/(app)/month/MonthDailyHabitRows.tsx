@@ -47,6 +47,7 @@ import {
 import type { MealBoxStockItem, WeekMealDay } from "@/lib/meal-box.server";
 import { foodDrinkSummary, foodMacroLabel, foodRatingLabel } from "@/lib/meal-log";
 import type { DailyMediaContext } from "@/lib/media";
+import { MOOD_ICON, MOOD_LABEL } from "@/lib/mood";
 import { MOBILE_GAME_STEPS } from "@/lib/mobile-games";
 import { SMOKE_FREE_SUBSTANCES } from "@/lib/smoke-free";
 import { formatMl } from "@/lib/water";
@@ -186,6 +187,7 @@ export function MonthDailyHabitRows({
             {days.map((day) => {
               const hidden = day.hiddenHabitIds.includes(habit.id);
               const status = day.statuses[habit.id] ?? null;
+              const moodKey = habit.kind === "mood" ? day.mood : null;
               const interactive =
                 canOpenHabit(habit.kind) && !day.isFuture && !hidden;
               const title = hidden
@@ -193,7 +195,9 @@ export function MonthDailyHabitRows({
                 : `${habit.label}, dag ${day.dayOfMonth}: ${
                     day.isFuture
                       ? "Kommande"
-                      : HABIT_STATUS_LABEL[status ?? "empty"]
+                      : moodKey
+                        ? MOOD_LABEL[moodKey]
+                        : HABIT_STATUS_LABEL[status ?? "empty"]
                   }${interactive ? " · Klicka för att logga" : ""}`;
               return (
                 <td
@@ -217,10 +221,18 @@ export function MonthDailyHabitRows({
                       aria-label={title}
                       onClick={() => openHabitLog(habit, day.date)}
                     >
-                      <StatusMark status={status} decorative />
+                      {moodKey ? (
+                        <MoodMark moodKey={moodKey} />
+                      ) : (
+                        <StatusMark status={status} decorative />
+                      )}
                     </button>
                   ) : !day.isFuture && !hidden ? (
-                    <StatusMark status={status} />
+                    moodKey ? (
+                      <MoodMark moodKey={moodKey} />
+                    ) : (
+                      <StatusMark status={status} />
+                    )
                   ) : hidden && !day.isFuture ? (
                     <span className={styles.emptyMark}>–</span>
                   ) : null}
@@ -932,6 +944,14 @@ function SubRowCellMark({
       decorative={decorative}
       exceeded={content.exceeded}
     />
+  );
+}
+
+function MoodMark({ moodKey }: { moodKey: NonNullable<MonthDay["mood"]> }) {
+  return (
+    <span className={styles.moodMark} aria-label={MOOD_LABEL[moodKey]}>
+      {MOOD_ICON[moodKey]}
+    </span>
   );
 }
 

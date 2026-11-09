@@ -16,10 +16,12 @@ import { LiveEventsYearProgress } from "@/components/LiveEventsYearProgress/Live
 import { GigsYearBoard } from "@/components/GigsYearBoard/GigsYearBoard";
 import { GigsYearProgress } from "@/components/GigsYearProgress/GigsYearProgress";
 import { getYearRestaurantMeals } from "@/lib/meals.server";
+import { getWeightLogsInRange } from "@/lib/weight.server";
 import { todayLocalISO } from "@/lib/date";
 import { isGigPlayed } from "@/lib/gigs";
 import { isLiveEventAttended } from "@/lib/live-events";
 import { PeriodInsights } from "@/components/PeriodInsights/PeriodInsights";
+import { WeightTrendChart } from "@/components/WeightTrendChart/WeightTrendChart";
 import { buildPeriodInsights, insightDaysFromMovement } from "@/lib/insights";
 import {
   getYearInsightExtras,
@@ -59,7 +61,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
   }
   if (year > currentYear) year = currentYear;
 
-  const [yearMedia, yearLive, yearGigs, yearRestaurants, yearLeave, codingProjects, yearMovement, yearExtras] =
+  const [yearMedia, yearLive, yearGigs, yearRestaurants, yearLeave, codingProjects, yearMovement, yearExtras, weightLogs] =
     await Promise.all([
       getYearMedia(user.id, year),
       getYearLiveEvents(user.id, year),
@@ -69,6 +71,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
       getCodingProjects(user.id),
       getYearMovement(user.id, year),
       getYearInsightExtras(user.id, year),
+      getWeightLogsInRange(user.id, `${year}-01-01`, `${year}-12-31`),
     ]);
   const canGoForward = year < currentYear;
   const yearCompletions = filterCompletionsForYear(
@@ -152,6 +155,14 @@ export default async function YearPage({ searchParams }: YearPageProps) {
           )}
         </div>
       </header>
+
+      <WeightTrendChart
+        logs={weightLogs}
+        start={`${year}-01-01`}
+        end={`${year}-12-31`}
+        today={today}
+        scope="year"
+      />
 
       {view === "progress" ? <PeriodInsights model={yearInsights} /> : null}
 

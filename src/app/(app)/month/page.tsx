@@ -30,11 +30,13 @@ import {
 } from "@/lib/tasks";
 import { todayLocalISO } from "@/lib/date";
 import { getWorkLogsInRange } from "@/lib/work.server";
+import { getLatestWeightLogBefore, getWeightLogsInRange } from "@/lib/weight.server";
 import { getLeavePeriodsInRange } from "@/lib/leave.server";
 import { getCompletionsInRange } from "@/lib/completions.server";
 import { isGigPlayed } from "@/lib/gigs";
 import { isLiveEventAttended } from "@/lib/live-events";
 import { PeriodInsights } from "@/components/PeriodInsights/PeriodInsights";
+import { WeightTrendChart } from "@/components/WeightTrendChart/WeightTrendChart";
 import {
   buildPeriodInsights,
   doneTrainingSessions,
@@ -88,7 +90,7 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
   const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
   const prev = shiftMonth(year, month, -1);
   const prevMonthStart = `${prev.year}-${String(prev.month).padStart(2, "0")}-01`;
-  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, activity, workByDate, mealsRange, mediaContexts, savedRestaurants, leavePeriods, monthCompletions, previousFinance] =
+  const [summary, monthlyTasks, allCategories, monthMedia, monthLive, monthGigs, activity, workByDate, mealsRange, mediaContexts, savedRestaurants, leavePeriods, monthCompletions, previousFinance, weightLogs, priorWeightLog] =
     await Promise.all([
     getMonthSummary(user.id, year, month),
     getMonthTaskSummary(user.id, monthStart),
@@ -104,6 +106,8 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
     getLeavePeriodsInRange(user.id, monthStart, monthEnd),
     getCompletionsInRange(user.id, monthStart, monthEnd),
     getMonthFinanceSnapshot(user.id, prevMonthStart),
+    getWeightLogsInRange(user.id, monthStart, monthEnd),
+    getLatestWeightLogBefore(user.id, monthStart),
   ]);
   const weeklyTasks = activity.weeks.flatMap((w) => w.tasks);
   const spendCategories =
@@ -240,6 +244,14 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
 
       {view === "progress" ? (
         <>
+        <WeightTrendChart
+          logs={weightLogs}
+          priorLog={priorWeightLog}
+          start={monthStart}
+          end={monthEnd}
+          today={today}
+          scope="month"
+        />
         <PeriodInsights model={monthInsights} />
         <MonthProgressBoard
             summary={summary}
@@ -282,6 +294,16 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
         </>
       ) : (
         <>
+          {isFuturePlan ? null : (
+            <WeightTrendChart
+              logs={weightLogs}
+              priorLog={priorWeightLog}
+              start={monthStart}
+              end={monthEnd}
+              today={today}
+              scope="month"
+            />
+          )}
           <AddTaskPanel
             categories={allCategories}
             defaultScope="monthly"

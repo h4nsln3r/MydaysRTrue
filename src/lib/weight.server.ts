@@ -150,6 +150,48 @@ export async function getWeightForDate(
   };
 }
 
+/** Most recent weigh-in strictly before `beforeDate`, if any. */
+export async function getLatestWeightLogBefore(
+  userId: string,
+  beforeDate: string,
+): Promise<WeightLog | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("weight_logs")
+    .select("local_date, time_of_day, weight_kg, logged_at")
+    .eq("user_id", userId)
+    .lt("local_date", beforeDate)
+    .order("local_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data || !isWeightTimeOfDay(data.time_of_day)) return null;
+  return rowToLog(data);
+}
+
+/** Weight logs between two calendar dates, oldest first. */
+export async function getWeightLogsInRange(
+  userId: string,
+  start: string,
+  end: string,
+): Promise<WeightLog[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("weight_logs")
+    .select("local_date, time_of_day, weight_kg, logged_at")
+    .eq("user_id", userId)
+    .gte("local_date", start)
+    .lte("local_date", end)
+    .order("local_date", { ascending: true });
+
+  const logs: WeightLog[] = [];
+  for (const row of data ?? []) {
+    if (!isWeightTimeOfDay(row.time_of_day)) continue;
+    logs.push(rowToLog(row));
+  }
+  return logs;
+}
+
 /** Weight logs for each day in an ISO week (for progress view). */
 export async function getWeightLogsForWeek(
   userId: string,

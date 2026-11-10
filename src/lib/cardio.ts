@@ -4,9 +4,12 @@
 import type { Weekday } from "@/lib/tasks";
 
 export type CardioTemplateKey = "cardio";
-export type CardioKind = "running" | "cycling" | "swimming";
+export type CardioKind = "running" | "walking" | "cycling" | "swimming";
 
 export const CARDIO_WEEKLY_GOAL = 3;
+
+export const CARDIO_KIND_REQUIRED =
+  "Välj löpning, promenad, cykling eller simning.";
 
 export const CARDIO_KINDS: {
   key: CardioKind;
@@ -15,6 +18,7 @@ export const CARDIO_KINDS: {
   accent: string;
 }[] = [
   { key: "running", label: "Löpning", icon: "🏃", accent: "#ff7a1a" },
+  { key: "walking", label: "Promenad", icon: "🚶", accent: "#e6c15a" },
   { key: "cycling", label: "Cykling", icon: "🚴", accent: "#6ee7a3" },
   { key: "swimming", label: "Simning", icon: "🏊", accent: "#5fb6ff" },
 ];
@@ -50,7 +54,7 @@ export interface CardioSessionForWeek extends CardioSessionTemplate {
 }
 
 export function isCardioKind(value: string | null | undefined): value is CardioKind {
-  return value === "running" || value === "cycling" || value === "swimming";
+  return CARDIO_KINDS.some((kind) => kind.key === value);
 }
 
 export function cardioKindMeta(kind: CardioKind | null | undefined) {
@@ -93,6 +97,7 @@ export function isRepeatableCardioKey(key: string | null | undefined): boolean {
   return (
     key === "cardio" ||
     key === "running" ||
+    key === "walking" ||
     key === "cycling" ||
     key === "swimming" ||
     (key?.startsWith("cardio_") ?? false)

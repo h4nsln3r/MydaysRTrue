@@ -556,6 +556,7 @@ function movementKey(label: string): string | null {
   const name = label.trim().toLowerCase();
   if (!name) return null;
   if (name.startsWith("löp")) return "löpning";
+  if (name.startsWith("prom")) return "promenad";
   if (name.startsWith("cyk")) return "cykling";
   if (
     name.startsWith("sim") ||
@@ -570,6 +571,7 @@ function movementKey(label: string): string | null {
 
 function movementPhrase(key: string, count: number): string {
   if (key === "löpning") return count === 1 ? "ett löppass" : `${count} löppass`;
+  if (key === "promenad") return count === 1 ? "en promenad" : `${count} promenader`;
   if (key === "cykling") return count === 1 ? "ett cykelpass" : `${count} cykelpass`;
   if (count === 1) return key;
   return `${count} × ${key}`;
@@ -961,7 +963,9 @@ function trainingPhrase(sessions: InsightSession[], grouped = false): string | n
     const ranked = [...counts.values()].sort((a, b) => b.count - a.count);
     const phrases = ranked.slice(0, 6).map(({ label, count }) => {
       const key = movementKey(label);
-      if (key === "löpning" || key === "cykling") return movementPhrase(key, count);
+      if (key === "löpning" || key === "promenad" || key === "cykling") {
+        return movementPhrase(key, count);
+      }
       const name = label.toLowerCase();
       if (name.startsWith("gym")) return count === 1 ? "ett gympass" : `${count} gympass`;
       if (name.startsWith("sim")) return count === 1 ? "ett simpass" : `${count} simpass`;
@@ -995,6 +999,7 @@ function trainingPhrase(sessions: InsightSession[], grouped = false): string | n
     }
     if (session.kind === "cardio") {
       if (name.startsWith("löp")) bump(cardio, "löpning");
+      else if (name.startsWith("prom")) bump(cardio, "promenad");
       else if (name.startsWith("cyk")) bump(cardio, "cykling");
       else if (name.startsWith("sim")) bump(cardio, "simning");
       else if (name) bump(cardio, name);
@@ -1011,8 +1016,9 @@ function trainingPhrase(sessions: InsightSession[], grouped = false): string | n
   const parts: string[] = [];
   if (gym > 0) parts.push(gym === 1 ? "ett gympass" : `${gym} gympass`);
   for (const [key, count] of [...cardio.entries()].sort((a, b) => b[1] - a[1])) {
-    if (key === "löpning" || key === "cykling") parts.push(movementPhrase(key, count));
-    else if (key === "simning") parts.push(count === 1 ? "ett simpass" : `${count} simpass`);
+    if (key === "löpning" || key === "promenad" || key === "cykling") {
+      parts.push(movementPhrase(key, count));
+    } else if (key === "simning") parts.push(count === 1 ? "ett simpass" : `${count} simpass`);
     else parts.push(count === 1 ? key : `${count} × ${key}`);
   }
   if (bath > 0) parts.push(bath === 1 ? "ett bad" : `${bath} bad`);

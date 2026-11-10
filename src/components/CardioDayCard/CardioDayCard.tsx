@@ -14,6 +14,7 @@ import {
   updateCardioPlanAction,
 } from "@/app/(app)/cardio-actions";
 import {
+  CARDIO_KIND_REQUIRED,
   cardioSessionDisplay,
   formatCardioDetail,
   resolveCardioKind,
@@ -190,7 +191,7 @@ export function CardioSessionRow({
 
   const savePlan = () => {
     if (!planKind) {
-      onError("Välj löpning, cykling eller simning.");
+      onError(CARDIO_KIND_REQUIRED);
       return;
     }
     onError(null);
@@ -209,7 +210,7 @@ export function CardioSessionRow({
 
   const complete = () => {
     if (!(actualKind || planKind)) {
-      onError("Välj löpning, cykling eller simning.");
+      onError(CARDIO_KIND_REQUIRED);
       return;
     }
     onError(null);

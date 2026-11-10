@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { ensureCardioTemplate } from "@/lib/cardio.server";
-import { isCardioKind, type CardioKind } from "@/lib/cardio";
+import {
+  CARDIO_KIND_REQUIRED,
+  isCardioKind,
+  type CardioKind,
+} from "@/lib/cardio";
 import type { Weekday } from "@/lib/tasks";
 import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
 import { clearPlacementJournalEdit } from "@/lib/journal.server";
@@ -68,7 +72,7 @@ export async function addCardioPlacementAction(input: {
 
   const planKind = input.planKind ? parseKind(input.planKind) : null;
   if (input.planKind && !planKind) {
-    return { ok: false, error: "Välj löpning, cykling eller simning." };
+    return { ok: false, error: CARDIO_KIND_REQUIRED };
   }
 
   const { error } = await supabase.from("cardio_week_placements").insert({
@@ -280,7 +284,7 @@ export async function updateCardioPlanAction(input: {
   }
 
   const kind = parseKind(input.planKind);
-  if (!kind) return { ok: false, error: "Välj löpning, cykling eller simning." };
+  if (!kind) return { ok: false, error: CARDIO_KIND_REQUIRED };
 
   const supabase = await createClient();
   const {
@@ -331,7 +335,7 @@ export async function completeCardioSessionAction(input: {
 
   const kind = parseKind(input.actualKind) ?? parseKind(existing.plan_kind);
   if (!kind) {
-    return { ok: false, error: "Välj löpning, cykling eller simning." };
+    return { ok: false, error: CARDIO_KIND_REQUIRED };
   }
 
   const note = (input.note ?? "").trim();

@@ -77,7 +77,11 @@ import { GameFields } from "@/components/GameFields/GameFields";
 import { RingFields } from "@/components/RingFields/RingFields";
 import { CardioFields } from "@/components/CardioFields/CardioFields";
 import { SportFields } from "@/components/SportFields/SportFields";
-import { resolveCardioKind, type CardioKind } from "@/lib/cardio";
+import {
+  CARDIO_KIND_REQUIRED,
+  resolveCardioKind,
+  type CardioKind,
+} from "@/lib/cardio";
 import type { UserGame } from "@/lib/games";
 import { matchSportId, type UserSport } from "@/lib/sports";
 import { formatWeightKg } from "@/lib/format";
@@ -1967,7 +1971,7 @@ function ItemRowContent({
   const completeCardio = () => {
     if (item.kind !== "cardio" || !item.placementId) return;
     if (!(cardioActualKind || cardioPlanKind)) {
-      onError("Välj löpning, cykling eller simning.");
+      onError(CARDIO_KIND_REQUIRED);
       return;
     }
     onError(null);
@@ -2005,7 +2009,7 @@ function ItemRowContent({
   const saveCardioPlan = () => {
     if (item.kind !== "cardio" || !item.placementId) return;
     if (!cardioPlanKind) {
-      onError("Välj löpning, cykling eller simning.");
+      onError(CARDIO_KIND_REQUIRED);
       return;
     }
     onError(null);

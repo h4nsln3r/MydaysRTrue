@@ -29,6 +29,7 @@ import {
   type GymWarmup,
 } from "@/lib/gym";
 import {
+  CARDIO_KIND_REQUIRED,
   cardioSessionDisplay,
   formatCardioDetail,
   resolveCardioKind,
@@ -299,7 +300,7 @@ function CardioForm({
 
   const complete = () => {
     if (!(actualKind || planKind)) {
-      setError("Välj löpning, cykling eller simning.");
+      setError(CARDIO_KIND_REQUIRED);
       return;
     }
     setError(null);

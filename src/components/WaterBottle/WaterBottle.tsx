@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { formatMl } from "@/lib/water";
 import styles from "./WaterBottle.module.scss";
 
@@ -13,6 +13,8 @@ interface WaterBottleProps {
   goalMl: number;
   /** Total animation duration in ms (default 1100ms) */
   animationMs?: number;
+  /** Sits under the stats, to the right of the bottle. */
+  children?: ReactNode;
 }
 
 // easeOutCubic — fast start, gentle landing. Feels natural for "filling".
@@ -47,7 +49,7 @@ function waterlineY(progress: number): number {
  */
 function useAnimatedNumber(target: number, durationMs: number): number {
   const [value, setValue] = useState(0);
-  const fromRef = useRef(0);
+  const valueRef = useRef(0);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -57,12 +59,13 @@ function useAnimatedNumber(target: number, durationMs: number): number {
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
     if (prefersReduced) {
-      fromRef.current = target;
+      valueRef.current = target;
       setValue(target);
       return;
     }
 
-    const from = fromRef.current;
+    // Continue from the number on screen, so a second sip doesn't rewind the fill.
+    const from = valueRef.current;
     const to = target;
     const start = performance.now();
 
@@ -71,12 +74,13 @@ function useAnimatedNumber(target: number, durationMs: number): number {
       const t = Math.min(1, elapsed / durationMs);
       const eased = easeOutCubic(t);
       const next = from + (to - from) * eased;
+      valueRef.current = next;
       setValue(next);
 
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
-        fromRef.current = to;
+        valueRef.current = to;
       }
     };
 
@@ -94,6 +98,7 @@ export function WaterBottle({
   totalMl,
   goalMl,
   animationMs = 1100,
+  children,
 }: WaterBottleProps) {
   const clamped = Math.max(0, Math.min(1, progress));
 
@@ -116,7 +121,7 @@ export function WaterBottle({
 
   return (
     <div
-      className={[styles.wrap, isFull ? styles.full : ""].join(" ")}
+      className={[styles.wrap, isFull ? styles.full : ""].filter(Boolean).join(" ")}
       style={{ "--bubble-rise": `-${bubbleTravel}px` } as CSSProperties}
       aria-label={`Water progress: ${Math.round(clamped * 100)}%`}
       role="progressbar"
@@ -215,25 +220,26 @@ export function WaterBottle({
         </text>
       </svg>
 
-      <div className={styles.readout}>
+      <div className={styles.side}>
         <div className={[styles.percent, isFull ? styles.percentFull : ""].join(" ")}>
           <span className={styles.percentNum}>{percent}</span>
           <span className={styles.unit}>%</span>
         </div>
         <div className={styles.stats}>
-          <div>
+          <div className={styles.stat}>
             <span className={styles.statLabel}>Drunk</span>
             <span className={styles.statValue}>{formatMl(Math.round(animatedTotal))}</span>
           </div>
-          <div>
+          <div className={styles.stat}>
             <span className={styles.statLabel}>Left</span>
             <span className={styles.statValue}>{formatMl(remaining)}</span>
           </div>
-          <div>
+          <div className={styles.stat}>
             <span className={styles.statLabel}>Goal</span>
             <span className={styles.statValue}>{formatMl(goalMl)}</span>
           </div>
         </div>
+        {children}
       </div>
     </div>
   );

@@ -153,67 +153,6 @@
     font-weight: 700;
 }
 
-.quickRow {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: $space-2;
-}
-
-.quickBtn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    padding: $space-3 $space-2;
-    background: $color-ink-soft;
-    border: 1px solid $color-line;
-    color: $color-cream;
-    border-radius: $radius-md;
-    transition:
-        transform 160ms $ease-bounce,
-        background 160ms $ease-out,
-        border-color 160ms $ease-out;
-
-    &:hover:not(:disabled) {
-        transform: translateY(-2px);
-        border-color: $color-orange;
-        background: rgba(255, 122, 26, 0.08);
-    }
-
-    &:active:not(:disabled) {
-        transform: translateY(0);
-    }
-
-    &:disabled[aria-busy="true"] {
-        opacity: 0.7;
-    }
-}
-
-.quickIcon {
-    font-size: 1.5rem;
-    line-height: 1;
-}
-
-.quickAmount {
-    font-family: $font-mono;
-    font-weight: 700;
-    font-size: 0.9rem;
-    color: $color-orange-bright;
-}
-
-.quickLabel {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: $color-cream-dim;
-}
-
-.inlineError {
-    margin-top: $space-2;
-    color: $color-danger;
-    font-size: 0.85rem;
-}
-
 .empty {
     display: flex;
     align-items: center;

@@ -7,7 +7,6 @@ import { WaterHeroCard } from "@/components/WaterHeroCard/WaterHeroCard";
 import { createClient } from "@/lib/supabase/server";
 import { getDailySummary } from "@/lib/water.server";
 import { formatDateLong, parseLocalISO, todayLocalISO, weekEndISO } from "@/lib/date";
-import { QuickAddRow } from "../QuickAddRow";
 import styles from "../dashboard.module.scss";
 
 export const dynamic = "force-dynamic";
@@ -58,20 +57,12 @@ export default async function WaterPage({ searchParams }: WaterPageProps) {
 
       <section className={styles.section}>
         <header className={styles.sectionHeader}>
-          <h2 className={styles.h2}>Quick add</h2>
-          <Link href={addWaterHref} className={styles.link}>
-            More options →
-          </Link>
-        </header>
-        <QuickAddRow localDate={localDate} />
-      </section>
-
-      <section className={styles.section}>
-        <header className={styles.sectionHeader}>
           <h2 className={styles.h2}>
             {isToday ? "Today's log" : "Day's log"}
           </h2>
-          <span className={styles.muted}>{summary.logs.length} entries</span>
+          <Link href={addWaterHref} className={styles.link}>
+            Other amount →
+          </Link>
         </header>
         {summary.logs.length === 0 ? (
           <Card className={styles.empty}>

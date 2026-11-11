@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Card } from "@/components/Card/Card";
 import { WaterLogItem } from "@/components/WaterLogItem/WaterLogItem";
 import { getAuthUser } from "@/lib/auth.server";
-import { QuickAddRow } from "../QuickAddRow";
 import styles from "../dashboard.module.scss";
 import { getCachedDailySummary, getPlanRevealGate } from "./cached";
 import { RevealAfterPlan } from "./FadeIn";
@@ -21,7 +20,6 @@ export async function DayWaterSection({ date }: { date: string }) {
           Mer →
         </Link>
       </header>
-      <QuickAddRow localDate={date} />
       {summary.logs.length === 0 ? (
         <Card className={styles.empty}>
           <p>Inget vatten loggat den här dagen.</p>

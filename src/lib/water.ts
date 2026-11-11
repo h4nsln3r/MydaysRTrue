@@ -17,6 +17,9 @@ export interface WaterSummary {
   logs: WaterLog[];
 }
 
+/** One-tap amounts on the water card. */
+export const CARD_QUICK_ADDS = [200, 350, 500] as const;
+
 /** Quick-add presets in millilitres. */
 export const QUICK_ADDS = [
   { ml: 200, label: "Glass", icon: "🥛" },

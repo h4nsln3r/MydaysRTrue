@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Habit, HabitStatus, MealRestaurant } from "@/lib/habits";
 import type { MealBoxStockItem, WeekMealDay } from "@/lib/meal-box.server";
 import type { DailyMediaContext } from "@/lib/media";
+import type { WeightLog } from "@/lib/weight";
 import { formatHabitPoints, habitStatusPoints } from "@/lib/habits";
 import type { MonthDay, MonthSummary } from "@/lib/habits.server";
 import {
@@ -19,6 +20,7 @@ import { formatDayShort, mondaysInRange, placementLocalDate } from "@/lib/date";
 import { monthlyTaskDisplayTitle, type MonthlyFinanceSnapshot } from "@/lib/monthly-finance";
 import { FestProgressCard } from "./FestProgressCard";
 import { MonthDailyHabitRows } from "./MonthDailyHabitRows";
+import { MonthWeightRow } from "./MonthWeightRow";
 import { MonthlyFinanceTable } from "./MonthlyFinanceTable";
 import { MonthlyBillsSummary } from "./MonthlyBillsSummary";
 import {
@@ -71,6 +73,8 @@ interface Props {
   mealBoxStock: MealBoxStockItem[];
   savedRestaurants: MealRestaurant[];
   mediaContexts: DailyMediaContext[];
+  weightLogs: WeightLog[];
+  priorWeightLog: WeightLog | null;
 }
 
 const WEEKDAY_HEAD = ["M", "T", "O", "T", "F", "L", "S"];
@@ -96,6 +100,8 @@ export function MonthProgressBoard({
   mealBoxStock,
   savedRestaurants,
   mediaContexts,
+  weightLogs,
+  priorWeightLog,
 }: Props) {
   const colSpan = summary.days.length + 2;
   const hasTasks = monthlyTasks.length > 0;
@@ -168,22 +174,6 @@ export function MonthProgressBoard({
 
   return (
     <div className={styles.board}>
-      <SpendSplitOverview
-        shopping={shoppingSummary}
-        expenses={expenseSummary}
-        title="Pengar denna månad"
-      />
-      <ExpensesSummary
-        summary={shoppingSummary}
-        title="Handling denna månad"
-        icon="🛒"
-        variant="shopping"
-      />
-      <ExpensesSummary
-        summary={expenseSummary}
-        title="Utgifter denna månad"
-      />
-
       <div className={styles.legendBar} aria-label="Förklaring">
         <span className={styles.legendGroup}>
           <span className={styles.legendTitle}>Vanor</span>
@@ -442,9 +432,35 @@ export function MonthProgressBoard({
                 </span>
               </td>
             </tr>
+            <MonthWeightRow
+              days={summary.days.map((day) => ({
+                date: day.date,
+                isFuture: day.isFuture,
+                isToday: day.isToday,
+              }))}
+              logs={weightLogs}
+              priorLog={priorWeightLog}
+              today={today}
+            />
           </tfoot>
         </table>
       </div>
+
+      <SpendSplitOverview
+        shopping={shoppingSummary}
+        expenses={expenseSummary}
+        title="Pengar denna månad"
+      />
+      <ExpensesSummary
+        summary={shoppingSummary}
+        title="Handling denna månad"
+        icon="🛒"
+        variant="shopping"
+      />
+      <ExpensesSummary
+        summary={expenseSummary}
+        title="Utgifter denna månad"
+      />
 
       <MonthlyFinanceTable
         monthStart={monthStart}

@@ -244,15 +244,6 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
 
       {view === "progress" ? (
         <>
-        <WeightTrendChart
-          logs={weightLogs}
-          priorLog={priorWeightLog}
-          start={monthStart}
-          end={monthEnd}
-          today={today}
-          scope="month"
-        />
-        <PeriodInsights model={monthInsights} />
         <MonthProgressBoard
             summary={summary}
             monthStart={monthStart}
@@ -274,7 +265,10 @@ export default async function MonthPage({ searchParams }: MonthPageProps) {
             mealBoxStock={mealsRange.stock}
             savedRestaurants={savedRestaurants}
             mediaContexts={mediaContexts}
+            weightLogs={weightLogs}
+            priorWeightLog={priorWeightLog}
         />
+        <PeriodInsights model={monthInsights} />
         <section className={styles.section}>
           <MealMonthSummary
             days={mealsRange.days}

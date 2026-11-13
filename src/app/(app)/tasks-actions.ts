@@ -23,6 +23,7 @@ import {
   parseCodingActivity,
   isGameWeeklyTaskKey,
   isHomeProjectWeeklyTaskKey,
+  isMusicWeeklyTaskKey,
   isHexColor,
   isKnownMusicBand,
   isMonthlyTaskRepeatable,
@@ -525,6 +526,228 @@ export async function createOneOffWeeklyTaskAction(input: {
 
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+type ListItemKind = "music" | "home" | "shop" | "dev";
+
+/** Put a line at the top of Bas, Kodning, Handla, Hemmaprojekt, or another inner list. */
+export async function prependActivityListItemAction(input: {
+  taskId: string;
+  text: string;
+  musicActivity?: string | null;
+}): Promise<ActionResult & { kind?: ListItemKind }> {
+  const text = input.text.trim().slice(0, 200);
+  if (!text) return { ok: false, error: "Skriv vad du ska göra." };
+  if (!input.taskId) return { ok: false, error: "Saknar uppgift." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+
+  const { data: task } = await supabase
+    .from("weekly_tasks")
+    .select("id, key, completion_kind")
+    .eq("id", input.taskId)
+    .eq("user_id", user.id)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Uppgiften hittades inte." };
+
+  const musicActivity = parseMusicActivity(input.musicActivity ?? null);
+  const kind = listKindForTask(task, musicActivity);
+  if (!kind) return { ok: false, error: "Den här listan finns inte." };
+  if (kind === "music" && !musicActivityHasTodos(musicActivity)) {
+    return { ok: false, error: "Den här listan finns inte." };
+  }
+
+  const sortOrder = await nextOpenListSortOrder(supabase, user.id, kind, musicActivity);
+  const inserted = await insertOpenListItem(supabase, user.id, {
+    kind,
+    text,
+    sortOrder,
+    musicActivity,
+  });
+  if (!inserted.ok) return inserted;
+  return { ok: true, id: inserted.id, kind };
+}
+
+/** Drop a list line that was added and then could not be placed on the day. */
+export async function removeActivityListItemAction(input: {
+  id: string;
+  kind: ListItemKind;
+}): Promise<ActionResult> {
+  if (!input.id) return { ok: false, error: "Saknar uppgifts-id." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Inte inloggad." };
+  await deleteOpenListItem(supabase, user.id, input.kind, input.id);
+  return { ok: true };
+}
+
+function listKindForTask(
+  task: { key: string | null; completion_kind: string },
+  musicActivity: ReturnType<typeof parseMusicActivity>,
+): ListItemKind | null {
+  if (
+    (task.completion_kind === "music" || isMusicWeeklyTaskKey(task.key)) &&
+    musicActivityHasTodos(musicActivity)
+  ) {
+    return "music";
+  }
+  if (isCodingWeeklyTaskKey(task.key)) return "dev";
+  if (isHomeProjectWeeklyTaskKey(task.key)) return "home";
+  if (task.completion_kind === "shop") return "shop";
+  return null;
+}
+
+async function nextOpenListSortOrder(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  kind: ListItemKind,
+  musicActivity: ReturnType<typeof parseMusicActivity>,
+): Promise<number> {
+  if (kind === "music" && musicActivityHasTodos(musicActivity)) {
+    const { data } = await supabase
+      .from("music_activity_todos")
+      .select("sort_order")
+      .eq("user_id", userId)
+      .eq("activity", musicActivity)
+      .is("done_at", null)
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    return (data?.sort_order ?? 0) - 1;
+  }
+  if (kind === "home") {
+    const { data } = await supabase
+      .from("home_project_todos")
+      .select("sort_order")
+      .eq("user_id", userId)
+      .is("done_at", null)
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    return (data?.sort_order ?? 0) - 1;
+  }
+  if (kind === "shop") {
+    const { data } = await supabase
+      .from("shop_todos")
+      .select("sort_order")
+      .eq("user_id", userId)
+      .is("done_at", null)
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    return (data?.sort_order ?? 0) - 1;
+  }
+  const { data } = await supabase
+    .from("coding_todos")
+    .select("sort_order")
+    .eq("user_id", userId)
+    .is("done_at", null)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return (data?.sort_order ?? 0) - 1;
+}
+
+async function insertOpenListItem(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  input: {
+    kind: ListItemKind;
+    text: string;
+    sortOrder: number;
+    musicActivity: ReturnType<typeof parseMusicActivity>;
+  },
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  if (input.kind === "music" && input.musicActivity && musicActivityHasTodos(input.musicActivity)) {
+    const { data, error } = await supabase
+      .from("music_activity_todos")
+      .insert({
+        user_id: userId,
+        activity: input.musicActivity,
+        text: input.text,
+        sort_order: input.sortOrder,
+      })
+      .select("id")
+      .single();
+    if (error || !data) {
+      return { ok: false, error: error?.message ?? "Kunde inte lägga till." };
+    }
+    return { ok: true, id: data.id };
+  }
+  if (input.kind === "home") {
+    const { data, error } = await supabase
+      .from("home_project_todos")
+      .insert({
+        user_id: userId,
+        text: input.text,
+        sort_order: input.sortOrder,
+      })
+      .select("id")
+      .single();
+    if (error || !data) {
+      return { ok: false, error: error?.message ?? "Kunde inte lägga till." };
+    }
+    return { ok: true, id: data.id };
+  }
+  if (input.kind === "shop") {
+    const { data, error } = await supabase
+      .from("shop_todos")
+      .insert({
+        user_id: userId,
+        text: input.text,
+        sort_order: input.sortOrder,
+      })
+      .select("id")
+      .single();
+    if (error || !data) {
+      return { ok: false, error: error?.message ?? "Kunde inte lägga till." };
+    }
+    return { ok: true, id: data.id };
+  }
+  if (input.kind === "dev") {
+    const { data, error } = await supabase
+      .from("coding_todos")
+      .insert({
+        user_id: userId,
+        text: input.text,
+        sort_order: input.sortOrder,
+      })
+      .select("id")
+      .single();
+    if (error || !data) {
+      return { ok: false, error: error?.message ?? "Kunde inte lägga till." };
+    }
+    return { ok: true, id: data.id };
+  }
+  return { ok: false, error: "Den här listan finns inte." };
+}
+
+async function deleteOpenListItem(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  kind: ListItemKind,
+  id: string,
+): Promise<void> {
+  if (kind === "music") {
+    await supabase.from("music_activity_todos").delete().eq("id", id).eq("user_id", userId);
+    return;
+  }
+  if (kind === "home") {
+    await supabase.from("home_project_todos").delete().eq("id", id).eq("user_id", userId);
+    return;
+  }
+  if (kind === "shop") {
+    await supabase.from("shop_todos").delete().eq("id", id).eq("user_id", userId);
+    return;
+  }
+  await supabase.from("coding_todos").delete().eq("id", id).eq("user_id", userId);
 }
 
 export async function updateWeeklyTaskAction(input: {

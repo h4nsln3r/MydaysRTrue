@@ -9,6 +9,10 @@ import { KlarnaPurchaseField } from "@/components/KlarnaPurchaseField/KlarnaPurc
 import { ActivityCategoryBadge } from "@/components/ActivityCategoryBadge/ActivityCategoryBadge";
 import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge";
 import {
+  deleteMonthlyTaskInstanceAction,
+  moveMonthlyTaskInstanceAction,
+  placeMonthlyBillFromWeekAction,
+  scheduleMonthlyTaskPlanAction,
   setMonthlyBillAmountAction,
   toggleMonthlyTaskDoneAction,
 } from "@/app/(app)/tasks-actions";
@@ -20,12 +24,16 @@ import {
   isMonthlyFinanceTask,
   isMonthlyTaskComplete,
 } from "@/lib/monthly-bills";
+import { DayPlanTrashMenu } from "@/components/DayActivitiesCard/DayPlanTrashMenu";
+import { isoWeekdayFromLocalISO } from "@/lib/date";
 import {
   formatMonthlyTaskDetail,
   isKlarnaBill,
+  isMonthlyTaskRepeatable,
   klarnaPurchaseSummary,
   type MonthlyTaskForMonth,
   type TaskCategory,
+  type Weekday,
 } from "@/lib/tasks";
 import type { PlanSortableProps } from "@/components/DayActivitiesCard/usePlanSortable";
 import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.scss";
@@ -33,6 +41,8 @@ import styles from "@/components/WeeklyTasksDayCard/WeeklyTasksDayCard.module.sc
 interface Props extends PlanSortableProps {
   task: MonthlyTaskForMonth;
   monthStart: string;
+  weekStart: string;
+  date: string;
   categories: TaskCategory[];
   expanded: boolean;
   busy: boolean;
@@ -47,6 +57,8 @@ interface Props extends PlanSortableProps {
 export function MonthlyTaskDayRow({
   task,
   monthStart,
+  weekStart,
+  date,
   categories,
   expanded,
   busy,
@@ -138,6 +150,58 @@ export function MonthlyTaskDayRow({
   const openEkonomi = () => {
     if (planningMode) return;
     router.push(ekonomiHref);
+  };
+
+  const repeatable =
+    task.completion?.isInstance === true || isMonthlyTaskRepeatable(task);
+
+  const moveToWeekday = (weekday: Weekday) => {
+    const completion = task.completion;
+    if (repeatable) {
+      if (!completion) {
+        onError("Uppgiften saknar placering.");
+        return;
+      }
+      run(() =>
+        moveMonthlyTaskInstanceAction({
+          completionId: completion.id,
+          weekStart,
+          weekday,
+        }),
+      );
+      return;
+    }
+    run(() =>
+      placeMonthlyBillFromWeekAction({
+        taskId: task.id,
+        weekStart,
+        weekday,
+      }),
+    );
+  };
+
+  const removeFromWeek = () => {
+    const completion = task.completion;
+    if (repeatable) {
+      if (!completion) {
+        onError("Uppgiften saknar placering.");
+        return;
+      }
+      run(() =>
+        deleteMonthlyTaskInstanceAction({
+          completionId: completion.id,
+        }),
+      );
+      return;
+    }
+    run(() =>
+      scheduleMonthlyTaskPlanAction({
+        taskId: task.id,
+        monthStart,
+        weekStart: null,
+        dayOfMonth: null,
+      }),
+    );
   };
 
   const toggleSimple = () => {
@@ -343,6 +407,12 @@ export function MonthlyTaskDayRow({
 
       {expanded && !planningMode ? (
         <div className={styles.taskActions}>
+          <DayPlanTrashMenu
+            currentWeekday={isoWeekdayFromLocalISO(date) as Weekday}
+            pending={pending}
+            onMove={moveToWeekday}
+            onRemove={removeFromWeek}
+          />
           {isBill ? (
             <>
               <Input

@@ -417,6 +417,105 @@
         $color-ink-soft;
 }
 
+.dayTrash {
+    align-self: flex-end;
+    width: 28px;
+    height: 28px;
+    border-radius: $radius-sm;
+    border: 1px solid transparent;
+    background: transparent;
+    color: $color-fog;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+        color: $color-danger;
+        border-color: rgba(255, 82, 71, 0.45);
+        background: $color-ink-elevated;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.dayTrashOpen {
+    color: $color-danger;
+    border-color: rgba(255, 82, 71, 0.45);
+    background: $color-ink-elevated;
+}
+
+.relocate {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: $space-2;
+    margin-top: $space-2;
+    border-top: 1px dashed $color-line;
+}
+
+.relocateLabel {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $color-fog;
+}
+
+.dayChoices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.dayChoice {
+    padding: 6px 10px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink-elevated;
+    color: $color-cream;
+    font-family: $font-mono;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        border-color: $color-orange-bright;
+        color: $color-orange-bright;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.removeWeekBtn {
+    align-self: flex-start;
+    padding: 6px 10px;
+    border-radius: $radius-pill;
+    border: 1px solid rgba(255, 82, 71, 0.55);
+    background: transparent;
+    color: $color-danger;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        background: rgba(255, 82, 71, 0.12);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
 .reschedule {
     grid-area: reschedule;
     display: flex;
@@ -771,6 +870,40 @@ button.planNoteEmpty {
     color: $color-cream;
     font-size: 0.92rem;
     line-height: 1.35;
+}
+
+.checkRow {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-2;
+    padding: 10px 12px;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    cursor: pointer;
+}
+
+.checkbox {
+    margin-top: 2px;
+    width: 18px;
+    height: 18px;
+    accent-color: $color-orange;
+    flex-shrink: 0;
+}
+
+.checkText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.95rem;
+    color: $color-cream;
+    font-weight: 700;
+}
+
+.checkHint {
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: $color-fog;
 }
 
 .categoryField {

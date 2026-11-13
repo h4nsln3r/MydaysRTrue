@@ -18,8 +18,10 @@ import {
   allowedSpendKinds,
   isCodingWeeklyTaskKey,
   isGameWeeklyTaskKey,
+  isHomeProjectWeeklyTaskKey,
   isMusicWeeklyTaskKey,
   isRingWeeklyTaskKey,
+  musicActivityHasTodos,
   musicActivityNeedsBand,
   type CodingActivity,
   type MusicActivity,
@@ -83,8 +85,13 @@ export type DayQuickAddPayload =
 export type DayQuickAddStep =
   | { type: "oneOff" }
   | { type: "commit"; payload: DayQuickAddPayload }
-  | { type: "band"; taskId: string; activity: MusicActivity }
+  | { type: "band"; taskId: string; activity: MusicActivity; thenList: boolean }
   | { type: "callOther"; taskId: string }
+  | {
+      type: "list";
+      title: string;
+      payload: Extract<DayQuickAddPayload, { kind: "task" }>;
+    }
   | {
       type: "menu";
       title: string;
@@ -142,6 +149,22 @@ function tasksInCategory(
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+function taskPayloadStep(
+  task: DayQuickAddTask,
+  payload: Extract<DayQuickAddPayload, { kind: "task" }>,
+  title: string,
+): DayQuickAddStep {
+  const activity = payload.musicActivity ?? null;
+  const hasList =
+    (activity != null && musicActivityHasTodos(activity)) ||
+    (activity == null &&
+      (isCodingWeeklyTaskKey(task.key) ||
+        isHomeProjectWeeklyTaskKey(task.key) ||
+        task.completionKind === "shop"));
+  if (!hasList) return { type: "commit", payload };
+  return { type: "list", title, payload };
+}
+
 function taskStep(task: DayQuickAddTask, games: UserGame[]): DayQuickAddStep {
   if (task.completionKind === "music" || isMusicWeeklyTaskKey(task.key)) {
     return {
@@ -152,11 +175,17 @@ function taskStep(task: DayQuickAddTask, games: UserGame[]): DayQuickAddStep {
         label: MUSIC_ACTIVITY_LABEL[activity],
         icon: MUSIC_ACTIVITY_ICON[activity],
         step: musicActivityNeedsBand(activity)
-          ? { type: "band", taskId: task.id, activity }
-          : {
-              type: "commit",
-              payload: { kind: "task", taskId: task.id, musicActivity: activity },
-            },
+          ? {
+              type: "band",
+              taskId: task.id,
+              activity,
+              thenList: musicActivityHasTodos(activity),
+            }
+          : taskPayloadStep(
+              task,
+              { kind: "task", taskId: task.id, musicActivity: activity },
+              MUSIC_ACTIVITY_LABEL[activity],
+            ),
       })),
     };
   }
@@ -169,10 +198,11 @@ function taskStep(task: DayQuickAddTask, games: UserGame[]): DayQuickAddStep {
         id: `${task.id}:${spendKind}`,
         label: SPEND_KIND_LABEL[spendKind],
         icon: SPEND_KIND_ICON[spendKind],
-        step: {
-          type: "commit",
-          payload: { kind: "task", taskId: task.id, spendKind },
-        },
+        step: taskPayloadStep(
+          task,
+          { kind: "task", taskId: task.id, spendKind },
+          task.title,
+        ),
       })),
     };
   }
@@ -204,14 +234,11 @@ function taskStep(task: DayQuickAddTask, games: UserGame[]): DayQuickAddStep {
         id: `${task.id}:${activity}`,
         label: CODING_ACTIVITY_LABEL[activity],
         icon: CODING_ACTIVITY_ICON[activity],
-        step: {
-          type: "commit",
-          payload: {
-            kind: "task",
-            taskId: task.id,
-            codingActivity: activity,
-          },
-        },
+        step: taskPayloadStep(
+          task,
+          { kind: "task", taskId: task.id, codingActivity: activity },
+          CODING_ACTIVITY_LABEL[activity],
+        ),
       })),
     };
   }
@@ -239,10 +266,7 @@ function taskStep(task: DayQuickAddTask, games: UserGame[]): DayQuickAddStep {
     };
   }
 
-  return {
-    type: "commit",
-    payload: { kind: "task", taskId: task.id },
-  };
+  return taskPayloadStep(task, { kind: "task", taskId: task.id }, task.title);
 }
 
 function categoryItem(
@@ -296,6 +320,89 @@ function categoryItem(
     progress,
     step: { type: "menu", title: name, items },
   };
+}
+
+const CATEGORY_NAMES = new Set<string>(CATEGORY_ORDER);
+
+/** Submenu for a category that has activities under it (Musik → Bas, Dev → Kodning, …). */
+export function quickAddStepForCategory(
+  categoryName: string,
+  tasks: DayQuickAddTask[],
+  categories: TaskCategory[],
+  games: UserGame[],
+): Extract<DayQuickAddStep, { type: "menu" }> | null {
+  if (!CATEGORY_NAMES.has(categoryName)) return null;
+  const item = categoryItem(
+    categoryName as (typeof CATEGORY_ORDER)[number],
+    tasks,
+    categories,
+    games,
+  );
+  if (!item || item.step.type !== "menu") return null;
+  return item.step;
+}
+
+export interface QuickAddMenuLevel {
+  title: string;
+  items: DayQuickAddItem[];
+  selectedId: string;
+}
+
+export type QuickAddLeaf =
+  | { type: "band"; taskId: string; activity: MusicActivity; thenList: boolean }
+  | { type: "callOther"; taskId: string }
+  | {
+      type: "list";
+      title: string;
+      payload: Extract<DayQuickAddPayload, { kind: "task" }>;
+    }
+  | { type: "commit"; payload: DayQuickAddPayload };
+
+/** Walk a category submenu using the ids the user has picked so far. */
+export function followQuickAddMenus(
+  step: DayQuickAddStep | null,
+  picks: string[],
+): { menus: QuickAddMenuLevel[]; leaf: QuickAddLeaf | null } {
+  const menus: QuickAddMenuLevel[] = [];
+  if (!step || step.type !== "menu") return { menus, leaf: null };
+
+  let current: DayQuickAddStep = step;
+  let depth = 0;
+  while (current.type === "menu") {
+    const selectedId = picks[depth] ?? "";
+    menus.push({ title: current.title, items: current.items, selectedId });
+    const chosen: DayQuickAddItem | undefined = current.items.find(
+      (item: DayQuickAddItem) => item.id === selectedId,
+    );
+    if (!chosen) return { menus, leaf: null };
+    current = chosen.step;
+    depth += 1;
+  }
+
+  if (current.type === "band") {
+    return {
+      menus,
+      leaf: {
+        type: "band",
+        taskId: current.taskId,
+        activity: current.activity,
+        thenList: current.thenList,
+      },
+    };
+  }
+  if (current.type === "callOther") {
+    return { menus, leaf: { type: "callOther", taskId: current.taskId } };
+  }
+  if (current.type === "list") {
+    return {
+      menus,
+      leaf: { type: "list", title: current.title, payload: current.payload },
+    };
+  }
+  if (current.type === "commit") {
+    return { menus, leaf: { type: "commit", payload: current.payload } };
+  }
+  return { menus, leaf: null };
 }
 
 function sumProgress(

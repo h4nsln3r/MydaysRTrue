@@ -7,6 +7,8 @@ import { addSportPlacementAction } from "@/app/(app)/sport-actions";
 import {
   addWeeklyTaskPlacementAction,
   placeWeeklyTaskAction,
+  prependActivityListItemAction,
+  removeActivityListItemAction,
 } from "@/app/(app)/tasks-actions";
 import type { DayQuickAddPayload } from "@/lib/day-quick-add";
 import { addDaysISO } from "@/lib/date";
@@ -81,6 +83,8 @@ export async function quickAddDayActivityAction(input: {
   weekStart: string;
   weekday: Weekday;
   payload: DayQuickAddPayload;
+  /** When set, the line is added at the top of that activity's list. */
+  listText?: string | null;
 }): Promise<ActionResult> {
   if (!isMonday(input.weekStart)) {
     return { ok: false, error: "Veckan måste börja på en måndag." };
@@ -136,6 +140,7 @@ export async function quickAddDayActivityAction(input: {
         callPerson: payload.callPerson,
         callOtherName: payload.callOtherName,
         codingActivity: payload.codingActivity,
+        listText: input.listText,
       });
     default:
       return { ok: false, error: "Okänd aktivitet." };
@@ -153,6 +158,7 @@ async function addPlannedWeeklyTask(input: {
   callPerson?: string | null;
   callOtherName?: string | null;
   codingActivity?: string | null;
+  listText?: string | null;
 }): Promise<ActionResult> {
   const supabase = await createClient();
   const {
@@ -211,7 +217,21 @@ async function addPlannedWeeklyTask(input: {
     return { ok: false, error: "Välj kodning, lära eller friend kod." };
   }
 
-  return addWeeklyTaskPlacementAction({
+  const listText = input.listText?.trim() ?? "";
+  const inserted = listText
+    ? await prependActivityListItemAction({
+        taskId: input.taskId,
+        text: listText,
+        musicActivity: input.musicActivity,
+      })
+    : null;
+  if (inserted && (!inserted.ok || !inserted.id || !inserted.kind)) {
+    return inserted.ok
+      ? { ok: false, error: "Kunde inte lägga till i listan." }
+      : inserted;
+  }
+
+  const placed = await addWeeklyTaskPlacementAction({
     taskId: input.taskId,
     weekStart: input.weekStart,
     weekday: input.weekday,
@@ -223,4 +243,8 @@ async function addPlannedWeeklyTask(input: {
     callOtherName: input.callOtherName,
     codingActivity: input.codingActivity,
   });
+  if (!placed.ok && inserted?.ok && inserted.id && inserted.kind) {
+    await removeActivityListItemAction({ id: inserted.id, kind: inserted.kind });
+  }
+  return placed;
 }

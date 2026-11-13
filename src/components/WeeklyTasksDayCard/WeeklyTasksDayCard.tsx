@@ -11,6 +11,7 @@ import { CodingActivityFields } from "@/components/CodingActivityFields/CodingAc
 import { MusicActivityFields } from "@/components/MusicActivityFields/MusicActivityFields";
 import { MusicActivityTodos } from "@/components/MusicActivityTodos/MusicActivityTodos";
 import { SpendKindFields } from "@/components/SpendKindFields/SpendKindFields";
+import { quickAddDayActivityAction } from "@/app/(app)/day-quick-add-actions";
 import {
   completeWeeklyTaskAction,
   updateWeeklyTaskCompletionAction,
@@ -51,6 +52,9 @@ import {
   type MusicActivity,
   type RingPerson,
   type SpendKind,
+  MUSIC_ACTIVITY_LABEL,
+  MUSIC_BANDS,
+  MUSIC_OTHER_BAND,
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   WEEKDAYS,
@@ -58,6 +62,12 @@ import {
   type Weekday,
   type WeeklyTaskForWeek,
 } from "@/lib/tasks";
+import {
+  followQuickAddMenus,
+  quickAddStepForCategory,
+  type DayQuickAddPayload,
+  type DayQuickAddTask,
+} from "@/lib/day-quick-add";
 import type { CodingProject } from "@/lib/coding";
 import type { UserGame } from "@/lib/games";
 import { GAME_KIND_LABEL } from "@/lib/games";
@@ -75,6 +85,7 @@ import { PlanCadenceBadge } from "@/components/PlanCadenceBadge/PlanCadenceBadge
 import { taskCategory } from "@/lib/activity-category";
 import { addDaysISO, isoWeekdayFromLocalISO, todayLocalISO } from "@/lib/date";
 import type { RescheduleDay } from "@/lib/use-day-reschedule";
+import { DayPlanTrashMenu } from "@/components/DayActivitiesCard/DayPlanTrashMenu";
 import { TrainingRescheduleSelect } from "@/components/DayActivitiesCard/TrainingRescheduleSelect";
 import styles from "./WeeklyTasksDayCard.module.scss";
 
@@ -245,6 +256,9 @@ interface QuickAddRowProps {
   weekStart: string;
   weekday: Weekday;
   categories: TaskCategory[];
+  /** Week activities, so a category can offer Bas, Kodning, Handla and the rest. */
+  tasks?: DayQuickAddTask[];
+  games?: UserGame[];
   onAdded: () => void;
   /** Show the form immediately (parent owns the open/close toggle). */
   alwaysOpen?: boolean;
@@ -257,6 +271,8 @@ export function WeeklyTaskQuickAdd({
   weekStart,
   weekday,
   categories,
+  tasks = [],
+  games = [],
   onAdded,
   alwaysOpen = false,
   onCancel,
@@ -265,31 +281,121 @@ export function WeeklyTaskQuickAdd({
   const [open, setOpen] = useState(alwaysOpen);
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [picks, setPicks] = useState<string[]>([]);
+  const [bandChoice, setBandChoice] = useState("");
+  const [bandOther, setBandOther] = useState("");
+  const [callOther, setCallOther] = useState("");
+  const [putInList, setPutInList] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const category = categories.find((c) => c.id === categoryId) ?? null;
+  const categoryStep = category
+    ? quickAddStepForCategory(category.name, tasks, categories, games)
+    : null;
+  const trail = followQuickAddMenus(categoryStep, picks);
+  const started = trail.menus.some((menu) => menu.selectedId);
+  const bandName =
+    bandChoice === MUSIC_OTHER_BAND
+      ? bandOther.trim()
+      : bandChoice.trim();
+  const listTitle =
+    trail.leaf?.type === "list"
+      ? trail.leaf.title
+      : trail.leaf?.type === "band" && trail.leaf.thenList
+        ? MUSIC_ACTIVITY_LABEL[trail.leaf.activity]
+        : null;
+  const listReady = listTitle != null && (trail.leaf?.type !== "band" || Boolean(bandName));
+
+  const resetActivity = () => {
+    setPicks([]);
+    setBandChoice("");
+    setBandOther("");
+    setCallOther("");
+    setPutInList(false);
+  };
 
   const close = () => {
     setTitle("");
     setCategoryId("");
+    resetActivity();
     setError(null);
     setOpen(false);
     onCancel?.();
   };
 
+  const pickAt = (depth: number, id: string) => {
+    setPicks((prev) => {
+      const next = prev.slice(0, depth);
+      next[depth] = id;
+      return next;
+    });
+    setBandChoice("");
+    setBandOther("");
+    setCallOther("");
+    setPutInList(false);
+  };
+
+  const activityPayload = (): {
+    payload: DayQuickAddPayload;
+    listText: string | null;
+  } | null => {
+    const leaf = trail.leaf;
+    if (!leaf) return null;
+    if (leaf.type === "list") {
+      return {
+        payload: leaf.payload,
+        listText: putInList ? title.trim() : null,
+      };
+    }
+    if (leaf.type === "commit") {
+      return { payload: leaf.payload, listText: null };
+    }
+    if (leaf.type === "band") {
+      if (!bandName) return null;
+      return {
+        payload: {
+          kind: "task",
+          taskId: leaf.taskId,
+          musicActivity: leaf.activity,
+          band: bandName,
+        },
+        listText: leaf.thenList && putInList ? title.trim() : null,
+      };
+    }
+    return {
+      payload: {
+        kind: "task",
+        taskId: leaf.taskId,
+        callPerson: "ovrigt",
+        callOtherName: callOther.trim() || null,
+      },
+      listText: null,
+    };
+  };
+
   const submit = () => {
     const trimmed = title.trim();
-    if (!trimmed) return;
+    const placed = started ? activityPayload() : null;
+    if (started && !placed) return;
+    if ((!started || (listReady && putInList)) && !trimmed) return;
     setError(null);
-    const cat = categories.find((c) => c.id === categoryId) ?? null;
     onPending?.(true);
     startTransition(async () => {
-      const res = await createOneOffWeeklyTaskAction({
-        title: trimmed,
-        weekStart,
-        weekday,
-        categoryId: categoryId || null,
-        accent: cat?.accent,
-      });
+      const res = placed
+        ? await quickAddDayActivityAction({
+            weekStart,
+            weekday,
+            payload: placed.payload,
+            listText: placed.listText,
+          })
+        : await createOneOffWeeklyTaskAction({
+            title: trimmed,
+            weekStart,
+            weekday,
+            categoryId: categoryId || null,
+            accent: category?.accent,
+          });
       if (!res.ok) {
         onPending?.(false);
         setError(res.error ?? "Kunde inte lägga till.");
@@ -297,6 +403,7 @@ export function WeeklyTaskQuickAdd({
       }
       setTitle("");
       setCategoryId("");
+      resetActivity();
       setOpen(false);
       onAdded();
     });
@@ -339,7 +446,10 @@ export function WeeklyTaskQuickAdd({
             className={styles.categorySelect}
             value={categoryId}
             disabled={pending}
-            onChange={(e) => setCategoryId(e.target.value)}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              resetActivity();
+            }}
             aria-label="Kategori för uppgiften"
           >
             <option value="">Ingen kategori</option>
@@ -349,6 +459,88 @@ export function WeeklyTaskQuickAdd({
               </option>
             ))}
           </select>
+        </label>
+      ) : null}
+      {trail.menus.map((menu, depth) => (
+        <label key={`${menu.title}:${depth}`} className={styles.categoryField}>
+          <span className={styles.categoryFieldLabel}>{menu.title}</span>
+          <select
+            className={styles.categorySelect}
+            value={menu.selectedId}
+            disabled={pending}
+            onChange={(e) => pickAt(depth, e.target.value)}
+            aria-label={menu.title}
+          >
+            <option value="">Välj…</option>
+            {menu.items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.icon} {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
+      {trail.leaf?.type === "band" ? (
+        <>
+          <label className={styles.categoryField}>
+            <span className={styles.categoryFieldLabel}>Band</span>
+            <select
+              className={styles.categorySelect}
+              value={bandChoice}
+              disabled={pending}
+              onChange={(e) => {
+                setBandChoice(e.target.value);
+                setPutInList(false);
+              }}
+              aria-label="Band"
+            >
+              <option value="">Välj…</option>
+              {MUSIC_BANDS.map((band) => (
+                <option key={band} value={band}>
+                  {band}
+                </option>
+              ))}
+              <option value={MUSIC_OTHER_BAND}>{MUSIC_OTHER_BAND}</option>
+            </select>
+          </label>
+          {bandChoice === MUSIC_OTHER_BAND ? (
+            <Input
+              label="Vilket band?"
+              value={bandOther}
+              onChange={(e) => setBandOther(e.target.value)}
+              maxLength={80}
+              disabled={pending}
+              autoFocus
+            />
+          ) : null}
+        </>
+      ) : null}
+      {trail.leaf?.type === "callOther" ? (
+        <Input
+          label="Vem ringer du?"
+          value={callOther}
+          onChange={(e) => setCallOther(e.target.value)}
+          placeholder="t.ex. en vän"
+          maxLength={80}
+          disabled={pending}
+          autoFocus
+        />
+      ) : null}
+      {listReady && listTitle ? (
+        <label className={styles.checkRow}>
+          <input
+            type="checkbox"
+            className={styles.checkbox}
+            checked={putInList}
+            disabled={pending}
+            onChange={(e) => setPutInList(e.target.checked)}
+          />
+          <span className={styles.checkText}>
+            Lägg i lista
+            <span className={styles.checkHint}>
+              Hamnar överst i {listTitle}, och {listTitle} läggs på dagen.
+            </span>
+          </span>
         </label>
       ) : null}
       <div className={styles.quickAddActions}>
@@ -365,7 +557,11 @@ export function WeeklyTaskQuickAdd({
           variant="primary"
           size="md"
           loading={pending}
-          disabled={pending || !title.trim()}
+          disabled={
+            pending ||
+            (started && !activityPayload()) ||
+            ((!started || (listReady && putInList)) && !title.trim())
+          }
           onClick={submit}
         >
           Lägg till
@@ -1004,6 +1200,14 @@ export function WeeklyTaskRow({
 
       {expanded && needsExpand && !planningMode ? (
         <div className={styles.taskActions}>
+          {localDate ? (
+            <DayPlanTrashMenu
+              currentWeekday={isoWeekdayFromLocalISO(localDate) as Weekday}
+              pending={pending}
+              onMove={(weekday) => reschedule(String(weekday))}
+              onRemove={() => reschedule("remove")}
+            />
+          ) : null}
           {showPlanNoteField ? (
             <div className={styles.planReadout}>
               <div className={styles.planReadoutHead}>

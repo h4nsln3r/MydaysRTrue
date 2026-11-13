@@ -252,6 +252,8 @@ export function DayActivityRow(props: Props) {
         <MonthlyTaskDayRow
           task={item.task}
           monthStart={item.monthStart}
+          weekStart={weekStart}
+          date={date}
           categories={categories}
           expanded={planningMode ? false : props.expanded}
           busy={props.busy}

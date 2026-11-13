@@ -43,8 +43,13 @@ interface Props {
 type View =
   | { type: "menu"; title: string; items: DayQuickAddItem[]; emptyHint?: string }
   | { type: "oneOff" }
-  | { type: "band"; taskId: string; activity: MusicActivity }
-  | { type: "callOther"; taskId: string };
+  | { type: "band"; taskId: string; activity: MusicActivity; thenList: boolean }
+  | { type: "callOther"; taskId: string }
+  | {
+      type: "list";
+      title: string;
+      payload: Extract<DayQuickAddPayload, { kind: "task" }>;
+    };
 
 export function DayQuickAdd({
   weekStart,
@@ -104,7 +109,7 @@ export function DayQuickAdd({
     setViews((prev) => prev.slice(0, -1));
   };
 
-  const commit = (payload: DayQuickAddPayload) => {
+  const commit = (payload: DayQuickAddPayload, listText?: string | null) => {
     setError(null);
     onListPending?.(true);
     startTransition(async () => {
@@ -112,6 +117,7 @@ export function DayQuickAdd({
         weekStart,
         weekday,
         payload,
+        listText,
       });
       if (!res.ok) {
         onListPending?.(false);
@@ -132,11 +138,20 @@ export function DayQuickAdd({
       return;
     }
     if (step.type === "band") {
-      push({ type: "band", taskId: step.taskId, activity: step.activity });
+      push({
+        type: "band",
+        taskId: step.taskId,
+        activity: step.activity,
+        thenList: step.thenList,
+      });
       return;
     }
     if (step.type === "callOther") {
       push({ type: "callOther", taskId: step.taskId });
+      return;
+    }
+    if (step.type === "list") {
+      push({ type: "list", title: step.title, payload: step.payload });
       return;
     }
     push({
@@ -154,7 +169,9 @@ export function DayQuickAdd({
         ? "Engångsuppgift"
         : view.type === "band"
           ? MUSIC_ACTIVITY_LABEL[view.activity]
-          : "Ring övrigt";
+          : view.type === "list"
+            ? view.title
+            : "Ring övrigt";
 
   return createPortal(
     <div className={styles.backdrop} onClick={onCancel}>
@@ -198,6 +215,8 @@ export function DayQuickAdd({
               weekStart={weekStart}
               weekday={weekday}
               categories={categories}
+              tasks={tasks}
+              games={games}
               alwaysOpen
               onCancel={back}
               onPending={onListPending}
@@ -244,14 +263,31 @@ export function DayQuickAdd({
               pending={pending}
               bandText={bandText}
               onBandText={setBandText}
-              onPick={(band) =>
-                commit({
-                  kind: "task",
+              onPick={(band) => {
+                const payload = {
+                  kind: "task" as const,
                   taskId: view.taskId,
                   musicActivity: view.activity,
                   band,
-                })
-              }
+                };
+                if (view.thenList) {
+                  push({
+                    type: "list",
+                    title: MUSIC_ACTIVITY_LABEL[view.activity],
+                    payload,
+                  });
+                  return;
+                }
+                commit(payload);
+              }}
+            />
+          ) : null}
+
+          {view.type === "list" ? (
+            <ListStep
+              title={view.title}
+              pending={pending}
+              onAdd={(listText) => commit(view.payload, listText)}
             />
           ) : null}
 
@@ -291,6 +327,68 @@ export function DayQuickAdd({
       </div>
     </div>,
     document.body,
+  );
+}
+
+function ListStep({
+  title,
+  pending,
+  onAdd,
+}: {
+  title: string;
+  pending: boolean;
+  onAdd: (listText: string | null) => void;
+}) {
+  const [putInList, setPutInList] = useState(false);
+  const [text, setText] = useState("");
+
+  return (
+    <div className={styles.listStep}>
+      <label className={styles.checkRow}>
+        <input
+          type="checkbox"
+          className={styles.checkbox}
+          checked={putInList}
+          disabled={pending}
+          onChange={(e) => setPutInList(e.target.checked)}
+        />
+        <span className={styles.checkText}>
+          Lägg i lista
+          <span className={styles.checkHint}>
+            Hamnar överst i {title}, och {title} läggs på dagen.
+          </span>
+        </span>
+      </label>
+      {putInList ? (
+        <Input
+          label="Vad ska du göra"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={`t.ex. vad du ska göra på ${title.toLowerCase()}`}
+          maxLength={200}
+          disabled={pending}
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && text.trim()) {
+              e.preventDefault();
+              onAdd(text.trim());
+            }
+          }}
+        />
+      ) : null}
+      <div className={styles.actions}>
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          loading={pending}
+          disabled={pending || (putInList && !text.trim())}
+          onClick={() => onAdd(putInList ? text.trim() : null)}
+        >
+          Lägg till
+        </Button>
+      </div>
+    </div>
   );
 }
 

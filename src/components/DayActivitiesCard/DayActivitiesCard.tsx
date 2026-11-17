@@ -65,11 +65,12 @@ function mergeDayPlanItems(
     .filter((key) => serverByKey.has(key));
   if (orderedKeys.length === 0) return serverItems;
   const seen = new Set(orderedKeys);
-  const extras = serverItems.filter((item) => !seen.has(item.itemKey));
-  const merged = [
-    ...orderedKeys.map((key) => serverByKey.get(key)!),
-    ...extras,
-  ].map((item, index) => ({ ...item, sortOrder: index }));
+  const hasNewItems = serverItems.some((item) => !seen.has(item.itemKey));
+  // Newly added rows (e.g. day +) keep server order so they can land on top.
+  if (hasNewItems) return serverItems;
+  const merged = orderedKeys
+    .map((key) => serverByKey.get(key)!)
+    .map((item, index) => ({ ...item, sortOrder: index }));
   return sortDayPlanItems(merged);
 }
 

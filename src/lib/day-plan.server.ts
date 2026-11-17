@@ -50,3 +50,23 @@ export async function saveDailyPlanOrder(
 
   return { ok: true };
 }
+
+/**
+ * Put a plan row first in the day's saved order.
+ * No-op when the day has no custom order (default ranks / day_sort_order apply).
+ */
+export async function prependDailyPlanItem(
+  userId: string,
+  localDate: string,
+  itemKey: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const existing = await getDailyPlanOrder(userId, localDate);
+  if (existing.size === 0) return { ok: true };
+
+  const rest = [...existing.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([key]) => key)
+    .filter((key) => key !== itemKey);
+
+  return saveDailyPlanOrder(userId, localDate, [itemKey, ...rest]);
+}

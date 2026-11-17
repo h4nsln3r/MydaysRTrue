@@ -5,12 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import type { Weekday } from "@/lib/tasks";
 import { parseWeekPlanDragId } from "@/lib/week-plan";
 
-/** Next sort index when placing any item on a weekday in the week plan. */
-export async function nextWeekDaySortOrder(
+async function weekDaySortOrders(
   userId: string,
   weekStart: string,
   weekday: Weekday,
-): Promise<number> {
+): Promise<number[]> {
   const supabase = await createClient();
   const localDate = addDaysISO(weekStart, weekday - 1);
   const monthStart = monthStartFromDate(localDate);
@@ -62,7 +61,7 @@ export async function nextWeekDaySortOrder(
       .eq("is_unscheduled", false),
   ]);
 
-  const values = [
+  return [
     ...(tasks.data ?? []).map((r) => r.day_sort_order),
     ...(gym.data ?? []).map((r) => r.day_sort_order),
     ...(cardio.data ?? []).map((r) => r.day_sort_order),
@@ -71,8 +70,26 @@ export async function nextWeekDaySortOrder(
     ...(weight.data ?? []).map((r) => r.day_sort_order),
     ...(bills.data ?? []).map((r) => r.day_sort_order),
   ];
+}
 
+/** Next sort index when placing any item on a weekday in the week plan. */
+export async function nextWeekDaySortOrder(
+  userId: string,
+  weekStart: string,
+  weekday: Weekday,
+): Promise<number> {
+  const values = await weekDaySortOrders(userId, weekStart, weekday);
   return (values.length > 0 ? Math.max(...values) : -1) + 1;
+}
+
+/** Sort index that puts a newly placed item at the top of the weekday. */
+export async function prependWeekDaySortOrder(
+  userId: string,
+  weekStart: string,
+  weekday: Weekday,
+): Promise<number> {
+  const values = await weekDaySortOrders(userId, weekStart, weekday);
+  return (values.length > 0 ? Math.min(...values) : 0) - 1;
 }
 
 /** Persist drag order for all item kinds on one weekday. */

@@ -52,7 +52,11 @@ import {
 } from "@/lib/tasks";
 import { yearFromLocalISO, GIG_RATING_MAX, GIG_RATING_MIN } from "@/lib/gigs";
 import { UTGIFTER_CATEGORY_NAME } from "@/lib/expenses";
-import { nextWeekDaySortOrder } from "@/lib/week-plan-order.server";
+import {
+  nextWeekDaySortOrder,
+  prependWeekDaySortOrder,
+} from "@/lib/week-plan-order.server";
+import { prependDailyPlanItem } from "@/lib/day-plan.server";
 
 type CategoryUpdate = Database["public"]["Tables"]["task_categories"]["Update"];
 type WeeklyTaskUpdate = Database["public"]["Tables"]["weekly_tasks"]["Update"];
@@ -510,10 +514,10 @@ export async function createOneOffWeeklyTaskAction(input: {
   const weekday = input.weekday ?? null;
   const daySortOrder =
     weekday != null
-      ? await nextWeeklyDaySortOrder(supabase, user.id, input.weekStart, weekday)
+      ? await prependWeekDaySortOrder(user.id, input.weekStart, weekday)
       : 0;
 
-  const { error: placeError } = await supabase
+  const { data: placement, error: placeError } = await supabase
     .from("weekly_task_placements")
     .insert({
       user_id: user.id,
@@ -521,8 +525,15 @@ export async function createOneOffWeeklyTaskAction(input: {
       week_start: input.weekStart,
       weekday,
       day_sort_order: daySortOrder,
-    });
+    })
+    .select("id")
+    .maybeSingle();
   if (placeError) return { ok: false, error: placeError.message };
+
+  if (weekday != null && placement?.id) {
+    const localDate = addDaysISO(input.weekStart, weekday - 1);
+    await prependDailyPlanItem(user.id, localDate, `task:${placement.id}`);
+  }
 
   revalidatePath("/", "layout");
   return { ok: true };

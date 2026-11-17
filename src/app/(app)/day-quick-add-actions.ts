@@ -11,6 +11,7 @@ import {
   removeActivityListItemAction,
 } from "@/app/(app)/tasks-actions";
 import type { DayQuickAddPayload } from "@/lib/day-quick-add";
+import { prependDailyPlanItem } from "@/lib/day-plan.server";
 import { addDaysISO } from "@/lib/date";
 import {
   isCodingWeeklyTaskKey,
@@ -25,6 +26,7 @@ import {
   type WeeklyTaskCompletionKind,
 } from "@/lib/tasks";
 import { createClient } from "@/lib/supabase/server";
+import { prependWeekDaySortOrder } from "@/lib/week-plan-order.server";
 import { revalidatePath } from "next/cache";
 
 export interface ActionResult {
@@ -37,6 +39,132 @@ function isMonday(localDate: string): boolean {
   const [y, m, d] = localDate.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   return dt.getDay() === 1;
+}
+
+/** After a day + add, pin the new row at the top of the day list. */
+async function bringQuickAddedToFrontOfDay(input: {
+  weekStart: string;
+  weekday: Weekday;
+  payload: DayQuickAddPayload;
+}): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const localDate = addDaysISO(input.weekStart, input.weekday - 1);
+  const { payload } = input;
+
+  if (payload.kind === "shake") {
+    await prependDailyPlanItem(user.id, localDate, `habit:${payload.habitId}`);
+    return;
+  }
+
+  const daySortOrder = await prependWeekDaySortOrder(
+    user.id,
+    input.weekStart,
+    input.weekday,
+  );
+
+  switch (payload.kind) {
+    case "task": {
+      const { data } = await supabase
+        .from("weekly_task_placements")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("task_id", payload.taskId)
+        .eq("week_start", input.weekStart)
+        .eq("weekday", input.weekday)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) return;
+      await supabase
+        .from("weekly_task_placements")
+        .update({ day_sort_order: daySortOrder })
+        .eq("id", data.id)
+        .eq("user_id", user.id);
+      await prependDailyPlanItem(user.id, localDate, `task:${data.id}`);
+      return;
+    }
+    case "gym": {
+      await supabase
+        .from("gym_week_placements")
+        .update({ day_sort_order: daySortOrder })
+        .eq("user_id", user.id)
+        .eq("template_id", payload.templateId)
+        .eq("week_start", input.weekStart);
+      await prependDailyPlanItem(
+        user.id,
+        localDate,
+        `gym:${payload.templateId}`,
+      );
+      return;
+    }
+    case "cardio": {
+      const { data } = await supabase
+        .from("cardio_week_placements")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("template_id", payload.templateId)
+        .eq("week_start", input.weekStart)
+        .eq("weekday", input.weekday)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) return;
+      await supabase
+        .from("cardio_week_placements")
+        .update({ day_sort_order: daySortOrder })
+        .eq("id", data.id)
+        .eq("user_id", user.id);
+      await prependDailyPlanItem(user.id, localDate, `cardio:${data.id}`);
+      return;
+    }
+    case "sport": {
+      const { data } = await supabase
+        .from("sport_week_placements")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("template_id", payload.templateId)
+        .eq("week_start", input.weekStart)
+        .eq("weekday", input.weekday)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) return;
+      await supabase
+        .from("sport_week_placements")
+        .update({ day_sort_order: daySortOrder })
+        .eq("id", data.id)
+        .eq("user_id", user.id);
+      await prependDailyPlanItem(user.id, localDate, `sport:${data.id}`);
+      return;
+    }
+    case "bathing": {
+      const { data } = await supabase
+        .from("bathing_week_placements")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("template_id", payload.templateId)
+        .eq("week_start", input.weekStart)
+        .eq("weekday", input.weekday)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) return;
+      await supabase
+        .from("bathing_week_placements")
+        .update({ day_sort_order: daySortOrder })
+        .eq("id", data.id)
+        .eq("user_id", user.id);
+      await prependDailyPlanItem(user.id, localDate, `bathing:${data.id}`);
+      return;
+    }
+    default:
+      return;
+  }
 }
 
 async function placeShake(input: {
@@ -95,41 +223,47 @@ export async function quickAddDayActivityAction(input: {
 
   const { payload } = input;
 
+  let result: ActionResult;
   switch (payload.kind) {
     case "gym":
-      return moveGymSessionAction({
+      result = await moveGymSessionAction({
         templateId: payload.templateId,
         weekStart: input.weekStart,
         weekday: input.weekday,
       });
+      break;
     case "cardio":
-      return addCardioPlacementAction({
+      result = await addCardioPlacementAction({
         templateId: payload.templateId,
         weekStart: input.weekStart,
         weekday: input.weekday,
         planKind: payload.planKind,
       });
+      break;
     case "sport":
-      return addSportPlacementAction({
+      result = await addSportPlacementAction({
         templateId: payload.templateId,
         weekStart: input.weekStart,
         weekday: input.weekday,
         sportId: payload.sportId,
       });
+      break;
     case "bathing":
-      return addBathingPlacementAction({
+      result = await addBathingPlacementAction({
         templateId: payload.templateId,
         weekStart: input.weekStart,
         weekday: input.weekday,
       });
+      break;
     case "shake":
-      return placeShake({
+      result = await placeShake({
         habitId: payload.habitId,
         weekStart: input.weekStart,
         weekday: input.weekday,
       });
+      break;
     case "task":
-      return addPlannedWeeklyTask({
+      result = await addPlannedWeeklyTask({
         taskId: payload.taskId,
         weekStart: input.weekStart,
         weekday: input.weekday,
@@ -142,9 +276,19 @@ export async function quickAddDayActivityAction(input: {
         codingActivity: payload.codingActivity,
         listText: input.listText,
       });
+      break;
     default:
       return { ok: false, error: "Okänd aktivitet." };
   }
+
+  if (result.ok) {
+    await bringQuickAddedToFrontOfDay({
+      weekStart: input.weekStart,
+      weekday: input.weekday,
+      payload,
+    });
+  }
+  return result;
 }
 
 async function addPlannedWeeklyTask(input: {

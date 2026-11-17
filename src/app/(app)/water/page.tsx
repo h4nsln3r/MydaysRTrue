@@ -33,7 +33,6 @@ export default async function WaterPage({ searchParams }: WaterPageProps) {
 
   const isToday = localDate === today;
   const summary = await getDailySummary(user.id, localDate);
-  const backHref = isToday ? "/" : `/day/${localDate}`;
   const dateQuery = isToday ? "" : `?date=${localDate}`;
   const addWaterHref = `/add-water${dateQuery}`;
 
@@ -48,9 +47,6 @@ export default async function WaterPage({ searchParams }: WaterPageProps) {
             <span className={styles.accent}>Water</span> log
           </h1>
         </div>
-        <Link href={backHref} className={styles.badge} aria-label="Back to day">
-          ← Day
-        </Link>
       </header>
 
       <WaterHeroCard summary={summary} />

@@ -124,6 +124,28 @@ export function WeekDayJump({ onOpenChange, forceClosed }: Props) {
     };
   }, [open, browseWeekStart]);
 
+  if (pathname === "/water") {
+    if (!ready) return <div className={styles.slot} aria-hidden />;
+    const date = searchParams.get("date");
+    const backHref =
+      date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date !== todayLocalISO()
+        ? `/day/${date}`
+        : "/";
+    return (
+      <Link href={backHref} className={styles.back} aria-label="Tillbaka till dagen">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path
+            d="M15 6l-6 6 6 6"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </Link>
+    );
+  }
+
   if (!ready || !activeDate || !today || !currentWeekStart) {
     return <div className={styles.slot} aria-hidden />;
   }

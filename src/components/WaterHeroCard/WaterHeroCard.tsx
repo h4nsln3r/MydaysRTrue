@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/Button/Button";
 import { Card } from "@/components/Card/Card";
@@ -13,19 +14,24 @@ import styles from "./WaterHeroCard.module.scss";
 
 interface Props {
   summary: WaterSummary;
-  /** Show a "+" badge in the top-right corner linking to this URL. */
+  /** Page that lists everything logged for this day. */
   plusHref?: string;
-  /** Accessible label for the + button. */
+  /** Accessible label for the log button. */
   plusLabel?: string;
 }
 
-export function WaterHeroCard({ summary, plusHref, plusLabel }: Props) {
+export function WaterHeroCard({ summary, plusHref }: Props) {
   const router = useRouter();
   const drinkRef = useRef<HTMLInputElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
   const [selectedMl, setSelectedMl] = useState<number | null>(null);
   const [drink, setDrink] = useState("");
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customMl, setCustomMl] = useState("");
+  const [customDrink, setCustomDrink] = useState("");
   const [busyMl, setBusyMl] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const extraRef = useRef(0);
   const [extraMl, setExtraMl] = useState(0);
@@ -58,6 +64,16 @@ export function WaterHeroCard({ summary, plusHref, plusLabel }: Props) {
     if (selectedMl != null) drinkRef.current?.focus();
   }, [selectedMl]);
 
+  useEffect(() => {
+    if (!customOpen) return;
+    amountRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCustomOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [customOpen]);
+
   const choose = (ml: number) => {
     if (pending) return;
     setError(null);
@@ -70,15 +86,25 @@ export function WaterHeroCard({ summary, plusHref, plusLabel }: Props) {
     setError(null);
   };
 
-  const add = (ml: number, note: string) => {
+  const add = (ml: number, note: string, source: "quick" | "modal") => {
     const trimmed = note.trim();
+    const fail = (message: string) => {
+      if (source === "modal") setModalError(message);
+      else setError(message);
+    };
+
+    if (!Number.isFinite(ml) || ml <= 0 || ml > 5000) {
+      fail("Ange en mängd mellan 1 och 5000 ml.");
+      return;
+    }
     if (!trimmed) {
-      setError("Skriv vad du dricker.");
-      drinkRef.current?.focus();
+      fail("Skriv vad du dricker.");
+      if (source === "quick") drinkRef.current?.focus();
       return;
     }
 
-    setError(null);
+    if (source === "modal") setModalError(null);
+    else setError(null);
     setBusyMl(ml);
     setExtra(extraRef.current + ml);
     startTransition(async () => {
@@ -90,26 +116,41 @@ export function WaterHeroCard({ summary, plusHref, plusLabel }: Props) {
       setBusyMl((current) => (current === ml ? null : current));
       if (!res.ok) {
         setExtra(Math.max(0, extraRef.current - ml));
-        setError(res.error ?? "Could not log.");
+        fail(res.error ?? "Could not log.");
         return;
       }
-      setDrink("");
-      setSelectedMl(null);
+      if (source === "modal") {
+        setCustomOpen(false);
+        setCustomMl("");
+        setCustomDrink("");
+      } else {
+        setDrink("");
+        setSelectedMl(null);
+      }
       router.refresh();
     });
+  };
+
+  const closeCustom = () => {
+    if (pending) return;
+    setCustomOpen(false);
+    setModalError(null);
   };
 
   return (
     // overflow:visible lets the hover glow + pulse ring escape the card edge
     // without being clipped by Card.module.scss's overflow:hidden.
     <Card className={styles.card} style={{ overflow: "visible" }}>
-      {plusHref ? (
-        <Link
-          href={plusHref}
-          className={styles.plusBtn}
-          aria-label={plusLabel ?? "Open water page"}
-          title={plusLabel ?? "Water page"}
-        >
+      <button
+        type="button"
+        className={styles.plusBtn}
+        onClick={() => {
+          setModalError(null);
+          setCustomOpen(true);
+        }}
+        aria-label="Lägg till dryck"
+        title="Lägg till dryck"
+      >
           <span className={styles.plusPulse} aria-hidden />
           <span className={styles.plusPulse2} aria-hidden />
           <svg
@@ -127,8 +168,7 @@ export function WaterHeroCard({ summary, plusHref, plusLabel }: Props) {
               strokeLinecap="round"
             />
           </svg>
-        </Link>
-      ) : null}
+      </button>
 
       {plusHref ? (
         <Link
@@ -171,7 +211,7 @@ export function WaterHeroCard({ summary, plusHref, plusLabel }: Props) {
               aria-busy={busyMl === ml}
               disabled={pending}
             >
-              {formatMl(ml)}
+              {ml} ml
             </button>
           ))}
         </div>
@@ -181,7 +221,7 @@ export function WaterHeroCard({ summary, plusHref, plusLabel }: Props) {
             className={styles.drinkForm}
             onSubmit={(event) => {
               event.preventDefault();
-              add(selectedMl, drink);
+              add(selectedMl, drink, "quick");
             }}
           >
             <Input
@@ -211,6 +251,76 @@ export function WaterHeroCard({ summary, plusHref, plusLabel }: Props) {
 
         {error ? <p className={styles.error}>{error}</p> : null}
       </WaterBottle>
+
+      {customOpen
+        ? createPortal(
+            <div className={styles.backdrop} onClick={closeCustom}>
+              <div
+                className={styles.modal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="water-custom-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <header className={styles.modalHeader}>
+                  <h2 id="water-custom-title" className={styles.modalTitle}>
+                    Lägg till dryck
+                  </h2>
+                  <button
+                    type="button"
+                    className={styles.modalClose}
+                    onClick={closeCustom}
+                    disabled={pending}
+                    aria-label="Stäng"
+                  >
+                    ×
+                  </button>
+                </header>
+                <form
+                  className={styles.modalBody}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    add(Math.round(Number(customMl)), customDrink, "modal");
+                  }}
+                >
+                  <Input
+                    ref={amountRef}
+                    label="Hur mycket"
+                    type="number"
+                    min={1}
+                    max={5000}
+                    step={1}
+                    inputMode="numeric"
+                    value={customMl}
+                    onChange={(event) => setCustomMl(event.target.value)}
+                    suffix="ml"
+                    required
+                  />
+                  <Input
+                    label="Vad dricker du?"
+                    type="text"
+                    value={customDrink}
+                    onChange={(event) => setCustomDrink(event.target.value)}
+                    placeholder="Vatten, kaffe, te…"
+                    maxLength={120}
+                    autoComplete="off"
+                    required
+                  />
+                  {modalError ? <p className={styles.error}>{modalError}</p> : null}
+                  <div className={styles.drinkActions}>
+                    <Button type="button" variant="ghost" size="md" onClick={closeCustom} disabled={pending}>
+                      Avbryt
+                    </Button>
+                    <Button type="submit" size="md" loading={pending}>
+                      Lägg till
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </Card>
   );
 }

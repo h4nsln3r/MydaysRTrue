@@ -10,8 +10,8 @@
 }
 
 .quickRow {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: $space-1;
 
     @include from($bp-sm) {
@@ -20,6 +20,7 @@
 }
 
 .quickBtn {
+    flex: 1 1 58px;
     min-height: 40px;
     padding: $space-2 2px;
     white-space: nowrap;
@@ -89,6 +90,74 @@
     font-size: 0.85rem;
 }
 
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: $space-4;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+
+    @include from($bp-sm) {
+        align-items: center;
+    }
+}
+
+.modal {
+    display: flex;
+    flex-direction: column;
+    width: min(420px, 100%);
+    background: $color-ink-elevated;
+    border: 1px solid $color-line;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-card;
+    overflow: hidden;
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-4;
+    border-bottom: 1px solid $color-line;
+}
+
+.modalTitle {
+    margin: 0;
+    flex: 1;
+    font-family: $font-sans;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: $color-cream;
+}
+
+.modalClose {
+    width: 36px;
+    height: 36px;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-soft;
+    color: $color-cream-dim;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: $color-cream;
+        border-color: $color-cream-dim;
+    }
+}
+
+.modalBody {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+    padding: $space-4;
+}
+
 // ------------------------------------------------------------------
 // Corner links: + opens the log, the list button does too from the
 // bottom-right so today's drinks are one tap away.
@@ -99,6 +168,7 @@
     position: absolute;
     width: 28px;
     height: 28px;
+    padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -156,14 +226,17 @@
     }
 }
 
+.plusBtn,
+.logBtn {
+    bottom: $space-2;
+}
+
 .plusBtn {
-    top: $space-2;
-    left: $space-2;
+    right: calc(#{$space-2} + 28px + #{$space-2});
 }
 
 .logBtn {
     right: $space-2;
-    bottom: $space-2;
 }
 
 .plusIcon {

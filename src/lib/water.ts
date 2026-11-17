@@ -18,7 +18,7 @@ export interface WaterSummary {
 }
 
 /** One-tap amounts on the water card. */
-export const CARD_QUICK_ADDS = [200, 350, 500] as const;
+export const CARD_QUICK_ADDS = [200, 250, 330, 350, 500, 1000] as const;
 
 /** Quick-add presets in millilitres. */
 export const QUICK_ADDS = [

@@ -114,7 +114,7 @@ export function WaterBottle({
   // A fixed ripple would make a shallow fill look fuller than it is.
   const wave = Math.min(4.2, depth * 0.11);
   const liquidTop = surface + wave * 0.15;
-  const showBubbles = depth > 24;
+  const showBubbles = depth > 16;
   const bubbleTravel = Math.min(54, depth * 0.62);
 
   const isFull = clamped >= 1;
@@ -129,6 +129,7 @@ export function WaterBottle({
       aria-valuemax={100}
       aria-valuenow={Math.round(clamped * 100)}
     >
+      <div className={styles.bottle}>
       <svg viewBox="0 0 120 160" className={styles.svg} role="img" aria-hidden>
         <defs>
           <linearGradient id="waterFill" x1="0" x2="0" y1="0" y2="1">
@@ -179,22 +180,22 @@ export function WaterBottle({
                 className={styles.bubble1}
                 cx="52"
                 cy={surface + bubbleTravel * 0.95}
-                r="3"
-                fill="rgba(255,255,255,0.7)"
+                r="3.4"
+                fill="rgba(255,255,255,0.85)"
               />
               <circle
                 className={styles.bubble2}
                 cx="70"
                 cy={Math.min(144, surface + bubbleTravel * 1.55)}
-                r="2"
-                fill="rgba(255,255,255,0.6)"
+                r="2.3"
+                fill="rgba(255,255,255,0.75)"
               />
               <circle
                 className={styles.bubble3}
                 cx="61"
                 cy={surface + bubbleTravel * 1.2}
-                r="2.5"
-                fill="rgba(255,255,255,0.55)"
+                r="2.8"
+                fill="rgba(255,255,255,0.7)"
               />
             </>
           ) : null}
@@ -219,12 +220,13 @@ export function WaterBottle({
           GOAL
         </text>
       </svg>
-
-      <div className={styles.side}>
         <div className={[styles.percent, isFull ? styles.percentFull : ""].join(" ")}>
           <span className={styles.percentNum}>{percent}</span>
           <span className={styles.unit}>%</span>
         </div>
+      </div>
+
+      <div className={styles.side}>
         <div className={styles.stats}>
           <div className={styles.stat}>
             <span className={styles.statLabel}>Drunk</span>

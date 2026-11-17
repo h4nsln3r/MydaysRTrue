@@ -6,6 +6,23 @@
     flex-shrink: 0;
 }
 
+.back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: $radius-sm;
+    color: $color-cream-dim;
+    text-decoration: none;
+    transition: color 160ms $ease-out, transform 160ms $ease-bounce;
+
+    &:hover {
+        color: $color-cream;
+        transform: scale(1.06);
+    }
+}
+
 .wrap {
     position: relative;
     z-index: 1;

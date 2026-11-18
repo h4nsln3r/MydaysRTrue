@@ -273,6 +273,7 @@ export async function quickAddDayActivityAction(input: {
         gameId: payload.gameId,
         callPerson: payload.callPerson,
         callOtherName: payload.callOtherName,
+        callMet: payload.callMet,
         codingActivity: payload.codingActivity,
         listText: input.listText,
       });
@@ -301,6 +302,7 @@ async function addPlannedWeeklyTask(input: {
   gameId?: string | null;
   callPerson?: string | null;
   callOtherName?: string | null;
+  callMet?: boolean;
   codingActivity?: string | null;
   listText?: string | null;
 }): Promise<ActionResult> {
@@ -385,6 +387,7 @@ async function addPlannedWeeklyTask(input: {
     gameId: input.gameId,
     callPerson: input.callPerson,
     callOtherName: input.callOtherName,
+    callMet: input.callMet,
     codingActivity: input.codingActivity,
   });
   if (!placed.ok && inserted?.ok && inserted.id && inserted.kind) {

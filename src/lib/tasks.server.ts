@@ -296,6 +296,7 @@ interface WeeklyPlacementRow {
   game_id: string | null;
   call_person: string | null;
   call_other_name: string | null;
+  call_met: boolean | null;
   coding_activity: string | null;
 }
 
@@ -335,6 +336,7 @@ function rowToPlacement(
       : null,
     callPerson: parseRingPerson(r.call_person),
     callOtherName: r.call_other_name?.trim() || null,
+    callMet: r.call_met ?? false,
     codingActivity: parseCodingActivity(r.coding_activity),
     gameId: r.game_id,
     gameTitle: game?.title ?? null,
@@ -445,7 +447,7 @@ const WEEKLY_TASK_SELECT =
   "id, category_id, key, title, notes, icon, accent, sort_order, default_weekday, completion_kind, single_week_start, enabled, is_repeatable, weekly_goal";
 
 const WEEKLY_PLACEMENT_SELECT =
-  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, spend_kind, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id, game_id, call_person, call_other_name, coding_activity";
+  "id, task_id, week_start, weekday, day_sort_order, done_at, plan_note, note, shop_location, shop_amount, shop_amount_expr, spend_kind, laundry_loads, laundry_booked_from_id, band, music_activity, plan_todo, music_log_kind, gig_id, live_event_id, on_hold, coding_project_id, game_id, call_person, call_other_name, call_met, coding_activity";
 
 const CHECKLIST_SELECT = "id, task_id, text, sort_order";
 
@@ -519,7 +521,7 @@ const REPEATABLE_CANONICAL: Array<{
     legacyLike: "life_ring_%",
     title: "Ring",
     notes:
-      "Dra in hur många samtal du vill — mamma 2× och Sanna, farmor eller en vän 1× per vecka. Välj vem du ringer.",
+      "Dra in hur många samtal eller träffar du vill — mamma 2× och Sanna, farmor eller en vän 1× per vecka. Välj Ring eller Träffats och vem.",
     icon: "📞",
     accent: "#f472b6",
     completionKind: "journal",

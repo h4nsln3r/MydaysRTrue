@@ -10,6 +10,7 @@ import {
   isRingWeeklyTaskKey,
   ringCallTitle,
   ringPersonIcon,
+  RING_MET_ICON,
   type RingPerson,
 } from "@/lib/calls";
 import { GAME_KIND_ICON, GAME_KIND_LABEL, type GameKind } from "@/lib/games";
@@ -423,6 +424,7 @@ export function musicSessionTitle(
     gameTitle?: string | null;
     callPerson?: RingPerson | null;
     callOtherName?: string | null;
+    callMet?: boolean;
     codingActivity?: CodingActivity | null;
   } | null | undefined,
 ): string {
@@ -436,6 +438,7 @@ export function musicSessionTitle(
     const callTitle = ringCallTitle({
       callPerson: placement?.callPerson,
       callOtherName: placement?.callOtherName,
+      callMet: placement?.callMet,
     });
     if (callTitle) return callTitle;
   }
@@ -452,6 +455,7 @@ export function musicSessionIcon(
     gameKind?: GameKind | null;
     gameIcon?: string | null;
     callPerson?: RingPerson | null;
+    callMet?: boolean;
     codingActivity?: CodingActivity | null;
   } | null | undefined,
 ): string {
@@ -463,7 +467,7 @@ export function musicSessionIcon(
     return MUSIC_ACTIVITY_ICON[placement.musicActivity];
   }
   if (placement?.callPerson) {
-    return ringPersonIcon(placement.callPerson);
+    return placement.callMet ? RING_MET_ICON : ringPersonIcon(placement.callPerson);
   }
   if (placement?.codingActivity) {
     return CODING_ACTIVITY_ICON[placement.codingActivity];
@@ -895,6 +899,8 @@ export interface WeeklyPlacement {
   callPerson: RingPerson | null;
   /** Free-text name when callPerson is Övrigt. */
   callOtherName: string | null;
+  /** Met in person instead of calling — still counts toward the Ring goal. */
+  callMet: boolean;
   /** Chosen game from the user catalog (SPEL / game task). */
   gameId: string | null;
   gameTitle: string | null;

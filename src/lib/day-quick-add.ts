@@ -2,7 +2,12 @@
 // and HOME / DEV / MUSIC / SPEL / Livet. HOME also includes the once-a-week
 // standards Städning and Tvätta.
 
-import { RING_PERSONS, RING_TASK_KEY, type RingPerson } from "@/lib/calls";
+import {
+  RING_MET_ICON,
+  RING_PERSONS,
+  RING_TASK_KEY,
+  type RingPerson,
+} from "@/lib/calls";
 import { CARDIO_KINDS, type CardioKind } from "@/lib/cardio";
 import type { UserGame } from "@/lib/games";
 import type { UserSport } from "@/lib/sports";
@@ -79,6 +84,7 @@ export type DayQuickAddPayload =
       gameId?: string | null;
       callPerson?: RingPerson | null;
       callOtherName?: string | null;
+      callMet?: boolean;
       codingActivity?: CodingActivity | null;
     };
 
@@ -86,7 +92,7 @@ export type DayQuickAddStep =
   | { type: "oneOff" }
   | { type: "commit"; payload: DayQuickAddPayload }
   | { type: "band"; taskId: string; activity: MusicActivity; thenList: boolean }
-  | { type: "callOther"; taskId: string }
+  | { type: "callOther"; taskId: string; met: boolean }
   | {
       type: "list";
       title: string;
@@ -244,25 +250,39 @@ function taskStep(task: DayQuickAddTask, games: UserGame[]): DayQuickAddStep {
   }
 
   if (isRingWeeklyTaskKey(task.key)) {
-    return {
+    const personMenu = (met: boolean): DayQuickAddStep => ({
       type: "menu",
-      title: task.title,
+      title: met ? "Vem träffade du?" : "Vem ringer du?",
       items: RING_PERSONS.map((person) => ({
-        id: `${task.id}:${person.key}`,
+        id: `${task.id}:${met ? "met" : "call"}:${person.key}`,
         label: person.label,
         icon: person.icon,
         step:
           person.key === "ovrigt"
-            ? { type: "callOther", taskId: task.id }
+            ? { type: "callOther", taskId: task.id, met }
             : {
                 type: "commit",
                 payload: {
                   kind: "task",
                   taskId: task.id,
                   callPerson: person.key,
+                  callMet: met,
                 },
               },
       })),
+    });
+    return {
+      type: "menu",
+      title: task.title,
+      items: [
+        { id: `${task.id}:call`, label: "Ring", icon: "📞", step: personMenu(false) },
+        {
+          id: `${task.id}:met`,
+          label: "Träffats",
+          icon: RING_MET_ICON,
+          step: personMenu(true),
+        },
+      ],
     };
   }
 
@@ -350,7 +370,7 @@ export interface QuickAddMenuLevel {
 
 export type QuickAddLeaf =
   | { type: "band"; taskId: string; activity: MusicActivity; thenList: boolean }
-  | { type: "callOther"; taskId: string }
+  | { type: "callOther"; taskId: string; met: boolean }
   | {
       type: "list";
       title: string;
@@ -391,7 +411,10 @@ export function followQuickAddMenus(
     };
   }
   if (current.type === "callOther") {
-    return { menus, leaf: { type: "callOther", taskId: current.taskId } };
+    return {
+      menus,
+      leaf: { type: "callOther", taskId: current.taskId, met: current.met },
+    };
   }
   if (current.type === "list") {
     return {

@@ -369,6 +369,7 @@ export function WeeklyTaskQuickAdd({
         taskId: leaf.taskId,
         callPerson: "ovrigt",
         callOtherName: callOther.trim() || null,
+        callMet: leaf.met,
       },
       listText: null,
     };
@@ -517,10 +518,12 @@ export function WeeklyTaskQuickAdd({
       ) : null}
       {trail.leaf?.type === "callOther" ? (
         <Input
-          label="Vem ringer du?"
+          label={trail.leaf.met ? "Vem träffade du?" : "Vem ringer du?"}
           value={callOther}
           onChange={(e) => setCallOther(e.target.value)}
-          placeholder="t.ex. en vän"
+          placeholder={
+            trail.leaf.met ? "t.ex. familjen i Linköping" : "t.ex. en vän"
+          }
           maxLength={80}
           disabled={pending}
           autoFocus
@@ -697,6 +700,7 @@ export function WeeklyTaskRow({
   const [callOtherName, setCallOtherName] = useState(
     placement?.callOtherName ?? "",
   );
+  const [callMet, setCallMet] = useState(placement?.callMet ?? false);
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteError, setNoteError] = useState<string | null>(null);
@@ -737,6 +741,7 @@ export function WeeklyTaskRow({
     setGameId(placement?.gameId ?? "");
     setCallPerson(parseRingPerson(placement?.callPerson));
     setCallOtherName(placement?.callOtherName ?? "");
+    setCallMet(placement?.callMet ?? false);
   }, [
     placement?.note,
     placement?.shopLocation,
@@ -752,6 +757,7 @@ export function WeeklyTaskRow({
     placement?.gameId,
     placement?.callPerson,
     placement?.callOtherName,
+    placement?.callMet,
   ]);
 
   useEffect(() => {
@@ -870,6 +876,7 @@ export function WeeklyTaskRow({
         gameId: isGame ? gameId || null : undefined,
         callPerson: isRing ? callPerson : undefined,
         callOtherName: isRing ? callOtherName : undefined,
+        callMet: isRing ? callMet : undefined,
         completedMusicTodoIds: musicActivityHasTodos(musicActivity)
           ? checkedTodoIds
           : undefined,
@@ -900,6 +907,7 @@ export function WeeklyTaskRow({
         musicTitle: isLoggedMusicEvent ? musicTitle : undefined,
         callPerson: isRing ? callPerson : undefined,
         callOtherName: isRing ? callOtherName : undefined,
+        callMet: isRing ? callMet : undefined,
         codingActivity: isCoding ? codingActivity : undefined,
         completedMusicTodoIds: musicActivityHasTodos(musicActivity)
           ? checkedTodoIds
@@ -1063,6 +1071,7 @@ export function WeeklyTaskRow({
       musicTitle !== savedMusicTitle ||
       callPerson !== savedCallPerson ||
       callOtherName !== savedCallOtherName ||
+      callMet !== (placement?.callMet ?? false) ||
       codingActivity !== savedCodingActivity ||
       checkedKey !== savedCheckedKey);
 
@@ -1403,8 +1412,18 @@ export function WeeklyTaskRow({
                 <RingFields
                   value={callPerson}
                   onChange={setCallPerson}
+                  met={callMet}
+                  onMetChange={setCallMet}
                   disabled={pending}
-                  label={done ? "Vem ringde du?" : "Vem ringer du?"}
+                  label={
+                    callMet
+                      ? done
+                        ? "Vem träffade du?"
+                        : "Vem träffar du?"
+                      : done
+                        ? "Vem ringde du?"
+                        : "Vem ringer du?"
+                  }
                 />
               ) : null}
               {isRing && callPerson === "ovrigt" ? (
@@ -1412,7 +1431,9 @@ export function WeeklyTaskRow({
                   label="Vem? (valfritt)"
                   value={callOtherName}
                   onChange={(e) => setCallOtherName(e.target.value)}
-                  placeholder="t.ex. namn på vän"
+                  placeholder={
+                    callMet ? "t.ex. familjen i Linköping" : "t.ex. namn på vän"
+                  }
                   maxLength={80}
                   disabled={pending}
                 />

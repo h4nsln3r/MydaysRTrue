@@ -1587,6 +1587,9 @@ function ItemRowContent({
   const [callOtherName, setCallOtherName] = useState(
     item.kind === "task" ? (item.placement?.callOtherName ?? "") : "",
   );
+  const [callMet, setCallMet] = useState(
+    item.kind === "task" ? (item.placement?.callMet ?? false) : false,
+  );
   const [codingActivity, setCodingActivity] = useState<CodingActivity | null>(
     item.kind === "task"
       ? parseCodingActivity(item.placement?.codingActivity)
@@ -1920,6 +1923,7 @@ function ItemRowContent({
           ? {
               callPerson,
               callOtherName: callPerson === "ovrigt" ? callOtherName : null,
+              callMet,
             }
           : {}),
         ...(isCodingWeeklyTaskKey(item.taskKey) ? { codingActivity } : {}),
@@ -3215,14 +3219,21 @@ function ItemRowContent({
                     <RingFields
                       value={callPerson}
                       onChange={setCallPerson}
+                      met={callMet}
+                      onMetChange={setCallMet}
                       disabled={pending}
+                      label={callMet ? "Vem träffar du?" : "Vem ringer du?"}
                     />
                     {callPerson === "ovrigt" ? (
                       <Input
                         label="Vem? (valfritt)"
                         value={callOtherName}
                         onChange={(e) => setCallOtherName(e.target.value)}
-                        placeholder="t.ex. namn på vän"
+                        placeholder={
+                          callMet
+                            ? "t.ex. familjen i Linköping"
+                            : "t.ex. namn på vän"
+                        }
                         maxLength={80}
                         disabled={pending}
                       />
@@ -3231,7 +3242,11 @@ function ItemRowContent({
                       label="Anteckning (valfritt)"
                       value={taskPlanNote}
                       onChange={(e) => setTaskPlanNote(e.target.value)}
-                      placeholder="t.ex. vad ni ska prata om"
+                      placeholder={
+                        callMet
+                          ? "t.ex. vilka som var med, julbord"
+                          : "t.ex. vad ni ska prata om"
+                      }
                       maxLength={280}
                       disabled={pending}
                     />

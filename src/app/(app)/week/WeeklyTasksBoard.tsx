@@ -140,6 +140,7 @@ export function WeeklyTasksBoard({ weekStart, tasks, categories }: Props) {
                   codingActivity: null,
                   callPerson: null,
                   callOtherName: null,
+                  callMet: false,
                   gameId: null,
                   gameTitle: null,
                   gameKind: null,

@@ -1080,6 +1080,7 @@ export interface Database {
           game_id: string | null;
           call_person: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
           call_other_name: string | null;
+          call_met: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -1111,6 +1112,7 @@ export interface Database {
           game_id?: string | null;
           call_person?: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
           call_other_name?: string | null;
+          call_met?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1142,6 +1144,7 @@ export interface Database {
           game_id?: string | null;
           call_person?: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
           call_other_name?: string | null;
+          call_met?: boolean;
           created_at?: string;
           updated_at?: string;
         };

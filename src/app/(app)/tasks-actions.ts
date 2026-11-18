@@ -988,6 +988,7 @@ export async function addWeeklyTaskPlacementAction(input: {
   gameId?: string | null;
   callPerson?: string | null;
   callOtherName?: string | null;
+  callMet?: boolean;
   codingActivity?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Missing task id." };
@@ -1083,7 +1084,11 @@ export async function addWeeklyTaskPlacementAction(input: {
     ...(spendKind ? { spend_kind: spendKind } : {}),
     ...(gameId ? { game_id: gameId } : {}),
     ...(callPerson
-      ? { call_person: callPerson, call_other_name: callOtherName }
+      ? {
+          call_person: callPerson,
+          call_other_name: callOtherName,
+          call_met: input.callMet === true,
+        }
       : {}),
     ...(codingActivity ? { coding_activity: codingActivity } : {}),
   });
@@ -1380,6 +1385,7 @@ export async function updateWeeklyTaskPlanAction(input: {
   gameId?: string | null;
   callPerson?: string | null;
   callOtherName?: string | null;
+  callMet?: boolean;
   codingActivity?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
@@ -1531,6 +1537,7 @@ export async function updateWeeklyTaskPlanAction(input: {
         ? {
             call_person: callPerson,
             call_other_name: callOtherName,
+            ...(input.callMet !== undefined ? { call_met: input.callMet } : {}),
           }
         : {}),
       ...(isCoding ? { coding_activity: codingActivity } : {}),
@@ -2353,6 +2360,8 @@ export async function completeWeeklyTaskAction(input: {
   /** Who the call is with (unified Ring task). */
   callPerson?: string | null;
   callOtherName?: string | null;
+  /** True when you met in person instead of calling. */
+  callMet?: boolean;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
   if (!isMonday(input.weekStart)) {
@@ -2890,6 +2899,7 @@ export async function completeWeeklyTaskAction(input: {
         ? {
             call_person: callPerson,
             call_other_name: callOtherName,
+            ...(input.callMet !== undefined ? { call_met: input.callMet } : {}),
           }
         : {}),
     })
@@ -2950,6 +2960,7 @@ export async function updateWeeklyTaskCompletionAction(input: {
   completedCodingTodoIds?: string[];
   callPerson?: string | null;
   callOtherName?: string | null;
+  callMet?: boolean;
   codingActivity?: string | null;
 }): Promise<ActionResult> {
   if (!input.taskId) return { ok: false, error: "Saknar uppgifts-id." };
@@ -3038,6 +3049,7 @@ export async function updateWeeklyTaskCompletionAction(input: {
     laundry_loads?: number | null;
     call_person?: "mamma" | "sanna" | "farmor" | "ovrigt" | null;
     call_other_name?: string | null;
+    call_met?: boolean;
     coding_activity?: "code" | "learn" | "friend" | null;
   } = {};
 
@@ -3121,6 +3133,7 @@ export async function updateWeeklyTaskCompletionAction(input: {
       patch.call_person = callPerson;
       patch.call_other_name =
         callPerson === "ovrigt" && other ? other : null;
+      if (input.callMet !== undefined) patch.call_met = input.callMet;
       patch.note = note || null;
     } else if (isCodingWeeklyTaskKey(task.key)) {
       const codingActivity = parseCodingActivity(input.codingActivity ?? null);

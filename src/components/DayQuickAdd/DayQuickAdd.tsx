@@ -44,7 +44,7 @@ type View =
   | { type: "menu"; title: string; items: DayQuickAddItem[]; emptyHint?: string }
   | { type: "oneOff" }
   | { type: "band"; taskId: string; activity: MusicActivity; thenList: boolean }
-  | { type: "callOther"; taskId: string }
+  | { type: "callOther"; taskId: string; met: boolean }
   | {
       type: "list";
       title: string;
@@ -147,7 +147,7 @@ export function DayQuickAdd({
       return;
     }
     if (step.type === "callOther") {
-      push({ type: "callOther", taskId: step.taskId });
+      push({ type: "callOther", taskId: step.taskId, met: step.met });
       return;
     }
     if (step.type === "list") {
@@ -294,10 +294,12 @@ export function DayQuickAdd({
           {view.type === "callOther" ? (
             <div>
               <Input
-                label="Vem ringer du?"
+                label={view.met ? "Vem träffade du?" : "Vem ringer du?"}
                 value={otherName}
                 onChange={(e) => setOtherName(e.target.value)}
-                placeholder="t.ex. en vän"
+                placeholder={
+                  view.met ? "t.ex. familjen i Linköping" : "t.ex. en vän"
+                }
                 maxLength={80}
                 disabled={pending}
                 autoFocus
@@ -315,6 +317,7 @@ export function DayQuickAdd({
                       taskId: view.taskId,
                       callPerson: "ovrigt",
                       callOtherName: otherName.trim() || null,
+                      callMet: view.met,
                     })
                   }
                 >

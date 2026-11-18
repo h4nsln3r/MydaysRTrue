@@ -66,13 +66,21 @@ export function isRingOtherPerson(person: RingPerson | null | undefined): boolea
   return person === "sanna" || person === "farmor" || person === "ovrigt";
 }
 
+export const RING_MET_ICON = "🫂";
+
 export function ringCallTitle(placement: {
   callPerson?: RingPerson | null;
   callOtherName?: string | null;
+  callMet?: boolean;
 }): string | null {
   const person = parseRingPerson(placement.callPerson);
   if (!person) return null;
   const other = placement.callOtherName?.trim();
+  if (placement.callMet) {
+    if (person === "ovrigt") return other ? `Träffat ${other}` : "Träffat övrigt";
+    const title = PERSON_BY_KEY.get(person)?.title ?? `Ring ${ringPersonLabel(person)}`;
+    return title.replace(/^Ring /, "Träffat ");
+  }
   if (person === "ovrigt" && other) return `Ring ${other}`;
   return PERSON_BY_KEY.get(person)?.title ?? `Ring ${ringPersonLabel(person)}`;
 }

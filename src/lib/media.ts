@@ -18,6 +18,7 @@ export const MEDIA_OTHER_KINDS = [
   "magazine",
   "podcast",
   "article",
+  "sport",
   "other",
 ] as const;
 
@@ -33,6 +34,7 @@ export const MEDIA_OTHER_KIND_LABEL: Record<MediaOtherKind, string> = {
   magazine: "Tidning",
   podcast: "Podcast",
   article: "Artikel",
+  sport: "Sport",
   other: "Annat",
 };
 
@@ -43,6 +45,7 @@ export const MEDIA_OTHER_KIND_ICON: Record<MediaOtherKind, string> = {
   magazine: "📰",
   podcast: "🎧",
   article: "📄",
+  sport: "⚽",
   other: "✨",
 };
 

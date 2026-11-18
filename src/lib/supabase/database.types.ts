@@ -691,6 +691,7 @@ export interface Database {
             | "magazine"
             | "podcast"
             | "article"
+            | "sport"
             | "other";
           other_label: string | null;
           note: string;
@@ -708,6 +709,7 @@ export interface Database {
             | "magazine"
             | "podcast"
             | "article"
+            | "sport"
             | "other";
           other_label?: string | null;
           note: string;
@@ -725,6 +727,7 @@ export interface Database {
             | "magazine"
             | "podcast"
             | "article"
+            | "sport"
             | "other";
           other_label?: string | null;
           note?: string;

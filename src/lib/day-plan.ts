@@ -730,7 +730,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     });
   }
 
-  if (enabledKinds.has("live") && input.liveEvents) {
+  if (input.liveEvents) {
     for (const event of input.liveEvents.dueEvents) {
       items.push({
         kind: "live_event",

@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { createHabitAction } from "@/app/(app)/actions";
 import {
@@ -21,6 +28,8 @@ import {
   type Weekday,
 } from "@/lib/tasks";
 import styles from "./AddTaskPanel.module.scss";
+
+export const OPEN_WEEK_PLAN_ADD_TASK_EVENT = "mydays:open-week-plan-add-task";
 
 const PRESET_ICONS = [
   "✓",
@@ -54,6 +63,16 @@ const SCOPE_LABEL: Record<"daily" | "weekly" | "monthly", string> = {
   monthly: "Månadsvis",
 };
 
+type WizardStep = "title" | "day" | "look";
+
+const WIZARD_STEPS: WizardStep[] = ["title", "day", "look"];
+
+const WIZARD_TITLE: Record<WizardStep, string> = {
+  title: "Vad ska du göra?",
+  day: "Vilken dag?",
+  look: "Utseende",
+};
+
 interface Props {
   categories: TaskCategory[];
   /** Pre-select scope based on which plan page we're on. */
@@ -68,6 +87,8 @@ interface Props {
   monthStart?: string;
   /** Allow creating a one-off task that only exists for `weekStart`. */
   allowOneOff?: boolean;
+  /** Open via header button / custom event as a stepped modal. */
+  externalTrigger?: boolean;
 }
 
 export function AddTaskPanel({
@@ -78,10 +99,13 @@ export function AddTaskPanel({
   weekStart,
   monthStart,
   allowOneOff = false,
+  externalTrigger = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<WizardStep>("title");
+  const [mounted, setMounted] = useState(false);
   const [scope, setScope] = useState<TaskScope>(
     weeklyOnly ? "weekly" : defaultScope,
   );
@@ -103,14 +127,28 @@ export function AddTaskPanel({
   const canOneOff = canOneOffWeekly || canOneOffMonthly;
   const placingOneOff = forceOneOffWeekly || (canOneOffWeekly && oneOff);
 
-  // Weekly + monthly tasks share one 'task' category set; daily habits use 'daily'.
   const scopeCategories = useMemo(() => {
     const catScope = scope === "daily" ? "daily" : "task";
     return categories.filter((c) => c.scope === catScope);
   }, [categories, scope]);
 
-  const reset = () => {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!externalTrigger) return;
+    const onOpen = () => {
+      setStep("title");
+      setOpen(true);
+    };
+    window.addEventListener(OPEN_WEEK_PLAN_ADD_TASK_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_WEEK_PLAN_ADD_TASK_EVENT, onOpen);
+  }, [externalTrigger]);
+
+  const reset = useCallback(() => {
     setOpen(false);
+    setStep("title");
     setTitle("");
     setCategoryId("");
     setDayOfMonth("");
@@ -122,11 +160,31 @@ export function AddTaskPanel({
     setIntervalAnchorDate(todayLocalISO());
     setError(null);
     setScope(weeklyOnly ? "weekly" : defaultScope);
-  };
+  }, [weeklyOnly, defaultScope]);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!externalTrigger || !open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending) reset();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [externalTrigger, open, pending, reset]);
+
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     setError(null);
+
+    if (!title.trim()) {
+      setError("Ange ett namn.");
+      setStep("title");
+      return;
+    }
 
     let dom: number | null = null;
     if (scope === "monthly" && dayOfMonth.trim()) {
@@ -206,6 +264,251 @@ export function AddTaskPanel({
         ? "t.ex. Tvätt"
         : "t.ex. Betala hyra";
 
+  const stepIndex = WIZARD_STEPS.indexOf(step);
+  const isFirstStep = stepIndex <= 0;
+  const isLastStep = stepIndex >= WIZARD_STEPS.length - 1;
+
+  const goNext = () => {
+    setError(null);
+    if (step === "title" && !title.trim()) {
+      setError("Ange ett namn.");
+      return;
+    }
+    const next = WIZARD_STEPS[stepIndex + 1];
+    if (next) setStep(next);
+  };
+
+  const goBack = () => {
+    setError(null);
+    const prev = WIZARD_STEPS[stepIndex - 1];
+    if (prev) setStep(prev);
+  };
+
+  const titleField = (
+    <Input
+      label={titleLabel}
+      value={title}
+      onChange={(e) => setTitle(e.target.value)}
+      placeholder={titlePlaceholder}
+      maxLength={scope === "daily" ? 32 : 80}
+      autoFocus
+      required
+    />
+  );
+
+  const dayField = placingOneOff ? (
+    <div className={styles.field}>
+      <span className={styles.label} id="add-task-weekday-label">
+        Dag
+      </span>
+      <div
+        className={styles.weekdayRow}
+        role="radiogroup"
+        aria-labelledby="add-task-weekday-label"
+      >
+        {WEEKDAYS.map((day) => {
+          const selected = weekday === day;
+          return (
+            <button
+              key={day}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              className={[
+                styles.weekdayBtn,
+                selected ? styles.weekdayBtnActive : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              disabled={pending}
+              onClick={() => setWeekday(selected ? null : day)}
+            >
+              {WEEKDAY_SHORT[day]}
+            </button>
+          );
+        })}
+      </div>
+      <p className={styles.weekdayHint}>
+        {weekday == null
+          ? "Välj en dag, eller lämna tom så hamnar den i veckoaktiviteterna."
+          : `Läggs på ${WEEKDAY_LONG[weekday].toLowerCase()}.`}
+      </p>
+    </div>
+  ) : null;
+
+  const lookFields = (
+    <>
+      {scopeCategories.length > 0 ? (
+        <div className={styles.field}>
+          <label className={styles.label} htmlFor="add-task-category">
+            Kategori
+          </label>
+          <select
+            id="add-task-category"
+            className={styles.select}
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+          >
+            <option value="">— Ingen kategori —</option>
+            {scopeCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.icon} {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      <div className={styles.field}>
+        <span className={styles.label}>Ikon</span>
+        <div className={styles.iconRow}>
+          {PRESET_ICONS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setIcon(p)}
+              aria-pressed={icon === p}
+              className={styles.iconBtn}
+            >
+              <span aria-hidden>{p}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.field}>
+        <span className={styles.label}>Färg</span>
+        <div className={styles.accentRow}>
+          {PRESET_ACCENTS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setAccent(c)}
+              aria-pressed={accent === c}
+              aria-label={`Färg ${c}`}
+              className={styles.accentBtn}
+              style={{
+                background: c,
+                boxShadow: accent === c ? `0 0 0 3px ${c}55` : undefined,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+
+  if (externalTrigger) {
+    if (!open || !mounted) return null;
+
+    return createPortal(
+      <div
+        className={styles.backdrop}
+        onClick={() => {
+          if (!pending) reset();
+        }}
+      >
+        <div
+          className={styles.modal}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-task-modal-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <header className={styles.modalHeader}>
+            {!isFirstStep ? (
+              <button
+                type="button"
+                className={styles.modalBack}
+                onClick={goBack}
+                disabled={pending}
+              >
+                Tillbaka
+              </button>
+            ) : (
+              <span className={styles.modalHeaderSpacer} />
+            )}
+            <h2 id="add-task-modal-title" className={styles.modalTitle}>
+              {WIZARD_TITLE[step]}
+            </h2>
+            <div className={styles.modalHeaderEnd}>
+              <button
+                type="button"
+                className={styles.modalClose}
+                onClick={() => {
+                  if (!pending) reset();
+                }}
+                disabled={pending}
+                aria-label="Stäng"
+              >
+                ×
+              </button>
+            </div>
+          </header>
+
+          <div className={styles.stepDots} aria-hidden>
+            {WIZARD_STEPS.map((s) => (
+              <span
+                key={s}
+                className={[
+                  styles.stepDot,
+                  s === step ? styles.stepDotActive : "",
+                  WIZARD_STEPS.indexOf(s) < stepIndex
+                    ? styles.stepDotDone
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              />
+            ))}
+          </div>
+
+          <form
+            className={styles.modalBody}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (isLastStep) submit();
+              else goNext();
+            }}
+          >
+            {step === "title" ? titleField : null}
+            {step === "day" ? dayField : null}
+            {step === "look" ? lookFields : null}
+
+            {error ? <p className={styles.error}>{error}</p> : null}
+
+            <div className={styles.actions}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                onClick={reset}
+                disabled={pending}
+              >
+                Avbryt
+              </Button>
+              {isLastStep ? (
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  loading={pending}
+                >
+                  Lägg till
+                </Button>
+              ) : (
+                <Button type="submit" variant="primary" size="md">
+                  Nästa
+                </Button>
+              )}
+            </div>
+          </form>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
   return (
     <section
       className={[styles.panel, embedded ? styles.panelEmbedded : ""]
@@ -251,15 +554,7 @@ export function AddTaskPanel({
             </div>
           ) : null}
 
-          <Input
-            label={titleLabel}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={titlePlaceholder}
-            maxLength={scope === "daily" ? 32 : 80}
-            autoFocus
-            required
-          />
+          {titleField}
 
           {scope === "monthly" ? (
             <Input
@@ -307,66 +602,8 @@ export function AddTaskPanel({
             </>
           ) : null}
 
-          {scopeCategories.length > 0 ? (
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="add-task-category">
-                Kategori
-              </label>
-              <select
-                id="add-task-category"
-                className={styles.select}
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                <option value="">— Ingen kategori —</option>
-                {scopeCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icon} {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-
-          {placingOneOff ? (
-            <div className={styles.field}>
-              <span className={styles.label} id="add-task-weekday-label">
-                Dag
-              </span>
-              <div
-                className={styles.weekdayRow}
-                role="radiogroup"
-                aria-labelledby="add-task-weekday-label"
-              >
-                {WEEKDAYS.map((day) => {
-                  const selected = weekday === day;
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      className={[
-                        styles.weekdayBtn,
-                        selected ? styles.weekdayBtnActive : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      disabled={pending}
-                      onClick={() => setWeekday(selected ? null : day)}
-                    >
-                      {WEEKDAY_SHORT[day]}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className={styles.weekdayHint}>
-                {weekday == null
-                  ? "Välj en dag, eller lämna tom så hamnar den i veckoaktiviteterna."
-                  : `Läggs på ${WEEKDAY_LONG[weekday].toLowerCase()}.`}
-              </p>
-            </div>
-          ) : null}
+          {lookFields}
+          {dayField}
 
           {canOneOff && !forceOneOffWeekly ? (
             <label className={styles.checkRow}>
@@ -386,43 +623,6 @@ export function AddTaskPanel({
               </span>
             </label>
           ) : null}
-
-          <div className={styles.field}>
-            <span className={styles.label}>Ikon</span>
-            <div className={styles.iconRow}>
-              {PRESET_ICONS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setIcon(p)}
-                  aria-pressed={icon === p}
-                  className={styles.iconBtn}
-                >
-                  <span aria-hidden>{p}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.field}>
-            <span className={styles.label}>Färg</span>
-            <div className={styles.accentRow}>
-              {PRESET_ACCENTS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setAccent(c)}
-                  aria-pressed={accent === c}
-                  aria-label={`Färg ${c}`}
-                  className={styles.accentBtn}
-                  style={{
-                    background: c,
-                    boxShadow: accent === c ? `0 0 0 3px ${c}55` : undefined,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
 
           {error ? <p className={styles.error}>{error}</p> : null}
 

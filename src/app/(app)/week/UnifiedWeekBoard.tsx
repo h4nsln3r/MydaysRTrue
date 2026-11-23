@@ -834,6 +834,7 @@ export function UnifiedWeekBoard({
           embedded
           weekStart={weekStart}
           allowOneOff
+          externalTrigger
         />
       </div>
 

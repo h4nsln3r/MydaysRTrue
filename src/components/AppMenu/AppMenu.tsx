@@ -17,6 +17,7 @@ import {
   weekStartISO,
 } from "@/lib/date";
 import type { PeriodView } from "@/lib/period-view";
+import { OPEN_WEEK_PLAN_ADD_TASK_EVENT } from "@/components/AddTaskPanel/AddTaskPanel";
 import styles from "./AppMenu.module.scss";
 
 interface ViewRoute {
@@ -148,10 +149,24 @@ export function AppMenu() {
   return (
     <div className={styles.bar}>
       <div className={styles.barInner}>
-        <WeekDayJump
-          onOpenChange={onWeekJumpOpenChange}
-          forceClosed={open}
-        />
+        {pathname.startsWith("/week") && currentView === "plan" ? (
+          <button
+            type="button"
+            className={styles.addTaskBtn}
+            aria-label="Lägg till uppgift"
+            onClick={() => {
+              closeMenu();
+              window.dispatchEvent(new Event(OPEN_WEEK_PLAN_ADD_TASK_EVENT));
+            }}
+          >
+            <AddTaskGlyph />
+          </button>
+        ) : (
+          <WeekDayJump
+            onOpenChange={onWeekJumpOpenChange}
+            forceClosed={open}
+          />
+        )}
 
         <PeriodBarTitle pathname={pathname} searchParams={searchParams} />
 
@@ -539,5 +554,28 @@ function TasksIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function AddTaskGlyph() {
+  return (
+    <span className={styles.addTaskGlyph} aria-hidden>
+      <span className={styles.addTaskPlus}>+</span>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M9 6h11M9 12h11M9 18h11"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M4.5 6.5 5.5 7.5 7.5 5.5M4.5 12.5 5.5 13.5 7.5 11.5M4.5 18.5 5.5 19.5 7.5 17.5"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   );
 }

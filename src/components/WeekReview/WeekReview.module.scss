@@ -1,0 +1,189 @@
+@use "abstracts" as *;
+
+.wrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+    padding: $space-4;
+    background:
+        linear-gradient(160deg, rgba(255, 122, 26, 0.08), transparent 42%),
+        $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-2;
+}
+
+.title {
+    margin: 0;
+    font-family: $font-display;
+    font-size: 1rem;
+    color: $color-cream;
+}
+
+.kicker {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.lead {
+    margin: 0;
+    color: $color-cream;
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+
+.block {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.blockTitle {
+    margin: 0;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.gapList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.gapLink {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: $space-3;
+    background: $color-ink;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    color: inherit;
+    text-decoration: none;
+    transition:
+        border-color 160ms $ease-out,
+        transform 160ms $ease-bounce,
+        background 160ms $ease-out;
+
+    &:hover {
+        border-color: $color-orange;
+        background: rgba(255, 122, 26, 0.06);
+        transform: translateY(-1px);
+    }
+}
+
+.gapEmpty {
+    border-color: rgba(255, 82, 71, 0.35);
+}
+
+.gapOpen {
+    border-color: rgba(255, 122, 26, 0.4);
+}
+
+.gapTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-2;
+}
+
+.gapLabel {
+    color: $color-cream;
+    font-family: $font-display;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.gapBadge {
+    color: $color-orange-bright;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.gapMeta,
+.gapPlan,
+.gapFill {
+    color: $color-cream-dim;
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.gapPlan {
+    color: $color-fog;
+}
+
+.gapFill {
+    font-family: $font-mono;
+    font-size: 0.7rem;
+    color: $color-fog;
+}
+
+.slipList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: $space-2;
+}
+
+.slip {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: $space-2 $space-3;
+    background: $color-ink;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+}
+
+.slipLabel {
+    color: $color-cream;
+    font-size: 0.85rem;
+}
+
+.slipDetail {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+}
+
+.tipList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.tip {
+    margin: 0;
+    padding: $space-2 0 $space-2 $space-3;
+    border-left: 2px solid rgba(255, 122, 26, 0.55);
+    color: $color-cream-dim;
+    font-size: 0.88rem;
+    line-height: 1.4;
+}

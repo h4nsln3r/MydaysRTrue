@@ -53,6 +53,7 @@ import { monthlyTasksWithWeekCompletions } from "@/lib/monthly-bills";
 
 import { WeekNav } from "@/components/WeekNav/WeekNav";
 import { PeriodInsights } from "@/components/PeriodInsights/PeriodInsights";
+import { WeekReview } from "@/components/WeekReview/WeekReview";
 import {
   buildPeriodInsights,
   doneTrainingSessions,
@@ -62,6 +63,7 @@ import {
   insightSpendsFromEntries,
 } from "@/lib/insights";
 import { getAttendedLiveMoments } from "@/lib/insights.server";
+import { buildWeekReview } from "@/lib/week-review";
 
 import styles from "./week.module.scss";
 
@@ -206,6 +208,19 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     ],
   });
 
+  const weekReview = buildWeekReview({
+    habitWeek,
+    water: week,
+    gym: gymWeek.sessions,
+    cardio: cardioWeek.sessions,
+    sport: sportWeek.sessions,
+    bathing: bathingWeek.placedSessions,
+    tasks: weeklyTasks.tasks,
+    monthlyTasks: monthlyTasksWithWeekCompletions(monthlyBillsWeek),
+    weightPlan,
+    today,
+  });
+
   return (
     <main className={styles.main} key={start}>
       <WeekNav
@@ -218,6 +233,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
       {view === "progress" ? (
         <>
           <PeriodInsights model={weekInsights} />
+          <WeekReview model={weekReview} today={today} />
           <WeekCompletionsList weekStart={start} completions={weekCompletions} />
           <WeekMealsBoard summary={mealsWeek} savedRestaurants={mealRestaurants} />
           <WeekProgressBoard
@@ -245,12 +261,6 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
         </>
       ) : (
         <section className={styles.section} key={`plan-${start}`}>
-          <header className={styles.sectionHeader}>
-            <h2 className={styles.h2}>Veckoplan</h2>
-            <span className={styles.muted}>
-              lägg till uppgifter · dra till rätt dag
-            </span>
-          </header>
           <UnifiedWeekBoard
             key={start}
             weekStart={start}

@@ -57,6 +57,44 @@
     justify-self: end;
 }
 
+.addTaskBtn {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: start;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border-radius: $radius-sm;
+    background: transparent;
+    border: none;
+    color: $color-cream-dim;
+    cursor: pointer;
+    transition: color 160ms $ease-out, transform 160ms $ease-bounce;
+
+    &:hover {
+        color: $color-cream;
+        transform: scale(1.06);
+    }
+}
+
+.addTaskGlyph {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.addTaskPlus {
+    font-family: $font-sans;
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1;
+    color: $color-orange-bright;
+}
+
 .menuBtn {
     position: relative;
     z-index: 2;

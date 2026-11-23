@@ -10,9 +10,8 @@ interface Props {
   today?: string;
 }
 
-function severityLabel(severity: "empty" | "thin" | "open"): string {
+function severityLabel(severity: "empty" | "thin"): string {
   if (severity === "empty") return "Nästan tom";
-  if (severity === "open") return "Öppen";
   return "Luckor";
 }
 
@@ -41,7 +40,6 @@ export function WeekReview({ model, today = todayLocalISO() }: Props) {
                   className={[
                     styles.gapLink,
                     day.severity === "empty" && styles.gapEmpty,
-                    day.severity === "open" && styles.gapOpen,
                   ]
                     .filter(Boolean)
                     .join(" ")}

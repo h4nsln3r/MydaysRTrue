@@ -2,6 +2,7 @@
 // Pure functions — the page hands in data it already loaded.
 
 import {
+  addDaysISO,
   formatDayShort,
   formatWeekdayShort,
 } from "@/lib/date";
@@ -51,7 +52,7 @@ export interface WeekReviewWaterWeek {
   days: WeekReviewWaterDay[];
 }
 
-export type WeekReviewGapSeverity = "empty" | "thin" | "open";
+export type WeekReviewGapSeverity = "empty" | "thin";
 
 export interface WeekReviewGapDay {
   date: string;
@@ -220,22 +221,12 @@ function probesForDay(
       continue;
     }
 
-    // Tri-state / media / live: past days coerce null → "no", so treat "no"
-    // as unfilled only when the rest of the day looks empty (handled below).
-    if (day.isToday) {
-      probes.push({
-        label: habit.label,
-        filled: status != null,
-        hit: statusHit(status),
-      });
-    } else {
-      probes.push({
-        label: habit.label,
-        filled: status === "yes" || status === "half",
-        hit: statusHit(status),
-        // "no" stays as filled=false until we reclassify empty days
-      });
-    }
+    // Tri-state / media / live: past days coerce null → "no".
+    probes.push({
+      label: habit.label,
+      filled: status === "yes" || status === "half",
+      hit: statusHit(status),
+    });
   }
 
   return probes;
@@ -306,8 +297,6 @@ function classifyGap(
   probes: TrackerProbe[],
   openPlan: string[],
 ): WeekReviewGapDay | null {
-  if (day.isFuture) return null;
-
   const expected = probes.length;
   if (expected === 0 && openPlan.length === 0) return null;
 
@@ -316,11 +305,11 @@ function classifyGap(
     expected > 0 ? Math.round((filledCount / expected) * 100) : 100;
   const missing = probes.filter((p) => !p.filled).map((p) => p.label);
 
-  // Past days: tri-state habits coerce null → "no", so focus gaps on trackers
-  // where we can tell "never logged" from details (mood, water, steps, …).
+  // Tri-state habits coerce null → "no", so focus gaps on trackers where we
+  // can tell "never logged" from details (mood, water, steps, …).
   let effectiveMissing = missing;
   let effectiveFillPct = fillPct;
-  if (!day.isToday && filledCount >= Math.ceil(expected * 0.45)) {
+  if (filledCount >= Math.ceil(expected * 0.45)) {
     const isHardGap = (label: string) => {
       const lower = label.toLowerCase();
       return (
@@ -345,29 +334,15 @@ function classifyGap(
   }
 
   const needsFill =
-    day.isToday
-      ? effectiveMissing.length >= 2 ||
-        (effectiveMissing.length >= 1 && openPlan.length > 0)
-      : effectiveFillPct < 70 ||
-        effectiveMissing.length >= 2 ||
-        (effectiveMissing.length >= 1 && openPlan.length > 0);
+    effectiveFillPct < 70 ||
+    effectiveMissing.length >= 2 ||
+    (effectiveMissing.length >= 1 && openPlan.length > 0);
 
   if (!needsFill && openPlan.length === 0) return null;
-  if (
-    !day.isToday &&
-    effectiveMissing.length === 0 &&
-    openPlan.length === 0
-  ) {
-    return null;
-  }
+  if (effectiveMissing.length === 0 && openPlan.length === 0) return null;
 
-  let severity: WeekReviewGapSeverity;
-  if (day.isToday) severity = "open";
-  else if (effectiveFillPct <= 25 || effectiveMissing.length >= 4) {
-    severity = "empty";
-  } else {
-    severity = "thin";
-  }
+  const severity: WeekReviewGapSeverity =
+    effectiveFillPct <= 25 || effectiveMissing.length >= 4 ? "empty" : "thin";
 
   return {
     date: day.date,
@@ -390,9 +365,7 @@ function buildSlips(input: {
   today: string;
 }): WeekReviewSlip[] {
   const slips: WeekReviewSlip[] = [];
-  const pastDays = input.habitWeek.days.filter(
-    (d) => !d.isFuture && d.date <= input.today,
-  );
+  const pastDays = input.habitWeek.days.filter((d) => d.date < input.today);
   if (pastDays.length === 0) return slips;
 
   for (const habit of input.habitWeek.habits) {
@@ -441,7 +414,7 @@ function buildSlips(input: {
   }
 
   const waterPast = input.water.days.filter(
-    (d) => !d.isFuture && d.date <= input.today && d.totalMl > 0,
+    (d) => d.date < input.today && d.totalMl > 0,
   );
   if (waterPast.length >= 3) {
     const hits = waterPast.filter((d) => d.goalMet).length;
@@ -454,28 +427,33 @@ function buildSlips(input: {
     }
   }
 
+  const placementDate = (weekday: number | null | undefined): string | null => {
+    if (weekday == null) return null;
+    return addDaysISO(input.habitWeek.weekStart, weekday - 1);
+  };
+  const isPastPlacement = (weekday: number | null | undefined) => {
+    const date = placementDate(weekday);
+    return date != null && date < input.today;
+  };
+
   const plannedSessions = [
     ...input.gym.map((s) => ({
       done: Boolean(s.placement.doneAt),
-      placed: s.placement.weekday != null,
-      label: "gympass",
+      weekday: s.placement.weekday,
     })),
     ...input.cardio.map((s) => ({
       done: Boolean(s.placement.doneAt),
-      placed: s.placement.weekday != null,
-      label: "cardio",
+      weekday: s.placement.weekday,
     })),
     ...input.sport.map((s) => ({
       done: Boolean(s.placement.doneAt),
-      placed: s.placement.weekday != null,
-      label: "sport",
+      weekday: s.placement.weekday,
     })),
     ...input.bathing.map((s) => ({
       done: Boolean(s.placement.doneAt),
-      placed: s.placement.weekday != null,
-      label: "bad",
+      weekday: s.placement.weekday,
     })),
-  ].filter((s) => s.placed);
+  ].filter((s) => isPastPlacement(s.weekday));
   if (plannedSessions.length >= 2) {
     const done = plannedSessions.filter((s) => s.done).length;
     if (done < plannedSessions.length) {
@@ -487,7 +465,9 @@ function buildSlips(input: {
     }
   }
 
-  const placedTasks = input.tasks.filter((t) => t.placement?.weekday != null);
+  const placedTasks = input.tasks.filter((t) =>
+    isPastPlacement(t.placement?.weekday),
+  );
   if (placedTasks.length >= 2) {
     const done = placedTasks.filter((t) => t.placement?.doneAt).length;
     if (done < placedTasks.length) {
@@ -505,28 +485,26 @@ function buildSlips(input: {
 function buildTips(
   gapDays: WeekReviewGapDay[],
   slips: WeekReviewSlip[],
-  today: string,
 ): WeekReviewTip[] {
   const tips: WeekReviewTip[] = [];
-  const pastGaps = gapDays.filter((d) => d.severity !== "open");
 
-  if (pastGaps.length >= 2) {
+  if (gapDays.length >= 2) {
     tips.push({
       id: "backfill",
-      text: `Gå igenom ${joinAnd(pastGaps.map((d) => d.label.toLowerCase()))} och fyll i det som saknas — det tar ofta bara någon minut per dag.`,
+      text: `Gå igenom ${joinAnd(gapDays.map((d) => d.label.toLowerCase()))} och fyll i det som saknas — det tar ofta bara någon minut per dag.`,
     });
-  } else if (pastGaps.length === 1) {
+  } else if (gapDays.length === 1) {
     tips.push({
       id: "backfill-one",
-      text: `${pastGaps[0].label} ser tunn ut. Öppna dagen och komplettera det som saknas.`,
+      text: `${gapDays[0].label} ser tunn ut. Öppna dagen och komplettera det som saknas.`,
     });
   }
 
-  const emptyish = pastGaps.filter((d) => d.severity === "empty");
+  const emptyish = gapDays.filter((d) => d.severity === "empty");
   if (emptyish.length >= 1) {
     const weekdays = emptyish.map((d) => formatWeekdayShort(d.date));
     const unique = [...new Set(weekdays)];
-    if (unique.length === 1 && emptyish.length >= 1) {
+    if (unique.length === 1) {
       tips.push({
         id: "weekday-pattern",
         text: `${unique[0].charAt(0).toUpperCase()}${unique[0].slice(1)} brukar bli eftersatt — lägg en påminnelse eller fyll i samma kväll.`,
@@ -542,7 +520,7 @@ function buildTips(
     });
   }
 
-  const moodGaps = pastGaps.filter((d) =>
+  const moodGaps = gapDays.filter((d) =>
     d.missing.some((m) => m.toLowerCase().includes("humör")),
   );
   if (moodGaps.length >= 2) {
@@ -552,17 +530,6 @@ function buildTips(
     });
   }
 
-  const openToday = gapDays.find((d) => d.severity === "open");
-  if (openToday && openToday.date === today && openToday.missing.length > 0) {
-    tips.push({
-      id: "today",
-      text: `Idag saknas fortfarande ${joinAnd(
-        openToday.missing.slice(0, 3).map((m) => m.toLowerCase()),
-      )}.`,
-    });
-  }
-
-  // Deduplicate by id, keep order
   const seen = new Set<string>();
   return tips.filter((tip) => {
     if (seen.has(tip.id)) return false;
@@ -599,7 +566,8 @@ export function buildWeekReview(input: {
 
   const gapDays: WeekReviewGapDay[] = [];
   for (const day of habitWeek.days) {
-    if (day.isFuture) continue;
+    // Only days that have already passed — never today or future.
+    if (day.date >= today) continue;
     const probes = probesForDay(day, habitWeek.habits, waterByDate.get(day.date));
     const openPlan = openPlanForDay({
       date: day.date,
@@ -626,27 +594,19 @@ export function buildWeekReview(input: {
     tasks,
     today,
   });
-  const tips = buildTips(gapDays, slips, today);
+  const tips = buildTips(gapDays, slips);
 
   if (gapDays.length === 0 && slips.length === 0 && tips.length === 0) {
     return null;
   }
 
-  const pastGaps = gapDays.filter((d) => d.severity !== "open");
-  const openGaps = gapDays.filter((d) => d.severity === "open");
   const weekOpen = habitWeek.weekEnd >= today && habitWeek.weekStart <= today;
 
   let lead: string | null = null;
-  if (pastGaps.length > 0 && openGaps.length > 0) {
-    lead = `${pastGaps.length} ${
-      pastGaps.length === 1 ? "dag" : "dagar"
-    } att komplettera, plus det som fortfarande är öppet idag.`;
-  } else if (pastGaps.length > 0) {
-    lead = `${pastGaps.length} ${
-      pastGaps.length === 1 ? "dag ser" : "dagar ser"
-    } ofullständig ${pastGaps.length === 1 ? "ut" : "ut"} — öppna och fyll i.`;
-  } else if (openGaps.length > 0) {
-    lead = "Idag har fortfarande luckor — bra läge att fylla i innan kvällen.";
+  if (gapDays.length > 0) {
+    lead = `${gapDays.length} ${
+      gapDays.length === 1 ? "dag ser" : "dagar ser"
+    } ofullständig ${gapDays.length === 1 ? "ut" : "ut"} — öppna och fyll i.`;
   } else if (slips.length > 0) {
     lead = `Svagast den här veckan: ${slips[0].label.toLowerCase()}.`;
   }

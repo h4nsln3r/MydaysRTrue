@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { formatMl } from "@/lib/water";
 import styles from "./WaterBottle.module.scss";
 
@@ -68,25 +68,41 @@ function useAnimatedNumber(target: number, durationMs: number): number {
     const from = valueRef.current;
     const to = target;
     const start = performance.now();
+    let settled = false;
+
+    const settle = (next: number) => {
+      valueRef.current = next;
+      setValue(next);
+    };
 
     const tick = (now: number) => {
       const elapsed = now - start;
       const t = Math.min(1, elapsed / durationMs);
       const eased = easeOutCubic(t);
-      const next = from + (to - from) * eased;
-      valueRef.current = next;
-      setValue(next);
+      settle(from + (to - from) * eased);
 
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
-        valueRef.current = to;
+        settled = true;
+        settle(to);
       }
     };
+
+    // If rAF is throttled/paused (background tab, embedded browser), still land
+    // on the target so the bottle — and bubbles — aren't stuck empty forever.
+    const fallback = window.setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+        settle(to);
+      }
+    }, durationMs + 120);
 
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      window.clearTimeout(fallback);
     };
   }, [target, durationMs]);
 
@@ -111,18 +127,22 @@ export function WaterBottle({
   // Surface follows the bottle's volume, so the drawn water matches the %.
   const surface = waterlineY(animatedProgress);
   const depth = Math.max(0, 148 - surface);
+  // Mount bubbles from the *target* fill so a stalled fill animation doesn't
+  // leave the bottle permanently bubble-less. Positions still track `surface`.
+  const targetDepth = Math.max(0, 148 - waterlineY(clamped));
   // A fixed ripple would make a shallow fill look fuller than it is.
   const wave = Math.min(4.2, depth * 0.11);
   const liquidTop = surface + wave * 0.15;
-  const showBubbles = depth > 16;
-  const bubbleTravel = Math.min(54, depth * 0.62);
+  const showBubbles = targetDepth > 16;
+  // Keep travel in sync with fill depth so shallow water doesn't spawn
+  // bubbles from below the bottle viewBox.
+  const bubbleTravel = Math.min(54, Math.max(depth, targetDepth) * 0.62);
 
   const isFull = clamped >= 1;
 
   return (
     <div
       className={[styles.wrap, isFull ? styles.full : ""].filter(Boolean).join(" ")}
-      style={{ "--bubble-rise": `-${bubbleTravel}px` } as CSSProperties}
       aria-label={`Water progress: ${Math.round(clamped * 100)}%`}
       role="progressbar"
       aria-valuemin={0}
@@ -179,21 +199,21 @@ export function WaterBottle({
               <circle
                 className={styles.bubble1}
                 cx="52"
-                cy={surface + bubbleTravel * 0.95}
+                cy={Math.min(144, surface + Math.max(12, bubbleTravel * 0.95))}
                 r="3.4"
                 fill="rgba(255,255,255,0.85)"
               />
               <circle
                 className={styles.bubble2}
                 cx="70"
-                cy={Math.min(144, surface + bubbleTravel * 1.55)}
+                cy={Math.min(144, surface + Math.max(18, bubbleTravel * 1.55))}
                 r="2.3"
                 fill="rgba(255,255,255,0.75)"
               />
               <circle
                 className={styles.bubble3}
                 cx="61"
-                cy={surface + bubbleTravel * 1.2}
+                cy={Math.min(144, surface + Math.max(14, bubbleTravel * 1.2))}
                 r="2.8"
                 fill="rgba(255,255,255,0.7)"
               />

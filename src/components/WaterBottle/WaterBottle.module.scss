@@ -56,33 +56,16 @@
     100% { transform: translateX(0); }
 }
 
-.bubble1,
-.bubble2,
-.bubble3 {
-    transform-box: fill-box;
-    transform-origin: center;
-}
+.bubble1 { animation: rise 4.2s ease-in infinite; }
+.bubble2 { animation: rise 5.6s ease-in infinite 0.6s; }
+.bubble3 { animation: rise 3.8s ease-in infinite 1.2s; }
 
-.bubble1 { animation: rise 4.2s ease-in-out infinite; }
-.bubble2 { animation: rise 5.4s ease-in-out infinite 0.7s; }
-.bubble3 { animation: rise 3.6s ease-in-out infinite 1.3s; }
-
+// Fixed px — CSS variables inside @keyframes transforms are unreliable on
+// SVG <circle> (opacity animates, transform is dropped as `none`).
 @keyframes rise {
-    0% {
-        transform: translate(0, 4px) scale(0.7);
-        opacity: 0;
-    }
-    18% {
-        opacity: 0.95;
-    }
-    55% {
-        transform: translate(2.5px, calc(var(--bubble-rise, -48px) * 0.5)) scale(1);
-        opacity: 0.8;
-    }
-    100% {
-        transform: translate(-2px, var(--bubble-rise, -48px)) scale(0.85);
-        opacity: 0;
-    }
+    0%   { transform: translateY(0); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translateY(-48px); opacity: 0; }
 }
 
 .bottle {

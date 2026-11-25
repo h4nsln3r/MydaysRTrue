@@ -1820,6 +1820,31 @@ export async function getMonthFinanceSnapshot(
   return data ? rowToFinanceSnapshot(data) : null;
 }
 
+/** Monthly economy snapshots for a calendar year (only months with balances). */
+export async function getYearFinanceSnapshots(
+  userId: string,
+  year: number,
+): Promise<MonthlyFinanceSnapshot[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("monthly_finance_snapshots")
+    .select(
+      "month_start, langforsakringar, kort, spar, isk, sbab_spar, avanza, krypto, cash, note, done_at",
+    )
+    .eq("user_id", userId)
+    .gte("month_start", `${year}-01-01`)
+    .lte("month_start", `${year}-12-01`)
+    .order("month_start", { ascending: true });
+
+  return (data ?? [])
+    .map(rowToFinanceSnapshot)
+    .filter((snapshot) =>
+      Object.values(snapshot.balances).some(
+        (value) => value != null && Number.isFinite(value),
+      ),
+    );
+}
+
 /**
  * Returns all active monthly tasks merged with their completion row for the
  * given month. Tasks without a row are "untouched" this month.

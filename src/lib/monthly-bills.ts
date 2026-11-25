@@ -165,6 +165,8 @@ export interface MonthlyBillsTotal {
   totalKr: number;
   /** Bills split across the household. */
   sharedKr: number;
+  sharedCount: number;
+  sharedWithAmount: number;
   /** Bills only you pay. */
   soloKr: number;
   soloCount: number;
@@ -184,10 +186,13 @@ export function sumMonthlyBills(
   let sharedKr = 0;
   let soloKr = 0;
   let withAmount = 0;
+  let sharedCount = 0;
+  let sharedWithAmount = 0;
   let soloCount = 0;
   let soloWithAmount = 0;
   for (const bill of bills) {
     if (bill.paidAlone) soloCount += 1;
+    else sharedCount += 1;
     const amount = effectiveBillAmountKr(bill);
     if (amount == null) continue;
     totalKr += amount;
@@ -197,6 +202,7 @@ export function sumMonthlyBills(
       soloWithAmount += 1;
     } else {
       sharedKr += amount;
+      sharedWithAmount += 1;
     }
   }
   const perPersonKr = sharedKr / 2;
@@ -206,12 +212,24 @@ export function sumMonthlyBills(
     missingAmount: bills.length - withAmount,
     totalKr,
     sharedKr,
+    sharedCount,
+    sharedWithAmount,
     soloKr,
     soloCount,
     soloWithAmount,
     perPersonKr,
     myShareKr: perPersonKr + soloKr,
   };
+}
+
+/** Shared (not paidAlone) bills for the month, sorted by title. */
+export function sharedMonthlyBills(
+  tasks: MonthlyTaskForMonth[],
+  categories: TaskCategory[],
+): MonthlyTaskForMonth[] {
+  return tasks
+    .filter((t) => isMonthlyBill(t, categories) && !t.paidAlone)
+    .sort((a, b) => a.title.localeCompare(b.title, "sv"));
 }
 
 export type MonthlyScheduleSource = "explicit" | "default" | "none";

@@ -222,6 +222,76 @@ export function formatKr(amount: number): string {
   return `${Math.round(amount).toLocaleString("sv-SE")} kr`;
 }
 
+/** Compact axis labels for year charts (e.g. 1,2 mn · 450 tkr). */
+export function formatKrCompact(amount: number): string {
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? "−" : "";
+  if (abs >= 1_000_000) {
+    const mn = abs / 1_000_000;
+    const text = mn.toLocaleString("sv-SE", {
+      maximumFractionDigits: mn >= 10 ? 0 : 1,
+    });
+    return `${sign}${text} mn`;
+  }
+  if (abs >= 10_000) {
+    return `${sign}${Math.round(abs / 1000).toLocaleString("sv-SE")} tkr`;
+  }
+  return `${sign}${Math.round(abs).toLocaleString("sv-SE")} kr`;
+}
+
+export function formatSignedKr(amount: number): string {
+  const rounded = Math.round(amount);
+  if (rounded === 0) return "0 kr";
+  const abs = Math.abs(rounded).toLocaleString("sv-SE");
+  return `${rounded > 0 ? "+" : "−"}${abs} kr`;
+}
+
+export type FinanceChartSeriesKey = "total" | "lf" | EditableFinanceKey;
+
+export interface FinanceChartSeries {
+  key: FinanceChartSeriesKey;
+  label: string;
+  shortLabel: string;
+  color: string;
+}
+
+/** Series shown on the year economy chart (total + LF + each account). */
+export const FINANCE_CHART_SERIES: FinanceChartSeries[] = [
+  { key: "total", label: "Totalt", shortLabel: "Totalt", color: "#ff9a3c" },
+  { key: "lf", label: "Länsförsäkringar", shortLabel: "LF", color: "#ff7a1a" },
+  { key: "kort", label: "Kort på LF", shortLabel: "Kort", color: "#d8cdb7" },
+  { key: "spar", label: "Spar på LF", shortLabel: "Spar", color: "#6ee7a3" },
+  { key: "isk", label: "ISK fondkonto på LF", shortLabel: "ISK", color: "#5fb6ff" },
+  { key: "sbab_spar", label: "SBAB spar", shortLabel: "SBAB", color: "#c4b5fd" },
+  { key: "avanza", label: "Avanza", shortLabel: "Avanza", color: "#ffcf3a" },
+  { key: "krypto", label: "Krypto", shortLabel: "Krypto", color: "#ff5247" },
+  { key: "cash", label: "Cash (uttaget)", shortLabel: "Cash", color: "#8a8576" },
+];
+
+export function snapshotHasBalances(
+  snapshot: Pick<MonthlyFinanceSnapshot, "balances">,
+): boolean {
+  return Object.values(snapshot.balances).some(
+    (value) => value != null && Number.isFinite(value),
+  );
+}
+
+export function financeSeriesValue(
+  snapshot: MonthlyFinanceSnapshot,
+  key: FinanceChartSeriesKey,
+): number | null {
+  if (!snapshotHasBalances(snapshot)) return null;
+  if (key === "total") return financeTotal(snapshot.balances);
+  if (key === "lf") {
+    const hasLf = (["kort", "spar", "isk"] as const).some(
+      (account) => snapshot.balances[account] != null,
+    );
+    return hasLf ? lfTotal(snapshot.balances) : null;
+  }
+  const value = snapshot.balances[key];
+  return value != null && Number.isFinite(value) ? value : null;
+}
+
 export function parseKrInput(raw: string): number | null {
   const trimmed = raw.trim().replace(/\s/g, "").replace(",", ".");
   if (!trimmed) return null;

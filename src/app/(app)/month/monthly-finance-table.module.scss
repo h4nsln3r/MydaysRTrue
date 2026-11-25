@@ -1,6 +1,7 @@
 @use "abstracts" as *;
 
 .section {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: $space-4;
@@ -285,5 +286,39 @@
         font-family: $font-mono;
         font-weight: 600;
         color: $color-cream;
+    }
+}
+
+.editBar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: $space-2;
+    margin-top: -$space-1;
+}
+
+.pencil {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    background: $color-ink-elevated;
+    color: $color-cream-dim;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        color 140ms $ease-out,
+        border-color 140ms $ease-out;
+
+    &:hover:not(:disabled) {
+        color: $color-orange-bright;
+        border-color: $color-orange;
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 }

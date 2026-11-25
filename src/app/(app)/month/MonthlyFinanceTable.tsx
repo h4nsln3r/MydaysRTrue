@@ -42,6 +42,7 @@ export function MonthlyFinanceTable({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const initialBalances = useMemo(() => {
     const base = { ...EMPTY_FINANCE_BALANCES };
@@ -65,6 +66,7 @@ export function MonthlyFinanceTable({
     setBalances(initialBalances);
     setNote(snapshot?.note ?? "");
     setSalary(salaryAmount != null ? String(salaryAmount) : "");
+    setEditing(false);
   }, [initialBalances, snapshot?.note, salaryAmount]);
 
   const lfSum = lfTotal(balances);
@@ -74,6 +76,23 @@ export function MonthlyFinanceTable({
     ? carpayAmountFromSalary(parseKrInput(salary), monthStart)
     : null;
 
+  /** Locked until you tap the pencil (or while still open for first fill on plan). */
+  const locked = planOnly || ((!editing) && (readOnly || done));
+  const showPencil = !planOnly && !editing && (readOnly || done);
+  const showEditFooter = editing || (!readOnly && !done && !planOnly);
+
+  const resetFromProps = () => {
+    setBalances(initialBalances);
+    setNote(snapshot?.note ?? "");
+    setSalary(salaryAmount != null ? String(salaryAmount) : "");
+    setError(null);
+  };
+
+  const cancelEdit = () => {
+    resetFromProps();
+    setEditing(false);
+  };
+
   const save = (markDone: boolean) => {
     if (!financeTaskId) {
       setError("Ekonomiuppgiften saknas.");
@@ -81,6 +100,19 @@ export function MonthlyFinanceTable({
     }
     setError(null);
     startTransition(async () => {
+      if (salaryTaskId) {
+        const parsed = parseKrInput(salary);
+        const salaryRes = await setMonthlyBillAmountAction({
+          taskId: salaryTaskId,
+          monthStart,
+          amountKr: parsed,
+        });
+        if (!salaryRes.ok) {
+          setError(salaryRes.error ?? "Kunde inte spara lön.");
+          return;
+        }
+      }
+
       const res = await saveMonthlyFinanceAction({
         taskId: financeTaskId,
         monthStart,
@@ -88,7 +120,11 @@ export function MonthlyFinanceTable({
         note,
         done: markDone,
       });
-      if (!res.ok) setError(res.error ?? "Kunde inte spara.");
+      if (!res.ok) {
+        setError(res.error ?? "Kunde inte spara.");
+        return;
+      }
+      setEditing(false);
       router.refresh();
     });
   };
@@ -110,8 +146,6 @@ export function MonthlyFinanceTable({
 
   if (!financeTaskId) return null;
 
-  const balancesReadOnly = readOnly || done || planOnly;
-
   return (
     <section className={styles.section} id="ekonomi" aria-label="Ekonomi">
       <header className={styles.header}>
@@ -120,10 +154,12 @@ export function MonthlyFinanceTable({
           <p className={styles.sub}>
             {planOnly
               ? "Planera när ekonomin ska göras — saldon fylls i efter månadens slut"
-              : "Fyll i saldo per konto — LF-total och summa räknas ut automatiskt"}
+              : editing
+                ? "Rätta beloppen och spara"
+                : "Fyll i saldo per konto — LF-total och summa räknas ut automatiskt"}
           </p>
         </div>
-        {done ? (
+        {done && !editing ? (
           <span className={styles.doneBadge} aria-label="Ekonomi klar">
             ✓ Klar
           </span>
@@ -135,7 +171,7 @@ export function MonthlyFinanceTable({
           <label className={styles.salaryLabel} htmlFor="salary-amount">
             Lön den här månaden
           </label>
-          {readOnly ? (
+          {locked ? (
             <span className={styles.salaryValue}>
               {salaryAmount != null ? formatKr(salaryAmount) : "—"}
             </span>
@@ -152,16 +188,18 @@ export function MonthlyFinanceTable({
                 aria-label="Lön den här månaden"
                 disabled={pending}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="md"
-                loading={pending}
-                disabled={pending}
-                onClick={saveSalary}
-              >
-                Spara lön
-              </Button>
+              {!editing ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  loading={pending}
+                  disabled={pending}
+                  onClick={saveSalary}
+                >
+                  Spara lön
+                </Button>
+              ) : null}
             </div>
           )}
           {carpayFromSalary ? (
@@ -226,12 +264,12 @@ export function MonthlyFinanceTable({
                 >
                   <td>
                     <span className={styles.rowLabel}>{row.label}</span>
-                    {row.hint && !readOnly ? (
+                    {row.hint && !locked ? (
                       <span className={styles.rowHint}>{row.hint}</span>
                     ) : null}
                   </td>
                   <td className={styles.amountCell}>
-                    {balancesReadOnly ? (
+                    {locked ? (
                       <span className={styles.readValue}>
                         {value != null ? formatKr(value) : "—"}
                       </span>
@@ -260,7 +298,7 @@ export function MonthlyFinanceTable({
         </table>
       </div>
 
-      {!readOnly && !done && !planOnly ? (
+      {showEditFooter ? (
         <div className={styles.footer}>
           <Input
             label="Kommentar (valfritt)"
@@ -272,32 +310,77 @@ export function MonthlyFinanceTable({
           />
           {error ? <p className={styles.error}>{error}</p> : null}
           <div className={styles.actions}>
-            <Button
-              type="button"
-              variant="ghost"
-              size="md"
-              disabled={pending}
-              onClick={() => save(false)}
-            >
-              Spara utkast
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              loading={pending}
-              disabled={pending}
-              onClick={() => save(true)}
-            >
-              Klarmarkera ekonomi
-            </Button>
+            {editing ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  disabled={pending}
+                  onClick={cancelEdit}
+                >
+                  Avbryt
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  loading={pending}
+                  disabled={pending}
+                  onClick={() => save(done)}
+                >
+                  Spara
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  disabled={pending}
+                  onClick={() => save(false)}
+                >
+                  Spara utkast
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  loading={pending}
+                  disabled={pending}
+                  onClick={() => save(true)}
+                >
+                  Klarmarkera ekonomi
+                </Button>
+              </>
+            )}
           </div>
         </div>
-      ) : readOnly && snapshot?.note ? (
+      ) : locked && snapshot?.note ? (
         <p className={styles.readNote}>
           <span className={styles.readNoteLabel}>Kommentar</span>
           {snapshot.note}
         </p>
+      ) : null}
+
+      {showPencil ? (
+        <div className={styles.editBar}>
+          {error ? <p className={styles.error}>{error}</p> : null}
+          <button
+            type="button"
+            className={styles.pencil}
+            aria-label="Redigera ekonomi"
+            title="Redigera"
+            disabled={pending}
+            onClick={() => {
+              setError(null);
+              setEditing(true);
+            }}
+          >
+            ✎
+          </button>
+        </div>
       ) : null}
     </section>
   );

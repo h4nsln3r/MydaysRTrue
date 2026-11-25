@@ -17,11 +17,13 @@ import { GigsYearBoard } from "@/components/GigsYearBoard/GigsYearBoard";
 import { GigsYearProgress } from "@/components/GigsYearProgress/GigsYearProgress";
 import { getYearRestaurantMeals } from "@/lib/meals.server";
 import { getWeightLogsInRange } from "@/lib/weight.server";
+import { getYearFinanceSnapshots } from "@/lib/tasks.server";
 import { todayLocalISO } from "@/lib/date";
 import { isGigPlayed } from "@/lib/gigs";
 import { isLiveEventAttended } from "@/lib/live-events";
 import { PeriodInsights } from "@/components/PeriodInsights/PeriodInsights";
 import { WeightTrendChart } from "@/components/WeightTrendChart/WeightTrendChart";
+import { FinanceYearChart } from "@/components/FinanceYearChart/FinanceYearChart";
 import { buildPeriodInsights, insightDaysFromMovement } from "@/lib/insights";
 import {
   getYearInsightExtras,
@@ -61,7 +63,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
   }
   if (year > currentYear) year = currentYear;
 
-  const [yearMedia, yearLive, yearGigs, yearRestaurants, yearLeave, codingProjects, yearMovement, yearExtras, weightLogs] =
+  const [yearMedia, yearLive, yearGigs, yearRestaurants, yearLeave, codingProjects, yearMovement, yearExtras, weightLogs, financeSnapshots] =
     await Promise.all([
       getYearMedia(user.id, year),
       getYearLiveEvents(user.id, year),
@@ -72,6 +74,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
       getYearMovement(user.id, year),
       getYearInsightExtras(user.id, year),
       getWeightLogsInRange(user.id, `${year}-01-01`, `${year}-12-31`),
+      getYearFinanceSnapshots(user.id, year),
     ]);
   const canGoForward = year < currentYear;
   const yearCompletions = filterCompletionsForYear(
@@ -162,6 +165,12 @@ export default async function YearPage({ searchParams }: YearPageProps) {
         end={`${year}-12-31`}
         today={today}
         scope="year"
+      />
+
+      <FinanceYearChart
+        snapshots={financeSnapshots}
+        year={year}
+        today={today}
       />
 
       {view === "progress" ? <PeriodInsights model={yearInsights} /> : null}

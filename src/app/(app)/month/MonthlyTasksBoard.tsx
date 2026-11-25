@@ -668,8 +668,10 @@ function MonthlyTaskRow({
             {(isBill || isMonthlyAmountTask(task)) && billAmountLabel ? (
               <span className={styles.billAmountBadge}>{billAmountLabel}</span>
             ) : null}
-            {task.paidAlone ? (
+            {isBill && task.paidAlone ? (
               <span className={styles.soloBadge}>Bara du</span>
+            ) : isBill ? (
+              <span className={styles.sharedBadge}>Delas</span>
             ) : null}
           </span>
           {task.paidAlone && schedule.dayOfMonth == null && !done ? (

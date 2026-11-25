@@ -5,7 +5,7 @@ export const RING_MAMMA_GOAL = 2;
 export const RING_OTHER_GOAL = 1;
 
 export const RING_PERSONS = [
-  { key: "mamma", label: "Mamma", title: "Ring mamma", icon: "👩", group: "mamma" },
+  { key: "mamma", label: "Mor och far", title: "Ring mor och far", icon: "👨‍👩‍👧", group: "mamma" },
   { key: "sanna", label: "Sanna", title: "Ring Sanna", icon: "💛", group: "other" },
   { key: "farmor", label: "Farmor", title: "Ring farmor", icon: "👵", group: "other" },
   { key: "ovrigt", label: "Övrigt", title: "Ring övrigt", icon: "🤝", group: "other" },

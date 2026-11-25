@@ -960,8 +960,8 @@ function MonthlyTaskRow({
                 <p className={styles.financeLinkText}>{task.notes}</p>
               ) : transferTarget ? (
                 <p className={styles.financeLinkText}>
-                  Beloppet läggs till på <strong>{transferTarget}</strong> i
-                  ekonomitabellen.
+                  Registreras som sparande till <strong>{transferTarget}</strong>
+                  — påverkar inte saldona i ekonomitabellen.
                 </p>
               ) : null}
               {task.completionKind === "amount" ? (

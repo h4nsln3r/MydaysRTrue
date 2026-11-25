@@ -44,19 +44,16 @@ export const FINANCE_TABLE_ROWS: FinanceTableRow[] = [
     key: "isk",
     label: "ISK fondkonto på LF",
     indent: true,
-    hint: "Uppdateras vid överföring fondkonto LF",
   },
   {
     kind: "account",
     key: "sbab_spar",
     label: "SBAB spar",
-    hint: "Uppdateras vid överföring SBAB spar",
   },
   {
     kind: "account",
     key: "avanza",
     label: "Avanza",
-    hint: "Uppdateras vid överföring Avanza",
   },
   {
     kind: "account",
@@ -103,6 +100,77 @@ export const TRANSFER_TASK_ACCOUNT: Record<string, EditableFinanceKey> =
       meta.account,
     ]),
   );
+
+/** One logged savings transfer for year charts. */
+export interface SavingsTransferEntry {
+  monthStart: string;
+  taskKey: SavingsTransferTaskKey;
+  amountKr: number;
+}
+
+export interface MonthSavingsBucket {
+  monthStart: string;
+  totalKr: number;
+  byKey: Record<SavingsTransferTaskKey, number>;
+}
+
+export const SAVINGS_TRANSFER_SERIES: {
+  key: SavingsTransferTaskKey;
+  label: string;
+  shortLabel: string;
+  color: string;
+}[] = [
+  {
+    key: "save_transfer_lf",
+    label: "ISK fondkonto på LF",
+    shortLabel: "ISK",
+    color: "#5fb6ff",
+  },
+  {
+    key: "save_transfer_avanza",
+    label: "Avanza",
+    shortLabel: "Avanza",
+    color: "#ffcf3a",
+  },
+  {
+    key: "save_transfer_spar",
+    label: "SBAB spar",
+    shortLabel: "SBAB",
+    color: "#6ee7a3",
+  },
+];
+
+export function emptySavingsByKey(): Record<SavingsTransferTaskKey, number> {
+  return {
+    save_transfer_lf: 0,
+    save_transfer_avanza: 0,
+    save_transfer_spar: 0,
+  };
+}
+
+/** Group logged transfers by calendar month. */
+export function bucketSavingsTransfersByMonth(
+  entries: SavingsTransferEntry[],
+): MonthSavingsBucket[] {
+  const map = new Map<string, MonthSavingsBucket>();
+  for (const entry of entries) {
+    if (!Number.isFinite(entry.amountKr) || entry.amountKr <= 0) continue;
+    let bucket = map.get(entry.monthStart);
+    if (!bucket) {
+      bucket = {
+        monthStart: entry.monthStart,
+        totalKr: 0,
+        byKey: emptySavingsByKey(),
+      };
+      map.set(entry.monthStart, bucket);
+    }
+    bucket.byKey[entry.taskKey] += entry.amountKr;
+    bucket.totalKr += entry.amountKr;
+  }
+  return [...map.values()].sort((a, b) =>
+    a.monthStart.localeCompare(b.monthStart),
+  );
+}
 
 export const SALARY_TASK_KEY = "finance_lon";
 export const CARPAY_TASK_KEY = "finance_carpay";
@@ -361,14 +429,3 @@ export function balancesFromSnapshotRow(row: {
   return balances;
 }
 
-export function applyTransferDelta(
-  balances: MonthlyFinanceBalances,
-  account: EditableFinanceKey,
-  delta: number,
-): MonthlyFinanceBalances {
-  const current = balances[account] ?? 0;
-  return {
-    ...balances,
-    [account]: Math.round((current + delta) * 100) / 100,
-  };
-}

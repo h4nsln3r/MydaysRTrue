@@ -6,15 +6,10 @@ import { addDaysISO, diffDaysISO, isLocalISODate, isoWeekdayFromLocalISO, parseL
 import { dateInMonth, monthStartFromDate, weeksInMonth } from "@/lib/monthly-bills";
 import { shiftMonthStartISO } from "@/lib/month-plan-horizon";
 import {
-  applyTransferDelta,
-  balancesFromSnapshotRow,
   EDITABLE_FINANCE_KEYS,
-  EMPTY_FINANCE_BALANCES,
   financeTotal,
   lfTotal,
-  TRANSFER_TASK_ACCOUNT,
   parseShopAmountExpr,
-  type EditableFinanceKey,
   type MonthlyFinanceBalances,
 } from "@/lib/monthly-finance";
 import type { Database } from "@/lib/supabase/database.types";
@@ -4642,41 +4637,6 @@ export async function updateMonthlyTaskInstanceAction(input: {
   return { ok: true };
 }
 
-async function syncTransferToFinanceSnapshot(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  monthStart: string,
-  account: EditableFinanceKey,
-  delta: number,
-): Promise<ActionResult> {
-  const { data: snap } = await supabase
-    .from("monthly_finance_snapshots")
-    .select("kort, spar, isk, sbab_spar, avanza, krypto, cash")
-    .eq("user_id", userId)
-    .eq("month_start", monthStart)
-    .maybeSingle();
-
-  const balances = snap
-    ? balancesFromSnapshotRow(snap)
-    : { ...EMPTY_FINANCE_BALANCES };
-  const next = applyTransferDelta(balances, account, delta);
-
-  const payload: MonthlyFinanceSnapshotInsert = {
-    user_id: userId,
-    month_start: monthStart,
-    langforsakringar: lfTotal(next),
-  };
-  for (const key of EDITABLE_FINANCE_KEYS) {
-    payload[key] = next[key];
-  }
-
-  const { error } = await supabase
-    .from("monthly_finance_snapshots")
-    .upsert(payload, { onConflict: "user_id,month_start" });
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}
-
 /**
  * Toggle the done state for a monthly task on a given month. Optionally stores
  * a free-text comment. When `note` is omitted on completion any existing
@@ -4770,11 +4730,6 @@ export async function toggleMonthlyTaskDoneAction(input: {
     }
   }
 
-  const previousAmount =
-    existing?.amount != null ? Number(existing.amount) : null;
-  const transferAccount =
-    task.key != null ? TRANSFER_TASK_ACCOUNT[task.key] : undefined;
-
   const doneAt = input.done
     ? (existing?.done_at ?? new Date().toISOString())
     : null;
@@ -4840,26 +4795,6 @@ export async function toggleMonthlyTaskDoneAction(input: {
       ...(schedulePatch ?? {}),
     });
     if (error) return { ok: false, error: error.message };
-  }
-
-  if (
-    task.completion_kind === "amount" &&
-    transferAccount &&
-    (input.done ? amountValue != null : previousAmount != null)
-  ) {
-    const delta = input.done
-      ? existing?.done_at
-        ? (amountValue ?? 0) - (previousAmount ?? 0)
-        : (amountValue ?? 0)
-      : -(previousAmount ?? 0);
-    const syncRes = await syncTransferToFinanceSnapshot(
-      supabase,
-      user.id,
-      input.monthStart,
-      transferAccount,
-      delta,
-    );
-    if (!syncRes.ok) return syncRes;
   }
 
   // One-off monthly tasks (single_month_start set) are kept once done so they

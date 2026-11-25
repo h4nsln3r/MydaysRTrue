@@ -1,0 +1,336 @@
+@use "abstracts" as *;
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+    padding: $space-4;
+    background:
+        radial-gradient(120% 80% at 0% 0%, rgba(110, 231, 163, 0.1), transparent 50%),
+        $color-ink-soft;
+    border: 1px solid $color-line;
+    border-radius: $radius-md;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-3;
+}
+
+.heading {
+    min-width: 0;
+    flex: 1;
+}
+
+.title {
+    margin: 0;
+    font-family: $font-display;
+    font-size: 1.15rem;
+    color: $color-cream;
+}
+
+.kicker,
+.heroHint,
+.empty {
+    margin: 2px 0 0;
+    color: $color-fog;
+    font-size: 0.78rem;
+}
+
+.kicker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35em;
+    font-family: $font-mono;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+
+    span + span::before {
+        content: "· ";
+    }
+}
+
+.hero {
+    flex: none;
+    text-align: right;
+}
+
+.delta {
+    margin: 0;
+    font-family: $font-mono;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: $color-success;
+    white-space: nowrap;
+}
+
+.toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: $radius-pill;
+    border: 1px solid $color-line;
+    background: $color-ink;
+    color: $color-cream-dim;
+    font-family: $font-mono;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+
+    &:hover {
+        color: $color-cream;
+        border-color: rgba(110, 231, 163, 0.45);
+    }
+}
+
+.toggleOn {
+    color: $color-cream;
+    border-color: color-mix(in srgb, var(--series-color) 55%, $color-line);
+    background: color-mix(in srgb, var(--series-color) 14%, $color-ink);
+}
+
+.toggleDot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--series-color);
+    opacity: 0.45;
+}
+
+.toggleOn .toggleDot {
+    opacity: 1;
+}
+
+.chart {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    grid-template-rows: 220px auto;
+    column-gap: 2px;
+}
+
+.yAxis {
+    position: relative;
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.yLabel,
+.xLabel {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.68rem;
+    line-height: 1;
+}
+
+.yLabel {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+}
+
+.plot {
+    position: relative;
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.grid {
+    stroke: $color-line;
+    stroke-width: 1px;
+}
+
+.barGroup {
+    cursor: pointer;
+}
+
+.bar {
+    opacity: 0.88;
+    transition: opacity 140ms $ease-out;
+}
+
+.barActive {
+    opacity: 1;
+}
+
+.tip {
+    position: absolute;
+    z-index: 2;
+    min-width: 9rem;
+    padding: $space-2 $space-3;
+    background: $color-ink;
+    border: 1px solid $color-line;
+    border-radius: $radius-sm;
+    box-shadow: $shadow-soft;
+    transform: translate(-50%, 0);
+    pointer-events: none;
+}
+
+.tipEnd {
+    transform: translate(-100%, 0);
+}
+
+.tipStart {
+    transform: translate(0, 0);
+}
+
+.tipDate,
+.tipRow,
+.tipTotal {
+    margin: 0;
+}
+
+.tipDate {
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.tipRow,
+.tipTotal {
+    display: flex;
+    justify-content: space-between;
+    gap: $space-3;
+    font-size: 0.78rem;
+    color: $color-cream-dim;
+
+    strong {
+        font-family: $font-mono;
+        font-weight: 600;
+        color: $color-cream;
+    }
+}
+
+.tipTotal {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid $color-line;
+    color: $color-cream;
+
+    strong {
+        color: $color-success;
+    }
+}
+
+.xAxis {
+    position: relative;
+    grid-column: 2;
+    grid-row: 2;
+    height: 18px;
+}
+
+.xLabel {
+    position: absolute;
+    top: 6px;
+    white-space: nowrap;
+}
+
+.categories {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: $space-2;
+}
+
+.category {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: $space-3;
+    text-align: left;
+    border-radius: $radius-sm;
+    border: 1px solid $color-line;
+    background: $color-ink;
+    cursor: pointer;
+
+    &:hover {
+        border-color: rgba(110, 231, 163, 0.4);
+    }
+}
+
+.categoryOn {
+    border-color: color-mix(in srgb, var(--series-color) 50%, $color-line);
+    background: color-mix(in srgb, var(--series-color) 10%, $color-ink);
+}
+
+.catHead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.catDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--series-color);
+    flex-shrink: 0;
+}
+
+.catLabel {
+    color: $color-cream-dim;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-family: $font-mono;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.catValue {
+    color: $color-cream;
+    font-family: $font-mono;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.catDelta {
+    color: $color-fog;
+    font-size: 0.72rem;
+}
+
+.empty {
+    margin: 0;
+    line-height: 1.4;
+}
+
+@media (max-width: $bp-sm) {
+    .categories {
+        grid-template-columns: 1fr;
+    }
+
+    .chart {
+        grid-template-columns: 46px minmax(0, 1fr);
+        grid-template-rows: 200px auto;
+    }
+
+    .delta {
+        font-size: 1.15rem;
+    }
+}

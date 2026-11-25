@@ -46,6 +46,8 @@ import {
   withCarpaySuggestedAmount,
   type MonthlyFinanceBalances,
   type MonthlyFinanceSnapshot,
+  type SavingsTransferEntry,
+  type SavingsTransferTaskKey,
 } from "@/lib/monthly-finance";
 import {
   effectiveScheduledDay,
@@ -521,7 +523,7 @@ const REPEATABLE_CANONICAL: Array<{
     legacyLike: "life_ring_%",
     title: "Ring",
     notes:
-      "Dra in hur många samtal eller träffar du vill — mamma 2× och Sanna, farmor eller en vän 1× per vecka. Välj Ring eller Träffats och vem.",
+      "Dra in hur många samtal eller träffar du vill — mor och far 2× och Sanna, farmor eller en vän 1× per vecka. Välj Ring eller Träffats och vem.",
     icon: "📞",
     accent: "#f472b6",
     completionKind: "journal",
@@ -1820,7 +1822,11 @@ export async function getMonthFinanceSnapshot(
   return data ? rowToFinanceSnapshot(data) : null;
 }
 
-/** Monthly economy snapshots for a calendar year (only months with balances). */
+/**
+ * Monthly economy snapshots for a calendar year.
+ * Only completed months (done_at) — drafts from partial fills or old
+ * transfer-sync leftovers must not warp the year chart.
+ */
 export async function getYearFinanceSnapshots(
   userId: string,
   year: number,
@@ -1834,6 +1840,7 @@ export async function getYearFinanceSnapshots(
     .eq("user_id", userId)
     .gte("month_start", `${year}-01-01`)
     .lte("month_start", `${year}-12-01`)
+    .not("done_at", "is", null)
     .order("month_start", { ascending: true });
 
   return (data ?? [])
@@ -1843,6 +1850,57 @@ export async function getYearFinanceSnapshots(
         (value) => value != null && Number.isFinite(value),
       ),
     );
+}
+
+/** Logged savings transfers (LF / Avanza / SBAB) for a calendar year. */
+export async function getYearSavingsTransfers(
+  userId: string,
+  year: number,
+): Promise<SavingsTransferEntry[]> {
+  const supabase = await createClient();
+  const transferKeys = Object.keys(SAVINGS_TRANSFER_TASKS);
+
+  const { data: tasks } = await supabase
+    .from("monthly_tasks")
+    .select("id, key")
+    .eq("user_id", userId)
+    .in("key", transferKeys)
+    .is("archived_at", null);
+
+  if (!tasks?.length) return [];
+
+  const keyById = new Map(
+    tasks
+      .filter((row): row is { id: string; key: string } => row.key != null)
+      .map((row) => [row.id, row.key]),
+  );
+  const taskIds = [...keyById.keys()];
+  if (taskIds.length === 0) return [];
+
+  const { data: completions } = await supabase
+    .from("monthly_task_completions")
+    .select("task_id, month_start, amount, done_at")
+    .eq("user_id", userId)
+    .in("task_id", taskIds)
+    .gte("month_start", `${year}-01-01`)
+    .lte("month_start", `${year}-12-01`)
+    .not("done_at", "is", null)
+    .not("amount", "is", null);
+
+  const out: SavingsTransferEntry[] = [];
+  for (const row of completions ?? []) {
+    const key = keyById.get(row.task_id);
+    if (!key || !(key in SAVINGS_TRANSFER_TASKS)) continue;
+    if (row.amount == null || !Number.isFinite(Number(row.amount))) continue;
+    const amountKr = Number(row.amount);
+    if (amountKr <= 0) continue;
+    out.push({
+      monthStart: row.month_start,
+      taskKey: key as SavingsTransferTaskKey,
+      amountKr,
+    });
+  }
+  return out.sort((a, b) => a.monthStart.localeCompare(b.monthStart));
 }
 
 /**

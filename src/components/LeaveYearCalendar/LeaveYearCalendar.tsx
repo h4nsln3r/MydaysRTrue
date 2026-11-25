@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   archiveLeavePeriodAction,
@@ -15,7 +16,14 @@ import {
   completionsByDate,
   type DayCompletion,
 } from "@/lib/completions";
-import { formatDayLong, todayLocalISO } from "@/lib/date";
+import {
+  addDaysISO,
+  formatDayLong,
+  isoWeekNumber,
+  parseLocalISO,
+  todayLocalISO,
+  weekStartISO,
+} from "@/lib/date";
 import { publicHolidayMap, type PublicHoliday } from "@/lib/holidays";
 import {
   LEAVE_KIND_ICON,
@@ -29,6 +37,7 @@ import {
   type LeavePeriod,
   type YearLeaveContext,
 } from "@/lib/leave";
+import { weekNavHref } from "@/lib/week-nav";
 import styles from "./LeaveYearCalendar.module.scss";
 
 const KINDS: LeaveKind[] = ["vacation", "day_off", "travel"];
@@ -587,11 +596,32 @@ function MonthGrid({
     const date = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     cells.push({ date, day });
   }
+  while (cells.length % 7 !== 0) {
+    cells.push({ date: null, day: null });
+  }
+
+  const firstOfMonth = `${year}-${String(monthIndex + 1).padStart(2, "0")}-01`;
+  const firstWeekStart = weekStartISO(parseLocalISO(firstOfMonth));
+  const weekView = readOnly ? "progress" : "plan";
+  const rows: Array<{
+    weekStart: string;
+    weekNum: number;
+    days: Array<{ date: string | null; day: number | null }>;
+  }> = [];
+  for (let i = 0; i < cells.length; i += 7) {
+    const weekStart = addDaysISO(firstWeekStart, (i / 7) * 7);
+    rows.push({
+      weekStart,
+      weekNum: isoWeekNumber(parseLocalISO(weekStart)),
+      days: cells.slice(i, i + 7),
+    });
+  }
 
   return (
     <div className={styles.month}>
       <h3 className={styles.monthTitle}>{label}</h3>
       <div className={styles.weekdayRow} aria-hidden>
+        <span className={styles.weekNumHeader}>v</span>
         {WEEKDAY_LABELS.map((w, i) => (
           <span key={`${w}-${i}`} className={styles.weekdayLabel}>
             {w}
@@ -599,80 +629,95 @@ function MonthGrid({
         ))}
       </div>
       <div className={styles.days}>
-        {cells.map((cell, i) => {
-          if (!cell.date || cell.day == null) {
-            return <span key={`e-${i}`} className={styles.dayEmpty} />;
-          }
-          const leaveKind = leaveMap.get(cell.date);
-          const holiday = holidays.get(cell.date) ?? null;
-          const dayCompletions = completionMap.get(cell.date) ?? [];
-          const hasCompletion = dayCompletions.length > 0;
-          const selected = inSelectedRange(cell.date, rangeStart, rangeEnd);
-          const isToday = cell.date === today;
-          const isActive = activeCompletionDate === cell.date;
-          const classNames = [
-            styles.day,
-            leaveKind === "vacation" ? styles.dayVacation : null,
-            leaveKind === "day_off" ? styles.dayOff : null,
-            leaveKind === "travel" ? styles.dayTravel : null,
-            holiday ? styles.dayHoliday : null,
-            selected ? styles.daySelected : null,
-            isToday ? styles.dayToday : null,
-            hasCompletion ? styles.dayHasCompletion : null,
-            isActive ? styles.dayCompletionActive : null,
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          const ariaExtra = [
-            leaveKind ? LEAVE_KIND_LABEL[leaveKind] : null,
-            holiday?.name ?? null,
-            hasCompletion
-              ? `${dayCompletions.length} klart`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(", ");
-          const dayTitle =
-            [leaveKind ? LEAVE_KIND_LABEL[leaveKind] : null, holiday?.name]
-              .filter(Boolean)
-              .join(" · ") || undefined;
-
-          const inner = (
-            <>
-              <span className={styles.dayNum}>{cell.day}</span>
-              {hasCompletion ? (
-                <span className={styles.completionDot} aria-hidden />
-              ) : null}
-            </>
-          );
-
-          if (readOnly && !hasCompletion) {
-            return (
-              <span
-                key={cell.date}
-                className={classNames}
-                title={dayTitle}
-              >
-                {inner}
-              </span>
-            );
-          }
-
-          return (
-            <button
-              key={cell.date}
-              type="button"
-              className={classNames}
-              onClick={() => onDayClick(cell.date!)}
-              aria-label={`${cell.date}${ariaExtra ? `, ${ariaExtra}` : ""}`}
-              title={dayTitle}
-              aria-pressed={readOnly ? isActive : selected}
+        {rows.map((row) => (
+          <div key={row.weekStart} className={styles.weekRow}>
+            <Link
+              href={weekNavHref(row.weekStart, weekView)}
+              className={styles.weekNum}
+              aria-label={`Öppna vecka ${row.weekNum}`}
+              title={`Vecka ${row.weekNum}`}
             >
-              {inner}
-            </button>
-          );
-        })}
+              {row.weekNum}
+            </Link>
+            {row.days.map((cell, i) => {
+              if (!cell.date || cell.day == null) {
+                return (
+                  <span
+                    key={`${row.weekStart}-e-${i}`}
+                    className={styles.dayEmpty}
+                  />
+                );
+              }
+              const leaveKind = leaveMap.get(cell.date);
+              const holiday = holidays.get(cell.date) ?? null;
+              const dayCompletions = completionMap.get(cell.date) ?? [];
+              const hasCompletion = dayCompletions.length > 0;
+              const selected = inSelectedRange(cell.date, rangeStart, rangeEnd);
+              const isToday = cell.date === today;
+              const isActive = activeCompletionDate === cell.date;
+              const classNames = [
+                styles.day,
+                leaveKind === "vacation" ? styles.dayVacation : null,
+                leaveKind === "day_off" ? styles.dayOff : null,
+                leaveKind === "travel" ? styles.dayTravel : null,
+                holiday ? styles.dayHoliday : null,
+                selected ? styles.daySelected : null,
+                isToday ? styles.dayToday : null,
+                hasCompletion ? styles.dayHasCompletion : null,
+                isActive ? styles.dayCompletionActive : null,
+              ]
+                .filter(Boolean)
+                .join(" ");
+
+              const ariaExtra = [
+                leaveKind ? LEAVE_KIND_LABEL[leaveKind] : null,
+                holiday?.name ?? null,
+                hasCompletion ? `${dayCompletions.length} klart` : null,
+              ]
+                .filter(Boolean)
+                .join(", ");
+              const dayTitle =
+                [leaveKind ? LEAVE_KIND_LABEL[leaveKind] : null, holiday?.name]
+                  .filter(Boolean)
+                  .join(" · ") || undefined;
+
+              const inner = (
+                <>
+                  <span className={styles.dayNum}>{cell.day}</span>
+                  {hasCompletion ? (
+                    <span className={styles.completionDot} aria-hidden />
+                  ) : null}
+                </>
+              );
+
+              if (readOnly && !hasCompletion) {
+                return (
+                  <span
+                    key={cell.date}
+                    className={classNames}
+                    title={dayTitle}
+                  >
+                    {inner}
+                  </span>
+                );
+              }
+
+              return (
+                <button
+                  key={cell.date}
+                  type="button"
+                  className={classNames}
+                  onClick={() => onDayClick(cell.date!)}
+                  aria-label={`${cell.date}${ariaExtra ? `, ${ariaExtra}` : ""}`}
+                  title={dayTitle}
+                  aria-pressed={readOnly ? isActive : selected}
+                >
+                  {inner}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );

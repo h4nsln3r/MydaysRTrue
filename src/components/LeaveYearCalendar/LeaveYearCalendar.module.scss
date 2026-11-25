@@ -98,18 +98,62 @@
     text-align: center;
 }
 
-.weekdayRow,
-.days {
+.weekdayRow {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: 1.35rem repeat(7, minmax(0, 1fr));
+    gap: 2px;
+    align-items: center;
+}
+
+.days {
+    display: flex;
+    flex-direction: column;
     gap: 2px;
 }
 
+.weekRow {
+    display: grid;
+    grid-template-columns: 1.35rem repeat(7, minmax(0, 1fr));
+    gap: 2px;
+    align-items: stretch;
+}
+
+.weekNumHeader,
 .weekdayLabel {
     text-align: center;
     font-size: 0.65rem;
     color: $color-fog;
     font-family: $font-mono;
+}
+
+.weekNumHeader {
+    opacity: 0.7;
+}
+
+.weekNum {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 0;
+    border-radius: $radius-xs;
+    color: $color-fog;
+    font-family: $font-mono;
+    font-size: 0.6rem;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+    text-align: center;
+
+    &:hover {
+        color: $color-orange-bright;
+        background: rgba(255, 122, 26, 0.12);
+    }
+
+    &:focus-visible {
+        outline: 1px solid $color-orange-bright;
+        outline-offset: 1px;
+    }
 }
 
 .dayEmpty {

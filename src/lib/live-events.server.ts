@@ -16,6 +16,8 @@ interface Row {
   title: string;
   event_date: string;
   location: string | null;
+  director: string | null;
+  actors: string | null;
   note: string | null;
   rating: number | null;
   attended_at: string | null;
@@ -30,6 +32,8 @@ function rowToEvent(r: Row): LiveEvent {
     title: r.title,
     eventDate: r.event_date,
     location: r.location,
+    director: r.director?.trim() || null,
+    actors: r.actors?.trim() || null,
     note: r.note,
     rating: r.rating,
     attendedAt: r.attended_at,
@@ -52,7 +56,7 @@ export async function getYearLiveEvents(
   const { data } = await supabase
     .from("live_events")
     .select(
-      "id, year, kind, title, event_date, location, note, rating, attended_at, sort_order",
+      "id, year, kind, title, event_date, location, director, actors, note, rating, attended_at, sort_order",
     )
     .eq("user_id", userId)
     .eq("year", year)
@@ -87,7 +91,7 @@ export async function getMonthLiveEvents(
   const { data } = await supabase
     .from("live_events")
     .select(
-      "id, year, kind, title, event_date, location, note, rating, attended_at, sort_order",
+      "id, year, kind, title, event_date, location, director, actors, note, rating, attended_at, sort_order",
     )
     .eq("user_id", userId)
     .gte("event_date", monthStart)

@@ -40,8 +40,16 @@ export function MediaPlanRow(props: RowProps) {
   } = props;
 
   const media = item.media;
-  const done = hasMediaDayActivity(media.dayLogs, media.otherLogs);
-  const detail = mediaDaySummary(media.loggedToday, media.otherLogs);
+  const done = hasMediaDayActivity(
+    media.dayLogs,
+    media.otherLogs,
+    media.cinemaVisits,
+  );
+  const detail = mediaDaySummary(
+    media.loggedToday,
+    media.otherLogs,
+    media.cinemaVisits,
+  );
   const yearHref = `/year?y=${media.year}&view=plan`;
   const [, startTransition] = useTransition();
 

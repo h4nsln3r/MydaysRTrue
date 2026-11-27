@@ -58,6 +58,8 @@ export function LiveEventPlanRow({
   const overdue = !done && event.eventDate < date;
 
   const [note, setNote] = useState(event.note ?? "");
+  const [director, setDirector] = useState(event.director ?? "");
+  const [actors, setActors] = useState(event.actors ?? "");
   const [rating, setRating] = useState(
     event.rating != null ? String(event.rating) : "",
   );
@@ -76,6 +78,8 @@ export function LiveEventPlanRow({
       const res = await attendLiveEventAction({
         id: event.id,
         note,
+        director: event.kind === "cinema" ? director : undefined,
+        actors: event.kind === "cinema" ? actors : undefined,
         rating: rating.trim() === "" ? null : Number(rating),
       });
       if (!res.ok) {
@@ -172,8 +176,30 @@ export function LiveEventPlanRow({
           {!done ? (
             <>
               <p className={rowStyles.prompt}>
-                Hur var upplevelsen? Skriv gärna en kommentar och ge betyg.
+                {event.kind === "cinema"
+                  ? "Klart! Vad tyckte du om filmen?"
+                  : "Hur var upplevelsen? Skriv gärna en kommentar och ge betyg."}
               </p>
+              {event.kind === "cinema" ? (
+                <>
+                  <Input
+                    label="Regissör (valfritt)"
+                    value={director}
+                    onChange={(e) => setDirector(e.target.value)}
+                    placeholder="t.ex. Christopher Nolan"
+                    maxLength={120}
+                    disabled={pending}
+                  />
+                  <Input
+                    label="Skådespelare (valfritt)"
+                    value={actors}
+                    onChange={(e) => setActors(e.target.value)}
+                    placeholder="t.ex. Leonardo DiCaprio, Ellen Page"
+                    maxLength={120}
+                    disabled={pending}
+                  />
+                </>
+              ) : null}
               <Input
                 label="Kommentar (valfritt)"
                 value={note}

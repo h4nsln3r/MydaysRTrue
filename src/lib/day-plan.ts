@@ -715,6 +715,7 @@ export function buildDayPlanItems(input: DayPlanInput): DayPlanItem[] {
     const hasLog = hasMediaDayActivity(
       input.media.dayLogs,
       input.media.otherLogs,
+      input.media.cinemaVisits,
     );
     items.push({
       kind: "media",

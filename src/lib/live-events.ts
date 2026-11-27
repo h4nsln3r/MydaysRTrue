@@ -2,7 +2,17 @@
 
 import type { HabitStatus } from "@/lib/habits";
 
-export type LiveEventKind = "concert" | "sport" | "race" | "birthday" | "wedding" | "other";
+export const LIVE_EVENT_KINDS = [
+  "concert",
+  "sport",
+  "race",
+  "birthday",
+  "wedding",
+  "cinema",
+  "other",
+] as const;
+
+export type LiveEventKind = (typeof LIVE_EVENT_KINDS)[number];
 
 export const LIVE_EVENT_KIND_LABEL: Record<LiveEventKind, string> = {
   concert: "Konsert",
@@ -10,6 +20,7 @@ export const LIVE_EVENT_KIND_LABEL: Record<LiveEventKind, string> = {
   race: "Lopp",
   birthday: "Födelsedag",
   wedding: "Bröllop",
+  cinema: "Bio",
   other: "Övrigt",
 };
 
@@ -19,6 +30,7 @@ export const LIVE_EVENT_KIND_ICON: Record<LiveEventKind, string> = {
   race: "🏃",
   birthday: "🎂",
   wedding: "💒",
+  cinema: "🎬",
   other: "🎉",
 };
 
@@ -32,6 +44,10 @@ export interface LiveEvent {
   title: string;
   eventDate: string;
   location: string | null;
+  /** Cinema director, filled in when the visit is completed. */
+  director: string | null;
+  /** Cinema cast, filled in when the visit is completed. */
+  actors: string | null;
   note: string | null;
   rating: number | null;
   attendedAt: string | null;
@@ -76,6 +92,10 @@ export function isLiveEventDue(event: LiveEvent, localDate: string): boolean {
 export function liveEventDetail(event: LiveEvent): string {
   const parts = [LIVE_EVENT_KIND_LABEL[event.kind], event.eventDate.slice(5)];
   if (event.location) parts.push(event.location);
+  if (event.kind === "cinema") {
+    if (event.director) parts.push(event.director);
+    if (event.actors) parts.push(event.actors);
+  }
   if (liveRatingLabel(event.rating)) parts.push(liveRatingLabel(event.rating)!);
   return parts.join(" · ");
 }

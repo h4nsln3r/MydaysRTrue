@@ -1,6 +1,6 @@
 // Choices behind the day-plan plus button: training variants, bad, shake,
-// and HOME / DEV / MUSIC / SPEL / Livet. HOME also includes the once-a-week
-// standards Städning and Tvätta.
+// live experiences, and HOME / DEV / MUSIC / SPEL / Livet. HOME also includes
+// the once-a-week standards Städning and Tvätta.
 
 import {
   RING_MET_ICON,
@@ -9,6 +9,12 @@ import {
   type RingPerson,
 } from "@/lib/calls";
 import { CARDIO_KINDS, type CardioKind } from "@/lib/cardio";
+import {
+  LIVE_EVENT_KIND_ICON,
+  LIVE_EVENT_KIND_LABEL,
+  LIVE_EVENT_KINDS,
+  type LiveEventKind,
+} from "@/lib/live-events";
 import type { UserGame } from "@/lib/games";
 import type { UserSport } from "@/lib/sports";
 import {
@@ -86,6 +92,12 @@ export type DayQuickAddPayload =
       callOtherName?: string | null;
       callMet?: boolean;
       codingActivity?: CodingActivity | null;
+    }
+  | {
+      kind: "live";
+      liveKind: LiveEventKind;
+      title: string;
+      location?: string | null;
     };
 
 export type DayQuickAddStep =
@@ -93,6 +105,7 @@ export type DayQuickAddStep =
   | { type: "commit"; payload: DayQuickAddPayload }
   | { type: "band"; taskId: string; activity: MusicActivity; thenList: boolean }
   | { type: "callOther"; taskId: string; met: boolean }
+  | { type: "live"; kind: LiveEventKind }
   | {
       type: "list";
       title: string;
@@ -567,6 +580,22 @@ export function buildDayQuickAddItems(input: {
       },
     });
   }
+
+  items.push({
+    id: "live",
+    label: "Live",
+    icon: "🎫",
+    step: {
+      type: "menu",
+      title: "Live",
+      items: LIVE_EVENT_KINDS.map((kind) => ({
+        id: `live:${kind}`,
+        label: LIVE_EVENT_KIND_LABEL[kind],
+        icon: LIVE_EVENT_KIND_ICON[kind],
+        step: { type: "live", kind },
+      })),
+    },
+  });
 
   for (const name of CATEGORY_ORDER) {
     const item = categoryItem(name, input.tasks, input.categories, input.games);

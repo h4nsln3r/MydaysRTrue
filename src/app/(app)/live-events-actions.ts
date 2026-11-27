@@ -16,6 +16,17 @@ export interface ActionResult {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const NOTE_MAX = 280;
+const CREDIT_MAX = 120;
+
+function parseCredit(
+  value: string | undefined,
+): { ok: true; credit: string | null } | { ok: false; error: string } {
+  const credit = (value ?? "").trim();
+  if (credit.length > CREDIT_MAX) {
+    return { ok: false, error: "Håll namnet under 120 tecken." };
+  }
+  return { ok: true, credit: credit || null };
+}
 
 function parseRating(
   value: number | null | undefined,
@@ -37,7 +48,7 @@ export async function createLiveEventAction(input: {
   title: string;
   eventDate: string;
   location?: string;
-}): Promise<ActionResult> {
+}): Promise<ActionResult & { id?: string }> {
   const title = input.title.trim();
   if (!title) return { ok: false, error: "Skriv en titel." };
   if (!ISO_DATE_RE.test(input.eventDate)) {
@@ -68,21 +79,27 @@ export async function createLiveEventAction(input: {
     .limit(1)
     .maybeSingle();
 
-  const { error } = await supabase.from("live_events").insert({
-    user_id: user.id,
-    year: input.year,
-    kind: input.kind,
-    title,
-    event_date: input.eventDate,
-    location,
-    sort_order: (last?.sort_order ?? -1) + 1,
-  });
-  if (error) return { ok: false, error: error.message };
+  const { data: created, error } = await supabase
+    .from("live_events")
+    .insert({
+      user_id: user.id,
+      year: input.year,
+      kind: input.kind,
+      title,
+      event_date: input.eventDate,
+      location,
+      sort_order: (last?.sort_order ?? -1) + 1,
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    return { ok: false, error: error?.message ?? "Kunde inte lägga till." };
+  }
 
   revalidatePath("/", "layout");
   revalidatePath("/year", "page");
   revalidatePath("/month", "page");
-  return { ok: true };
+  return { ok: true, id: created.id };
 }
 
 export async function updateLiveEventAction(input: {
@@ -93,6 +110,8 @@ export async function updateLiveEventAction(input: {
   location?: string;
   note?: string;
   rating?: number | null;
+  director?: string;
+  actors?: string;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Saknar id." };
   const title = input.title.trim();
@@ -108,6 +127,11 @@ export async function updateLiveEventAction(input: {
 
   const ratingResult = parseRating(input.rating);
   if (!ratingResult.ok) return ratingResult;
+  const directorResult = parseCredit(input.director);
+  if (!directorResult.ok) return directorResult;
+  const actorsResult = parseCredit(input.actors);
+  if (!actorsResult.ok) return actorsResult;
+  const cinema = input.kind === "cinema";
 
   const supabase = await createClient();
   const {
@@ -124,6 +148,8 @@ export async function updateLiveEventAction(input: {
       event_date: input.eventDate,
       year,
       location: input.location?.trim().slice(0, 120) || null,
+      director: cinema ? directorResult.credit : null,
+      actors: cinema ? actorsResult.credit : null,
       note: note || null,
       rating: ratingResult.rating,
     })
@@ -142,6 +168,8 @@ export async function attendLiveEventAction(input: {
   id: string;
   note?: string;
   rating?: number | null;
+  director?: string;
+  actors?: string;
 }): Promise<ActionResult> {
   if (!input.id) return { ok: false, error: "Saknar id." };
 
@@ -152,6 +180,10 @@ export async function attendLiveEventAction(input: {
 
   const ratingResult = parseRating(input.rating);
   if (!ratingResult.ok) return ratingResult;
+  const directorResult = parseCredit(input.director);
+  if (!directorResult.ok) return directorResult;
+  const actorsResult = parseCredit(input.actors);
+  if (!actorsResult.ok) return actorsResult;
 
   const supabase = await createClient();
   const {
@@ -159,12 +191,24 @@ export async function attendLiveEventAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Inte inloggad." };
 
+  const { data: existing } = await supabase
+    .from("live_events")
+    .select("kind")
+    .eq("id", input.id)
+    .eq("user_id", user.id)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (!existing) return { ok: false, error: "Hittade inte upplevelsen." };
+  const cinema = existing.kind === "cinema";
+
   const { error } = await supabase
     .from("live_events")
     .update({
       attended_at: new Date().toISOString(),
       note: note || null,
       rating: ratingResult.rating,
+      director: cinema ? directorResult.credit : null,
+      actors: cinema ? actorsResult.credit : null,
     })
     .eq("id", input.id)
     .eq("user_id", user.id)
@@ -191,7 +235,13 @@ export async function resetLiveEventAttendanceAction(
 
   const { error } = await supabase
     .from("live_events")
-    .update({ attended_at: null, note: null, rating: null })
+    .update({
+      attended_at: null,
+      note: null,
+      rating: null,
+      director: null,
+      actors: null,
+    })
     .eq("id", id)
     .eq("user_id", user.id);
   if (error) return { ok: false, error: error.message };

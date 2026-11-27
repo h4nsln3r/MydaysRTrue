@@ -7,6 +7,7 @@ import {
   isMediaOtherKind,
   mediaDaySummary,
   yearFromLocalISO,
+  type CinemaMediaVisit,
   type DailyMediaContext,
   type MediaDayLog,
   type MediaItem,
@@ -146,6 +147,39 @@ export async function getYearMedia(
   };
 }
 
+async function cinemaVisitsBetween(
+  userId: string,
+  startISO: string,
+  endISO: string,
+): Promise<Map<string, CinemaMediaVisit[]>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("live_events")
+    .select("id, event_date, title, director, actors")
+    .eq("user_id", userId)
+    .eq("kind", "cinema")
+    .is("archived_at", null)
+    .not("attended_at", "is", null)
+    .gte("event_date", startISO)
+    .lte("event_date", endISO)
+    .order("attended_at", { ascending: true });
+
+  const byDate = new Map<string, CinemaMediaVisit[]>();
+  for (const row of data ?? []) {
+    const title = row.title.trim();
+    if (!title) continue;
+    const visits = byDate.get(row.event_date) ?? [];
+    visits.push({
+      id: row.id,
+      title,
+      director: row.director?.trim() || null,
+      actors: row.actors?.trim() || null,
+    });
+    byDate.set(row.event_date, visits);
+  }
+  return byDate;
+}
+
 export async function getDailyMedia(
   userId: string,
   localDate: string,
@@ -154,7 +188,7 @@ export async function getDailyMedia(
   const { items } = await getYearMedia(userId, year);
 
   const supabase = await createClient();
-  const [{ data: dayRows }, { data: otherRows }] = await Promise.all([
+  const [{ data: dayRows }, { data: otherRows }, cinemaByDate] = await Promise.all([
     supabase
       .from("media_daily_logs")
       .select("media_item_id, position, did_consume")
@@ -166,6 +200,7 @@ export async function getDailyMedia(
       .eq("user_id", userId)
       .eq("local_date", localDate)
       .order("created_at", { ascending: true }),
+    cinemaVisitsBetween(userId, localDate, localDate),
   ]);
 
   const dayLogs = (dayRows ?? []).map((row) => ({
@@ -195,6 +230,7 @@ export async function getDailyMedia(
     dayLogs,
     loggedToday,
     otherLogs,
+    cinemaVisits: cinemaByDate.get(localDate) ?? [],
     allCompleted: items.length > 0 && activeItems.length === 0,
   };
 }
@@ -247,7 +283,7 @@ export async function getMediaContextsInRange(
   }
 
   const supabase = await createClient();
-  const [{ data: logRows }, { data: otherRows }] = await Promise.all([
+  const [{ data: logRows }, { data: otherRows }, cinemaByDate] = await Promise.all([
     supabase
       .from("media_daily_logs")
       .select("local_date, media_item_id, position, did_consume")
@@ -261,6 +297,7 @@ export async function getMediaContextsInRange(
       .gte("local_date", startISO)
       .lte("local_date", endISO)
       .order("created_at", { ascending: true }),
+    cinemaVisitsBetween(userId, startISO, endISO),
   ]);
 
   const logsByDate = new Map<string, MediaDayLog[]>();
@@ -306,6 +343,7 @@ export async function getMediaContextsInRange(
       dayLogs,
       loggedToday,
       otherLogs,
+      cinemaVisits: cinemaByDate.get(date) ?? [],
       allCompleted: items.length > 0 && activeItems.length === 0,
     };
   });
@@ -324,7 +362,11 @@ export async function getWeekMediaSummary(
     isFuture: context.localDate > today,
     isToday: context.localDate === today,
     context,
-    summary: mediaDaySummary(context.loggedToday, context.otherLogs),
+    summary: mediaDaySummary(
+      context.loggedToday,
+      context.otherLogs,
+      context.cinemaVisits,
+    ),
   }));
   const hasLibrary = contexts.some(
     (context) =>

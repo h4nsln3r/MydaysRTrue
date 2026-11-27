@@ -284,6 +284,8 @@ function buildTrackerEntries(trackers: JournalDailyTrackers): JournalDisplayEntr
     const parts = [event.title];
     if (event.kindLabel) parts.push(event.kindLabel);
     if (event.location) parts.push(event.location);
+    if (event.director) parts.push(event.director);
+    if (event.actors) parts.push(event.actors);
     if (event.ratingLabel) parts.push(event.ratingLabel);
     if (event.note?.trim()) parts.push(event.note.trim());
     entries.push({

@@ -227,7 +227,7 @@ export default async function YearPage({ searchParams }: YearPageProps) {
       <section className={styles.section}>
         <header className={styles.sectionHeader}>
           <h2 className={styles.h2}>Live-upplevelser</h2>
-          <span className={styles.muted}>konserter · sport · fester</span>
+          <span className={styles.muted}>konserter · bio · sport · fester</span>
         </header>
 
         {view === "progress" ? (

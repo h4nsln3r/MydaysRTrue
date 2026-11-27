@@ -96,6 +96,7 @@ const LIVE_PROSE: Record<LiveEventKind, string> = {
   race: "loppet",
   birthday: "födelsedagen",
   wedding: "bröllopet",
+  cinema: "bion",
   other: "kvällen",
 };
 

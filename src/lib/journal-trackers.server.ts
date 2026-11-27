@@ -110,6 +110,8 @@ export interface JournalDailyTrackers {
     kindLabel: string;
     icon: string;
     location: string | null;
+    director: string | null;
+    actors: string | null;
     note: string | null;
     ratingLabel: string | null;
     loggedAt: string;
@@ -246,7 +248,7 @@ export async function getJournalTrackersForWeek(
     supabase
       .from("live_events")
       .select(
-        "id, event_date, title, kind, location, note, rating, attended_at",
+        "id, event_date, title, kind, location, director, actors, note, rating, attended_at",
       )
       .eq("user_id", userId)
       .gte("event_date", weekStart)
@@ -454,6 +456,8 @@ export async function getJournalTrackersForWeek(
       kindLabel: LIVE_EVENT_KIND_LABEL[kind] ?? kind,
       icon: LIVE_EVENT_KIND_ICON[kind] ?? "🎉",
       location: row.location,
+      director: row.director?.trim() || null,
+      actors: row.actors?.trim() || null,
       note: row.note,
       ratingLabel: liveRatingLabel(row.rating),
       loggedAt: row.attended_at,

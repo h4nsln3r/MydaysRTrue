@@ -531,7 +531,7 @@ export async function getDailyHabits(
       .maybeSingle(),
     supabase
       .from("live_events")
-      .select("id")
+      .select("id, kind")
       .eq("user_id", userId)
       .eq("event_date", localDate)
       .not("attended_at", "is", null),
@@ -704,6 +704,8 @@ export async function getDailyHabits(
               mediaDayLogs,
               isFuture,
               mediaOtherRes.data?.length ?? 0,
+              (liveAttendedRes.data ?? []).filter((row) => row.kind === "cinema")
+                .length,
             ),
         note: null,
       };
@@ -996,7 +998,7 @@ export async function getMonthSummary(
       .lte("local_date", endISO),
     supabase
       .from("live_events")
-      .select("event_date")
+      .select("event_date, kind")
       .eq("user_id", userId)
       .not("attended_at", "is", null)
       .gte("event_date", startISO)
@@ -1118,8 +1120,15 @@ export async function getMonthSummary(
   }
 
   const liveAttendedByDate = new Set<string>();
+  const cinemaCountByDate = new Map<string, number>();
   for (const r of liveAttendedRes.data ?? []) {
     liveAttendedByDate.add(r.event_date);
+    if (r.kind === "cinema") {
+      cinemaCountByDate.set(
+        r.event_date,
+        (cinemaCountByDate.get(r.event_date) ?? 0) + 1,
+      );
+    }
   }
 
   const today = todayLocalISO();
@@ -1229,6 +1238,7 @@ export async function getMonthSummary(
             mediaLogByDate.get(date) ?? [],
             false,
             mediaOtherCountByDate.get(date) ?? 0,
+            cinemaCountByDate.get(date) ?? 0,
           );
         } else if (h.kind === "live") {
           status = liveStatusFor(liveAttendedByDate.has(date), false);
@@ -1435,7 +1445,7 @@ export async function getWeekHabitSummary(
       .lte("local_date", weekEnd),
     supabase
       .from("live_events")
-      .select("event_date")
+      .select("event_date, kind")
       .eq("user_id", userId)
       .not("attended_at", "is", null)
       .gte("event_date", weekStart)
@@ -1556,8 +1566,15 @@ export async function getWeekHabitSummary(
   }
 
   const liveAttendedByDate = new Set<string>();
+  const cinemaCountByDate = new Map<string, number>();
   for (const r of liveAttendedWeekRes.data ?? []) {
     liveAttendedByDate.add(r.event_date);
+    if (r.kind === "cinema") {
+      cinemaCountByDate.set(
+        r.event_date,
+        (cinemaCountByDate.get(r.event_date) ?? 0) + 1,
+      );
+    }
   }
 
   const today = todayLocalISO();
@@ -1666,6 +1683,7 @@ export async function getWeekHabitSummary(
             mediaLogByDate.get(date) ?? [],
             false,
             mediaOtherCountByDate.get(date) ?? 0,
+            cinemaCountByDate.get(date) ?? 0,
           );
         } else if (h.kind === "live") {
           status = liveStatusFor(liveAttendedByDate.has(date), false);

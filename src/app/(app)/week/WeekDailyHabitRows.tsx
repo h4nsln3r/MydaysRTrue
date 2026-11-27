@@ -401,7 +401,8 @@ export function WeekDailyHabitRows({
                 habit.kind === "media" ? mediaDayByDate.get(d.date) : null;
               const mediaCount =
                 (mediaDay?.context.loggedToday.length ?? 0) +
-                (mediaDay?.context.otherLogs.length ?? 0);
+                (mediaDay?.context.otherLogs.length ?? 0) +
+                (mediaDay?.context.cinemaVisits.length ?? 0);
               const mealDay = mealDayByDate.get(d.date);
               const exceeded =
                 habit.kind === "meal"

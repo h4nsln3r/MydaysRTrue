@@ -21,6 +21,7 @@ import {
   MEDIA_OTHER_KINDS,
   MEDIA_OTHER_SELECT_ID,
   mediaDayLogDetail,
+  cinemaMediaDetail,
   mediaDisplayTitle,
   mediaOtherLogDetail,
   isMediaAtEnd,
@@ -103,7 +104,9 @@ export function MediaDayLogging({
 
   const pending = parentPending || localPending;
   const hasLogged =
-    media.loggedToday.length > 0 || media.otherLogs.length > 0;
+    media.loggedToday.length > 0 ||
+    media.otherLogs.length > 0 ||
+    media.cinemaVisits.length > 0;
   const canLogMore = media.items.length > 0;
   const loggingOther =
     !canLogMore || selectedId === MEDIA_OTHER_SELECT_ID;
@@ -438,6 +441,15 @@ export function MediaDayLogging({
       </li>
     ));
 
+  const renderCinemaVisits = () =>
+    media.cinemaVisits.map((visit) => (
+      <li key={visit.id} className={styles.loggedItem}>
+        <div className={styles.loggedMeta}>
+          <span className={styles.loggedTitle}>{cinemaMediaDetail(visit)}</span>
+        </div>
+      </li>
+    ));
+
   if (pendingReviewItem && offerNextSeason) {
     return (
       <div className={styles.section}>
@@ -456,6 +468,7 @@ export function MediaDayLogging({
               </li>
             ))}
             {renderOtherLogs(false)}
+            {renderCinemaVisits()}
           </ul>
         ) : null}
         <p className={styles.completedTitle}>
@@ -527,6 +540,7 @@ export function MediaDayLogging({
               </li>
             ))}
             {renderOtherLogs(false)}
+            {renderCinemaVisits()}
           </ul>
         ) : null}
         <p className={styles.completedTitle}>
@@ -594,6 +608,7 @@ export function MediaDayLogging({
             </li>
           ))}
           {renderOtherLogs(true)}
+          {renderCinemaVisits()}
         </ul>
       ) : null}
 

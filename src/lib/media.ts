@@ -105,6 +105,14 @@ export interface MediaOtherLog {
   note: string;
 }
 
+/** An attended cinema live event. Counts as Läsa & titta for that day. */
+export interface CinemaMediaVisit {
+  id: string;
+  title: string;
+  director: string | null;
+  actors: string | null;
+}
+
 export interface DailyMediaContext {
   localDate: string;
   year: number;
@@ -116,6 +124,8 @@ export interface DailyMediaContext {
   loggedToday: MediaDayLogEntry[];
   /** One-off logs for this day (Övrigt). */
   otherLogs: MediaOtherLog[];
+  /** Attended bio visits this day. They count as Läsa & titta. */
+  cinemaVisits: CinemaMediaVisit[];
   /** True when every title for the year is finished. */
   allCompleted: boolean;
 }
@@ -263,13 +273,28 @@ export function mediaOtherLogDetail(log: MediaOtherLog): string {
 export function hasMediaDayActivity(
   dayLogs: MediaDayLog[],
   otherLogs: readonly MediaOtherLog[] = [],
+  cinemaVisits: readonly CinemaMediaVisit[] = [],
 ): boolean {
-  return dayLogs.some(isMediaDayLogDone) || otherLogs.length > 0;
+  return (
+    dayLogs.some(isMediaDayLogDone) ||
+    otherLogs.length > 0 ||
+    cinemaVisits.length > 0
+  );
+}
+
+export function cinemaMediaDetail(
+  visit: Pick<CinemaMediaVisit, "title" | "director" | "actors">,
+): string {
+  const parts = [`Bio · ${visit.title.trim()}`];
+  if (visit.director?.trim()) parts.push(visit.director.trim());
+  if (visit.actors?.trim()) parts.push(visit.actors.trim());
+  return parts.join(" · ");
 }
 
 export function mediaDaySummary(
   entries: MediaDayLogEntry[],
   otherLogs: readonly MediaOtherLog[] = [],
+  cinemaVisits: readonly CinemaMediaVisit[] = [],
 ): string | null {
   const parts = [
     ...entries
@@ -278,6 +303,7 @@ export function mediaDaySummary(
         mediaDayLogDetail(item, log.position, log.didConsume),
       ),
     ...otherLogs.map((log) => mediaOtherLogDetail(log)),
+    ...cinemaVisits.map((visit) => cinemaMediaDetail(visit)),
   ];
   return parts.length > 0 ? parts.join(" · ") : null;
 }
@@ -334,9 +360,12 @@ export function mediaStatusFor(
   dayLogs: MediaDayLog[],
   isFuture: boolean,
   otherCount = 0,
+  cinemaCount = 0,
 ): HabitStatus | null {
   if (isFuture) return null;
-  if (hasMediaDayActivity(dayLogs) || otherCount > 0) return "yes";
+  if (hasMediaDayActivity(dayLogs) || otherCount > 0 || cinemaCount > 0) {
+    return "yes";
+  }
   if (dayLogs.length === 0 && otherCount === 0) return null;
   return "no";
 }

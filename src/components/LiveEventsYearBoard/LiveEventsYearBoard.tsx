@@ -14,6 +14,7 @@ import { Input } from "@/components/Input/Input";
 import {
   LIVE_EVENT_KIND_ICON,
   LIVE_EVENT_KIND_LABEL,
+  LIVE_EVENT_KINDS,
   LIVE_RATING_MAX,
   LIVE_RATING_MIN,
   liveEventDetail,
@@ -24,14 +25,6 @@ import {
 } from "@/lib/live-events";
 import styles from "./LiveEventsYearBoard.module.scss";
 
-const KINDS: LiveEventKind[] = [
-  "concert",
-  "sport",
-  "race",
-  "birthday",
-  "wedding",
-  "other",
-];
 const RATING_OPTIONS = Array.from(
   { length: LIVE_RATING_MAX - LIVE_RATING_MIN + 1 },
   (_, i) => LIVE_RATING_MIN + i,
@@ -86,7 +79,7 @@ export function LiveEventsYearBoard({ yearLive, createOnly = false }: Props) {
     <div className={styles.form}>
       <p className={styles.hint}>Lägg till</p>
       <div className={styles.kindRow} role="radiogroup" aria-label="Typ">
-        {KINDS.map((k) => (
+        {LIVE_EVENT_KINDS.map((k) => (
           <button
             key={k}
             type="button"
@@ -105,7 +98,7 @@ export function LiveEventsYearBoard({ yearLive, createOnly = false }: Props) {
         label="Titel"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="t.ex. The Ark, AIK–Djurgården, Midnattsloppet"
+        placeholder="t.ex. The Ark, Dune, AIK–Djurgården, Midnattsloppet"
         maxLength={120}
         disabled={pending}
       />
@@ -146,7 +139,7 @@ export function LiveEventsYearBoard({ yearLive, createOnly = false }: Props) {
   return (
     <div className={styles.board}>
       <p className={styles.hint}>
-        Planera konserter, matcher, lopp och fester för {yearLive.year}. På
+        Planera konserter, bio, matcher, lopp och fester för {yearLive.year}. På
         eventdagen dyker de upp i Dagens plan — klarmarkera och skriv en
         recension efteråt.
       </p>
@@ -184,11 +177,15 @@ function EventRow({
   const [isEditing, setIsEditing] = useState(false);
   const [isMarking, setIsMarking] = useState(false);
   const [markNote, setMarkNote] = useState("");
+  const [markDirector, setMarkDirector] = useState("");
+  const [markActors, setMarkActors] = useState("");
   const [markRating, setMarkRating] = useState("");
   const [editTitle, setEditTitle] = useState(event.title);
   const [editKind, setEditKind] = useState(event.kind);
   const [editDate, setEditDate] = useState(event.eventDate);
   const [editLocation, setEditLocation] = useState(event.location ?? "");
+  const [editDirector, setEditDirector] = useState(event.director ?? "");
+  const [editActors, setEditActors] = useState(event.actors ?? "");
   const [editNote, setEditNote] = useState(event.note ?? "");
   const [editRating, setEditRating] = useState(
     event.rating != null ? String(event.rating) : "",
@@ -209,6 +206,8 @@ function EventRow({
         location: editLocation,
         note: editNote,
         rating: editRating.trim() === "" ? null : Number(editRating),
+        director: editDirector,
+        actors: editActors,
       });
       if (!res.ok) {
         setLocalError(res.error ?? "Kunde inte spara.");
@@ -244,6 +243,8 @@ function EventRow({
       const res = await attendLiveEventAction({
         id: event.id,
         note: markNote,
+        director: event.kind === "cinema" ? markDirector : undefined,
+        actors: event.kind === "cinema" ? markActors : undefined,
         rating: markRating.trim() === "" ? null : Number(markRating),
       });
       if (!res.ok) {
@@ -252,6 +253,8 @@ function EventRow({
       }
       setIsMarking(false);
       setMarkNote("");
+      setMarkDirector("");
+      setMarkActors("");
       setMarkRating("");
       router.refresh();
     });
@@ -262,8 +265,30 @@ function EventRow({
       <li className={[styles.item, styles.itemEditing].join(" ")}>
         <div className={styles.editForm}>
           <p className={styles.hint}>
-            Hur var upplevelsen? Skriv gärna en kommentar och ge betyg.
+            {event.kind === "cinema"
+              ? "Klart! Vad tyckte du om filmen?"
+              : "Hur var upplevelsen? Skriv gärna en kommentar och ge betyg."}
           </p>
+          {event.kind === "cinema" ? (
+            <>
+              <Input
+                label="Regissör (valfritt)"
+                value={markDirector}
+                onChange={(e) => setMarkDirector(e.target.value)}
+                placeholder="t.ex. Christopher Nolan"
+                maxLength={120}
+                disabled={busy}
+              />
+              <Input
+                label="Skådespelare (valfritt)"
+                value={markActors}
+                onChange={(e) => setMarkActors(e.target.value)}
+                placeholder="t.ex. Leonardo DiCaprio, Ellen Page"
+                maxLength={120}
+                disabled={busy}
+              />
+            </>
+          ) : null}
           <Input
             label="Kommentar (valfritt)"
             value={markNote}
@@ -316,7 +341,7 @@ function EventRow({
       <li className={[styles.item, styles.itemEditing].join(" ")}>
         <div className={styles.editForm}>
           <div className={styles.kindRow}>
-            {KINDS.map((k) => (
+            {LIVE_EVENT_KINDS.map((k) => (
               <button
                 key={k}
                 type="button"
@@ -350,6 +375,26 @@ function EventRow({
             maxLength={120}
             disabled={busy}
           />
+          {editKind === "cinema" ? (
+            <>
+              <Input
+                label="Regissör (valfritt)"
+                value={editDirector}
+                onChange={(e) => setEditDirector(e.target.value)}
+                placeholder="t.ex. Christopher Nolan"
+                maxLength={120}
+                disabled={busy}
+              />
+              <Input
+                label="Skådespelare (valfritt)"
+                value={editActors}
+                onChange={(e) => setEditActors(e.target.value)}
+                placeholder="t.ex. Leonardo DiCaprio, Ellen Page"
+                maxLength={120}
+                disabled={busy}
+              />
+            </>
+          ) : null}
           {event.attendedAt ? (
             <>
               <Input

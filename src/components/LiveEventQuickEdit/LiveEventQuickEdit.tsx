@@ -9,21 +9,13 @@ import { Input } from "@/components/Input/Input";
 import {
   LIVE_EVENT_KIND_ICON,
   LIVE_EVENT_KIND_LABEL,
+  LIVE_EVENT_KINDS,
   LIVE_RATING_MAX,
   LIVE_RATING_MIN,
   type LiveEvent,
   type LiveEventKind,
 } from "@/lib/live-events";
 import styles from "./LiveEventQuickEdit.module.scss";
-
-const KINDS: LiveEventKind[] = [
-  "concert",
-  "sport",
-  "race",
-  "birthday",
-  "wedding",
-  "other",
-];
 const RATING_OPTIONS = Array.from(
   { length: LIVE_RATING_MAX - LIVE_RATING_MIN + 1 },
   (_, i) => LIVE_RATING_MIN + i,
@@ -68,6 +60,8 @@ function LiveEventEditModal({
   const [kind, setKind] = useState(event.kind);
   const [eventDate, setEventDate] = useState(event.eventDate);
   const [location, setLocation] = useState(event.location ?? "");
+  const [director, setDirector] = useState(event.director ?? "");
+  const [actors, setActors] = useState(event.actors ?? "");
   const [note, setNote] = useState(event.note ?? "");
   const [rating, setRating] = useState(
     event.rating != null ? String(event.rating) : "",
@@ -81,6 +75,8 @@ function LiveEventEditModal({
     setKind(event.kind);
     setEventDate(event.eventDate);
     setLocation(event.location ?? "");
+    setDirector(event.director ?? "");
+    setActors(event.actors ?? "");
     setNote(event.note ?? "");
     setRating(event.rating != null ? String(event.rating) : "");
     setError(null);
@@ -105,6 +101,9 @@ function LiveEventEditModal({
     kind !== event.kind ||
     eventDate !== event.eventDate ||
     location.trim() !== (event.location ?? "").trim() ||
+    (kind === "cinema" &&
+      (director.trim() !== (event.director ?? "").trim() ||
+        actors.trim() !== (event.actors ?? "").trim())) ||
     (attended &&
       (note.trim() !== (event.note ?? "").trim() || rating !== currentRating));
 
@@ -125,6 +124,8 @@ function LiveEventEditModal({
         kind,
         eventDate,
         location,
+        director,
+        actors,
         note: attended ? note : (event.note ?? ""),
         rating: attended
           ? rating.trim() === ""
@@ -173,7 +174,7 @@ function LiveEventEditModal({
         </header>
         <div className={styles.body}>
           <div className={styles.kindRow} role="radiogroup" aria-label="Typ">
-            {KINDS.map((k) => (
+            {LIVE_EVENT_KINDS.map((k) => (
               <button
                 key={k}
                 type="button"
@@ -209,6 +210,26 @@ function LiveEventEditModal({
             maxLength={120}
             disabled={pending}
           />
+          {kind === "cinema" ? (
+            <>
+              <Input
+                label="Regissör (valfritt)"
+                value={director}
+                onChange={(e) => setDirector(e.target.value)}
+                placeholder="t.ex. Christopher Nolan"
+                maxLength={120}
+                disabled={pending}
+              />
+              <Input
+                label="Skådespelare (valfritt)"
+                value={actors}
+                onChange={(e) => setActors(e.target.value)}
+                placeholder="t.ex. Leonardo DiCaprio, Ellen Page"
+                maxLength={120}
+                disabled={pending}
+              />
+            </>
+          ) : null}
           {attended ? (
             <>
               <Input

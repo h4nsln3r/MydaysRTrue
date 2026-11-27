@@ -3,6 +3,7 @@
 import { addBathingPlacementAction } from "@/app/(app)/bathing-actions";
 import { addCardioPlacementAction } from "@/app/(app)/cardio-actions";
 import { moveGymSessionAction } from "@/app/(app)/gym-actions";
+import { createLiveEventAction } from "@/app/(app)/live-events-actions";
 import { addSportPlacementAction } from "@/app/(app)/sport-actions";
 import {
   addWeeklyTaskPlacementAction,
@@ -13,6 +14,7 @@ import {
 import type { DayQuickAddPayload } from "@/lib/day-quick-add";
 import { prependDailyPlanItem } from "@/lib/day-plan.server";
 import { addDaysISO } from "@/lib/date";
+import { LIVE_EVENT_KINDS, type LiveEventKind } from "@/lib/live-events";
 import {
   isCodingWeeklyTaskKey,
   isGameWeeklyTaskKey,
@@ -142,6 +144,8 @@ async function bringQuickAddedToFrontOfDay(input: {
       await prependDailyPlanItem(user.id, localDate, `sport:${data.id}`);
       return;
     }
+    case "live":
+      return;
     case "bathing": {
       const { data } = await supabase
         .from("bathing_week_placements")
@@ -262,6 +266,15 @@ export async function quickAddDayActivityAction(input: {
         weekday: input.weekday,
       });
       break;
+    case "live":
+      result = await addLiveOnDay({
+        weekStart: input.weekStart,
+        weekday: input.weekday,
+        liveKind: payload.liveKind,
+        title: payload.title,
+        location: payload.location,
+      });
+      break;
     case "task":
       result = await addPlannedWeeklyTask({
         taskId: payload.taskId,
@@ -282,7 +295,7 @@ export async function quickAddDayActivityAction(input: {
       return { ok: false, error: "Okänd aktivitet." };
   }
 
-  if (result.ok) {
+  if (result.ok && payload.kind !== "live") {
     await bringQuickAddedToFrontOfDay({
       weekStart: input.weekStart,
       weekday: input.weekday,
@@ -290,6 +303,39 @@ export async function quickAddDayActivityAction(input: {
     });
   }
   return result;
+}
+
+async function addLiveOnDay(input: {
+  weekStart: string;
+  weekday: Weekday;
+  liveKind: LiveEventKind;
+  title: string;
+  location?: string | null;
+}): Promise<ActionResult> {
+  if (!(LIVE_EVENT_KINDS as readonly string[]).includes(input.liveKind)) {
+    return { ok: false, error: "Välj en typ." };
+  }
+  const title = input.title.trim();
+  if (!title) return { ok: false, error: "Skriv en titel." };
+
+  const localDate = addDaysISO(input.weekStart, input.weekday - 1);
+  const created = await createLiveEventAction({
+    year: Number(localDate.slice(0, 4)),
+    kind: input.liveKind,
+    title,
+    eventDate: localDate,
+    location: input.location?.trim() || undefined,
+  });
+  if (!created.ok || !created.id) return created;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    await prependDailyPlanItem(user.id, localDate, `live_event:${created.id}`);
+  }
+  return { ok: true };
 }
 
 async function addPlannedWeeklyTask(input: {

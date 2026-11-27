@@ -23,6 +23,10 @@ import {
   type Weekday,
 } from "@/lib/tasks";
 import type { UserGame } from "@/lib/games";
+import {
+  LIVE_EVENT_KIND_LABEL,
+  type LiveEventKind,
+} from "@/lib/live-events";
 import type { UserSport } from "@/lib/sports";
 import styles from "./DayQuickAdd.module.scss";
 
@@ -45,6 +49,7 @@ type View =
   | { type: "oneOff" }
   | { type: "band"; taskId: string; activity: MusicActivity; thenList: boolean }
   | { type: "callOther"; taskId: string; met: boolean }
+  | { type: "live"; kind: LiveEventKind }
   | {
       type: "list";
       title: string;
@@ -150,6 +155,10 @@ export function DayQuickAdd({
       push({ type: "callOther", taskId: step.taskId, met: step.met });
       return;
     }
+    if (step.type === "live") {
+      push({ type: "live", kind: step.kind });
+      return;
+    }
     if (step.type === "list") {
       push({ type: "list", title: step.title, payload: step.payload });
       return;
@@ -169,8 +178,10 @@ export function DayQuickAdd({
         ? "Engångsuppgift"
         : view.type === "band"
           ? MUSIC_ACTIVITY_LABEL[view.activity]
-          : view.type === "list"
-            ? view.title
+        : view.type === "list"
+          ? view.title
+          : view.type === "live"
+            ? LIVE_EVENT_KIND_LABEL[view.kind]
             : "Ring övrigt";
 
   return createPortal(
@@ -291,6 +302,21 @@ export function DayQuickAdd({
             />
           ) : null}
 
+          {view.type === "live" ? (
+            <LiveStep
+              kind={view.kind}
+              pending={pending}
+              onAdd={(title, location) =>
+                commit({
+                  kind: "live",
+                  liveKind: view.kind,
+                  title,
+                  location,
+                })
+              }
+            />
+          ) : null}
+
           {view.type === "callOther" ? (
             <div>
               <Input
@@ -330,6 +356,80 @@ export function DayQuickAdd({
       </div>
     </div>,
     document.body,
+  );
+}
+
+const LIVE_TITLE_PLACEHOLDER: Record<LiveEventKind, string> = {
+  concert: "t.ex. The Ark",
+  sport: "t.ex. AIK–Djurgården",
+  race: "t.ex. Midnattsloppet",
+  birthday: "t.ex. Mamma",
+  wedding: "t.ex. Julia",
+  cinema: "t.ex. Dune",
+  other: "t.ex. middag hos vänner",
+};
+
+const LIVE_LOCATION_PLACEHOLDER: Record<LiveEventKind, string> = {
+  concert: "t.ex. Gröna Lund",
+  sport: "t.ex. Friends Arena",
+  race: "t.ex. Södermalm",
+  birthday: "t.ex. hemma",
+  wedding: "t.ex. stadshuset",
+  cinema: "t.ex. Filmstaden",
+  other: "t.ex. hos vänner",
+};
+
+function LiveStep({
+  kind,
+  pending,
+  onAdd,
+}: {
+  kind: LiveEventKind;
+  pending: boolean;
+  onAdd: (title: string, location: string) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+
+  return (
+    <div className={styles.listStep}>
+      <p className={styles.hint}>Läggs på den här dagen.</p>
+      <Input
+        label="Titel"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder={LIVE_TITLE_PLACEHOLDER[kind]}
+        maxLength={120}
+        disabled={pending}
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && title.trim()) {
+            e.preventDefault();
+            onAdd(title.trim(), location.trim());
+          }
+        }}
+      />
+      <Input
+        label="Plats (valfritt)"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        placeholder={LIVE_LOCATION_PLACEHOLDER[kind]}
+        maxLength={120}
+        disabled={pending}
+      />
+      <div className={styles.actions}>
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          loading={pending}
+          disabled={pending || !title.trim()}
+          onClick={() => onAdd(title.trim(), location.trim())}
+        >
+          Lägg till
+        </Button>
+      </div>
+    </div>
   );
 }
 
